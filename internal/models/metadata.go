@@ -9,6 +9,7 @@ import (
 // Database models
 type Archive struct {
 	gorm.Model
+	ID        uint        `gorm:"primaryKey"`
 	Title     string      `json:"title" gorm:"unique"`
 	Summary   string      `json:"summary"`
 	Tags      []Tag       `json:"tags" gorm:"many2many:archive_tags;References:Name;constraint:OnUpdate:CASCADE"`
