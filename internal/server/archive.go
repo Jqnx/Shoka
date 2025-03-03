@@ -2,51 +2,80 @@ package server
 
 import (
 	"Shoka/internal/models"
+	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 )
 
 type ArchivePayload struct {
-	Title     string             `json:"title" form:"title" binding:"required"`
-	Summary   string             `json:"summary" form:"summary"`
-	Tags      []models.Tag       `json:"tags" form:"tags"`
-	Artist    []models.Artist    `json:"artist" form:"artist"`
-	Parody    []models.Parody    `json:"parody" form:"parody"`
-	Character []models.Character `json:"character" form:"character"`
-	Language  string             `json:"language" form:"language"`
-	Category  string             `json:"category" form:"category"`
-	URL       []models.URL       `json:"url" form:"url"`
+	Title     string   `json:"title" form:"title" binding:"required"`
+	Summary   string   `json:"summary" form:"summary"`
+	Tags      []string `json:"tags" form:"tags"`
+	Artist    []string `json:"artist" form:"artist"`
+	Parody    []string `json:"parody" form:"parody"`
+	Character []string `json:"character" form:"character"`
+	Language  string   `json:"language" form:"language" binding:"required,bcp47_language_tag"`
+	Category  string   `json:"category" form:"category"`
+	URL       []string `json:"url" form:"url"`
 }
 
 // Create
-
 func (s *Server) createArchiveHandler(c *gin.Context) {
 	var payload ArchivePayload
 
 	if errPost := c.ShouldBind(&payload); errPost != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": errPost.Error()})
+		var verr validator.ValidationErrors
+		if errors.As(errPost, &verr) {
+			c.JSON(http.StatusBadRequest, gin.H{"errors": Validate(verr)})
+			return
+		}
+
+		c.JSON(http.StatusBadRequest, gin.H{"errors": errPost.Error()})
 		return
+
 	}
+	tags := s.tagsToStruct(payload.Tags)
+	artists := s.artistToStruct(payload.Artist)
+	parodies := s.parodyToStruct(payload.Parody)
+	characters := s.characterToStruct(payload.Character)
+	urls := s.urlToStruct(payload.URL)
 
 	archive := &models.Archive{
 		Title:     payload.Title,
 		Summary:   payload.Summary,
-		Tags:      payload.Tags,
-		Artist:    payload.Artist,
-		Parody:    payload.Parody,
-		Character: payload.Character,
-		Language:  payload.Language,
-		Category:  payload.Category,
-		URL:       payload.URL,
+		Tags:      tags,
+		Artist:    artists,
+		Parody:    parodies,
+		Character: characters,
+		Language:  strings.ToLower(payload.Language),
+		Category:  strings.ToLower(payload.Category),
+		URL:       urls,
 	}
 
 	if err := s.store.Archive.Create(c, archive); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"internal error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"created": archive})
+
+	output := models.ArchiveSearch{
+		AID:        archive.AID,
+		CreatedAt:  archive.CreatedAt,
+		Title:      archive.Title,
+		Summary:    archive.Summary,
+		Tags:       payload.Tags,
+		Artists:    payload.Artist,
+		Parodies:   payload.Parody,
+		Characters: payload.Character,
+		Language:   archive.Language,
+		Category:   archive.Category,
+		Urls:       payload.URL,
+	}
+	c.JSON(http.StatusCreated, gin.H{"created": output})
 }
 
 // Read
@@ -85,28 +114,48 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 }
 
 // Update
-
 func (s *Server) updateArchiveHandler(c *gin.Context) {
 	var payload ArchivePayload
 
 	if errPost := c.ShouldBind(&payload); errPost != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": errPost.Error()})
+		var verr validator.ValidationErrors
+		if errors.As(errPost, &verr) {
+			c.JSON(http.StatusBadRequest, gin.H{"errors": Validate(verr)})
+			return
+		}
+
+		c.JSON(http.StatusBadRequest, gin.H{"errors": errPost.Error()})
+		return
+	}
+
+	tags := s.tagsToStruct(payload.Tags)
+	artists := s.artistToStruct(payload.Artist)
+	parodies := s.parodyToStruct(payload.Parody)
+	characters := s.characterToStruct(payload.Character)
+	urls := s.urlToStruct(payload.URL)
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
 		return
 	}
 
 	archive := &models.Archive{
+		ID:        uint(id),
 		Title:     payload.Title,
 		Summary:   payload.Summary,
-		Tags:      payload.Tags,
-		Artist:    payload.Artist,
-		Parody:    payload.Parody,
-		Character: payload.Character,
-		Language:  payload.Language,
-		Category:  payload.Category,
-		URL:       payload.URL,
+		Tags:      tags,
+		Artist:    artists,
+		Parody:    parodies,
+		Character: characters,
+		Language:  strings.ToLower(payload.Language),
+		Category:  strings.ToLower(payload.Category),
+		URL:       urls,
 	}
 
-	if err := s.store.Archive.Create(c, archive); err != nil {
+	// TODO:
+	// 1. Make JSON output prettier
+
+	if err := s.store.Archive.Update(c, archive); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"internal error": err.Error()})
 		return
 	}
