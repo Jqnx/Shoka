@@ -48,8 +48,8 @@ func (s *ArchiveStore) Create(ctx context.Context, a *models.Archive) error {
 		}
 	} else {
 		a.AID = aid.AID + 1
-		// err := s.db.Debug().WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(a).Error
-		err := s.db.WithContext(ctx).FirstOrCreate(a, models.Archive{Title: a.Title}).Error
+		// err := s.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(a).Error
+		err := s.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).FirstOrCreate(a, models.Archive{Title: a.Title}).Error
 		if err != nil {
 			log.Printf("error creating archive: %v", err)
 			return err
@@ -119,7 +119,7 @@ func (s *ArchiveStore) CreateFromFile() error {
 // Read
 func (s *ArchiveStore) GetAll() (error, *[]models.ArchiveSearch) {
 	archive := []models.Archive{}
-	err := s.db.Debug().Find(&archive).Error
+	err := s.db.Find(&archive).Error
 	if err != nil {
 		log.Printf("error getting archives: %v", err)
 		return err, nil
@@ -155,7 +155,7 @@ func (s *ArchiveStore) GetAll() (error, *[]models.ArchiveSearch) {
 	return nil, &archives
 }
 
-func (s *ArchiveStore) Get(id string) (error, *models.ArchiveSearch) {
+func (s *ArchiveStore) Get(id int) (error, *models.ArchiveSearch) {
 	var archive models.Archive
 	err := s.db.Where("a_id = ?", id).Find(&archive).Error
 	if err != nil {
@@ -185,6 +185,15 @@ func (s *ArchiveStore) Get(id string) (error, *models.ArchiveSearch) {
 	}
 
 	return nil, search
+}
+
+func (s *ArchiveStore) GetID(aid int) (error, uint) {
+	var archive models.Archive
+	err := s.db.Where("a_id = ?", aid).Find(&archive).Error
+	if err != nil {
+		return err, 0
+	}
+	return nil, archive.ID
 }
 
 func (s *ArchiveStore) GetLastID() (error, *models.AIDSearch) {
@@ -280,10 +289,40 @@ func (s *ArchiveStore) GetCharacterList(archive *models.Archive) []string {
 
 // Update
 
-func (s *ArchiveStore) Update(ctx context.Context, a *models.Archive) error {
-	err := s.db.Debug().Clauses(clause.OnConflict{DoNothing: true}).Save(a).Error
+func (s *ArchiveStore) Update(a *models.Archive) error {
+	// Update or create Title, Summary, Language and Category
+	if err := s.db.Select("title", "summary", "language", "category").Save(a).Error; err != nil {
+		return err
+	}
+	// Replace old Tags with new Tags
+	if err := s.db.Model(a).Association("Tags").Replace(a.Tags); err != nil {
+		return err
+	}
+	// Replace old Artists with new Artists
+	if err := s.db.Model(a).Association("Artist").Replace(a.Artist); err != nil {
+		return err
+	}
+	// Replace old Parodies with new Parodies
+	if err := s.db.Model(a).Association("Parody").Replace(a.Parody); err != nil {
+		return err
+	}
+	// Replace old Characters with new Characters
+	if err := s.db.Model(a).Association("Character").Replace(a.Character); err != nil {
+		return err
+	}
+	// Replace old URLs with new URLs
+	if err := s.db.Model(a).Association("URL").Replace(a.URL); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Delete
+
+func (s *ArchiveStore) Delete(a *models.Archive) error {
+	err := s.db.Delete(a).Error
 	if err != nil {
-		log.Printf("error updating archive: %v", err)
 		return err
 	}
 	return nil

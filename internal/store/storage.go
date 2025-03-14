@@ -18,16 +18,23 @@ var (
 type Storage struct {
 	Archive interface {
 		Migrate() error
+		// Create
 		Create(context.Context, *models.Archive) error
 		CreateFromFile() error
+		// Read
 		GetLastID() (error, *models.AIDSearch)
+		GetID(int) (error, uint)
 		GetAll() (error, *[]models.ArchiveSearch)
-		Get(string) (error, *models.ArchiveSearch)
+		Get(int) (error, *models.ArchiveSearch)
 		GetArtistList(*models.Archive) []string
 		GetUrlList(*models.Archive) []string
 		GetTagList(*models.Archive) []string
 		GetParodyList(*models.Archive) []string
 		GetCharacterList(*models.Archive) []string
+		// Update
+		Update(*models.Archive) error
+		// Delete
+		Delete(*models.Archive) error
 	}
 
 	Tags interface {
