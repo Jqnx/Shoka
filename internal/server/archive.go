@@ -62,19 +62,13 @@ func (s *Server) createArchiveHandler(c *gin.Context) {
 		return
 	}
 
-	output := models.ArchiveSearch{
-		AID:        archive.AID,
-		CreatedAt:  archive.CreatedAt,
-		Title:      archive.Title,
-		Summary:    archive.Summary,
-		Tags:       payload.Tags,
-		Artists:    payload.Artist,
-		Parodies:   payload.Parody,
-		Characters: payload.Character,
-		Language:   archive.Language,
-		Category:   archive.Category,
-		Urls:       payload.URL,
+	aid := archive.AID
+
+	err, output := s.store.Archive.Get(aid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"internal error": err.Error()})
 	}
+
 	c.JSON(http.StatusCreated, gin.H{"created": output})
 }
 
@@ -103,7 +97,7 @@ func (s *Server) getAllArchiveHandler(c *gin.Context) {
 }
 
 func (s *Server) getArchiveHandler(c *gin.Context) {
-	id := c.Param("id")
+	id, err := strconv.Atoi(c.Param("id"))
 	err, archive := s.store.Archive.Get(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -133,14 +127,20 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 	parodies := s.parodyToStruct(payload.Parody)
 	characters := s.characterToStruct(payload.Character)
 	urls := s.urlToStruct(payload.URL)
-	id, err := strconv.Atoi(c.Param("id"))
+	idparam, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+		return
+	}
+
+	err, id := s.store.Archive.GetID(idparam)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
 		return
 	}
 
 	archive := &models.Archive{
-		ID:        uint(id),
+		ID:        id,
 		Title:     payload.Title,
 		Summary:   payload.Summary,
 		Tags:      tags,
@@ -152,12 +152,47 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 		URL:       urls,
 	}
 
-	// TODO:
-	// 1. Make JSON output prettier
-
-	if err := s.store.Archive.Update(c, archive); err != nil {
+	if err := s.store.Archive.Update(archive); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"internal error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"created": archive})
+
+	err, output := s.store.Archive.Get(idparam)
+
+	c.JSON(http.StatusOK, gin.H{"updated": output})
+}
+
+// Delete
+
+type archiveDeleted struct {
+	ID uint
+}
+
+func (s *Server) deleteArchiveHandler(c *gin.Context) {
+	idparam, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+		return
+	}
+
+	err, id := s.store.Archive.GetID(idparam)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+		return
+	}
+
+	archive := &models.Archive{
+		ID: id,
+	}
+
+	if err := s.store.Archive.Delete(archive); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+		return
+	}
+
+	output := &archiveDeleted{
+		ID: archive.ID,
+	}
+
+	c.JSON(http.StatusOK, gin.H{"deleted": output})
 }

@@ -13,6 +13,7 @@ import (
 func (s *Server) RegisterRoutes() http.Handler {
 	r := gin.Default()
 
+	r.Use(gin.Recovery())
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"https://*", "http://*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
@@ -39,6 +40,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 		archive.GET("/", s.getAllArchiveHandler)
 		archive.GET("/:id", s.getArchiveHandler)
 		archive.POST("/create", s.createArchiveHandler)
+		archive.PUT("/:id", s.updateArchiveHandler)
+		archive.DELETE("/:id", s.deleteArchiveHandler)
 		// archive.GET("/lastid", s.getLastIDHandler)
 	}
 
