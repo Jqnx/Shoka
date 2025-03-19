@@ -64,7 +64,7 @@ func (s *Server) createArchiveHandler(c *gin.Context) {
 
 	aid := archive.AID
 
-	err, output := s.store.Archive.Get(aid)
+	output, err := s.store.Archive.Get(aid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"internal error": err.Error()})
 	}
@@ -75,7 +75,7 @@ func (s *Server) createArchiveHandler(c *gin.Context) {
 // Read
 
 func (s *Server) getLastIDHandler(c *gin.Context) {
-	err, lastid := s.store.Archive.GetLastID()
+	lastid, err := s.store.Archive.GetLastID()
 	fmt.Println(lastid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -86,7 +86,7 @@ func (s *Server) getLastIDHandler(c *gin.Context) {
 }
 
 func (s *Server) getAllArchiveHandler(c *gin.Context) {
-	err, archives := s.store.Archive.GetAll()
+	archives, err := s.store.Archive.GetAll()
 	// fmt.Println(archives)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -98,7 +98,11 @@ func (s *Server) getAllArchiveHandler(c *gin.Context) {
 
 func (s *Server) getArchiveHandler(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
-	err, archive := s.store.Archive.Get(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	archive, err := s.store.Archive.Get(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -133,7 +137,7 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 		return
 	}
 
-	err, id := s.store.Archive.GetID(idparam)
+	id, err := s.store.Archive.GetID(idparam)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
 		return
@@ -157,7 +161,11 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 		return
 	}
 
-	err, output := s.store.Archive.Get(idparam)
+	output, err := s.store.Archive.Get(idparam)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"internal error": err.Error()})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{"updated": output})
 }
@@ -175,9 +183,9 @@ func (s *Server) deleteArchiveHandler(c *gin.Context) {
 		return
 	}
 
-	err, id := s.store.Archive.GetID(idparam)
+	id, err := s.store.Archive.GetID(idparam)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -186,7 +194,7 @@ func (s *Server) deleteArchiveHandler(c *gin.Context) {
 	}
 
 	if err := s.store.Archive.Delete(archive); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 

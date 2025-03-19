@@ -22,10 +22,10 @@ type Storage struct {
 		Create(context.Context, *models.Archive) error
 		CreateFromFile() error
 		// Read
-		GetLastID() (error, *models.AIDSearch)
-		GetID(int) (error, uint)
-		GetAll() (error, *[]models.ArchiveSearch)
-		Get(int) (error, *models.ArchiveSearch)
+		GetLastID() (*models.AIDSearch, error)
+		GetID(int) (uint, error)
+		GetAll() (*[]models.ArchiveSearch, error)
+		Get(int) (*models.ArchiveSearch, error)
 		GetArtistList(*models.Archive) []string
 		GetUrlList(*models.Archive) []string
 		GetTagList(*models.Archive) []string

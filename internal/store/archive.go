@@ -39,7 +39,7 @@ func (s *ArchiveStore) Migrate() error {
 // Create
 
 func (s *ArchiveStore) Create(ctx context.Context, a *models.Archive) error {
-	err, aid := s.GetLastID()
+	aid, err := s.GetLastID()
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		err := s.db.WithContext(ctx).Create(a).Error
 		if err != nil {
@@ -70,6 +70,9 @@ func (s *ArchiveStore) CreateFromFile() error {
 
 	// Read directory contents
 	dir, err := os.ReadDir(d)
+	if err != nil {
+		return err
+	}
 
 	// TODO:
 	// 1. Fix updates of database records
@@ -117,12 +120,12 @@ func (s *ArchiveStore) CreateFromFile() error {
 }
 
 // Read
-func (s *ArchiveStore) GetAll() (error, *[]models.ArchiveSearch) {
+func (s *ArchiveStore) GetAll() (*[]models.ArchiveSearch, error) {
 	archive := []models.Archive{}
 	err := s.db.Find(&archive).Error
 	if err != nil {
 		log.Printf("error getting archives: %v", err)
-		return err, nil
+		return nil, err
 	}
 
 	archives := []models.ArchiveSearch{}
@@ -152,15 +155,15 @@ func (s *ArchiveStore) GetAll() (error, *[]models.ArchiveSearch) {
 		archives = append(archives, *model)
 	}
 
-	return nil, &archives
+	return &archives, nil
 }
 
-func (s *ArchiveStore) Get(id int) (error, *models.ArchiveSearch) {
+func (s *ArchiveStore) Get(id int) (*models.ArchiveSearch, error) {
 	var archive models.Archive
 	err := s.db.Where("a_id = ?", id).Find(&archive).Error
 	if err != nil {
 		log.Printf("error finding archive: %v", err)
-		return err, nil
+		return nil, err
 	}
 
 	artists := s.GetArtistList(&archive)
@@ -184,24 +187,24 @@ func (s *ArchiveStore) Get(id int) (error, *models.ArchiveSearch) {
 		PageCount:  archive.PageCount,
 	}
 
-	return nil, search
+	return search, nil
 }
 
-func (s *ArchiveStore) GetID(aid int) (error, uint) {
+func (s *ArchiveStore) GetID(aid int) (uint, error) {
 	var archive models.Archive
 	err := s.db.Where("a_id = ?", aid).Find(&archive).Error
 	if err != nil {
-		return err, 0
+		return 0, err
 	}
-	return nil, archive.ID
+	return archive.ID, nil
 }
 
-func (s *ArchiveStore) GetLastID() (error, *models.AIDSearch) {
+func (s *ArchiveStore) GetLastID() (*models.AIDSearch, error) {
 	var archive models.Archive
 	var aidsearch models.AIDSearch
 	err := s.db.Model(archive).Last(&aidsearch).Error
 
-	return err, &aidsearch
+	return &aidsearch, err
 }
 
 func (s *ArchiveStore) GetArtistList(archive *models.Archive) []string {
