@@ -156,6 +156,9 @@ func (suite *ArchiveSuite) TestCreateFromFile() {
 
 	// Read directory contents
 	dir, err := os.ReadDir(d)
+	if err != nil {
+		log.Println(err)
+	}
 
 	// Add contents to database
 	for _, file := range dir {
