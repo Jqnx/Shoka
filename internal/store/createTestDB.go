@@ -12,8 +12,8 @@ type PostgresContainer struct {
 }
 
 // Create test container
-func createPostgresContainer(ctx context.Context) (*PostgresContainer, error) {
-	ctx = context.Background()
+func createPostgresContainer(context.Context) (*PostgresContainer, error) {
+	ctx := context.Background()
 	pgContainer, err := postgres.Run(
 		ctx,
 		"postgres:latest",
