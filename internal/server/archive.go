@@ -1,7 +1,9 @@
 package server
 
 import (
+	"Shoka/internal/archive"
 	"Shoka/internal/models"
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,21 +14,14 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-type ArchivePayload struct {
-	Title     string   `json:"title" form:"title" binding:"required"`
-	Summary   string   `json:"summary" form:"summary"`
-	Tags      []string `json:"tags" form:"tags"`
-	Artist    []string `json:"artist" form:"artist"`
-	Parody    []string `json:"parody" form:"parody"`
-	Character []string `json:"character" form:"character"`
-	Language  string   `json:"language" form:"language" binding:"required,bcp47_language_tag"`
-	Category  string   `json:"category" form:"category"`
-	URL       []string `json:"url" form:"url"`
-}
+// TODO:
+// Queries for creating metadata
+// Queries for getting archive with metadata
+// Pretty print json response
 
 // Create
 func (s *Server) createArchiveHandler(c *gin.Context) {
-	var payload ArchivePayload
+	var payload models.ArchivePayload
 
 	if errPost := c.ShouldBind(&payload); errPost != nil {
 		var verr validator.ValidationErrors
@@ -39,35 +34,48 @@ func (s *Server) createArchiveHandler(c *gin.Context) {
 		return
 
 	}
-	tags := s.tagsToStruct(payload.Tags)
-	artists := s.artistToStruct(payload.Artist)
-	parodies := s.parodyToStruct(payload.Parody)
-	characters := s.characterToStruct(payload.Character)
-	urls := s.urlToStruct(payload.URL)
+	// tags := s.tagsToStruct(payload.Tags)
+	// artists := s.artistToStruct(payload.Artist)
+	// parodies := s.parodyToStruct(payload.Parody)
+	// characters := s.characterToStruct(payload.Character)
+	// urls := s.urlToStruct(payload.URL)
 
-	archive := &models.Archive{
-		Title:     payload.Title,
-		Summary:   payload.Summary,
-		Tags:      tags,
-		Artist:    artists,
-		Parody:    parodies,
-		Character: characters,
-		Language:  strings.ToLower(payload.Language),
-		Category:  strings.ToLower(payload.Category),
-		URL:       urls,
-	}
+	//archive := &models.Archive{
+	//	Title:     payload.Title,
+	//	Summary:   payload.Summary,
+	//	Tags:      tags,
+	//	Artist:    artists,
+	//	Parody:    parodies,
+	//	Character: characters,
+	//	Language:  strings.ToLower(payload.Language),
+	//	Category:  strings.ToLower(payload.Category),
+	//	URL:       urls,
+	//	FilePath:  payload.FilePath,
+	//}
 
-	if err := s.store.Archive.Create(c, archive); err != nil {
+	//if s.store.Archive.TitleExists(archive) {
+	//	c.JSON(http.StatusConflict, gin.H{"internal error": ErrArchiveNoDuplicates.Error()})
+	//	return
+	//}
+
+	//if err := s.store.Archive.Create(archive); err != nil {
+	//	c.JSON(http.StatusInternalServerError, gin.H{"internal error": err.Error()})
+	//	return
+	//}
+
+	ctx := context.Background()
+	output, err := archive.CreateTransaction(ctx, s.db, s.repo, &payload)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"internal error": err.Error()})
 		return
 	}
 
-	aid := archive.AID
+	// aid := archive.AID
 
-	output, err := s.store.Archive.Get(aid)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"internal error": err.Error()})
-	}
+	// output, err := s.store.Archive.Get(aid)
+	//if err != nil {
+	//	c.JSON(http.StatusInternalServerError, gin.H{"internal error": err.Error()})
+	//}
 
 	c.JSON(http.StatusCreated, gin.H{"created": output})
 }
@@ -75,7 +83,7 @@ func (s *Server) createArchiveHandler(c *gin.Context) {
 // Read
 
 func (s *Server) getLastIDHandler(c *gin.Context) {
-	lastid, err := s.store.Archive.GetLastID()
+	lastid, err := s.repo.GetArchiveLastAID(c)
 	fmt.Println(lastid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -86,8 +94,9 @@ func (s *Server) getLastIDHandler(c *gin.Context) {
 }
 
 func (s *Server) getAllArchiveHandler(c *gin.Context) {
-	archives, err := s.store.Archive.GetAll()
-	// fmt.Println(archives)
+	// archives, err := s.store.Archive.GetAll()
+	archives, err := s.repo.GetAllArchives(c)
+	fmt.Println(archives)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -97,12 +106,12 @@ func (s *Server) getAllArchiveHandler(c *gin.Context) {
 }
 
 func (s *Server) getArchiveHandler(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	archive, err := s.store.Archive.Get(id)
+	archive, err := s.repo.GetArchiveByAID(c, id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -113,7 +122,7 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 
 // Update
 func (s *Server) updateArchiveHandler(c *gin.Context) {
-	var payload ArchivePayload
+	var payload models.ArchivePayload
 
 	if errPost := c.ShouldBind(&payload); errPost != nil {
 		var verr validator.ValidationErrors
@@ -133,13 +142,13 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 	urls := s.urlToStruct(payload.URL)
 	idparam, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	id, err := s.store.Archive.GetID(idparam)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+	id := s.store.Archive.GetID(idparam)
+	if id == 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrArchiveNotFound.Error()})
 		return
 	}
 
@@ -173,19 +182,19 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 // Delete
 
 type archiveDeleted struct {
-	ID uint
+	ID int
 }
 
 func (s *Server) deleteArchiveHandler(c *gin.Context) {
 	idparam, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	id, err := s.store.Archive.GetID(idparam)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	id := s.store.Archive.GetID(idparam)
+	if id == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": ErrArchiveNotFound.Error()})
 		return
 	}
 
@@ -193,7 +202,8 @@ func (s *Server) deleteArchiveHandler(c *gin.Context) {
 		ID: id,
 	}
 
-	if err := s.store.Archive.Delete(archive); err != nil {
+	err = s.store.Archive.Delete(archive)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
