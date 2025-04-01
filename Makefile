@@ -62,11 +62,24 @@ clean:
 	@echo "Cleaning..."
 	@rm -f main
 
-wipe-db:
-	@echo "Shutting down container..."
-	@docker compose down
-	@docker volume rm shoka_psql_volume
-	@docker compose up --build
+resetdb:
+	@echo "Resetting DB"
+	@goose reset
+
+migratedb:
+	@echo "Applying Migrations"
+	@goose up
+
+redodb:
+	@echo "Re-Applying Migrations"
+	@goose reset
+	@goose up
+
+#wipe-db:
+#	@echo "Shutting down container..."
+#	@docker compose down
+#	@docker volume rm shoka_psql_volume
+#	@docker compose up --build
 
 # Live Reload
 watch:
@@ -85,4 +98,4 @@ watch:
             fi; \
         fi
 
-.PHONY: all build run test clean watch tailwind-install docker-run docker-down itest templ-install wipe-db
+.PHONY: all build run test clean watch tailwind-install docker-run docker-down itest templ-install resetdb migratedb redodb
