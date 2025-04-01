@@ -1,14 +1,15 @@
 package store
 
 import (
-	"Shoka/internal/fsutil"
-	"Shoka/internal/metadata"
-	"Shoka/internal/models"
 	"context"
 	"errors"
 	"log"
 	"os"
 	"path/filepath"
+
+	"Shoka/internal/fsutil"
+	"Shoka/internal/metadata"
+	"Shoka/internal/models"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -16,7 +17,6 @@ import (
 
 // TODO:
 // 1. use unmarshalled data to create file with metadata
-// 2. Make Update function
 // 3. Add Metadata Function
 // 4. Move migrations to its own thing
 
@@ -24,21 +24,10 @@ type ArchiveStore struct {
 	db *gorm.DB
 }
 
-func (s *ArchiveStore) Migrate() error {
-	err := s.db.AutoMigrate(
-		&models.Archive{},
-		&models.Character{},
-		&models.Parody{},
-		&models.URL{})
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // Create
 
-func (s *ArchiveStore) Create(ctx context.Context, a *models.Archive) error {
+func (s *ArchiveStore) Create(a *models.Archive) error {
+	ctx := context.Background()
 	aid, err := s.GetLastID()
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		err := s.db.WithContext(ctx).Create(a).Error
@@ -48,8 +37,8 @@ func (s *ArchiveStore) Create(ctx context.Context, a *models.Archive) error {
 		}
 	} else {
 		a.AID = aid.AID + 1
-		// err := s.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(a).Error
-		err := s.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).FirstOrCreate(a, models.Archive{Title: a.Title}).Error
+		// err := s.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&a).Error
+		err := s.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).FirstOrCreate(&a, models.Archive{Title: a.Title}).Error
 		if err != nil {
 			log.Printf("error creating archive: %v", err)
 			return err
@@ -61,7 +50,7 @@ func (s *ArchiveStore) Create(ctx context.Context, a *models.Archive) error {
 }
 
 func (s *ArchiveStore) CreateFromFile() error {
-	ctx := context.Background()
+	// ctx := context.Background()
 	wd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -75,7 +64,7 @@ func (s *ArchiveStore) CreateFromFile() error {
 	}
 
 	// TODO:
-	// 1. Fix updates of database records
+	// 1. Fix updates of database records on scan
 
 	// Add contents to database
 	for _, file := range dir {
@@ -102,14 +91,14 @@ func (s *ArchiveStore) CreateFromFile() error {
 					URL:       metadata.URL,
 					FilePath:  file.Name(),
 				}
-				s.Create(ctx, archive)
+				s.Create(archive)
 			} else {
 				archive := &models.Archive{
 					Title:     title,
 					FilePath:  file.Name(),
 					PageCount: pagecount,
 				}
-				s.Create(ctx, archive)
+				s.Create(archive)
 			}
 
 		} else {
@@ -190,13 +179,11 @@ func (s *ArchiveStore) Get(id int) (*models.ArchiveSearch, error) {
 	return search, nil
 }
 
-func (s *ArchiveStore) GetID(aid int) (uint, error) {
+func (s *ArchiveStore) GetID(aid int) int {
 	var archive models.Archive
-	err := s.db.Where("a_id = ?", aid).Find(&archive).Error
-	if err != nil {
-		return 0, err
-	}
-	return archive.ID, nil
+	s.db.Where("a_id = ?", aid).Find(&archive)
+
+	return archive.ID
 }
 
 func (s *ArchiveStore) GetLastID() (*models.AIDSearch, error) {
@@ -285,6 +272,12 @@ func (s *ArchiveStore) GetCharacterList(archive *models.Archive) []string {
 	}
 
 	return list
+}
+
+func (s *ArchiveStore) TitleExists(archive *models.Archive) bool {
+	newarchive := models.Archive{}
+	s.db.Where("title = ?", archive.Title).Find(&newarchive)
+	return newarchive.Title == archive.Title
 }
 
 // TODO:
