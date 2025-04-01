@@ -9,7 +9,7 @@ import (
 // Database models
 type Archive struct {
 	gorm.Model
-	ID        uint        `gorm:"primaryKey"`
+	ID        int         `gorm:"primaryKey,autoIncrement"`
 	Title     string      `json:"title" gorm:"unique"`
 	Summary   string      `json:"summary"`
 	Tags      []Tag       `json:"tags" gorm:"many2many:archive_tags;References:Name;constraint:OnUpdate:CASCADE"`
@@ -43,18 +43,18 @@ type URL struct {
 
 type Artist struct {
 	gorm.Model
-	Name  string  `gorm:"many2many:archive_artists;uniqueIndex;not null"`
-	Alias []Alias `gorm:"foreignKey:AliasID" json:"aliases" form:"aliases"`
-	Group []Group `gorm:"many2many:artist_groups;references:Name" json:"groups" form:"groups"`
-	Links []Links `gorm:"foreignKey:LinkID" json:"links" form:"links"`
+	Name  string        `gorm:"many2many:archive_artists;uniqueIndex;not null"`
+	Alias []ArtistAlias `gorm:"foreignKey:AliasID" json:"aliases" form:"aliases"`
+	Group []Group       `gorm:"many2many:artist_groups;references:Name" json:"groups" form:"groups"`
+	Link  []ArtistLink  `gorm:"foreignKey:LinkID" json:"links" form:"links"`
 }
 
-type Alias struct {
+type ArtistAlias struct {
 	AliasID uint   `gorm:"primaryKey"`
 	Alias   string `gorm:"uniqueIndex" json:"alias" form:"alias"`
 }
 
-type Links struct {
+type ArtistLink struct {
 	LinkID uint   `gorm:"primaryKey"`
 	Link   string `gorm:"unique" json:"link" form:"link"`
 }
@@ -100,4 +100,11 @@ type ArchiveSearch struct {
 	Category   string
 	Urls       []string
 	PageCount  int
+}
+
+type ArtistSearch struct {
+	Name    string
+	Aliases []string
+	Groups  []string
+	Links   []string
 }
