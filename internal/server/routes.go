@@ -1,9 +1,10 @@
 package server
 
 import (
-	"Shoka/cmd/web"
 	"io/fs"
 	"net/http"
+
+	"Shoka/cmd/web"
 
 	"github.com/a-h/templ"
 	"github.com/gin-contrib/cors"
@@ -42,18 +43,14 @@ func (s *Server) RegisterRoutes() http.Handler {
 		archive.POST("/create", s.createArchiveHandler)
 		archive.PUT("/:id", s.updateArchiveHandler)
 		archive.DELETE("/:id", s.deleteArchiveHandler)
-		// archive.GET("/lastid", s.getLastIDHandler)
-	}
-
-	// Tag API
-	tag := r.Group("/tag")
-	{
-		tag.POST("/create", s.createTagHandler)
+		archive.GET("/lastid", s.getLastIDHandler)
 	}
 
 	// Artist API
 	artist := r.Group("/artist")
 	{
+		artist.GET("/", s.getAllArtistHandler)
+		artist.GET("/:name", s.getArtistHandler)
 		artist.POST("/create", s.createArtistHandler)
 	}
 
