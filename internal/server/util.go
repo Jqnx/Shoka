@@ -1,11 +1,14 @@
 package server
 
 import (
-	"Shoka/internal/models"
 	"strings"
+
+	"Shoka/internal/models"
+	"Shoka/internal/repository"
 )
 
 // ToStructs
+// Archives
 func (s *Server) tagsToStruct(list []string) []models.Tag {
 	tags := []models.Tag{}
 	for _, item := range list {
@@ -59,4 +62,38 @@ func (s *Server) urlToStruct(list []string) []models.URL {
 		urls = append(urls, url)
 	}
 	return urls
+}
+
+// Artists
+func (s *Server) aliasToStruct(list []string) []repository.ArtistAlias {
+	aliases := []repository.ArtistAlias{}
+	for _, item := range list {
+		alias := repository.ArtistAlias{
+			Alias: strings.ToLower(item),
+		}
+		aliases = append(aliases, alias)
+	}
+	return aliases
+}
+
+func (s *Server) groupToStruct(list []string) []models.Group {
+	groups := []models.Group{}
+	for _, item := range list {
+		group := models.Group{
+			Name: strings.ToLower(item),
+		}
+		groups = append(groups, group)
+	}
+	return groups
+}
+
+func (s *Server) linkToStruct(list []string) []models.ArtistLink {
+	links := []models.ArtistLink{}
+	for _, item := range list {
+		link := models.ArtistLink{
+			Link: strings.ToLower(item),
+		}
+		links = append(links, link)
+	}
+	return links
 }
