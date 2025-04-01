@@ -2,6 +2,8 @@ package server
 
 import (
 	"Shoka/internal/database"
+	"Shoka/internal/logger"
+	"Shoka/internal/repository"
 	"Shoka/internal/store"
 	"fmt"
 	"net/http"
@@ -9,46 +11,44 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	_ "github.com/joho/godotenv/autoload"
-	"go.uber.org/zap"
-	"gorm.io/gorm"
 )
 
 type Server struct {
-	port   int
-	store  store.Storage
-	db     *gorm.DB
-	logger *zap.SugaredLogger
+	port  int
+	store store.Storage
+	repo  *repository.Queries
+	db    *pgx.Conn
+	log   logger.Logger
 }
 
 func NewServer() *http.Server {
-	logger := zap.Must(zap.NewProduction()).Sugar()
+	l := logger.Get()
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
 	db := database.New()
-	logger.Info("Connected to database.")
-	store := store.NewStorage(db)
+	l.Logger.Info().Msg("Connected to database.")
+	repo := repository.New(db)
 	NewServer := &Server{
-		port:   port,
-		store:  store,
-		db:     db,
-		logger: logger,
+		port: port,
+		// store:  store,
+		repo: repo,
+		db:   db,
+		log:  l,
 	}
 
 	// Auto Migrations
-	store.Archive.Migrate()
-	store.Tags.Migrate()
-	store.Artist.Migrate()
-	store.Group.Migrate()
-	logger.Info("Migrations done.")
+	// store.Migrate.Migrate()
+	// logger.Info("Migrations done.")
 
 	// Scan for files
-	logger.Info("Scanning for files...")
-	err := store.Archive.CreateFromFile()
-	if err != nil {
-		logger.Error(err)
-	} else {
-		logger.Info("Scanned Successfully.")
-	}
+	//logger.Info("Scanning for files...")
+	//err := store.Archive.CreateFromFile()
+	//if err != nil {
+	//	logger.Error(err)
+	//} else {
+	//	logger.Info("Scanned Successfully.")
+	//}
 
 	// Declare Server config
 	server := &http.Server{
