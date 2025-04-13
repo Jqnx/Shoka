@@ -1,6 +1,12 @@
 package main
 
 import (
+	"Shoka/internal/config"
+	"Shoka/internal/database"
+	"Shoka/internal/logger"
+	"Shoka/internal/repository"
+	"Shoka/internal/server"
+	"Shoka/internal/workers"
 	"context"
 	"fmt"
 	"log"
@@ -9,7 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	"Shoka/internal/server"
+	"github.com/riverqueue/river"
 )
 
 func gracefulShutdown(apiServer *http.Server, done chan bool) {
@@ -37,7 +43,38 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 }
 
 func main() {
-	server := server.NewServer()
+	ctx := context.Background()
+
+	// Starting new logger
+	log := logger.NewSlog()
+
+	// Loading Config
+	config := config.LoadConfig()
+	log.Info("Config Loaded")
+
+	// Creating db connection pool & connecting to db
+	pool := database.NewPool(ctx, config, log)
+	db := database.NewConn(ctx, pool, log)
+	log.Info("Connected to database.")
+
+	// Initializing new repository
+	repo := repository.New(db)
+	log.Info("New repository initialized.")
+
+	// Start workers
+	boys := river.NewWorkers()
+	workers.NewScan(ctx, log, pool, config, repo, boys)
+	fmt.Println(boys)
+
+	// Starting web server
+	log.Info(fmt.Sprintf("starting server on :%v", config.Server.Port))
+	server := server.NewServer(
+		config,
+		db,
+		repo,
+		log,
+		// workerui,
+	)
 
 	// Create a done channel to signal when the shutdown is complete
 	done := make(chan bool, 1)
@@ -52,5 +89,5 @@ func main() {
 
 	// Wait for the graceful shutdown to complete
 	<-done
-	log.Println("Graceful shutdown complete.")
+	log.Info("Graceful shutdown complete.")
 }
