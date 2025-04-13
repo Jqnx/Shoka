@@ -3,9 +3,8 @@ package fsutil
 import (
 	"archive/zip"
 	"bytes"
-	"fmt"
+	"io/fs"
 	"log"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -14,15 +13,23 @@ import (
 )
 
 // ListArchives lists all files in the given path
-func ListArchives(path string) {
-	dir, err := os.ReadDir(path)
+func ListArchives(path string) []string {
+	list := []string{}
+	err := filepath.WalkDir(path, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			f := filepath.Join(path, d.Name())
+			list = append(list, f)
+		}
+		return nil
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for _, file := range dir {
-		fmt.Println(file.Name())
-	}
+	return list
 }
 
 // ArchiveContents lists the contents of a zip file
@@ -66,8 +73,8 @@ func GetNameFromPath(path string, stripExtension bool) string {
 }
 
 // GetPageCount returns the amount of image files in an archive
-func GetPageCount(path string, extensions []string) int {
-	var count int
+func GetPageCount(path string, extensions []string) int64 {
+	var count int64
 
 	if Is7z(path) {
 		archive, err := sevenzip.OpenReader(path)
