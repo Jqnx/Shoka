@@ -19,3 +19,8 @@ type ArtistPayload struct {
 	Group   []string `json:"groups"`
 	Links   []string `json:"links"`
 }
+
+type GroupPayload struct {
+	Name    string   `json:"name" binding:"required"`
+	Artists []string `json:"artists"`
+}
