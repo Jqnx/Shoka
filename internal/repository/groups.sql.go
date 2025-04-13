@@ -7,25 +7,47 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
 const createGroup = `-- name: CreateGroup :one
-insert into groups (name)
-values ($1)
-returning id, name
+insert into groups (name, created_at, updated_at)
+values ($1, $2, $3)
+returning id, name, created_at, updated_at
 `
 
-func (q *Queries) CreateGroup(ctx context.Context, name string) (Group, error) {
-	row := q.db.QueryRow(ctx, createGroup, name)
+type CreateGroupParams struct {
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+func (q *Queries) CreateGroup(ctx context.Context, arg CreateGroupParams) (Group, error) {
+	row := q.db.QueryRow(ctx, createGroup, arg.Name, arg.CreatedAt, arg.UpdatedAt)
 	var i Group
-	err := row.Scan(&i.ID, &i.Name)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
 	return i, err
 }
 
+const deleteGroup = `-- name: DeleteGroup :exec
+delete from groups
+where name = $1
+`
+
+func (q *Queries) DeleteGroup(ctx context.Context, name string) error {
+	_, err := q.db.Exec(ctx, deleteGroup, name)
+	return err
+}
+
 const getAllGroups = `-- name: GetAllGroups :many
-select id, name
+select id, name, created_at, updated_at
 from groups
 order by id
 `
@@ -39,7 +61,12 @@ func (q *Queries) GetAllGroups(ctx context.Context) ([]Group, error) {
 	var items []Group
 	for rows.Next() {
 		var i Group
-		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -51,7 +78,7 @@ func (q *Queries) GetAllGroups(ctx context.Context) ([]Group, error) {
 }
 
 const getGroup = `-- name: GetGroup :one
-select id, name
+select id, name, created_at, updated_at
 from groups
 where name = $1
 `
@@ -59,16 +86,85 @@ where name = $1
 func (q *Queries) GetGroup(ctx context.Context, name string) (Group, error) {
 	row := q.db.QueryRow(ctx, getGroup, name)
 	var i Group
-	err := row.Scan(&i.ID, &i.Name)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
 	return i, err
 }
 
+const getGroupArtists = `-- name: GetGroupArtists :many
+select artists.name
+from groups
+join artists_groups on groups.id = artists_groups.group_id
+join artists on artists_groups.artist_id = artists.id
+where groups.name = $1
+`
+
+func (q *Queries) GetGroupArtists(ctx context.Context, name string) ([]string, error) {
+	rows, err := q.db.Query(ctx, getGroupArtists, name)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const groupExists = `-- name: GroupExists :execresult
-select id, name
+select id, name, created_at, updated_at
 from groups
 where name = $1
 `
 
 func (q *Queries) GroupExists(ctx context.Context, name string) (pgconn.CommandTag, error) {
 	return q.db.Exec(ctx, groupExists, name)
+}
+
+const removeArtistsFromGroup = `-- name: RemoveArtistsFromGroup :exec
+delete from artists_groups
+where group_id = $1
+`
+
+func (q *Queries) RemoveArtistsFromGroup(ctx context.Context, groupID int64) error {
+	_, err := q.db.Exec(ctx, removeArtistsFromGroup, groupID)
+	return err
+}
+
+const updateGroup = `-- name: UpdateGroup :one
+update groups
+set name = $1,
+    updated_at = $2
+where name = $3::text
+returning id, name, created_at, updated_at
+`
+
+type UpdateGroupParams struct {
+	Name      string    `json:"name"`
+	UpdatedAt time.Time `json:"updated_at"`
+	OldName   string    `json:"old_name"`
+}
+
+func (q *Queries) UpdateGroup(ctx context.Context, arg UpdateGroupParams) (Group, error) {
+	row := q.db.QueryRow(ctx, updateGroup, arg.Name, arg.UpdatedAt, arg.OldName)
+	var i Group
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

@@ -12,6 +12,21 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+const addArtistToArchive = `-- name: AddArtistToArchive :exec
+insert into archives_artists (archive_id, artist_id)
+values ($1, $2)
+`
+
+type AddArtistToArchiveParams struct {
+	ArchiveID int64 `json:"archive_id"`
+	ArtistID  int64 `json:"artist_id"`
+}
+
+func (q *Queries) AddArtistToArchive(ctx context.Context, arg AddArtistToArchiveParams) error {
+	_, err := q.db.Exec(ctx, addArtistToArchive, arg.ArchiveID, arg.ArtistID)
+	return err
+}
+
 const addArtistToGroup = `-- name: AddArtistToGroup :exec
 insert into artists_groups (artist_id, group_id)
 values ($1, $2)
@@ -108,6 +123,16 @@ type CreateArtistLinkParams struct {
 
 func (q *Queries) CreateArtistLink(ctx context.Context, arg CreateArtistLinkParams) error {
 	_, err := q.db.Exec(ctx, createArtistLink, arg.Link, arg.ArtistID)
+	return err
+}
+
+const deleteArtist = `-- name: DeleteArtist :exec
+delete from artists
+where id = $1
+`
+
+func (q *Queries) DeleteArtist(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, deleteArtist, id)
 	return err
 }
 
@@ -240,4 +265,70 @@ func (q *Queries) GetArtistLinks(ctx context.Context, name string) ([]string, er
 		return nil, err
 	}
 	return items, nil
+}
+
+const removeArtistAliases = `-- name: RemoveArtistAliases :exec
+delete from artist_aliases
+where artist_id = $1
+`
+
+func (q *Queries) RemoveArtistAliases(ctx context.Context, artistID int64) error {
+	_, err := q.db.Exec(ctx, removeArtistAliases, artistID)
+	return err
+}
+
+const removeArtistFromArchive = `-- name: RemoveArtistFromArchive :exec
+delete from archives_artists
+where archive_id = $1
+`
+
+func (q *Queries) RemoveArtistFromArchive(ctx context.Context, archiveID int64) error {
+	_, err := q.db.Exec(ctx, removeArtistFromArchive, archiveID)
+	return err
+}
+
+const removeArtistFromGroup = `-- name: RemoveArtistFromGroup :exec
+delete from artists_groups
+where artist_id = $1
+`
+
+func (q *Queries) RemoveArtistFromGroup(ctx context.Context, artistID int64) error {
+	_, err := q.db.Exec(ctx, removeArtistFromGroup, artistID)
+	return err
+}
+
+const removeArtistLinks = `-- name: RemoveArtistLinks :exec
+delete from artist_links
+where artist_id = $1
+`
+
+func (q *Queries) RemoveArtistLinks(ctx context.Context, artistID int64) error {
+	_, err := q.db.Exec(ctx, removeArtistLinks, artistID)
+	return err
+}
+
+const updateArtist = `-- name: UpdateArtist :one
+update artists
+set name = $1,
+    updated_at = $2
+where name = $3::text
+returning id, name, created_at, updated_at
+`
+
+type UpdateArtistParams struct {
+	Name      string    `json:"name"`
+	UpdatedAt time.Time `json:"updated_at"`
+	OldName   string    `json:"old_name"`
+}
+
+func (q *Queries) UpdateArtist(ctx context.Context, arg UpdateArtistParams) (Artist, error) {
+	row := q.db.QueryRow(ctx, updateArtist, arg.Name, arg.UpdatedAt, arg.OldName)
+	var i Artist
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

@@ -8,7 +8,39 @@ package repository
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
+
+const archiveAIDExists = `-- name: ArchiveAIDExists :execresult
+select id, title, summary, lang, category, page_count, file_path, a_id, created_at, updated_at
+from archives
+where a_id = $1
+`
+
+func (q *Queries) ArchiveAIDExists(ctx context.Context, aID int64) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, archiveAIDExists, aID)
+}
+
+const archiveExists = `-- name: ArchiveExists :execresult
+select id, title, summary, lang, category, page_count, file_path, a_id, created_at, updated_at
+from archives
+where title = $1
+`
+
+func (q *Queries) ArchiveExists(ctx context.Context, title string) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, archiveExists, title)
+}
+
+const archiveUrlExists = `-- name: ArchiveUrlExists :execresult
+select id, url, archive_id
+from urls
+where url = $1
+`
+
+func (q *Queries) ArchiveUrlExists(ctx context.Context, url string) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, archiveUrlExists, url)
+}
 
 const createArchive = `-- name: CreateArchive :one
 insert into archives (
@@ -66,6 +98,41 @@ func (q *Queries) CreateArchive(ctx context.Context, arg CreateArchiveParams) (A
 	return i, err
 }
 
+const createArchiveURL = `-- name: CreateArchiveURL :exec
+insert into urls (url, archive_id)
+values ($1, $2)
+`
+
+type CreateArchiveURLParams struct {
+	Url       string `json:"url"`
+	ArchiveID int64  `json:"archive_id"`
+}
+
+func (q *Queries) CreateArchiveURL(ctx context.Context, arg CreateArchiveURLParams) error {
+	_, err := q.db.Exec(ctx, createArchiveURL, arg.Url, arg.ArchiveID)
+	return err
+}
+
+const deleteArchive = `-- name: DeleteArchive :exec
+delete from archives
+where a_id = $1
+`
+
+func (q *Queries) DeleteArchive(ctx context.Context, aID int64) error {
+	_, err := q.db.Exec(ctx, deleteArchive, aID)
+	return err
+}
+
+const filePathExists = `-- name: FilePathExists :execresult
+select id, title, summary, lang, category, page_count, file_path, a_id, created_at, updated_at
+from archives
+where file_path = $1
+`
+
+func (q *Queries) FilePathExists(ctx context.Context, filePath *string) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, filePathExists, filePath)
+}
+
 const getAllArchives = `-- name: GetAllArchives :many
 select id, title, summary, lang, category, page_count, file_path, a_id, created_at, updated_at
 from archives
@@ -103,6 +170,34 @@ func (q *Queries) GetAllArchives(ctx context.Context) ([]Archive, error) {
 	return items, nil
 }
 
+const getArchiveArtists = `-- name: GetArchiveArtists :many
+select artists.name
+from archives
+join archives_artists on archives.id = archives_artists.archive_id
+join artists on archives_artists.artist_id = artists.id
+where archives.a_id = $1
+`
+
+func (q *Queries) GetArchiveArtists(ctx context.Context, aID int64) ([]string, error) {
+	rows, err := q.db.Query(ctx, getArchiveArtists, aID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArchiveByAID = `-- name: GetArchiveByAID :one
 select id, title, summary, lang, category, page_count, file_path, a_id, created_at, updated_at
 from archives
@@ -127,6 +222,34 @@ func (q *Queries) GetArchiveByAID(ctx context.Context, aID int64) (Archive, erro
 	return i, err
 }
 
+const getArchiveCharacters = `-- name: GetArchiveCharacters :many
+select characters.character
+from archives
+join archives_characters on archives.id = archives_characters.archive_id
+join characters on archives_characters.character_id = characters.id
+where archives.a_id = $1
+`
+
+func (q *Queries) GetArchiveCharacters(ctx context.Context, aID int64) ([]string, error) {
+	rows, err := q.db.Query(ctx, getArchiveCharacters, aID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var character string
+		if err := rows.Scan(&character); err != nil {
+			return nil, err
+		}
+		items = append(items, character)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArchiveLastAID = `-- name: GetArchiveLastAID :one
 select a_id
 from archives
@@ -139,4 +262,232 @@ func (q *Queries) GetArchiveLastAID(ctx context.Context) (int64, error) {
 	var a_id int64
 	err := row.Scan(&a_id)
 	return a_id, err
+}
+
+const getArchiveParodies = `-- name: GetArchiveParodies :many
+select parodies.parody
+from archives
+join archives_parodies on archives.id = archives_parodies.archive_id
+join parodies on archives_parodies.parody_id = parodies.id
+where archives.a_id = $1
+`
+
+func (q *Queries) GetArchiveParodies(ctx context.Context, aID int64) ([]string, error) {
+	rows, err := q.db.Query(ctx, getArchiveParodies, aID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var parody string
+		if err := rows.Scan(&parody); err != nil {
+			return nil, err
+		}
+		items = append(items, parody)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArchiveTags = `-- name: GetArchiveTags :many
+select tags.tag
+from archives
+join archives_tags on archives.id = archives_tags.archive_id
+join tags on archives_tags.tag_id = tags.id
+where archives.a_id = $1
+`
+
+func (q *Queries) GetArchiveTags(ctx context.Context, aID int64) ([]string, error) {
+	rows, err := q.db.Query(ctx, getArchiveTags, aID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var tag string
+		if err := rows.Scan(&tag); err != nil {
+			return nil, err
+		}
+		items = append(items, tag)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArchiveURLs = `-- name: GetArchiveURLs :many
+select urls.url
+from archives
+join urls on archives.id = urls.archive_id
+where archives.a_id = $1
+`
+
+func (q *Queries) GetArchiveURLs(ctx context.Context, aID int64) ([]string, error) {
+	rows, err := q.db.Query(ctx, getArchiveURLs, aID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var url string
+		if err := rows.Scan(&url); err != nil {
+			return nil, err
+		}
+		items = append(items, url)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArchivesByCharacter = `-- name: GetArchivesByCharacter :many
+select a_id
+from archives
+join archives_characters on archives.id = archives_characters.archive_id
+join characters on archives_characters.character_id = characters.id
+where characters.character = $1
+`
+
+func (q *Queries) GetArchivesByCharacter(ctx context.Context, character string) ([]int64, error) {
+	rows, err := q.db.Query(ctx, getArchivesByCharacter, character)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var a_id int64
+		if err := rows.Scan(&a_id); err != nil {
+			return nil, err
+		}
+		items = append(items, a_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArchivesByParody = `-- name: GetArchivesByParody :many
+select a_id
+from archives
+join archives_parodies on archives.id = archives_parodies.archive_id
+join parodies on archives_parodies.parody_id = parodies.id
+where parodies.parody = $1
+`
+
+func (q *Queries) GetArchivesByParody(ctx context.Context, parody string) ([]int64, error) {
+	rows, err := q.db.Query(ctx, getArchivesByParody, parody)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var a_id int64
+		if err := rows.Scan(&a_id); err != nil {
+			return nil, err
+		}
+		items = append(items, a_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArchivesByTag = `-- name: GetArchivesByTag :many
+select a_id
+from archives
+join archives_tags on archives.id = archives_tags.archive_id
+join tags on archives_tags.tag_id = tags.id
+where tags.tag = $1
+`
+
+func (q *Queries) GetArchivesByTag(ctx context.Context, tag string) ([]int64, error) {
+	rows, err := q.db.Query(ctx, getArchivesByTag, tag)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var a_id int64
+		if err := rows.Scan(&a_id); err != nil {
+			return nil, err
+		}
+		items = append(items, a_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const removeArchiveUrl = `-- name: RemoveArchiveUrl :exec
+delete from urls
+where archive_id = $1
+`
+
+func (q *Queries) RemoveArchiveUrl(ctx context.Context, archiveID int64) error {
+	_, err := q.db.Exec(ctx, removeArchiveUrl, archiveID)
+	return err
+}
+
+const updateArchive = `-- name: UpdateArchive :one
+update archives
+set title = $1,
+    summary = $2,
+    lang = $3,
+    category = $4,
+    page_count = $5,
+    file_path = $6,
+    updated_at = $7
+where a_id = $8
+returning id, title, summary, lang, category, page_count, file_path, a_id, created_at, updated_at
+`
+
+type UpdateArchiveParams struct {
+	Title     string    `json:"title"`
+	Summary   *string   `json:"summary"`
+	Lang      *string   `json:"lang"`
+	Category  *string   `json:"category"`
+	PageCount int64     `json:"page_count"`
+	FilePath  *string   `json:"file_path"`
+	UpdatedAt time.Time `json:"updated_at"`
+	AID       int64     `json:"a_id"`
+}
+
+func (q *Queries) UpdateArchive(ctx context.Context, arg UpdateArchiveParams) (Archive, error) {
+	row := q.db.QueryRow(ctx, updateArchive,
+		arg.Title,
+		arg.Summary,
+		arg.Lang,
+		arg.Category,
+		arg.PageCount,
+		arg.FilePath,
+		arg.UpdatedAt,
+		arg.AID,
+	)
+	var i Archive
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Summary,
+		&i.Lang,
+		&i.Category,
+		&i.PageCount,
+		&i.FilePath,
+		&i.AID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

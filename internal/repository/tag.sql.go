@@ -7,6 +7,8 @@ package repository
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 const addTagToArchive = `-- name: AddTagToArchive :exec
@@ -61,4 +63,37 @@ func (q *Queries) GetAllTags(ctx context.Context) ([]Tag, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const getTag = `-- name: GetTag :one
+select id, tag
+from tags
+where tag = $1
+`
+
+func (q *Queries) GetTag(ctx context.Context, tag string) (Tag, error) {
+	row := q.db.QueryRow(ctx, getTag, tag)
+	var i Tag
+	err := row.Scan(&i.ID, &i.Tag)
+	return i, err
+}
+
+const removeTagFromArchive = `-- name: RemoveTagFromArchive :exec
+delete from archives_tags
+where archive_id = $1
+`
+
+func (q *Queries) RemoveTagFromArchive(ctx context.Context, archiveID int64) error {
+	_, err := q.db.Exec(ctx, removeTagFromArchive, archiveID)
+	return err
+}
+
+const tagExists = `-- name: TagExists :execresult
+select id, tag
+from tags
+where tag = $1
+`
+
+func (q *Queries) TagExists(ctx context.Context, tag string) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, tagExists, tag)
 }
