@@ -1,0 +1,62 @@
+package artist
+
+import (
+	"Shoka/internal/models"
+	"Shoka/internal/repository"
+	"context"
+	"log/slog"
+	"strings"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+)
+
+func UpdateTransaction(c context.Context,
+	db *pgx.Conn,
+	q *repository.Queries,
+	p *models.ArtistPayload,
+	oldname string,
+	log *slog.Logger,
+) (*models.ArtistResponse, error) {
+	tx, err := db.Begin(c)
+	if err != nil {
+		log.Error(err.Error())
+		return nil, err
+	}
+	defer tx.Rollback(c)
+	qtx := q.WithTx(tx)
+
+	name := strings.ToLower(p.Name)
+	artist, err := qtx.UpdateArtist(c, repository.UpdateArtistParams{
+		Name:      name,
+		UpdatedAt: time.Now(),
+		OldName:   oldname,
+	})
+	if err != nil {
+		log.Error(err.Error())
+		return nil, err
+	}
+
+	if err := Alias(c, qtx, p, &artist); err != nil {
+		log.Error(err.Error())
+		return nil, err
+	}
+
+	if err := Link(c, qtx, p, &artist); err != nil {
+		log.Error(err.Error())
+		return nil, err
+	}
+
+	if err := Group(c, qtx, p, &artist); err != nil {
+		log.Error(err.Error())
+		return nil, err
+	}
+
+	result, err := Get(c, qtx, name, log)
+	if err != nil {
+		log.Error(err.Error())
+		return nil, err
+	}
+
+	return result, tx.Commit(c)
+}
