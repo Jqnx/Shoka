@@ -1,6 +1,7 @@
 package database
 
 import (
+	"Shoka/internal/config"
 	"context"
 	"log"
 	"testing"
@@ -11,19 +12,26 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-func mustStartPostgresContainer() (func(context.Context, ...testcontainers.TerminateOption) error, error) {
-	var (
-		dbName = "database"
-		dbPwd  = "password"
-		dbUser = "user"
-	)
+var (
+	host string
+	port string
+	db   = config.Database{
+		DBDatabase: "database",
+		DBUser:     "user",
+		DBPassword: "password",
+	}
+	conf = config.Config{
+		Database: db,
+	}
+)
 
+func mustStartPostgresContainer() (func(context.Context, ...testcontainers.TerminateOption) error, error) {
 	dbContainer, err := postgres.Run(
 		context.Background(),
 		"postgres:latest",
-		postgres.WithDatabase(dbName),
-		postgres.WithUsername(dbUser),
-		postgres.WithPassword(dbPwd),
+		postgres.WithDatabase(db.DBDatabase),
+		postgres.WithUsername(db.DBUser),
+		postgres.WithPassword(db.DBPassword),
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").
 				WithOccurrence(2).
@@ -32,10 +40,6 @@ func mustStartPostgresContainer() (func(context.Context, ...testcontainers.Termi
 	if err != nil {
 		return nil, err
 	}
-
-	database = dbName
-	password = dbPwd
-	username = dbUser
 
 	dbHost, err := dbContainer.Host(context.Background())
 	if err != nil {
@@ -67,7 +71,12 @@ func TestMain(m *testing.M) {
 }
 
 func TestNew(t *testing.T) {
-	srv := New()
+	ctx := context.Background()
+	conf.Database.DBHost = host
+	conf.Database.DBPort = port
+
+	pool := NewPool(ctx, &conf, nil)
+	srv := NewConn(ctx, pool, nil)
 	if srv == nil {
 		t.Fatal("New() returned nil")
 	}
