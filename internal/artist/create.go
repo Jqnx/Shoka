@@ -4,92 +4,56 @@ import (
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
 	"context"
-	"strings"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 )
 
 // TODO:
+// Fix issue where you can't create if not every option is set.
+// e.g. Make it so you can create object without having to set every parameter.
 
-func CreateTransaction(ctx context.Context,
+func CreateTransaction(c context.Context,
 	db *pgx.Conn,
-	queries *repository.Queries,
-	payload *models.ArtistPayload,
-) (*repository.Artist, error) {
-	tx, err := db.Begin(ctx)
+	q *repository.Queries,
+	p *models.ArtistPayload,
+	log *slog.Logger,
+) (*models.ArtistResponse, error) {
+	tx, err := db.Begin(c)
 	if err != nil {
+		log.Error(err.Error())
 		return nil, err
 	}
-	defer tx.Rollback(ctx)
-	qtx := queries.WithTx(tx)
-	artist, err := qtx.CreateArtist(ctx, repository.CreateArtistParams{
-		Name:      payload.Name,
+	defer tx.Rollback(c)
+	qtx := q.WithTx(tx)
+	artist, err := qtx.CreateArtist(c, repository.CreateArtistParams{
+		Name:      p.Name,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	})
 	if err != nil {
+		log.Error(err.Error())
 		return nil, err
 	}
 
-	for _, item := range payload.Aliases {
-		i := strings.ToLower(item)
-		exists, err := qtx.ArtistAliasExists(ctx, i)
-		if err != nil {
-			return nil, err
-		}
-		if exists.RowsAffected() == 0 {
-			if err := qtx.CreateAlias(ctx, repository.CreateAliasParams{
-				Alias:    i,
-				ArtistID: artist.ID,
-			}); err != nil {
-				return nil, err
-			}
-		}
+	if err := Alias(c, qtx, p, &artist); err != nil {
+		return nil, err
 	}
 
-	for _, item := range payload.Links {
-		exists, err := qtx.ArtistLinkExists(ctx, item)
-		if err != nil {
-			return nil, err
-		}
-		if exists.RowsAffected() == 0 {
-			if err := qtx.CreateArtistLink(ctx, repository.CreateArtistLinkParams{
-				Link:     item,
-				ArtistID: artist.ID,
-			}); err != nil {
-				return nil, err
-			}
-		}
+	if err := Link(c, qtx, p, &artist); err != nil {
+		return nil, err
 	}
 
-	for _, item := range payload.Group {
-		i := strings.ToLower(item)
-		group, err := qtx.GetGroup(ctx, i)
-		if err != nil {
-			return nil, err
-		}
-		if group.Name == i {
-			if err := qtx.AddArtistToGroup(ctx, repository.AddArtistToGroupParams{
-				ArtistID: artist.ID,
-				GroupID:  group.ID,
-			}); err != nil {
-				return nil, err
-			}
-		} else {
-			group, err := qtx.CreateGroup(ctx, i)
-			if err != nil {
-				return nil, err
-			}
-
-			if err := qtx.AddArtistToGroup(ctx, repository.AddArtistToGroupParams{
-				ArtistID: artist.ID,
-				GroupID:  group.ID,
-			}); err != nil {
-				return nil, err
-			}
-		}
+	if err := Group(c, qtx, p, &artist); err != nil {
+		return nil, err
 	}
 
-	return &artist, tx.Commit(ctx)
+	result, err := Get(c, qtx, artist.Name, log)
+	if err != nil {
+		log.Error(err.Error())
+		return nil, err
+	}
+
+	return result, tx.Commit(c)
 }
