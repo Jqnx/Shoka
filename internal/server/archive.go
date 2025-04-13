@@ -2,215 +2,470 @@ package server
 
 import (
 	"Shoka/internal/archive"
+	"Shoka/internal/config"
 	"Shoka/internal/models"
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/jackc/pgx/v5"
 )
 
 // TODO:
-// Queries for creating metadata
-// Queries for getting archive with metadata
-// Pretty print json response
+// Print proper error responses instead of just printing errors directly
 
 // Create
 func (s *Server) createArchiveHandler(c *gin.Context) {
 	var payload models.ArchivePayload
-
 	if errPost := c.ShouldBind(&payload); errPost != nil {
 		var verr validator.ValidationErrors
 		if errors.As(errPost, &verr) {
-			c.JSON(http.StatusBadRequest, gin.H{"errors": Validate(verr)})
+			c.JSON(http.StatusBadRequest, &models.ResponseFail{
+				Status: "fail",
+				Data:   config.Validate(verr),
+			})
 			return
 		}
 
-		c.JSON(http.StatusBadRequest, gin.H{"errors": errPost.Error()})
+		c.JSON(http.StatusBadRequest, &models.ResponseFail{
+			Status: "fail",
+			Data:   errPost.Error(),
+		})
 		return
-
 	}
-	// tags := s.tagsToStruct(payload.Tags)
-	// artists := s.artistToStruct(payload.Artist)
-	// parodies := s.parodyToStruct(payload.Parody)
-	// characters := s.characterToStruct(payload.Character)
-	// urls := s.urlToStruct(payload.URL)
-
-	//archive := &models.Archive{
-	//	Title:     payload.Title,
-	//	Summary:   payload.Summary,
-	//	Tags:      tags,
-	//	Artist:    artists,
-	//	Parody:    parodies,
-	//	Character: characters,
-	//	Language:  strings.ToLower(payload.Language),
-	//	Category:  strings.ToLower(payload.Category),
-	//	URL:       urls,
-	//	FilePath:  payload.FilePath,
-	//}
-
-	//if s.store.Archive.TitleExists(archive) {
-	//	c.JSON(http.StatusConflict, gin.H{"internal error": ErrArchiveNoDuplicates.Error()})
-	//	return
-	//}
-
-	//if err := s.store.Archive.Create(archive); err != nil {
-	//	c.JSON(http.StatusInternalServerError, gin.H{"internal error": err.Error()})
-	//	return
-	//}
 
 	ctx := context.Background()
-	output, err := archive.CreateTransaction(ctx, s.db, s.repo, &payload)
+	result, err := s.repo.ArchiveExists(ctx, payload.Title)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"internal error": err.Error()})
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+	if result.RowsAffected() != 0 {
+		c.JSON(http.StatusConflict, &models.ResponseError{
+			Status:  "error",
+			Message: config.ErrArchiveNoDuplicates.Error(),
+		})
 		return
 	}
 
-	// aid := archive.AID
+	archive, err := archive.CreateTransaction(ctx, s.db, s.repo, &payload, s.log)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
 
-	// output, err := s.store.Archive.Get(aid)
-	//if err != nil {
-	//	c.JSON(http.StatusInternalServerError, gin.H{"internal error": err.Error()})
-	//}
-
-	c.JSON(http.StatusCreated, gin.H{"created": output})
+	c.JSON(http.StatusCreated, &models.ResponseSuccess{
+		Status: "success",
+		Data:   archive,
+	})
 }
 
 // Read
 
-func (s *Server) getLastIDHandler(c *gin.Context) {
-	lastid, err := s.repo.GetArchiveLastAID(c)
-	fmt.Println(lastid)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, lastid)
-}
+//func (s *Server) getLastIDHandler(c *gin.Context) {
+//	lastid, err := s.repo.GetArchiveLastAID(c)
+//	if err != nil {
+//		s.log.Error().AnErr("getLastIDHandler", err).Send()
+//		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+//		return
+//	}
+//
+//	c.JSON(http.StatusOK, lastid)
+//}
 
 func (s *Server) getAllArchiveHandler(c *gin.Context) {
-	// archives, err := s.store.Archive.GetAll()
-	archives, err := s.repo.GetAllArchives(c)
-	fmt.Println(archives)
+	ctx := context.Background()
+
+	archives, err := archive.GetAll(ctx, s.repo, s.log)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, archives)
+	if len(*archives) == 0 {
+		c.JSON(http.StatusNotFound, &models.ResponseError{
+			Status:  "error",
+			Message: config.ErrNoArchive.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, &models.ResponseSuccess{
+		Status: "success",
+		Data:   archives,
+	})
+}
+
+func (s *Server) getAllTagHandler(c *gin.Context) {
+	ctx := context.Background()
+
+	tags, err := s.repo.GetAllTags(ctx)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			c.JSON(http.StatusNotFound, &models.ResponseError{
+				Status:  "error",
+				Message: config.ErrNoTags.Error(),
+			})
+			return
+		} else {
+			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, &models.ResponseSuccess{
+		Status: "success",
+		Data:   tags,
+	})
+}
+
+func (s *Server) getAllCharacterHandler(c *gin.Context) {
+	ctx := context.Background()
+
+	characters, err := s.repo.GetAllCharacter(ctx)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			c.JSON(http.StatusNotFound, &models.ResponseError{
+				Status:  "error",
+				Message: config.ErrNoCharacter.Error(),
+			})
+			return
+		} else {
+			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, &models.ResponseSuccess{
+		Status: "success",
+		Data:   characters,
+	})
+}
+
+func (s *Server) getAllParodyHandler(c *gin.Context) {
+	ctx := context.Background()
+
+	parodies, err := s.repo.GetAllParodies(ctx)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			c.JSON(http.StatusNotFound, &models.ResponseError{
+				Status:  "error",
+				Message: config.ErrNoParody.Error(),
+			})
+			return
+		} else {
+			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, &models.ResponseSuccess{
+		Status: "success",
+		Data:   parodies,
+	})
 }
 
 func (s *Server) getArchiveHandler(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	archive, err := s.repo.GetArchiveByAID(c, id)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
 		return
 	}
 
-	c.JSON(http.StatusOK, archive)
+	ctx := context.Background()
+	archive, err := archive.Get(ctx, s.repo, id, s.log)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			c.JSON(http.StatusNotFound, &models.ResponseError{
+				Status:  "error",
+				Message: config.ErrArchiveNotFound.Error(),
+			})
+			return
+		} else {
+			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, &models.ResponseSuccess{
+		Status: "success",
+		Data:   archive,
+	})
+}
+
+func (s *Server) getArchiveByTagHandler(c *gin.Context) {
+	// Get tag name from url parameter, makes it lowercase
+	tag := strings.ToLower(c.Param("tag"))
+
+	// Creates context
+	ctx := context.Background()
+
+	// Checks if tag exists
+	exists, err := s.repo.TagExists(ctx, tag)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// If tag does not exists respond with 404 ErrTagNotFound
+	if exists.RowsAffected() == 0 {
+		c.JSON(http.StatusNotFound, &models.ResponseError{
+			Status:  "error",
+			Message: config.ErrTagNotFound.Error(),
+		})
+		return
+	}
+
+	// Get archives
+	archives, err := archive.GetByTag(ctx, s.repo, tag, s.log)
+	if err != nil {
+		// If no archives found respond with 404 ErrNoArchive
+		if err == pgx.ErrNoRows {
+			c.JSON(http.StatusNotFound, &models.ResponseError{
+				Status:  "error",
+				Message: config.ErrNoArchive.Error(),
+			})
+			return
+			// Otherwise respond with 500 and error
+		} else {
+			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+	}
+
+	// Respond with 200 Success
+	c.JSON(http.StatusOK, &models.ResponseSuccess{
+		Status: "success",
+		Data:   archives,
+	})
+}
+
+func (s *Server) getArchiveByCharacterHandler(c *gin.Context) {
+	// Get tag name from url parameter, makes it lowercase
+	character := strings.ToLower(c.Param("character"))
+
+	// Creates context
+	ctx := context.Background()
+
+	// Checks if tag exists
+	exists, err := s.repo.CharacterExists(ctx, character)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// If tag does not exists respond with 404 ErrTagNotFound
+	if exists.RowsAffected() == 0 {
+		c.JSON(http.StatusNotFound, &models.ResponseError{
+			Status:  "error",
+			Message: config.ErrCharacterNotFound.Error(),
+		})
+		return
+	}
+
+	// Get archives
+	archives, err := archive.GetByCharacter(ctx, s.repo, character, s.log)
+	if err != nil {
+		// If no archives found respond with 404 ErrNoArchive
+		if err == pgx.ErrNoRows {
+			c.JSON(http.StatusNotFound, &models.ResponseError{
+				Status:  "error",
+				Message: config.ErrNoArchive.Error(),
+			})
+			return
+			// Otherwise respond with 500 and error
+		} else {
+			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+	}
+
+	// Respond with 200 Success
+	c.JSON(http.StatusOK, &models.ResponseSuccess{
+		Status: "success",
+		Data:   archives,
+	})
+}
+
+func (s *Server) getArchiveByParodyHandler(c *gin.Context) {
+	// Get tag name from url parameter, makes it lowercase
+	parody := strings.ToLower(c.Param("parody"))
+
+	// Creates context
+	ctx := context.Background()
+
+	// Checks if tag exists
+	exists, err := s.repo.ParodyExists(ctx, parody)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// If tag does not exists respond with 404 ErrTagNotFound
+	if exists.RowsAffected() == 0 {
+		c.JSON(http.StatusNotFound, &models.ResponseError{
+			Status:  "error",
+			Message: config.ErrParodyNotFound.Error(),
+		})
+		return
+	}
+
+	// Get archives
+	archives, err := archive.GetByParody(ctx, s.repo, parody, s.log)
+	if err != nil {
+		// If no archives found respond with 404 ErrNoArchive
+		if err == pgx.ErrNoRows {
+			c.JSON(http.StatusNotFound, &models.ResponseError{
+				Status:  "error",
+				Message: config.ErrNoArchive.Error(),
+			})
+			return
+			// Otherwise respond with 500 and error
+		} else {
+			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+	}
+
+	// Respond with 200 Success
+	c.JSON(http.StatusOK, &models.ResponseSuccess{
+		Status: "success",
+		Data:   archives,
+	})
 }
 
 // Update
 func (s *Server) updateArchiveHandler(c *gin.Context) {
 	var payload models.ArchivePayload
-
 	if errPost := c.ShouldBind(&payload); errPost != nil {
 		var verr validator.ValidationErrors
 		if errors.As(errPost, &verr) {
-			c.JSON(http.StatusBadRequest, gin.H{"errors": Validate(verr)})
+			c.JSON(http.StatusBadRequest, &models.ResponseFail{
+				Status: "fail",
+				Data:   config.Validate(verr),
+			})
 			return
 		}
 
-		c.JSON(http.StatusBadRequest, gin.H{"errors": errPost.Error()})
+		c.JSON(http.StatusBadRequest, &models.ResponseFail{
+			Status: "fail",
+			Data:   errPost.Error(),
+		})
 		return
 	}
 
-	tags := s.tagsToStruct(payload.Tags)
-	artists := s.artistToStruct(payload.Artist)
-	parodies := s.parodyToStruct(payload.Parody)
-	characters := s.characterToStruct(payload.Character)
-	urls := s.urlToStruct(payload.URL)
-	idparam, err := strconv.Atoi(c.Param("id"))
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
 		return
 	}
 
-	id := s.store.Archive.GetID(idparam)
-	if id == 0 {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrArchiveNotFound.Error()})
-		return
-	}
-
-	archive := &models.Archive{
-		ID:        id,
-		Title:     payload.Title,
-		Summary:   payload.Summary,
-		Tags:      tags,
-		Artist:    artists,
-		Parody:    parodies,
-		Character: characters,
-		Language:  strings.ToLower(payload.Language),
-		Category:  strings.ToLower(payload.Category),
-		URL:       urls,
-	}
-
-	if err := s.store.Archive.Update(archive); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"internal error": err.Error()})
-		return
-	}
-
-	output, err := s.store.Archive.Get(idparam)
+	ctx := context.Background()
+	exists, err := s.repo.ArchiveAIDExists(ctx, id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"internal error": err.Error()})
+		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"updated": output})
+	if exists.RowsAffected() == 0 {
+		c.JSON(http.StatusNotFound, &models.ResponseError{
+			Status:  "error",
+			Message: config.ErrArchiveNotFound.Error(),
+		})
+		return
+	}
+
+	result, err := archive.UpdateTransaction(ctx,
+		s.db,
+		s.repo,
+		&payload,
+		id,
+		s.log,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, &models.ResponseSuccess{
+		Status: "success",
+		Data:   result,
+	})
 }
 
 // Delete
 
-type archiveDeleted struct {
-	ID int
-}
-
 func (s *Server) deleteArchiveHandler(c *gin.Context) {
-	idparam, err := strconv.Atoi(c.Param("id"))
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
 		return
 	}
 
-	id := s.store.Archive.GetID(idparam)
-	if id == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": ErrArchiveNotFound.Error()})
-		return
+	ctx := context.Background()
+	if err := archive.DeleteTransaction(ctx, s.db, s.repo, id, s.log); err != nil {
+		if err == pgx.ErrNoRows {
+			c.JSON(http.StatusNotFound, &models.ResponseError{
+				Status:  "error",
+				Message: config.ErrArchiveNotFound.Error(),
+			})
+			return
+		} else {
+			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
 	}
 
-	archive := &models.Archive{
-		ID: id,
-	}
-
-	err = s.store.Archive.Delete(archive)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	output := &archiveDeleted{
-		ID: archive.ID,
-	}
-
-	c.JSON(http.StatusOK, gin.H{"deleted": output})
+	c.JSON(http.StatusOK, &models.ResponseSuccess{
+		Status: "success",
+	})
 }
