@@ -11,15 +11,11 @@ import (
 	"github.com/rs/zerolog/pkgerrors"
 )
 
-type Logger struct {
-	Logger *zerolog.Logger
-}
-
 var once sync.Once
 
 var log zerolog.Logger
 
-func New() zerolog.Logger {
+func NewZeroLog() *zerolog.Logger {
 	once.Do(func() {
 		zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 		zerolog.TimeFieldFormat = time.RFC3339Nano
@@ -54,12 +50,5 @@ func New() zerolog.Logger {
 			Logger()
 	})
 
-	return log
-}
-
-func Get() Logger {
-	logger := New()
-	return Logger{
-		Logger: &logger,
-	}
+	return &log
 }
