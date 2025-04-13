@@ -68,5 +68,44 @@ where link = $1
 
 -- name: AddArtistToGroup :exec
 insert into artists_groups (artist_id, group_id)
-values ($1, $2);
+values ($1, $2)
+;
+
+-- name: AddArtistToArchive :exec
+insert into archives_artists (archive_id, artist_id)
+values ($1, $2)
+;
+
+-- name: UpdateArtist :one
+update artists
+set name = $1,
+    updated_at = $2
+where name = sqlc.arg(old_name)::text
+returning *
+;
+
+-- name: RemoveArtistFromArchive :exec
+delete from archives_artists
+where archive_id = $1
+;
+
+-- name: RemoveArtistAliases :exec
+delete from artist_aliases
+where artist_id = $1
+;
+
+-- name: RemoveArtistLinks :exec
+delete from artist_links
+where artist_id = $1
+;
+
+-- name: RemoveArtistFromGroup :exec
+delete from artists_groups
+where artist_id = $1
+;
+
+-- name: DeleteArtist :exec
+delete from artists
+where id = $1
+;
 
