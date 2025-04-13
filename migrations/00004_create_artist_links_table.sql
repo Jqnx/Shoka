@@ -6,5 +6,8 @@ CREATE TABLE IF NOT EXISTS artist_links (
     FOREIGN KEY (artist_id) REFERENCES artists (id)
 );
 
+create index idx_links_artist_id on artist_links(artist_id);
+
 -- +goose Down
 DROP TABLE IF EXISTS artist_links;
+

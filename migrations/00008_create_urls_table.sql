@@ -6,5 +6,8 @@ CREATE TABLE IF NOT EXISTS urls (
     FOREIGN KEY (archive_id) REFERENCES archives (id)
 );
 
+create index idx_url_archive_id on urls(archive_id);
+
 -- +goose Down
 DROP TABLE IF EXISTS urls;
+
