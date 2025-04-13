@@ -64,16 +64,22 @@ clean:
 
 resetdb:
 	@echo "Resetting DB"
+	@river migrate-down --database-url postgres://shoka:shoka@localhost:5432/shoka --max-steps 10
 	@goose reset
 
 migratedb:
 	@echo "Applying Migrations"
 	@goose up
+	@river migrate-up --database-url postgres://shoka:shoka@localhost:5432/shoka
 
 redodb:
 	@echo "Re-Applying Migrations"
 	@goose reset
 	@goose up
+
+riverui:
+	@echo "Starting riverui"
+	@DATABASE_URL=postgres://shoka:shoka@localhost:5432/shoka riverui
 
 #wipe-db:
 #	@echo "Shutting down container..."
