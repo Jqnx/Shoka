@@ -1,10 +1,9 @@
 package server
 
 import (
+	"Shoka/cmd/web"
 	"io/fs"
 	"net/http"
-
-	"Shoka/cmd/web"
 
 	"github.com/a-h/templ"
 	"github.com/gin-contrib/cors"
@@ -22,44 +21,67 @@ func (s *Server) RegisterRoutes() http.Handler {
 		AllowCredentials: true,
 	}))
 
-	r.GET("/", s.HelloWorldHandler)
-
 	staticFiles, _ := fs.Sub(web.Files, "assets")
 	r.StaticFS("/assets", http.FS(staticFiles))
 	r.GET("/web", func(c *gin.Context) {
 		templ.Handler(web.HelloForm()).ServeHTTP(c.Writer, c.Request)
 	})
 
-	r.POST("/hello", func(c *gin.Context) {
-		web.HelloWebHandler(c.Writer, c.Request)
-	})
-
 	// Actual API
 	// Archive API
-	archive := r.Group("/a")
+	api := r.Group("/api")
 	{
-		archive.GET("/", s.getAllArchiveHandler)
-		archive.GET("/:id", s.getArchiveHandler)
-		archive.POST("/create", s.createArchiveHandler)
-		archive.PUT("/:id", s.updateArchiveHandler)
-		archive.DELETE("/:id", s.deleteArchiveHandler)
-		archive.GET("/lastid", s.getLastIDHandler)
-	}
+		archive := api.Group("/a")
+		{
+			archive.GET("/", s.getAllArchiveHandler)
+			archive.GET("/:id", s.getArchiveHandler)
+			archive.POST("/create", s.createArchiveHandler)
+			archive.PUT("/:id", s.updateArchiveHandler)
+			archive.DELETE("/:id", s.deleteArchiveHandler)
+			// archive.GET("/lastid", s.getLastIDHandler)
+		}
 
-	// Artist API
-	artist := r.Group("/artist")
-	{
-		artist.GET("/", s.getAllArtistHandler)
-		artist.GET("/:name", s.getArtistHandler)
-		artist.POST("/create", s.createArtistHandler)
+		// Artist API
+		artist := api.Group("/artist")
+		{
+			artist.GET("/", s.getAllArtistHandler)
+			artist.GET("/:name", s.getArtistHandler)
+			artist.POST("/create", s.createArtistHandler)
+			artist.PUT("/:name", s.updateArtistHandler)
+			artist.DELETE("/:name", s.deleteArtistHandler)
+		}
+
+		// Group API
+		group := api.Group("/group")
+		{
+			group.GET("/", s.getAllGroupHandler)
+			group.GET("/:name", s.getGroupHandler)
+			group.POST("/create", s.createGroupHandler)
+			group.PUT("/:name", s.updateGroupHandler)
+			group.DELETE("/:name", s.deleteGroupHandler)
+		}
+
+		// Tag API
+		tag := api.Group("/tag")
+		{
+			tag.GET("/:tag", s.getArchiveByTagHandler)
+			tag.GET("/", s.getAllTagHandler)
+		}
+
+		// Character API
+		character := api.Group("/c")
+		{
+			character.GET("/:character", s.getArchiveByCharacterHandler)
+			character.GET("/", s.getAllCharacterHandler)
+		}
+
+		// Parody API
+		parody := api.Group("/p")
+		{
+			parody.GET("/:parody", s.getArchiveByParodyHandler)
+			parody.GET("/", s.getAllParodyHandler)
+		}
 	}
 
 	return r
-}
-
-func (s *Server) HelloWorldHandler(c *gin.Context) {
-	resp := make(map[string]string)
-	resp["message"] = "Hello World"
-
-	c.JSON(http.StatusOK, resp)
 }
