@@ -69,10 +69,7 @@ func (s *Server) createArtistHandler(c *gin.Context) {
 	}
 
 	// Return JSON to Client
-	c.JSON(http.StatusCreated, &models.ResponseSuccess{
-		Status: "success",
-		Data:   res,
-	})
+	c.JSON(http.StatusCreated, res)
 }
 
 // Read Handlers
@@ -97,10 +94,7 @@ func (s *Server) getAllArtistHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, &models.ResponseSuccess{
-		Status: "success",
-		Data:   artists,
-	})
+	c.JSON(http.StatusOK, artists)
 }
 
 // Gets an individual Artist
@@ -123,10 +117,7 @@ func (s *Server) getArtistHandler(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, &models.ResponseSuccess{
-		Status: "success",
-		Data:   artist,
-	})
+	c.JSON(http.StatusOK, artist)
 }
 
 // Update
@@ -183,10 +174,7 @@ func (s *Server) updateArtistHandler(c *gin.Context) {
 		})
 	}
 
-	c.JSON(http.StatusOK, &models.ResponseSuccess{
-		Status: "success",
-		Data:   result,
-	})
+	c.JSON(http.StatusOK, result)
 }
 
 // Delete
@@ -210,7 +198,5 @@ func (s *Server) deleteArtistHandler(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, &models.ResponseSuccess{
-		Status: "success",
-	})
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }

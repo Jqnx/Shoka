@@ -79,10 +79,7 @@ func (s *Server) createGroupHandler(c *gin.Context) {
 	}
 
 	// Respond with 200 Success
-	c.JSON(http.StatusCreated, &models.ResponseSuccess{
-		Status: "success",
-		Data:   group,
-	})
+	c.JSON(http.StatusCreated, group)
 }
 
 // Get
@@ -114,10 +111,7 @@ func (s *Server) getGroupHandler(c *gin.Context) {
 	}
 
 	// Respond with 200 Success
-	c.JSON(http.StatusOK, &models.ResponseSuccess{
-		Status: "success",
-		Data:   group,
-	})
+	c.JSON(http.StatusOK, group)
 }
 
 func (s *Server) getAllGroupHandler(c *gin.Context) {
@@ -144,10 +138,7 @@ func (s *Server) getAllGroupHandler(c *gin.Context) {
 	}
 
 	// Respond with 200 Success
-	c.JSON(http.StatusOK, &models.ResponseSuccess{
-		Status: "success",
-		Data:   groups,
-	})
+	c.JSON(http.StatusOK, groups)
 }
 
 // Update
@@ -215,10 +206,7 @@ func (s *Server) updateGroupHandler(c *gin.Context) {
 	}
 
 	// Responds with 200 success
-	c.JSON(http.StatusOK, &models.ResponseSuccess{
-		Status: "success",
-		Data:   result,
-	})
+	c.JSON(http.StatusOK, result)
 }
 
 // Delete
@@ -271,7 +259,5 @@ func (s *Server) deleteGroupHandler(c *gin.Context) {
 	}
 
 	// Respond with 200 success
-	c.JSON(http.StatusOK, &models.ResponseSuccess{
-		Status: "success",
-	})
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
