@@ -1,41 +1,38 @@
 package server
 
 import (
-	"Shoka/cmd/web"
-	"io/fs"
 	"net/http"
 
-	"github.com/a-h/templ"
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
 func (s *Server) RegisterRoutes() http.Handler {
-	r := gin.Default()
+	r := gin.New()
 
 	r.Use(gin.Recovery())
-	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"https://*", "http://*"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
-		AllowHeaders:     []string{"Accept", "Authorization", "Content-Type"},
-		AllowCredentials: true,
-	}))
+	r.Use(gin.Logger())
+	//r.Use(cors.Default())
+	//r.Use(cors.New(cors.Config{
+	//	AllowOrigins:     []string{"*"},
+	//	AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
+	//	AllowHeaders:     []string{"Accept", "Authorization", "Content-Type", "Origin"},
+	//	AllowCredentials: true,
+	//}))
 
-	staticFiles, _ := fs.Sub(web.Files, "assets")
-	r.StaticFS("/assets", http.FS(staticFiles))
-	r.GET("/web", func(c *gin.Context) {
-		templ.Handler(web.HelloForm()).ServeHTTP(c.Writer, c.Request)
-	})
-
+	r.StaticFS("/thumb", http.Dir("./thumb"))
 	// Actual API
 	// Archive API
 	api := r.Group("/api")
 	{
 		archive := api.Group("/a")
 		{
-			archive.GET("/", s.getAllArchiveHandler)
+			archive.GET("/", s.getArchiveListHandler)
 			archive.GET("/:id", s.getArchiveHandler)
-			archive.POST("/create", s.createArchiveHandler)
+			archive.GET("/:id/cover", s.getCoverHandler)
+			archive.GET("/:id/:page", s.getThumbHandler)
+			archive.POST("/", s.createArchiveHandler)
+			archive.POST("/:id/cover", s.generateCoverHandler)
+			archive.POST("/:id/thumb", s.generateThumbHandler)
 			archive.PUT("/:id", s.updateArchiveHandler)
 			archive.DELETE("/:id", s.deleteArchiveHandler)
 			// archive.GET("/lastid", s.getLastIDHandler)
@@ -46,7 +43,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		{
 			artist.GET("/", s.getAllArtistHandler)
 			artist.GET("/:name", s.getArtistHandler)
-			artist.POST("/create", s.createArtistHandler)
+			artist.POST("/", s.createArtistHandler)
 			artist.PUT("/:name", s.updateArtistHandler)
 			artist.DELETE("/:name", s.deleteArtistHandler)
 		}
@@ -56,7 +53,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		{
 			group.GET("/", s.getAllGroupHandler)
 			group.GET("/:name", s.getGroupHandler)
-			group.POST("/create", s.createGroupHandler)
+			group.POST("/", s.createGroupHandler)
 			group.PUT("/:name", s.updateGroupHandler)
 			group.DELETE("/:name", s.deleteGroupHandler)
 		}
