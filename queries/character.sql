@@ -10,13 +10,13 @@ values ($1, $2)
 ;
 
 -- name: GetCharacter :one
-select *
+select id, character
 from characters
 where character = $1
 ;
 
 -- name: GetAllCharacter :many
-select *
+select id, character
 from characters
 order by id
 ;

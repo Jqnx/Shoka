@@ -10,13 +10,13 @@ values ($1, $2)
 ;
 
 -- name: GetTag :one
-select *
+select id, tag
 from tags
 where tag = $1
 ;
 
 -- name: GetAllTags :many
-select *
+select id, tag
 from tags
 order by id
 ;

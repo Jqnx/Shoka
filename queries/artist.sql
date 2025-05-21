@@ -15,33 +15,33 @@ values ($1, $2)
 ;
 
 -- name: GetAllArtists :many
-select *
+select id, name, created_at, updated_at
 from artists
 order by id
 ;
 
 -- name: GetArtistByName :one
-select *
+select id, name, created_at, updated_at
 from artists
 where name = $1
 ;
 
 -- name: GetArtistLinks :many
-select artist_links.link
+select artist_links.id, artist_links.link
 from artists
 join artist_links on artists.id = artist_links.artist_id
 where name = $1
 ;
 
 -- name: GetArtistAliases :many
-select artist_aliases.alias
+select artist_aliases.id, artist_aliases.alias
 from artists
 join artist_aliases on artists.id = artist_aliases.artist_id
 where name = $1
 ;
 
 -- name: GetArtistGroups :many
-select groups.name
+select groups.id, groups.name
 from artists
 join artists_groups on artists.id = artists_groups.artist_id
 join groups on artists_groups.group_id = groups.id
@@ -49,19 +49,19 @@ where artists.name = $1
 ;
 
 -- name: ArtistExists :execresult
-select *
+select name
 from artists
 where name = $1
 ;
 
 -- name: ArtistAliasExists :execresult
-select *
+select alias
 from artist_aliases
 where alias = $1
 ;
 
 -- name: ArtistLinkExists :execresult
-select *
+select link
 from artist_links
 where link = $1
 ;

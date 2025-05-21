@@ -10,13 +10,13 @@ values ($1, $2)
 ;
 
 -- name: GetParody :one
-select *
+select id, parody
 from parodies
 where parody = $1
 ;
 
 -- name: GetAllParodies :many
-select *
+select id, parody
 from parodies
 order by id
 ;

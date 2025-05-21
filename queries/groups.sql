@@ -5,19 +5,19 @@ returning *
 ;
 
 -- name: GetAllGroups :many
-select *
+select id, name, created_at, updated_at
 from groups
 order by id
 ;
 
 -- name: GetGroup :one
-select *
+select id, name, created_at, updated_at
 from groups
 where name = $1
 ;
 
 -- name: GetGroupArtists :many
-select artists.name
+select artists.id, artists.name
 from groups
 join artists_groups on groups.id = artists_groups.group_id
 join artists on artists_groups.artist_id = artists.id
@@ -25,7 +25,7 @@ where groups.name = $1
 ;
 
 -- name: GroupExists :execresult
-select *
+select name
 from groups
 where name = $1
 ;
