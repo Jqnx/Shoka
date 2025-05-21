@@ -9,8 +9,20 @@ import (
 
 // TODO:
 
-func Get(c context.Context, q *repository.Queries, id int64, log *slog.Logger) (*models.ArchiveResponse, error) {
-	archive, err := q.GetArchiveByAID(c, id)
+func GetPages(pagecount int) *[]models.Page {
+	var pages []models.Page
+	for range pagecount {
+		page := models.Page{
+			Height: 450,
+			Width:  320,
+		}
+		pages = append(pages, page)
+	}
+	return &pages
+}
+
+func Get(c context.Context, q *repository.Queries, id string, log *slog.Logger) (*models.ArchiveResponse, error) {
+	archive, err := q.GetArchiveByID(c, id)
 	if err != nil {
 		log.Error(err.Error())
 		return nil, err
@@ -40,17 +52,26 @@ func Get(c context.Context, q *repository.Queries, id int64, log *slog.Logger) (
 		log.Error(err.Error())
 		return nil, err
 	}
+
+	// NOTE: TEMP
+	// pages := GetPages(int(archive.PageCount))
+
 	result := &models.ArchiveResponse{
-		AID:       id,
+		ArchiveID: id,
 		Title:     archive.Title,
-		Summary:   *archive.Summary,
+		Summary:   archive.Summary,
 		Tags:      tags,
 		Artist:    artists,
 		Parody:    parodies,
 		Character: characters,
-		Language:  *archive.Lang,
-		Category:  *archive.Category,
+		Language:  archive.Language,
+		Category:  archive.Category,
+		PageCount: archive.PageCount,
 		Url:       urls,
+		Hash:      archive.Hash,
+		// Pages:     *pages,
+		// ThumbsPath: archive.ThumbsPath,
+		Type:      archive.Type,
 		CreatedAt: archive.CreatedAt,
 		UpdatedAt: archive.UpdatedAt,
 	}
@@ -67,42 +88,46 @@ func GetAll(c context.Context, q *repository.Queries, log *slog.Logger) (*[]mode
 	result := []models.ArchiveResponse{}
 
 	for _, item := range archives {
-		tags, err := q.GetArchiveTags(c, item.AID)
+		tags, err := q.GetArchiveTags(c, item.ArchiveID)
 		if err != nil {
 			log.Error(err.Error())
 			return nil, err
 		}
-		characters, err := q.GetArchiveCharacters(c, item.AID)
+		characters, err := q.GetArchiveCharacters(c, item.ArchiveID)
 		if err != nil {
 			log.Error(err.Error())
 			return nil, err
 		}
-		parodies, err := q.GetArchiveParodies(c, item.AID)
+		parodies, err := q.GetArchiveParodies(c, item.ArchiveID)
 		if err != nil {
 			log.Error(err.Error())
 			return nil, err
 		}
-		urls, err := q.GetArchiveURLs(c, item.AID)
+		urls, err := q.GetArchiveURLs(c, item.ArchiveID)
 		if err != nil {
 			log.Error(err.Error())
 			return nil, err
 		}
-		artists, err := q.GetArchiveArtists(c, item.AID)
+		artists, err := q.GetArchiveArtists(c, item.ArchiveID)
 		if err != nil {
 			log.Error(err.Error())
 			return nil, err
 		}
 		archive := models.ArchiveResponse{
-			AID:       item.AID,
+			ArchiveID: item.ArchiveID,
 			Title:     item.Title,
-			Summary:   *item.Summary,
+			Summary:   item.Summary,
 			Tags:      tags,
 			Artist:    artists,
 			Parody:    parodies,
 			Character: characters,
-			Language:  *item.Lang,
-			Category:  *item.Category,
+			Language:  item.Language,
+			Category:  item.Category,
+			PageCount: item.PageCount,
 			Url:       urls,
+			Hash:      item.Hash,
+			// ThumbsPath: item.ThumbsPath,
+			Type:      item.Type,
 			CreatedAt: item.CreatedAt,
 			UpdatedAt: item.UpdatedAt,
 		}
@@ -112,7 +137,7 @@ func GetAll(c context.Context, q *repository.Queries, log *slog.Logger) (*[]mode
 	return &result, nil
 }
 
-func GetByTag(c context.Context, q *repository.Queries, tag string, log *slog.Logger) ([]int64, error) {
+func GetByTag(c context.Context, q *repository.Queries, tag string, log *slog.Logger) ([]string, error) {
 	archives, err := q.GetArchivesByTag(c, tag)
 	if err != nil {
 		log.Error(err.Error())
@@ -121,7 +146,7 @@ func GetByTag(c context.Context, q *repository.Queries, tag string, log *slog.Lo
 	return archives, nil
 }
 
-func GetByCharacter(c context.Context, q *repository.Queries, character string, log *slog.Logger) ([]int64, error) {
+func GetByCharacter(c context.Context, q *repository.Queries, character string, log *slog.Logger) ([]string, error) {
 	archives, err := q.GetArchivesByCharacter(c, character)
 	if err != nil {
 		log.Error(err.Error())
@@ -130,7 +155,7 @@ func GetByCharacter(c context.Context, q *repository.Queries, character string, 
 	return archives, nil
 }
 
-func GetByParody(c context.Context, q *repository.Queries, parody string, log *slog.Logger) ([]int64, error) {
+func GetByParody(c context.Context, q *repository.Queries, parody string, log *slog.Logger) ([]string, error) {
 	archives, err := q.GetArchivesByParody(c, parody)
 	if err != nil {
 		log.Error(err.Error())

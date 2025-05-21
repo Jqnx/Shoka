@@ -5,13 +5,13 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func DeleteTransaction(c context.Context,
-	db *pgx.Conn,
+	db *pgxpool.Pool,
 	q *repository.Queries,
-	id int64,
+	id string,
 	log *slog.Logger,
 ) error {
 	tx, err := db.Begin(c)
@@ -22,7 +22,7 @@ func DeleteTransaction(c context.Context,
 	defer tx.Rollback(c)
 	qtx := q.WithTx(tx)
 
-	archive, err := qtx.GetArchiveByAID(c, id)
+	archive, err := qtx.GetArchiveByID(c, id)
 	if err != nil {
 		return err
 	}
