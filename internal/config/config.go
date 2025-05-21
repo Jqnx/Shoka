@@ -2,7 +2,6 @@ package config
 
 import (
 	"log"
-	"os"
 	"path/filepath"
 
 	"github.com/kelseyhightower/envconfig"
@@ -27,33 +26,46 @@ type Database struct {
 }
 
 type Workers struct {
-	Max int
+	RedisHost string `envconfig:"REDIS_HOST"`
+	RedisPort string `envconfig:"REDIS_PORT"`
+	Max       int
 }
 
 type Config struct {
-	Dir      string
-	Server   Server
-	Database Database
-	Workers  Workers
+	ContentDir string
+	ThumbDir   string
+	Server     Server
+	Database   Database
+	Workers    Workers
 }
 
 func setDefaults() Config {
-	path := GetDefaultPath()
+	// content := GetDefaultContentPath()
+	// thumb := GetThumbPath()
 	return Config{
-		Dir: path,
+		ContentDir: "content",
+		ThumbDir:   "thumb",
 		Workers: Workers{
-			Max: 100,
+			Max: 5,
 		},
 	}
 }
 
-func GetDefaultPath() string {
-	wd, err := os.Getwd()
+func GetDefaultContentPath() string {
+	path, err := filepath.Abs("content")
 	if err != nil {
 		log.Panic(err)
 		return ""
 	}
-	path := filepath.Join(wd, "content")
+	return path
+}
+
+func GetThumbPath() string {
+	path, err := filepath.Abs("thumb")
+	if err != nil {
+		log.Panic(err)
+		return ""
+	}
 	return path
 }
 
