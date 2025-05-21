@@ -4,10 +4,11 @@ import (
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
 	"context"
+	"encoding/hex"
 	"strings"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/google/uuid"
 )
 
 func Tag(c context.Context, q *repository.Queries, p *models.ArchivePayload, archive *repository.Archive) error {
@@ -140,7 +141,6 @@ func Artist(c context.Context, q *repository.Queries, p *models.ArchivePayload, 
 
 func URL(c context.Context, q *repository.Queries, p *models.ArchivePayload, archive *repository.Archive) error {
 	if err := q.RemoveArchiveUrl(c, archive.ID); err != nil {
-		log.Err(err).Msg("remove url")
 		return err
 	}
 	for _, i := range p.URL {
@@ -158,4 +158,10 @@ func URL(c context.Context, q *repository.Queries, p *models.ArchivePayload, arc
 		}
 	}
 	return nil
+}
+
+func NewArchiveID() string {
+	newUuid := uuid.New()
+	buf := newUuid[0:4]
+	return hex.EncodeToString(buf)
 }
