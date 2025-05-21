@@ -7,12 +7,46 @@ import (
 	"strings"
 )
 
+type ComicInfo struct {
+	Title      string `xml:"Title"`
+	Summary    string `xml:"Summary"`
+	PageCount  int    `xml:"PageCount"`
+	URL        string `xml:"URL"`
+	Genre      string `xml:"Genre"`
+	Series     string `xml:"Series"`
+	Characters string `xml:"Characters"`
+	Tags       string `xml:"Tags"`
+	Writer     string `xml:"Writer"`
+	Language   string `xml:"LanguageISO"`
+}
+
+func newComicInfo() *ComicInfo {
+	return &ComicInfo{}
+}
+
+func (m *ComicInfo) Unmarshal(data string) {
+	err := xml.Unmarshal([]byte(data), &m)
+	if err != nil {
+		log.Println(err)
+	}
+}
+
+//func (m *ComicInfo) setTitle(title string) {
+//	m.Title = title
+//}
+
+func (m *ComicInfo) getMetadata() Metadata {
+	return Metadata{
+		Title: m.Title,
+	}
+}
+
 // TODO:
 // 1. Language and LanguageISO db table?
 // 2. Add unmarshalled metadata to database
 
 func ComicInfoUnmarshal(data string) (*models.Archive, error) {
-	var archive models.ComicInfoXML
+	var archive ComicInfo
 	var tags []models.Tag
 	var artists []models.Artist
 	var characters []models.Character

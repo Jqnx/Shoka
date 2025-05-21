@@ -64,20 +64,6 @@ type Group struct {
 	Name string `gorm:"many2many:artist_groups;uniqueIndex;not null" json:"group" form:"group"`
 }
 
-// Metadata translation models
-type ComicInfoXML struct {
-	Title      string `xml:"Title"`
-	Summary    string `xml:"Summary"`
-	PageCount  int    `xml:"PageCount"`
-	URL        string `xml:"URL"`
-	Genre      string `xml:"Genre"`
-	Series     string `xml:"Series"`
-	Characters string `xml:"Characters"`
-	Tags       string `xml:"Tags"`
-	Writer     string `xml:"Writer"`
-	Language   string `xml:"LanguageISO"`
-}
-
 // Search models
 type AIDSearch struct {
 	AID int `json:"archive_id"`
