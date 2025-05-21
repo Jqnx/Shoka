@@ -1,11 +1,9 @@
 package models
 
-import "time"
-
-type ResponseSuccess struct {
-	Status string `json:"status"`
-	Data   any    `json:"data"`
-}
+import (
+	"Shoka/internal/repository"
+	"time"
+)
 
 type ResponseFail struct {
 	Status string `json:"status"`
@@ -18,32 +16,42 @@ type ResponseError struct {
 }
 
 type ArchiveResponse struct {
-	AID       int64
-	Title     string    `json:"title"`
-	Summary   string    `json:"summary"`
-	Tags      []string  `json:"tags"`
-	Artist    []string  `json:"artist"`
-	Parody    []string  `json:"parody"`
-	Character []string  `json:"character"`
-	Language  string    `json:"language"`
-	Category  string    `json:"category"`
-	Url       []string  `json:"url"`
+	ArchiveID string                            `json:"archive_id"`
+	Title     string                            `json:"title"`
+	Summary   *string                           `json:"summary"`
+	Tags      []repository.Tag                  `json:"tags"`
+	Artist    []repository.GetArchiveArtistsRow `json:"artist"`
+	Parody    []repository.Parody               `json:"parody"`
+	Character []repository.Character            `json:"character"`
+	Language  *string                           `json:"language"`
+	Category  *string                           `json:"category"`
+	PageCount int64                             `json:"page_count"`
+	Url       []repository.GetArchiveURLsRow    `json:"url"`
+	Hash      *string                           `json:"hash"`
+	Pages     int                               `json:"pages"`
+	// ThumbsPath *string                           `json:"thumbs_path"`
+	Type      string    `json:"type"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type ArtistResponse struct {
-	Name      string    `json:"name"`
-	Aliases   []string  `json:"aliases"`
-	Groups    []string  `json:"groups"`
-	Links     []string  `json:"links"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Name      string                           `json:"name"`
+	Aliases   []repository.GetArtistAliasesRow `json:"aliases"`
+	Groups    []repository.GetArtistGroupsRow  `json:"groups"`
+	Links     []repository.GetArtistLinksRow   `json:"links"`
+	CreatedAt time.Time                        `json:"created_at"`
+	UpdatedAt time.Time                        `json:"updated_at"`
 }
 
 type GroupResponse struct {
-	Name      string    `json:"name"`
-	Artists   []string  `json:"artists"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Name      string                          `json:"name"`
+	Artists   []repository.GetGroupArtistsRow `json:"artists"`
+	CreatedAt time.Time                       `json:"created_at"`
+	UpdatedAt time.Time                       `json:"updated_at"`
+}
+
+type Page struct {
+	Height int `json:"h"`
+	Width  int `json:"w"`
 }
