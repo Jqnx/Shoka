@@ -4,6 +4,7 @@ import (
 	"Shoka/internal/config"
 	"Shoka/internal/database"
 	"Shoka/internal/logger"
+	"Shoka/internal/notifier"
 	"Shoka/internal/repository"
 	"Shoka/internal/server"
 	"Shoka/internal/workers"
@@ -14,8 +15,6 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-
-	"github.com/riverqueue/river"
 )
 
 func gracefulShutdown(apiServer *http.Server, done chan bool) {
@@ -42,6 +41,9 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 	done <- true
 }
 
+// TODO:
+// Create helper function to create every necessary directory
+
 func main() {
 	ctx := context.Background()
 
@@ -49,32 +51,45 @@ func main() {
 	log := logger.NewSlog()
 
 	// Loading Config
-	config := config.LoadConfig()
+	cfg := config.LoadConfig()
 	log.Info("Config Loaded")
 
 	// Creating db connection pool & connecting to db
-	pool := database.NewPool(ctx, config, log)
-	db := database.NewConn(ctx, pool, log)
+	// db := database.NewConn(ctx, cfg, log)
+	db := database.NewPool(ctx, cfg, log)
 	log.Info("Connected to database.")
+
+	// Setup listener
+	li := notifier.NewListener(db)
+	if err := li.Connect(ctx); err != nil {
+		panic(err)
+	}
+
+	// Setup notifier
+	noti := notifier.NewNotifier(log, li)
+	go noti.Run(ctx)
 
 	// Initializing new repository
 	repo := repository.New(db)
 	log.Info("New repository initialized.")
 
-	// Start workers
-	boys := river.NewWorkers()
-	workers.NewScan(ctx, log, pool, config, repo, boys)
-	fmt.Println(boys)
+	// Initializing new App
+	app := config.NewApp(repo, log, db, cfg, noti)
 
 	// Starting web server
-	log.Info(fmt.Sprintf("starting server on :%v", config.Server.Port))
+	log.Info(fmt.Sprintf("starting server on :%v", cfg.Server.Port))
 	server := server.NewServer(
-		config,
-		db,
-		repo,
-		log,
+		cfg,
+		app.DB,
+		app.Repo,
+		app.Log,
 		// workerui,
+		&app,
 	)
+
+	// Start workers
+	w := workers.NewWorkers(&app, false, ctx)
+	go w.NewArchives()
 
 	// Create a done channel to signal when the shutdown is complete
 	done := make(chan bool, 1)
