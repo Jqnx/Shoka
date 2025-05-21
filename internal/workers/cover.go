@@ -2,7 +2,7 @@ package workers
 
 import (
 	"Shoka/internal/repository"
-	"Shoka/internal/tasks"
+	"Shoka/internal/workers/tasks"
 	"context"
 	"errors"
 	"fmt"

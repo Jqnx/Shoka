@@ -1,96 +1,56 @@
 package workers
 
 import (
-	"Shoka/internal/archive"
 	"Shoka/internal/config"
 	"Shoka/internal/fsutil"
-	"Shoka/internal/repository"
+	"Shoka/internal/workers/tasks"
 	"context"
-	"log/slog"
+	"fmt"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/riverqueue/river"
-	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/hibiken/asynq"
 )
 
-type ScanArgs struct {
-	Dir string `json:"dir"`
-}
+// TODO:
+// Also think about deleting generated thumbnails if archive has not been read recently
+// LastRead column in db, gets updated when user GETs archive pages
 
-func (ScanArgs) Kind() string { return "scan" }
+func (w *Workers) NewScanClient() {
+	url := fmt.Sprintf("%v:%v", w.app.Cfg.Workers.RedisHost, w.app.Cfg.Workers.RedisPort)
+	opt := asynq.RedisClientOpt{
+		Addr: url,
+	}
+	client := asynq.NewClient(opt)
+	defer client.Close()
 
-type ScanWorker struct {
-	query *repository.Queries
-	log   *slog.Logger
-	river.WorkerDefaults[ScanArgs]
-}
+	// TASKS
+	// Scanning
 
-func (w *ScanWorker) Work(ctx context.Context, job *river.Job[ScanArgs]) error {
-	list := fsutil.ListArchives(job.Args.Dir)
+	// Check media type based extension & folder name
+
+	list := fsutil.ListArchives(w.app.Cfg.ContentDir)
 	for _, item := range list {
-		err := archive.CreateFromFile(ctx, item, w.query, w.log)
-		if err != nil {
-			return err
+		if fsutil.MatchExtension(item, config.ArchiveExtensions) {
+
+			ctx := context.Background()
+
+			exists, err := w.app.Repo.FilePathExists(ctx, &item)
+			if err != nil {
+				w.app.Log.Error("error checking if file path in db:", "error", err.Error())
+			}
+
+			if exists.RowsAffected() == 0 {
+				// Create Archive
+				newArch, err := tasks.NewCreateArchiveTask(item)
+				if err != nil {
+					w.app.Log.Error("could not create task:", "error", err.Error())
+				}
+				arch, err := client.Enqueue(newArch, asynq.Queue("critical"))
+				if err != nil {
+					w.app.Log.Error("could not queue task:", "error", err.Error())
+				}
+				w.app.Log.Info("archive found:", "id", arch.ID, "queue", arch.Queue, "state", arch.State)
+			}
+
 		}
 	}
-
-	return nil
-}
-
-func NewScan(
-	ctx context.Context,
-	log *slog.Logger,
-	db *pgxpool.Pool,
-	cfg *config.Config,
-	q *repository.Queries,
-	workers *river.Workers,
-) error {
-	river.AddWorker(workers, &ScanWorker{
-		query: q,
-		log:   log,
-	})
-
-	client, err := river.NewClient(riverpgxv5.New(db), &river.Config{
-		Logger: log,
-		Queues: map[string]river.QueueConfig{
-			river.QueueDefault: {MaxWorkers: cfg.Workers.Max},
-		},
-		Workers: workers,
-	})
-	if err != nil {
-		log.ErrorContext(ctx, err.Error())
-		panic(err)
-	}
-
-	defer func() {
-		if err := client.Stop(ctx); err != nil {
-			log.ErrorContext(ctx, err.Error())
-			panic(err)
-		}
-	}()
-
-	if err := client.Start(ctx); err != nil {
-		log.ErrorContext(ctx, err.Error())
-		panic(err)
-	}
-
-	tx, err := db.Begin(ctx)
-	if err != nil {
-		log.ErrorContext(ctx, err.Error())
-		panic(err)
-	}
-	defer tx.Rollback(ctx)
-
-	_, err = client.InsertTx(ctx, tx, &ScanArgs{Dir: cfg.Dir}, nil)
-	if err != nil {
-		log.ErrorContext(ctx, err.Error())
-		panic(err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		log.ErrorContext(ctx, err.Error())
-		panic(err)
-	}
-
-	return nil
 }

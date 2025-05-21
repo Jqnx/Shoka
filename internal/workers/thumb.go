@@ -3,7 +3,7 @@ package workers
 import (
 	"Shoka/internal/fsutil"
 	"Shoka/internal/repository"
-	"Shoka/internal/tasks"
+	"Shoka/internal/workers/tasks"
 	"errors"
 	"os"
 	"path/filepath"
