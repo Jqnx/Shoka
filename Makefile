@@ -21,10 +21,8 @@ tailwind-install:
 	
 	@chmod +x tailwindcss
 
-build: tailwind-install templ-install
+build: 
 	@echo "Building..."
-	@templ generate
-	@./tailwindcss -i cmd/web/styles/input.css -o cmd/web/assets/css/output.css
 	@go build -o main cmd/api/main.go
 
 # Run the application
@@ -64,22 +62,20 @@ clean:
 
 resetdb:
 	@echo "Resetting DB"
-	@river migrate-down --database-url postgres://shoka:shoka@localhost:5432/shoka --max-steps 10
 	@goose reset
 
 migratedb:
 	@echo "Applying Migrations"
 	@goose up
-	@river migrate-up --database-url postgres://shoka:shoka@localhost:5432/shoka
 
 redodb:
 	@echo "Re-Applying Migrations"
 	@goose reset
 	@goose up
 
-riverui:
-	@echo "Starting riverui"
-	@DATABASE_URL=postgres://shoka:shoka@localhost:5432/shoka riverui
+worker:
+	@echo "Starting asynq server"
+	@go run ./cmd/worker/main.go
 
 #wipe-db:
 #	@echo "Shutting down container..."
