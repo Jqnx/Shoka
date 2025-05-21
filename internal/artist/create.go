@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // TODO:
@@ -15,7 +15,7 @@ import (
 // e.g. Make it so you can create object without having to set every parameter.
 
 func CreateTransaction(c context.Context,
-	db *pgx.Conn,
+	db *pgxpool.Pool,
 	q *repository.Queries,
 	p *models.ArtistPayload,
 	log *slog.Logger,

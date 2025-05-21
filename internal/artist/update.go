@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func UpdateTransaction(c context.Context,
-	db *pgx.Conn,
+	db *pgxpool.Pool,
 	q *repository.Queries,
 	p *models.ArtistPayload,
 	oldname string,

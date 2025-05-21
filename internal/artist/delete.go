@@ -5,11 +5,11 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func DeleteTransaction(c context.Context,
-	db *pgx.Conn,
+	db *pgxpool.Pool,
 	q *repository.Queries,
 	name string,
 	log *slog.Logger,

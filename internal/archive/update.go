@@ -8,16 +8,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // TODO:
 
 func UpdateTransaction(c context.Context,
-	db *pgx.Conn,
+	db *pgxpool.Pool,
 	q *repository.Queries,
 	p *models.ArchivePayload,
-	id int64,
+	id string,
 	log *slog.Logger,
 ) (*models.ArchiveResponse, error) {
 	tx, err := db.Begin(c)
@@ -33,11 +33,11 @@ func UpdateTransaction(c context.Context,
 	archive, err := qtx.UpdateArchive(c, repository.UpdateArchiveParams{
 		Title:     p.Title,
 		Summary:   &p.Summary,
-		Lang:      &lang,
+		Language:  &lang,
 		Category:  &category,
 		FilePath:  &p.FilePath,
 		UpdatedAt: time.Now(),
-		AID:       id,
+		ArchiveID: id,
 	})
 	if err != nil {
 		log.Error(err.Error())
@@ -69,7 +69,7 @@ func UpdateTransaction(c context.Context,
 		return nil, err
 	}
 
-	result, err := Get(c, qtx, archive.AID, log)
+	result, err := Get(c, qtx, archive.ArchiveID, log)
 	if err != nil {
 		log.Error(err.Error())
 		return nil, err
