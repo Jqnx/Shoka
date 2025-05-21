@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/joho/godotenv/autoload"
 	"riverqueue.com/riverui"
 )
@@ -17,18 +17,19 @@ import (
 type Server struct {
 	port     int
 	repo     *repository.Queries
-	db       *pgx.Conn
+	db       *pgxpool.Pool
 	log      *slog.Logger
 	workerui *riverui.Server
+	app      *config.App
 }
 
 func NewServer(
 	config *config.Config,
-	db *pgx.Conn,
+	db *pgxpool.Pool,
 	repo *repository.Queries,
 	log *slog.Logger,
+	app *config.App,
 	// workerui *riverui.Server,
-
 ) *http.Server {
 	port, _ := strconv.Atoi(config.Server.Port)
 	NewServer := &Server{
@@ -36,6 +37,7 @@ func NewServer(
 		repo: repo,
 		db:   db,
 		log:  log,
+		app:  app,
 		// workerui: workerui,
 	}
 
