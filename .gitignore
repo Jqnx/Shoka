@@ -32,6 +32,8 @@ main
 # OS X generated file
 .DS_Store
 
+# Asynq Webclient binary
+asynqmon
 
 # Tailwind CSS
 cmd/web/assets/css/output.css
@@ -40,3 +42,7 @@ tailwindcss
 # Directories
 content/
 thumb/
+
+# Metadata files
+ComicInfo.xml
+info.txt
