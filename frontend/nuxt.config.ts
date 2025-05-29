@@ -19,7 +19,9 @@ export default defineNuxtConfig({
     '@nuxt/fonts',
     '@nuxtjs/color-mode',
     'shadcn-nuxt',
-    '@nuxt/image'
+    '@nuxt/image',
+    '@pinia/nuxt',
+    'pinia-plugin-persistedstate/nuxt'
   ],
   css: ['~/assets/css/tailwind.css'],
   vite: {
