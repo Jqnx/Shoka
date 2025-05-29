@@ -32,3 +32,19 @@ delete from archives_parodies
 where archive_id = $1
 ;
 
+-- name: GetArchiveParodies :many
+select parodies.id, parodies.parody
+from archives
+join archives_parodies on archives.id = archives_parodies.archive_id
+join parodies on archives_parodies.parody_id = parodies.id
+where archives.archive_id = $1
+;
+
+-- name: GetArchivesByParody :many
+select archives.archive_id
+from archives
+join archives_parodies on archives.id = archives_parodies.archive_id
+join parodies on archives_parodies.parody_id = parodies.id
+where parodies.parody = $1
+;
+

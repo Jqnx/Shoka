@@ -18,7 +18,7 @@ where tag = $1
 -- name: GetAllTags :many
 select id, tag
 from tags
-order by id
+order by tag
 ;
 
 -- name: TagExists :execresult
@@ -30,5 +30,39 @@ where tag = $1
 -- name: RemoveTagFromArchive :exec
 delete from archives_tags
 where archive_id = $1
+;
+
+-- name: GetArchiveTags :many
+select tags.id, tags.tag
+from archives
+join archives_tags on archives.id = archives_tags.archive_id
+join tags on archives_tags.tag_id = tags.id
+where archives.archive_id = $1
+;
+
+-- name: GetArchivesByTag :many
+select archives.archive_id
+from archives
+join archives_tags on archives.id = archives_tags.archive_id
+join tags on archives_tags.tag_id = tags.id
+where tags.tag = $1
+;
+
+-- name: GetArchivesByTagList :many
+select archives.*
+from archives
+join archives_tags on archives.id = archives_tags.archive_id
+join tags on archives_tags.tag_id = tags.id
+where tags.tag = $1
+limit $2
+offset $3
+;
+
+-- name: CountArchivesWithTag :one
+select count(archives.archive_id)
+from archives
+join archives_tags on archives.id = archives_tags.archive_id
+join tags on archives_tags.tag_id = tags.id
+where tags.tag = $1
 ;
 

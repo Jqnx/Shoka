@@ -109,3 +109,11 @@ delete from artists
 where id = $1
 ;
 
+-- name: GetArchiveArtists :many
+select artists.id, artists.name
+from archives
+join archives_artists on archives.id = archives_artists.archive_id
+join artists on archives_artists.artist_id = artists.id
+where archives.archive_id = $1
+;
+
