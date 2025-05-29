@@ -65,6 +65,62 @@ func (q *Queries) GetAllParodies(ctx context.Context) ([]Parody, error) {
 	return items, nil
 }
 
+const getArchiveParodies = `-- name: GetArchiveParodies :many
+select parodies.id, parodies.parody
+from archives
+join archives_parodies on archives.id = archives_parodies.archive_id
+join parodies on archives_parodies.parody_id = parodies.id
+where archives.archive_id = $1
+`
+
+func (q *Queries) GetArchiveParodies(ctx context.Context, archiveID string) ([]Parody, error) {
+	rows, err := q.db.Query(ctx, getArchiveParodies, archiveID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Parody
+	for rows.Next() {
+		var i Parody
+		if err := rows.Scan(&i.ID, &i.Parody); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArchivesByParody = `-- name: GetArchivesByParody :many
+select archives.archive_id
+from archives
+join archives_parodies on archives.id = archives_parodies.archive_id
+join parodies on archives_parodies.parody_id = parodies.id
+where parodies.parody = $1
+`
+
+func (q *Queries) GetArchivesByParody(ctx context.Context, parody string) ([]string, error) {
+	rows, err := q.db.Query(ctx, getArchivesByParody, parody)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var archive_id string
+		if err := rows.Scan(&archive_id); err != nil {
+			return nil, err
+		}
+		items = append(items, archive_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getParody = `-- name: GetParody :one
 select id, parody
 from parodies

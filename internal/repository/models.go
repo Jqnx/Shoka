@@ -9,20 +9,21 @@ import (
 )
 
 type Archive struct {
-	ID         int64     `json:"id"`
-	Title      string    `json:"title"`
-	Summary    *string   `json:"summary"`
-	Language   *string   `json:"language"`
-	Category   *string   `json:"category"`
-	PageCount  int64     `json:"page_count"`
-	FilePath   *string   `json:"file_path"`
-	ArchiveID  string    `json:"archive_id"`
-	Hash       *string   `json:"hash"`
-	ThumbsPath *string   `json:"thumbs_path"`
-	CoverPath  *string   `json:"cover_path"`
-	Type       string    `json:"type"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID          int64      `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int64      `json:"page_count"`
+	FilePath    *string    `json:"file_path"`
+	ArchiveID   string     `json:"archive_id"`
+	Hash        string     `json:"hash"`
+	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	Type        string     `json:"type"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
 }
 
 type ArchivesArtist struct {

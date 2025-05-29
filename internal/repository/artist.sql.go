@@ -167,6 +167,39 @@ func (q *Queries) GetAllArtists(ctx context.Context) ([]Artist, error) {
 	return items, nil
 }
 
+const getArchiveArtists = `-- name: GetArchiveArtists :many
+select artists.id, artists.name
+from archives
+join archives_artists on archives.id = archives_artists.archive_id
+join artists on archives_artists.artist_id = artists.id
+where archives.archive_id = $1
+`
+
+type GetArchiveArtistsRow struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+func (q *Queries) GetArchiveArtists(ctx context.Context, archiveID string) ([]GetArchiveArtistsRow, error) {
+	rows, err := q.db.Query(ctx, getArchiveArtists, archiveID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchiveArtistsRow
+	for rows.Next() {
+		var i GetArchiveArtistsRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArtistAliases = `-- name: GetArtistAliases :many
 select artist_aliases.id, artist_aliases.alias
 from artists
