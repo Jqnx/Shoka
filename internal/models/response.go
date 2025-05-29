@@ -27,12 +27,13 @@ type ArchiveResponse struct {
 	Category  *string                           `json:"category"`
 	PageCount int64                             `json:"page_count"`
 	Url       []repository.GetArchiveURLsRow    `json:"url"`
-	Hash      *string                           `json:"hash"`
+	Hash      string                            `json:"hash"`
 	Pages     int                               `json:"pages"`
 	// ThumbsPath *string                           `json:"thumbs_path"`
-	Type      string    `json:"type"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Type        string     `json:"type"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
 }
 
 type ArtistResponse struct {
