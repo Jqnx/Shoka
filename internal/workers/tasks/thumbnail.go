@@ -55,7 +55,7 @@ func (w *ThumbnailProcessor) ProcessTask(ctx context.Context, t *asynq.Task) err
 	d := fsutil.NewThumbDir(
 		w.app.Cfg.ThumbDir,
 		payload.Archive.Type,
-		*payload.Archive.Hash)
+		payload.Archive.Hash)
 
 	thumbdir, err := d.GetThumbDir()
 	if err != nil {

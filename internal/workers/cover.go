@@ -21,9 +21,8 @@ func (w *Workers) Covers(ch chan *asynq.TaskInfo, arch *repository.Archive) {
 	ch <- i
 }
 
-// TODO:
-// Also think about deleting generated thumbnails if archive has not been read recently
-// LastRead column in db, gets updated when user GETs archive pages
+// TODO: Also think about deleting generated thumbnails if archive has not been read recently
+// TODO: LastRead column in db, gets updated when user GETs archive pages
 
 func (c *Client) NewCover(force bool) *asynq.TaskInfo {
 	ctx := context.Background()
@@ -58,7 +57,7 @@ func (c *Client) NewCover(force bool) *asynq.TaskInfo {
 
 		// Checks if file exists on filesystem first
 		path, _ := filepath.Abs(filepath.Join(*c.arch.ThumbsPath, "cover"))
-		name := fmt.Sprintf("%v.webp", *c.arch.Hash)
+		name := fmt.Sprintf("%v.webp", c.arch.Hash)
 		_, err := os.Stat(filepath.Join(path, name))
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {

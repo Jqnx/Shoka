@@ -29,7 +29,7 @@ func (c *Client) NewThumb() {
 			// If folder does not exist on filesystem, create it first
 			// Else log error
 			if errors.Is(err, os.ErrNotExist) {
-				d := fsutil.NewThumbDir(c.app.Cfg.ThumbDir, c.arch.Type, *c.arch.Hash)
+				d := fsutil.NewThumbDir(c.app.Cfg.ThumbDir, c.arch.Type, c.arch.Hash)
 				_, err = d.CreatePageDir(*c.arch.ThumbsPath)
 				if err != nil {
 					return

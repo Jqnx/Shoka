@@ -6,7 +6,7 @@ import (
 	"Shoka/internal/logger"
 	"Shoka/internal/notifier"
 	"Shoka/internal/repository"
-	"Shoka/internal/tasks"
+	"Shoka/internal/workers/tasks"
 	"context"
 	"fmt"
 	"os"
@@ -16,8 +16,7 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// TODO:
-// Graceful shutdown
+// TODO: Graceful shutdown
 
 func main() {
 	ctx := context.Background()
@@ -73,10 +72,10 @@ func main() {
 
 	// Defining asynq handlers
 	mux := asynq.NewServeMux()
-	mux.Handle(tasks.TypeScan, tasks.NewScanProcessor(cfg, &app))
 	mux.Handle(tasks.TypeCreateArchive, tasks.NewArchiveProcessor(cfg, &app))
 	mux.Handle(tasks.TypeCreateCover, tasks.NewCoverProcessor(&app))
 	mux.Handle(tasks.TypeCreateThumbnail, tasks.NewThumbnailProcessor(&app))
+	mux.Handle(tasks.TypeNewMetadata, tasks.NewMetadataProcessor(&app))
 
 	// Start asynq server
 	if err := srv.Run(mux); err != nil {

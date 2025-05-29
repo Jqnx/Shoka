@@ -10,9 +10,8 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-// TODO:
-// Also think about deleting generated thumbnails if archive has not been read recently
-// LastRead column in db, gets updated when user GETs archive pages
+// TODO: Also think about deleting generated thumbnails if archive has not been read recently
+// TODO: LastRead column in db, gets updated when user GETs archive pages
 
 func (w *Workers) NewScanClient() {
 	url := fmt.Sprintf("%v:%v", w.app.Cfg.Workers.RedisHost, w.app.Cfg.Workers.RedisPort)

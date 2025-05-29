@@ -55,6 +55,8 @@ func (w *Workers) NewArchives() {
 
 		// Preview Client
 
+		// Metadata Client
+		c.NewMetadata("file")
 	}
 
 	s.Unlisten(w.ctx)
