@@ -9,18 +9,6 @@ import (
 
 // TODO:
 
-func GetPages(pagecount int) *[]models.Page {
-	var pages []models.Page
-	for range pagecount {
-		page := models.Page{
-			Height: 450,
-			Width:  320,
-		}
-		pages = append(pages, page)
-	}
-	return &pages
-}
-
 func Get(c context.Context, q *repository.Queries, id string, log *slog.Logger) (*models.ArchiveResponse, error) {
 	archive, err := q.GetArchiveByID(c, id)
 	if err != nil {
@@ -52,9 +40,6 @@ func Get(c context.Context, q *repository.Queries, id string, log *slog.Logger) 
 		log.Error(err.Error())
 		return nil, err
 	}
-
-	// NOTE: TEMP
-	// pages := GetPages(int(archive.PageCount))
 
 	result := &models.ArchiveResponse{
 		ArchiveID: id,

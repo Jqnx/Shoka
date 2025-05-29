@@ -1,7 +1,6 @@
 package archive
 
 import (
-	"Shoka/internal/models"
 	"Shoka/internal/repository"
 	"context"
 	"encoding/hex"
@@ -11,28 +10,42 @@ import (
 	"github.com/google/uuid"
 )
 
-func Tag(c context.Context, q *repository.Queries, p *models.ArchivePayload, archive *repository.Archive) error {
-	if err := q.RemoveTagFromArchive(c, archive.ID); err != nil {
+type Metadata struct {
+	Qtx     *repository.Queries
+	Archive *Archive
+	ID      int64
+}
+
+func NewMetadata(qtx *repository.Queries, archive *Archive, id int64) *Metadata {
+	return &Metadata{
+		Qtx:     qtx,
+		Archive: archive,
+		ID:      id,
+	}
+}
+
+func (m *Metadata) Tag(c context.Context) error {
+	if err := m.Qtx.RemoveTagFromArchive(c, m.ID); err != nil {
 		return err
 	}
-	for _, item := range p.Tags {
-		i := strings.ToLower(item)
-		tag, _ := q.GetTag(c, i)
+	for _, item := range *m.Archive.Tags {
+		i := strings.ToLower(item.Tag)
+		tag, _ := m.Qtx.GetTag(c, i)
 
 		if tag.Tag == i {
-			if err := q.AddTagToArchive(c, repository.AddTagToArchiveParams{
-				ArchiveID: archive.ID,
+			if err := m.Qtx.AddTagToArchive(c, repository.AddTagToArchiveParams{
+				ArchiveID: m.ID,
 				TagID:     tag.ID,
 			}); err != nil {
 				return err
 			}
 		} else {
-			tag, err := q.CreateTag(c, i)
+			tag, err := m.Qtx.CreateTag(c, i)
 			if err != nil {
 				return err
 			}
-			if err := q.AddTagToArchive(c, repository.AddTagToArchiveParams{
-				ArchiveID: archive.ID,
+			if err := m.Qtx.AddTagToArchive(c, repository.AddTagToArchiveParams{
+				ArchiveID: m.ID,
 				TagID:     tag.ID,
 			}); err != nil {
 				return err
@@ -42,28 +55,28 @@ func Tag(c context.Context, q *repository.Queries, p *models.ArchivePayload, arc
 	return nil
 }
 
-func Character(c context.Context, q *repository.Queries, p *models.ArchivePayload, archive *repository.Archive) error {
-	if err := q.RemoveCharacterFromArchive(c, archive.ID); err != nil {
+func (m *Metadata) Character(c context.Context) error {
+	if err := m.Qtx.RemoveCharacterFromArchive(c, m.ID); err != nil {
 		return err
 	}
-	for _, item := range p.Character {
-		i := strings.ToLower(item)
-		char, _ := q.GetCharacter(c, i)
+	for _, item := range *m.Archive.Character {
+		i := strings.ToLower(item.Character)
+		char, _ := m.Qtx.GetCharacter(c, i)
 
 		if char.Character == i {
-			if err := q.AddCharacterToArchive(c, repository.AddCharacterToArchiveParams{
-				ArchiveID:   archive.ID,
+			if err := m.Qtx.AddCharacterToArchive(c, repository.AddCharacterToArchiveParams{
+				ArchiveID:   m.ID,
 				CharacterID: char.ID,
 			}); err != nil {
 				return err
 			}
 		} else {
-			char, err := q.CreateCharacter(c, i)
+			char, err := m.Qtx.CreateCharacter(c, i)
 			if err != nil {
 				return err
 			}
-			if err := q.AddCharacterToArchive(c, repository.AddCharacterToArchiveParams{
-				ArchiveID:   archive.ID,
+			if err := m.Qtx.AddCharacterToArchive(c, repository.AddCharacterToArchiveParams{
+				ArchiveID:   m.ID,
 				CharacterID: char.ID,
 			}); err != nil {
 				return err
@@ -73,28 +86,28 @@ func Character(c context.Context, q *repository.Queries, p *models.ArchivePayloa
 	return nil
 }
 
-func Parody(c context.Context, q *repository.Queries, p *models.ArchivePayload, archive *repository.Archive) error {
-	if err := q.RemoveParodyFromArchive(c, archive.ID); err != nil {
+func (m *Metadata) Parody(c context.Context) error {
+	if err := m.Qtx.RemoveParodyFromArchive(c, m.ID); err != nil {
 		return err
 	}
-	for _, item := range p.Parody {
-		i := strings.ToLower(item)
-		parody, _ := q.GetParody(c, i)
+	for _, item := range *m.Archive.Parody {
+		i := strings.ToLower(item.Parody)
+		parody, _ := m.Qtx.GetParody(c, i)
 
 		if parody.Parody == i {
-			if err := q.AddParodyToArchive(c, repository.AddParodyToArchiveParams{
-				ArchiveID: archive.ID,
+			if err := m.Qtx.AddParodyToArchive(c, repository.AddParodyToArchiveParams{
+				ArchiveID: m.ID,
 				ParodyID:  parody.ID,
 			}); err != nil {
 				return err
 			}
 		} else {
-			parody, err := q.CreateParody(c, i)
+			parody, err := m.Qtx.CreateParody(c, i)
 			if err != nil {
 				return err
 			}
-			if err := q.AddParodyToArchive(c, repository.AddParodyToArchiveParams{
-				ArchiveID: archive.ID,
+			if err := m.Qtx.AddParodyToArchive(c, repository.AddParodyToArchiveParams{
+				ArchiveID: m.ID,
 				ParodyID:  parody.ID,
 			}); err != nil {
 				return err
@@ -104,23 +117,23 @@ func Parody(c context.Context, q *repository.Queries, p *models.ArchivePayload, 
 	return nil
 }
 
-func Artist(c context.Context, q *repository.Queries, p *models.ArchivePayload, archive *repository.Archive) error {
-	if err := q.RemoveArtistFromArchive(c, archive.ID); err != nil {
+func (m *Metadata) Artist(c context.Context) error {
+	if err := m.Qtx.RemoveArtistFromArchive(c, m.ID); err != nil {
 		return err
 	}
-	for _, item := range p.Artist {
-		i := strings.ToLower(item)
-		artist, _ := q.GetArtistByName(c, i)
+	for _, item := range *m.Archive.Artist {
+		i := strings.ToLower(item.Artist)
+		artist, _ := m.Qtx.GetArtistByName(c, i)
 
 		if artist.Name == i {
-			if err := q.AddArtistToArchive(c, repository.AddArtistToArchiveParams{
-				ArchiveID: archive.ID,
+			if err := m.Qtx.AddArtistToArchive(c, repository.AddArtistToArchiveParams{
+				ArchiveID: m.ID,
 				ArtistID:  artist.ID,
 			}); err != nil {
 				return err
 			}
 		} else {
-			artist, err := q.CreateArtist(c, repository.CreateArtistParams{
+			artist, err := m.Qtx.CreateArtist(c, repository.CreateArtistParams{
 				Name:      i,
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
@@ -128,8 +141,8 @@ func Artist(c context.Context, q *repository.Queries, p *models.ArchivePayload, 
 			if err != nil {
 				return err
 			}
-			if err := q.AddArtistToArchive(c, repository.AddArtistToArchiveParams{
-				ArchiveID: archive.ID,
+			if err := m.Qtx.AddArtistToArchive(c, repository.AddArtistToArchiveParams{
+				ArchiveID: m.ID,
 				ArtistID:  artist.ID,
 			}); err != nil {
 				return err
@@ -139,19 +152,19 @@ func Artist(c context.Context, q *repository.Queries, p *models.ArchivePayload, 
 	return nil
 }
 
-func URL(c context.Context, q *repository.Queries, p *models.ArchivePayload, archive *repository.Archive) error {
-	if err := q.RemoveArchiveUrl(c, archive.ID); err != nil {
+func (m *Metadata) URL(c context.Context) error {
+	if err := m.Qtx.RemoveArchiveUrl(c, m.ID); err != nil {
 		return err
 	}
-	for _, i := range p.URL {
-		exists, err := q.ArchiveUrlExists(c, i)
+	for _, i := range *m.Archive.URL {
+		exists, err := m.Qtx.ArchiveUrlExists(c, i.URL)
 		if err != nil {
 			return err
 		}
 		if exists.RowsAffected() == 0 {
-			if err := q.CreateArchiveURL(c, repository.CreateArchiveURLParams{
-				Url:       i,
-				ArchiveID: archive.ID,
+			if err := m.Qtx.CreateArchiveURL(c, repository.CreateArchiveURLParams{
+				Url:       i.URL,
+				ArchiveID: m.ID,
 			}); err != nil {
 				return err
 			}
