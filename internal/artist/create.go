@@ -10,9 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// TODO:
-// Fix issue where you can't create if not every option is set.
-// e.g. Make it so you can create object without having to set every parameter.
+// TODO: Fix issue where you can't create if not every option is set.
+// TODO: e.g. Make it so you can create object without having to set every parameter.
 
 func CreateTransaction(c context.Context,
 	db *pgxpool.Pool,

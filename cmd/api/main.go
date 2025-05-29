@@ -41,8 +41,7 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 	done <- true
 }
 
-// TODO:
-// Create helper function to create every necessary directory
+// TODO: Create helper function to create every necessary directory
 
 func main() {
 	ctx := context.Background()
