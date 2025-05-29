@@ -30,6 +30,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 			archive.GET("/:id", s.getArchiveHandler)
 			archive.GET("/:id/cover", s.getCoverHandler)
 			archive.GET("/:id/:page", s.getThumbHandler)
+			archive.GET("/:id/scanmeta", s.scanMetadataHandler)
 			archive.POST("/", s.createArchiveHandler)
 			archive.POST("/:id/cover", s.generateCoverHandler)
 			archive.POST("/:id/thumb", s.generateThumbHandler)
@@ -66,14 +67,14 @@ func (s *Server) RegisterRoutes() http.Handler {
 		}
 
 		// Character API
-		character := api.Group("/c")
+		character := api.Group("/character")
 		{
 			character.GET("/:character", s.getArchiveByCharacterHandler)
 			character.GET("/", s.getAllCharacterHandler)
 		}
 
 		// Parody API
-		parody := api.Group("/p")
+		parody := api.Group("/parody")
 		{
 			parody.GET("/:parody", s.getArchiveByParodyHandler)
 			parody.GET("/", s.getAllParodyHandler)

@@ -12,15 +12,14 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/jackc/pgx/v5"
 )
 
-// TODO:
-// Print proper error responses instead of just printing errors directly
+// TODO: Print proper error responses instead of just printing errors directly
+// TODO: Update handlers to use Metadata builder instead
 
 // Create
 func (s *Server) createArchiveHandler(c *gin.Context) {
@@ -59,6 +58,7 @@ func (s *Server) createArchiveHandler(c *gin.Context) {
 		return
 	}
 
+	// TODO: Update handlers to use Metadata builder instead
 	archive, err := archive.CreateTransaction(ctx, s.db, s.repo, &payload, s.log)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, &models.ResponseError{
@@ -72,17 +72,6 @@ func (s *Server) createArchiveHandler(c *gin.Context) {
 }
 
 // Read
-
-//func (s *Server) getLastIDHandler(c *gin.Context) {
-//	lastid, err := s.repo.GetArchiveLastAID(c)
-//	if err != nil {
-//		s.log.Error().AnErr("getLastIDHandler", err).Send()
-//		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-//		return
-//	}
-//
-//	c.JSON(http.StatusOK, lastid)
-//}
 
 func (s *Server) getArchiveListHandler(c *gin.Context) {
 	ctx := context.Background()
@@ -137,85 +126,26 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 			})
 			return
 		}
-
-		c.JSON(http.StatusOK, archives)
-	}
-}
-
-func (s *Server) getAllTagHandler(c *gin.Context) {
-	ctx := context.Background()
-
-	tags, err := s.repo.GetAllTags(ctx)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
-				Status:  "error",
-				Message: config.ErrNoTags.Error(),
-			})
-			return
-		} else {
+		count, err := s.repo.CountArchives(ctx)
+		if err != nil {
 			c.JSON(http.StatusInternalServerError, &models.ResponseError{
 				Status:  "error",
 				Message: err.Error(),
 			})
 			return
 		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"archives": archives,
+			"total":    count,
+		})
 	}
-
-	c.JSON(http.StatusOK, tags)
-}
-
-func (s *Server) getAllCharacterHandler(c *gin.Context) {
-	ctx := context.Background()
-
-	characters, err := s.repo.GetAllCharacter(ctx)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
-				Status:  "error",
-				Message: config.ErrNoCharacter.Error(),
-			})
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-	}
-
-	c.JSON(http.StatusOK, characters)
-}
-
-func (s *Server) getAllParodyHandler(c *gin.Context) {
-	ctx := context.Background()
-
-	parodies, err := s.repo.GetAllParodies(ctx)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
-				Status:  "error",
-				Message: config.ErrNoParody.Error(),
-			})
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-	}
-
-	c.JSON(http.StatusOK, parodies)
 }
 
 func (s *Server) getArchiveHandler(c *gin.Context) {
 	id := c.Param("id")
 
 	ctx := context.Background()
-	// archive, err := archive.Get(ctx, s.repo, id, s.log)
 
 	arch, err := s.repo.GetArchiveByID(ctx, id)
 	if err != nil {
@@ -326,20 +256,6 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 		}
 	}
 
-	//d, err := os.ReadDir(filepath.Join(p, "pages"))
-	//if err != nil {
-	//	if errors.Is(err, os.ErrNotExist) {
-	//		w := workers.NewWorkers(s.app, false, ctx)
-	//		go w.Thumbs(&arch)
-	//	}
-	//} else if len(d) < int(arch.PageCount) {
-	//	w := workers.NewWorkers(s.app, false, ctx)
-	//	go w.Thumbs(&arch)
-	//}
-
-	// NOTE: TEMP
-	// pages := archive.GetPages(int(arch.PageCount))
-
 	result := &models.ArchiveResponse{
 		ArchiveID: id,
 		Title:     arch.Title,
@@ -355,153 +271,13 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 		Hash:      arch.Hash,
 		Pages:     pages,
 		// ThumbsPath: archive.ThumbsPath,
-		Type:      arch.Type,
-		CreatedAt: arch.CreatedAt,
-		UpdatedAt: arch.UpdatedAt,
+		Type:        arch.Type,
+		CreatedAt:   arch.CreatedAt,
+		UpdatedAt:   arch.UpdatedAt,
+		ReleaseDate: arch.ReleaseDate,
 	}
 
 	c.JSON(http.StatusOK, result)
-}
-
-func (s *Server) getArchiveByTagHandler(c *gin.Context) {
-	// Get tag name from url parameter, makes it lowercase
-	tag := strings.ToLower(c.Param("tag"))
-
-	// Creates context
-	ctx := context.Background()
-
-	// Checks if tag exists
-	exists, err := s.repo.TagExists(ctx, tag)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	// If tag does not exists respond with 404 ErrTagNotFound
-	if exists.RowsAffected() == 0 {
-		c.JSON(http.StatusNotFound, &models.ResponseError{
-			Status:  "error",
-			Message: config.ErrTagNotFound.Error(),
-		})
-		return
-	}
-
-	// Get archives
-	archives, err := archive.GetByTag(ctx, s.repo, tag, s.log)
-	if err != nil {
-		// If no archives found respond with 404 ErrNoArchive
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
-				Status:  "error",
-				Message: config.ErrNoArchive.Error(),
-			})
-			return
-			// Otherwise respond with 500 and error
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-	}
-
-	// Respond with 200 Success
-	c.JSON(http.StatusOK, archives)
-}
-
-func (s *Server) getArchiveByCharacterHandler(c *gin.Context) {
-	// Get tag name from url parameter, makes it lowercase
-	character := strings.ToLower(c.Param("character"))
-
-	// Creates context
-	ctx := context.Background()
-
-	// Checks if tag exists
-	exists, err := s.repo.CharacterExists(ctx, character)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	// If tag does not exists respond with 404 ErrTagNotFound
-	if exists.RowsAffected() == 0 {
-		c.JSON(http.StatusNotFound, &models.ResponseError{
-			Status:  "error",
-			Message: config.ErrCharacterNotFound.Error(),
-		})
-		return
-	}
-
-	// Get archives
-	archives, err := archive.GetByCharacter(ctx, s.repo, character, s.log)
-	if err != nil {
-		// If no archives found respond with 404 ErrNoArchive
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
-				Status:  "error",
-				Message: config.ErrNoArchive.Error(),
-			})
-			return
-			// Otherwise respond with 500 and error
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-	}
-
-	// Respond with 200 Success
-	c.JSON(http.StatusOK, archives)
-}
-
-func (s *Server) getArchiveByParodyHandler(c *gin.Context) {
-	// Get tag name from url parameter, makes it lowercase
-	parody := strings.ToLower(c.Param("parody"))
-
-	// Creates context
-	ctx := context.Background()
-
-	// Checks if tag exists
-	exists, err := s.repo.ParodyExists(ctx, parody)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	// If tag does not exists respond with 404 ErrTagNotFound
-	if exists.RowsAffected() == 0 {
-		c.JSON(http.StatusNotFound, &models.ResponseError{
-			Status:  "error",
-			Message: config.ErrParodyNotFound.Error(),
-		})
-		return
-	}
-
-	// Get archives
-	archives, err := archive.GetByParody(ctx, s.repo, parody, s.log)
-	if err != nil {
-		// If no archives found respond with 404 ErrNoArchive
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
-				Status:  "error",
-				Message: config.ErrNoArchive.Error(),
-			})
-			return
-			// Otherwise respond with 500 and error
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-	}
-
-	// Respond with 200 Success
-	c.JSON(http.StatusOK, archives)
 }
 
 // Update
@@ -541,6 +317,7 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 		return
 	}
 
+	// TODO: Update handlers to use Metadata builder instead
 	result, err := archive.UpdateTransaction(ctx,
 		s.db,
 		s.repo,
