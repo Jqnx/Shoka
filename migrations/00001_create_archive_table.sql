@@ -8,13 +8,14 @@ CREATE TABLE IF NOT EXISTS archives (
     page_count bigint NOT NULL DEFAULT 0,
     file_path text UNIQUE,
     archive_id text NOT NULL,
-    hash text,
+    hash text NOT NULL,
     thumbs_path text,
     cover_path text,
 -- pages_path text,
     type text NOT NULL,
-    created_at timestamptz NOT NULL DEFAULT NOW(),
-    updated_at timestamptz NOT NULL
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
+    release_date timestamptz
 );
 
 create unique index idx_archive_id on archives(archive_id);
