@@ -10,6 +10,7 @@ import (
 var (
 	ImageExtensions   = []string{"png", "jpg", "jpeg", "gif", "webp"}
 	ArchiveExtensions = []string{"zip", "cbz"}
+	ComicInfoFile     = "ComicInfo.xml"
 )
 
 type Server struct {

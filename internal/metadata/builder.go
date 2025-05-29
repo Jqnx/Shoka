@@ -1,5 +1,7 @@
 package metadata
 
+import "time"
+
 type IMetadata interface {
 	Unmarshal(data string)
 	// setTitle(title string)
@@ -16,23 +18,39 @@ type IMetadata interface {
 }
 
 type Metadata struct {
-	Title      string
-	Summary    string
-	PageCount  int
-	URL        string
-	Genre      string
-	Series     string
-	Characters string
-	Tags       []Tag
-	Writer     string
-	Language   string
+	Title       string
+	Summary     string
+	URL         []URL
+	Category    string
+	Parody      []Parody
+	Character   []Character
+	Tags        []Tag
+	Artist      []Artist
+	Language    string
+	ReleaseDate time.Time
+}
+
+type URL struct {
+	URL string
+}
+
+type Parody struct {
+	Parody string
+}
+
+type Character struct {
+	Character string
 }
 
 type Tag struct {
 	Tag string
 }
 
-func getBuilder(builderType string) IMetadata {
+type Artist struct {
+	Artist string
+}
+
+func GetBuilder(builderType string) IMetadata {
 	if builderType == "comicinfo" {
 		return newComicInfo()
 	}

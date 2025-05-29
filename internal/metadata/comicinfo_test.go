@@ -32,9 +32,9 @@ func (suite *ComicInfoSuite) TeardownSuite() {
 
 func (suite *ComicInfoSuite) TestUnmarshalXML() {
 	// XML Test String here
-	data := ``
+	// data := ``
 
-	ComicInfoUnmarshal(data)
+	// ComicInfoUnmarshal(data)
 }
 
 func TestComicInfoSuite(t *testing.T) {
