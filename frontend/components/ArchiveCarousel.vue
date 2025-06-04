@@ -1,46 +1,46 @@
 <script lang="ts" setup>
-  import type { CarouselApi } from "@/components/ui/carousel";
-  import {
-    Carousel,
-    CarouselContent,
-    CarouselItem,
-    CarouselNext,
-    CarouselPrevious,
-  } from "@/components/ui/carousel";
-  import Autoplay from "embla-carousel-autoplay";
+import type { CarouselApi } from "@/components/ui/carousel";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import Autoplay from "embla-carousel-autoplay";
 
-  defineProps<{
-    title?: string;
-  }>();
+defineProps<{
+  title?: string;
+}>();
 
-  // TODO: Actually request recent archives
-  const { data: archives } = await useFetch("/api/a", {
-    query: { page: 1, size: 14 },
-    key: "archives",
-  });
+// TODO: Actually request recent archives
+const { data: archives } = await useFetch("/api/a", {
+  query: { page: 1, size: 14 },
+  key: "recentArchives",
+});
 
-  const emblaMainApi = ref<CarouselApi>();
-  const emblaThumbnailApi = ref<CarouselApi>();
-  const selectedIndex = ref(0);
+const emblaMainApi = ref<CarouselApi>();
+const emblaThumbnailApi = ref<CarouselApi>();
+const selectedIndex = ref(0);
 
-  function onSelect() {
-    if (!emblaMainApi.value || !emblaThumbnailApi.value) return;
-    selectedIndex.value = emblaMainApi.value.selectedScrollSnap();
-    emblaThumbnailApi.value.scrollTo(emblaMainApi.value.selectedScrollSnap());
-  }
+function onSelect() {
+  if (!emblaMainApi.value || !emblaThumbnailApi.value) return;
+  selectedIndex.value = emblaMainApi.value.selectedScrollSnap();
+  emblaThumbnailApi.value.scrollTo(emblaMainApi.value.selectedScrollSnap());
+}
 
-  function onThumbClick(index: number) {
-    if (!emblaMainApi.value || !emblaThumbnailApi.value) return;
-    emblaMainApi.value.scrollTo(index);
-  }
+function onThumbClick(index: number) {
+  if (!emblaMainApi.value || !emblaThumbnailApi.value) return;
+  emblaMainApi.value.scrollTo(index);
+}
 
-  watchOnce(emblaMainApi, (emblaMainApi) => {
-    if (!emblaMainApi) return;
+watchOnce(emblaMainApi, (emblaMainApi) => {
+  if (!emblaMainApi) return;
 
-    onSelect();
-    emblaMainApi.on("select", onSelect);
-    emblaMainApi.on("reInit", onSelect);
-  });
+  onSelect();
+  emblaMainApi.on("select", onSelect);
+  emblaMainApi.on("reInit", onSelect);
+});
 </script>
 
 <template>
@@ -53,16 +53,16 @@
           delay: 2500,
         }),
       ]"
-      @init-api="(val) => (emblaMainApi = val)">
+      @init-api="(val) => (emblaMainApi = val)"
+    >
       <CarouselContent>
         <CarouselItem
           v-for="(archive, index) in archives.archives"
           :key="index"
-          class="md:basis-1/2 lg:basis-1/7">
+          class="md:basis-1/2 lg:basis-1/7"
+        >
           <div class="p-1">
-            <GalleryItem
-              :id="archive.archive_id"
-              :title="archive.title" />
+            <GalleryItem :id="archive.archive_id" :title="archive.title" />
           </div>
         </CarouselItem>
       </CarouselContent>
@@ -75,15 +75,18 @@
         align: 'center',
         loop: true,
       }"
-      @init-api="(val) => (emblaThumbnailApi = val)">
+      @init-api="(val) => (emblaThumbnailApi = val)"
+    >
       <CarouselContent class="flex gap-0 ml-0">
         <CarouselItem
           v-for="(_, index) in archives.archives"
           :key="index"
           class="pl-0 basis-1/5 cursor-pointer"
-          @click="onThumbClick(index)">
+          @click="onThumbClick(index)"
+        >
           <CarouselDot
-            :class="index === selectedIndex ? 'bg-primary' : 'bg-secondary'" />
+            :class="index === selectedIndex ? 'bg-primary' : 'bg-secondary'"
+          />
         </CarouselItem>
       </CarouselContent>
     </Carousel>
