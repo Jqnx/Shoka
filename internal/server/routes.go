@@ -35,7 +35,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 			archive.POST("/:id/cover", s.generateCoverHandler)
 			archive.POST("/:id/thumb", s.generateThumbHandler)
 			archive.PUT("/:id", s.updateArchiveHandler)
-			archive.DELETE("/:id", s.deleteArchiveHandler)
+			// archive.DELETE("/:id", s.deleteArchiveHandler)
 			// archive.GET("/lastid", s.getLastIDHandler)
 		}
 
@@ -79,6 +79,13 @@ func (s *Server) RegisterRoutes() http.Handler {
 			parody.GET("/:parody", s.getArchiveByParodyHandler)
 			parody.GET("/", s.getAllParodyHandler)
 		}
+
+		language := api.Group("/lang")
+		{
+			language.GET("/:language", s.getArchiveByLanguageHandler)
+			language.GET("/", s.getAllLanguageHandler)
+		}
+
 	}
 
 	return r
