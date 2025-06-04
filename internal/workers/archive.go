@@ -18,8 +18,7 @@ func NewWorkers(app *config.App, force bool, ctx context.Context) *Workers {
 	return &Workers{app: app, force: force, ctx: ctx}
 }
 
-// TODO: New Cover/thumbail client
-// Implement schedulers for scheduled scanning
+// TODO: Implement schedulers for scheduled scanning
 
 // NewArchives scans for archives that are not in the database
 // then adds them and generates covers for them
