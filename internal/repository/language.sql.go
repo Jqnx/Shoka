@@ -15,7 +15,6 @@ const getAllLanguage = `-- name: GetAllLanguage :many
 select language
 from archives
 where language is not null
-order by language asc
 `
 
 func (q *Queries) GetAllLanguage(ctx context.Context) ([]*string, error) {
