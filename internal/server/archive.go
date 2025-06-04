@@ -4,6 +4,7 @@ import (
 	"Shoka/internal/archive"
 	"Shoka/internal/config"
 	"Shoka/internal/fsutil"
+	"Shoka/internal/metadata"
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
 	"context"
@@ -59,16 +60,16 @@ func (s *Server) createArchiveHandler(c *gin.Context) {
 	}
 
 	// TODO: Update handlers to use Metadata builder instead
-	archive, err := archive.CreateTransaction(ctx, s.db, s.repo, &payload, s.log)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
-			Status:  "error",
-			Message: err.Error(),
-		})
-		return
-	}
+	//archive, err := archive.CreateTransaction(ctx, s.db, s.repo, &payload, s.log)
+	//if err != nil {
+	//	c.JSON(http.StatusInternalServerError, &models.ResponseError{
+	//		Status:  "error",
+	//		Message: err.Error(),
+	//	})
+	//	return
+	//}
 
-	c.JSON(http.StatusCreated, archive)
+	c.JSON(http.StatusCreated, nil)
 }
 
 // Read
@@ -257,20 +258,19 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 	}
 
 	result := &models.ArchiveResponse{
-		ArchiveID: id,
-		Title:     arch.Title,
-		Summary:   arch.Summary,
-		Tags:      tags,
-		Artist:    artists,
-		Parody:    parodies,
-		Character: characters,
-		Language:  arch.Language,
-		Category:  arch.Category,
-		PageCount: arch.PageCount,
-		Url:       urls,
-		Hash:      arch.Hash,
-		Pages:     pages,
-		// ThumbsPath: archive.ThumbsPath,
+		ArchiveID:   arch.ArchiveID,
+		Title:       arch.Title,
+		Summary:     arch.Summary,
+		Tags:        tags,
+		Artist:      artists,
+		Parody:      parodies,
+		Character:   characters,
+		Language:    arch.Language,
+		Category:    arch.Category,
+		PageCount:   arch.PageCount,
+		Url:         urls,
+		Hash:        arch.Hash,
+		Pages:       pages,
 		Type:        arch.Type,
 		CreatedAt:   arch.CreatedAt,
 		UpdatedAt:   arch.UpdatedAt,
@@ -317,14 +317,19 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 		return
 	}
 
-	// TODO: Update handlers to use Metadata builder instead
-	result, err := archive.UpdateTransaction(ctx,
-		s.db,
-		s.repo,
-		&payload,
-		id,
-		s.log,
-	)
+	mb := metadata.GetBuilder("form")
+	d := metadata.NewDirector(mb)
+	meta := d.FetchMetadata(payload)
+	ab := archive.GetBuilder(s.app)
+	archive := ab.UpdateArchive(id, &meta)
+	if err := archive.Update(ctx, s.app); err != nil {
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+	res, err := archive.Get(ctx, s.app)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, &models.ResponseError{
 			Status:  "error",
@@ -333,7 +338,7 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, result)
+	c.JSON(http.StatusOK, res)
 }
 
 // Delete
