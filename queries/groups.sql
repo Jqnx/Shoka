@@ -16,6 +16,14 @@ from groups
 where name = $1
 ;
 
+-- name: GetGroupList :many
+select id, name, created_at, updated_at
+from groups
+order by $1
+limit $2
+offset $3
+;
+
 -- name: GetGroupArtists :many
 select artists.id, artists.name
 from groups

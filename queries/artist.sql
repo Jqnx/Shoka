@@ -26,6 +26,14 @@ from artists
 where name = $1
 ;
 
+-- name: GetArtistList :many
+select id, name, created_at, updated_at
+from artists
+order by $1
+limit $2
+offset $3
+;
+
 -- name: GetArtistLinks :many
 select artist_links.id, artist_links.link
 from artists

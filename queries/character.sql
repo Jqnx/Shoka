@@ -48,3 +48,14 @@ join characters on archives_characters.character_id = characters.id
 where characters.character = $1
 ;
 
+
+-- name: GetArchivesByCharacterList :many
+select archives.*
+from archives
+join archives_characters on archives.id = archives_characters.archive_id
+join characters on archives_characters.character_id = characters.id
+where characters.character = $1
+limit $2
+offset $3
+;
+
