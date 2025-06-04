@@ -2,7 +2,6 @@
 select language
 from archives
 where language is not null
-order by language asc
 ;
 
 -- name: GetArchivesByLanguage :many
