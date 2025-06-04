@@ -1,66 +1,84 @@
 package archive
 
 import (
+	"Shoka/internal/config"
+	"Shoka/internal/fsutil"
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
 	"context"
 	"log/slog"
+	"os"
+	"path/filepath"
 )
 
 // TODO:
 
-func Get(c context.Context, q *repository.Queries, id string, log *slog.Logger) (*models.ArchiveResponse, error) {
-	archive, err := q.GetArchiveByID(c, id)
+func (a *Archive) Get(ctx context.Context, app *config.App) (*models.ArchiveResponse, error) {
+	tx, err := app.DB.Begin(ctx)
 	if err != nil {
-		log.Error(err.Error())
 		return nil, err
 	}
-	tags, err := q.GetArchiveTags(c, id)
+	defer tx.Rollback(ctx)
+
+	qtx := app.Repo.WithTx(tx)
+
+	archive, err := qtx.GetArchiveByID(ctx, a.ArchiveID)
 	if err != nil {
-		log.Error(err.Error())
 		return nil, err
 	}
-	characters, err := q.GetArchiveCharacters(c, id)
+	tags, err := qtx.GetArchiveTags(ctx, a.ArchiveID)
 	if err != nil {
-		log.Error(err.Error())
 		return nil, err
 	}
-	parodies, err := q.GetArchiveParodies(c, id)
+	characters, err := qtx.GetArchiveCharacters(ctx, a.ArchiveID)
 	if err != nil {
-		log.Error(err.Error())
 		return nil, err
 	}
-	urls, err := q.GetArchiveURLs(c, id)
+	parodies, err := qtx.GetArchiveParodies(ctx, a.ArchiveID)
 	if err != nil {
-		log.Error(err.Error())
 		return nil, err
 	}
-	artists, err := q.GetArchiveArtists(c, id)
+	urls, err := qtx.GetArchiveURLs(ctx, a.ArchiveID)
 	if err != nil {
-		log.Error(err.Error())
+		return nil, err
+	}
+	artists, err := qtx.GetArchiveArtists(ctx, a.ArchiveID)
+	if err != nil {
 		return nil, err
 	}
 
-	result := &models.ArchiveResponse{
-		ArchiveID: id,
-		Title:     archive.Title,
-		Summary:   archive.Summary,
-		Tags:      tags,
-		Artist:    artists,
-		Parody:    parodies,
-		Character: characters,
-		Language:  archive.Language,
-		Category:  archive.Category,
-		PageCount: archive.PageCount,
-		Url:       urls,
-		Hash:      archive.Hash,
-		// Pages:     *pages,
-		// ThumbsPath: archive.ThumbsPath,
-		Type:      archive.Type,
-		CreatedAt: archive.CreatedAt,
-		UpdatedAt: archive.UpdatedAt,
+	var pages int
+	p, _ := filepath.Abs(*archive.ThumbsPath)
+	d, err := os.ReadDir(filepath.Join(p, "pages"))
+	if err != nil {
+		pages = 0
 	}
-	return result, nil
+	for _, i := range d {
+		if fsutil.MatchExtension(i.Name(), config.ImageExtensions) {
+			pages++
+		}
+	}
+
+	result := &models.ArchiveResponse{
+		ArchiveID:   archive.ArchiveID,
+		Title:       archive.Title,
+		Summary:     archive.Summary,
+		Tags:        tags,
+		Artist:      artists,
+		Parody:      parodies,
+		Character:   characters,
+		Language:    archive.Language,
+		Category:    archive.Category,
+		PageCount:   archive.PageCount,
+		Url:         urls,
+		Hash:        archive.Hash,
+		Pages:       pages,
+		Type:        archive.Type,
+		CreatedAt:   archive.CreatedAt,
+		UpdatedAt:   archive.UpdatedAt,
+		ReleaseDate: archive.ReleaseDate,
+	}
+	return result, tx.Commit(ctx)
 }
 
 func GetAll(c context.Context, q *repository.Queries, log *slog.Logger) (*[]models.ArchiveResponse, error) {
