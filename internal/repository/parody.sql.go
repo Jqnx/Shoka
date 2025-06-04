@@ -121,6 +121,58 @@ func (q *Queries) GetArchivesByParody(ctx context.Context, parody string) ([]str
 	return items, nil
 }
 
+const getArchivesByParodyList = `-- name: GetArchivesByParodyList :many
+select archives.id, archives.title, archives.summary, archives.language, archives.category, archives.page_count, archives.file_path, archives.archive_id, archives.hash, archives.thumbs_path, archives.cover_path, archives.type, archives.created_at, archives.updated_at, archives.release_date
+from archives
+join archives_parodies on archives.id = archives_parodies.archive_id
+join parodies on archives_parodies.parody_id = parodies.id
+where parodies.parody = $1
+limit $2
+offset $3
+`
+
+type GetArchivesByParodyListParams struct {
+	Parody string `json:"parody"`
+	Limit  int32  `json:"limit"`
+	Offset int32  `json:"offset"`
+}
+
+func (q *Queries) GetArchivesByParodyList(ctx context.Context, arg GetArchivesByParodyListParams) ([]Archive, error) {
+	rows, err := q.db.Query(ctx, getArchivesByParodyList, arg.Parody, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Archive
+	for rows.Next() {
+		var i Archive
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.ArchiveID,
+			&i.Hash,
+			&i.ThumbsPath,
+			&i.CoverPath,
+			&i.Type,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getParody = `-- name: GetParody :one
 select id, parody
 from parodies

@@ -315,6 +315,45 @@ func (q *Queries) GetArtistLinks(ctx context.Context, name string) ([]GetArtistL
 	return items, nil
 }
 
+const getArtistList = `-- name: GetArtistList :many
+select id, name, created_at, updated_at
+from artists
+order by $1
+limit $2
+offset $3
+`
+
+type GetArtistListParams struct {
+	Column1 interface{} `json:"column_1"`
+	Limit   int32       `json:"limit"`
+	Offset  int32       `json:"offset"`
+}
+
+func (q *Queries) GetArtistList(ctx context.Context, arg GetArtistListParams) ([]Artist, error) {
+	rows, err := q.db.Query(ctx, getArtistList, arg.Column1, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Artist
+	for rows.Next() {
+		var i Artist
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const removeArtistAliases = `-- name: RemoveArtistAliases :exec
 delete from artist_aliases
 where artist_id = $1

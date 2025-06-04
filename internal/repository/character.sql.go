@@ -131,6 +131,58 @@ func (q *Queries) GetArchivesByCharacter(ctx context.Context, character string) 
 	return items, nil
 }
 
+const getArchivesByCharacterList = `-- name: GetArchivesByCharacterList :many
+select archives.id, archives.title, archives.summary, archives.language, archives.category, archives.page_count, archives.file_path, archives.archive_id, archives.hash, archives.thumbs_path, archives.cover_path, archives.type, archives.created_at, archives.updated_at, archives.release_date
+from archives
+join archives_characters on archives.id = archives_characters.archive_id
+join characters on archives_characters.character_id = characters.id
+where characters.character = $1
+limit $2
+offset $3
+`
+
+type GetArchivesByCharacterListParams struct {
+	Character string `json:"character"`
+	Limit     int32  `json:"limit"`
+	Offset    int32  `json:"offset"`
+}
+
+func (q *Queries) GetArchivesByCharacterList(ctx context.Context, arg GetArchivesByCharacterListParams) ([]Archive, error) {
+	rows, err := q.db.Query(ctx, getArchivesByCharacterList, arg.Character, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Archive
+	for rows.Next() {
+		var i Archive
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.ArchiveID,
+			&i.Hash,
+			&i.ThumbsPath,
+			&i.CoverPath,
+			&i.Type,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getCharacter = `-- name: GetCharacter :one
 select id, character
 from characters

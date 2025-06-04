@@ -128,6 +128,45 @@ func (q *Queries) GetGroupArtists(ctx context.Context, name string) ([]GetGroupA
 	return items, nil
 }
 
+const getGroupList = `-- name: GetGroupList :many
+select id, name, created_at, updated_at
+from groups
+order by $1
+limit $2
+offset $3
+`
+
+type GetGroupListParams struct {
+	Column1 interface{} `json:"column_1"`
+	Limit   int32       `json:"limit"`
+	Offset  int32       `json:"offset"`
+}
+
+func (q *Queries) GetGroupList(ctx context.Context, arg GetGroupListParams) ([]Group, error) {
+	rows, err := q.db.Query(ctx, getGroupList, arg.Column1, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Group
+	for rows.Next() {
+		var i Group
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const groupExists = `-- name: GroupExists :execresult
 select name
 from groups
