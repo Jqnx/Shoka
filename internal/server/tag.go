@@ -83,7 +83,7 @@ func (s *Server) getArchiveByTagHandler(c *gin.Context) {
 			}
 		}
 
-		count, err := s.repo.CountArchivesWithTag(ctx, tag)
+		total, err := s.repo.TotalArchivesWithTag(ctx, tag)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, &models.ResponseError{
 				Status:  "error",
@@ -93,7 +93,7 @@ func (s *Server) getArchiveByTagHandler(c *gin.Context) {
 		}
 		c.JSON(http.StatusOK, gin.H{
 			"archives": archives,
-			"total":    count,
+			"total":    total,
 		})
 
 	} else {
@@ -129,7 +129,7 @@ func (s *Server) getArchiveByTagHandler(c *gin.Context) {
 				return
 			}
 		}
-		count, err := s.repo.CountArchivesWithTag(ctx, tag)
+		total, err := s.repo.TotalArchivesWithTag(ctx, tag)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, &models.ResponseError{
 				Status:  "error",
@@ -140,7 +140,7 @@ func (s *Server) getArchiveByTagHandler(c *gin.Context) {
 
 		c.JSON(http.StatusOK, gin.H{
 			"archives": archives,
-			"total":    count,
+			"total":    total,
 		})
 	}
 }

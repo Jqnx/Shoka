@@ -1,11 +1,12 @@
 package server
 
 import (
-	"Shoka/internal/archive"
 	"Shoka/internal/config"
 	"Shoka/internal/models"
+	"Shoka/internal/repository"
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -38,6 +39,8 @@ func (s *Server) getAllCharacterHandler(c *gin.Context) {
 func (s *Server) getArchiveByCharacterHandler(c *gin.Context) {
 	// Get tag name from url parameter, makes it lowercase
 	character := strings.ToLower(c.Param("character"))
+	p := c.Query("page")
+	ps := c.Query("size")
 
 	// Creates context
 	ctx := context.Background()
@@ -59,25 +62,84 @@ func (s *Server) getArchiveByCharacterHandler(c *gin.Context) {
 	}
 
 	// Get archives
-	archives, err := archive.GetByCharacter(ctx, s.repo, character, s.log)
-	if err != nil {
-		// If no archives found respond with 404 ErrNoArchive
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
-				Status:  "error",
-				Message: config.ErrNoArchive.Error(),
-			})
-			return
-			// Otherwise respond with 500 and error
-		} else {
+	if p == "" && ps == "" {
+		archives, err := s.repo.GetArchivesByCharacter(ctx, character)
+		if err != nil {
+			// If no archives found respond with 404 ErrNoArchive
+			if err == pgx.ErrNoRows {
+				c.JSON(http.StatusNotFound, &models.ResponseError{
+					Status:  "error",
+					Message: config.ErrNoArchive.Error(),
+				})
+				return
+				// Otherwise respond with 500 and error
+			} else {
+				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					Status:  "error",
+					Message: err.Error(),
+				})
+				return
+			}
+		}
+		total, err := s.repo.TotalArchivesWithCharacter(ctx, character)
+		if err != nil {
 			c.JSON(http.StatusInternalServerError, &models.ResponseError{
 				Status:  "error",
 				Message: err.Error(),
 			})
 			return
 		}
-	}
 
-	// Respond with 200 Success
-	c.JSON(http.StatusOK, archives)
+		// Respond with 200 Success
+		c.JSON(http.StatusOK, gin.H{
+			"archives": archives,
+			"total":    total,
+		})
+	} else {
+
+		page, _ := strconv.Atoi(p)
+		if page == 0 {
+			page = 1
+		}
+		pageSize, _ := strconv.Atoi(ps)
+		if pageSize == 0 {
+			pageSize = 10
+		}
+		archives, err := s.repo.GetArchivesByCharacterList(ctx, repository.GetArchivesByCharacterListParams{
+			Character: character,
+			Offset:    (int32(page) - 1) * int32(pageSize),
+			Limit:     int32(pageSize),
+		})
+		if err != nil {
+			// If no archives found respond with 404 ErrNoArchive
+			if err == pgx.ErrNoRows {
+				c.JSON(http.StatusNotFound, &models.ResponseError{
+					Status:  "error",
+					Message: config.ErrNoArchive.Error(),
+				})
+				return
+				// Otherwise respond with 500 and error
+			} else {
+				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					Status:  "error",
+					Message: err.Error(),
+				})
+				return
+			}
+		}
+		total, err := s.repo.TotalArchivesWithCharacter(ctx, character)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+
+		// Respond with 200 Success
+		c.JSON(http.StatusOK, gin.H{
+			"archives": archives,
+			"total":    total,
+		})
+	}
 }
