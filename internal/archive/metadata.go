@@ -25,9 +25,17 @@ func NewMetadata(qtx *repository.Queries, archive *Archive, id int64) *Metadata 
 }
 
 func (m *Metadata) Tag(c context.Context) error {
-	if err := m.Qtx.RemoveTagFromArchive(c, m.ID); err != nil {
+	tags, err := m.Qtx.RemoveTagFromArchive(c, m.ID)
+	if err != nil {
 		return err
 	}
+	for _, item := range tags {
+		m.Qtx.UpdateTagCount(c, repository.UpdateTagCountParams{
+			ID:    item.TagID,
+			Count: item.Count - 1,
+		})
+	}
+
 	for _, item := range *m.Archive.Tags {
 		i := strings.ToLower(item.Tag)
 		tag, _ := m.Qtx.GetTag(c, i)
@@ -39,8 +47,17 @@ func (m *Metadata) Tag(c context.Context) error {
 			}); err != nil {
 				return err
 			}
+			if err := m.Qtx.UpdateTagCount(c, repository.UpdateTagCountParams{
+				ID:    tag.ID,
+				Count: tag.Count + 1,
+			}); err != nil {
+				return err
+			}
 		} else {
-			tag, err := m.Qtx.CreateTag(c, i)
+			tag, err := m.Qtx.CreateTag(c, repository.CreateTagParams{
+				Tag:   i,
+				Count: 1,
+			})
 			if err != nil {
 				return err
 			}
@@ -56,8 +73,17 @@ func (m *Metadata) Tag(c context.Context) error {
 }
 
 func (m *Metadata) Character(c context.Context) error {
-	if err := m.Qtx.RemoveCharacterFromArchive(c, m.ID); err != nil {
+	characters, err := m.Qtx.RemoveCharacterFromArchive(c, m.ID)
+	if err != nil {
 		return err
+	}
+	for _, item := range characters {
+		if err := m.Qtx.UpdateCharacterCount(c, repository.UpdateCharacterCountParams{
+			ID:    item.CharacterID,
+			Count: item.Count - 1,
+		}); err != nil {
+			return err
+		}
 	}
 	for _, item := range *m.Archive.Character {
 		i := strings.ToLower(item.Character)
@@ -70,8 +96,17 @@ func (m *Metadata) Character(c context.Context) error {
 			}); err != nil {
 				return err
 			}
+			if err := m.Qtx.UpdateCharacterCount(c, repository.UpdateCharacterCountParams{
+				ID:    char.ID,
+				Count: char.Count + 1,
+			}); err != nil {
+				return err
+			}
 		} else {
-			char, err := m.Qtx.CreateCharacter(c, i)
+			char, err := m.Qtx.CreateCharacter(c, repository.CreateCharacterParams{
+				Character: i,
+				Count:     1,
+			})
 			if err != nil {
 				return err
 			}
@@ -87,8 +122,18 @@ func (m *Metadata) Character(c context.Context) error {
 }
 
 func (m *Metadata) Parody(c context.Context) error {
-	if err := m.Qtx.RemoveParodyFromArchive(c, m.ID); err != nil {
+	parodies, err := m.Qtx.RemoveParodyFromArchive(c, m.ID)
+	if err != nil {
 		return err
+	}
+
+	for _, item := range parodies {
+		if err := m.Qtx.UpdateParodyCount(c, repository.UpdateParodyCountParams{
+			ID:    item.ParodyID,
+			Count: item.Count - 1,
+		}); err != nil {
+			return err
+		}
 	}
 	for _, item := range *m.Archive.Parody {
 		i := strings.ToLower(item.Parody)
@@ -101,8 +146,17 @@ func (m *Metadata) Parody(c context.Context) error {
 			}); err != nil {
 				return err
 			}
+			if err := m.Qtx.UpdateParodyCount(c, repository.UpdateParodyCountParams{
+				ID:    parody.ID,
+				Count: parody.Count + 1,
+			}); err != nil {
+				return err
+			}
 		} else {
-			parody, err := m.Qtx.CreateParody(c, i)
+			parody, err := m.Qtx.CreateParody(c, repository.CreateParodyParams{
+				Parody: i,
+				Count:  1,
+			})
 			if err != nil {
 				return err
 			}
@@ -118,8 +172,18 @@ func (m *Metadata) Parody(c context.Context) error {
 }
 
 func (m *Metadata) Artist(c context.Context) error {
-	if err := m.Qtx.RemoveArtistFromArchive(c, m.ID); err != nil {
+	artists, err := m.Qtx.RemoveArtistFromArchive(c, m.ID)
+	if err != nil {
 		return err
+	}
+
+	for _, item := range artists {
+		if err := m.Qtx.UpdateArtistCount(c, repository.UpdateArtistCountParams{
+			ID:    item.ArtistID,
+			Count: item.Count - 1,
+		}); err != nil {
+			return err
+		}
 	}
 	for _, item := range *m.Archive.Artist {
 		i := strings.ToLower(item.Artist)
@@ -132,9 +196,16 @@ func (m *Metadata) Artist(c context.Context) error {
 			}); err != nil {
 				return err
 			}
+			if err := m.Qtx.UpdateArtistCount(c, repository.UpdateArtistCountParams{
+				ID:    artist.ID,
+				Count: artist.Count + 1,
+			}); err != nil {
+				return err
+			}
 		} else {
 			artist, err := m.Qtx.CreateArtist(c, repository.CreateArtistParams{
 				Name:      i,
+				Count:     1,
 				CreatedAt: time.Now(),
 				UpdatedAt: time.Now(),
 			})

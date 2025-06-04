@@ -2,6 +2,7 @@
 CREATE TABLE IF NOT EXISTS artists (
     id bigserial PRIMARY KEY,
     name text NOT NULL,
+    count bigint NOT NULL,
     created_at timestamptz NOT NULL,
     updated_at timestamptz NOT NULL
 );

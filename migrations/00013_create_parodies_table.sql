@@ -1,7 +1,8 @@
 -- +goose Up
 CREATE TABLE IF NOT EXISTS parodies (
     id bigserial PRIMARY KEY,
-    parody text NOT NULL
+    parody text NOT NULL,
+    count bigint NOT NULL
 );
 
 create unique index parody on parodies(parody);

@@ -37,20 +37,25 @@ func (q *Queries) CharacterExists(ctx context.Context, character string) (pgconn
 }
 
 const createCharacter = `-- name: CreateCharacter :one
-insert into characters (character)
-values ($1)
-returning id, character
+insert into characters (character, count)
+values ($1, $2)
+returning id, character, count
 `
 
-func (q *Queries) CreateCharacter(ctx context.Context, character string) (Character, error) {
-	row := q.db.QueryRow(ctx, createCharacter, character)
+type CreateCharacterParams struct {
+	Character string `json:"character"`
+	Count     int64  `json:"count"`
+}
+
+func (q *Queries) CreateCharacter(ctx context.Context, arg CreateCharacterParams) (Character, error) {
+	row := q.db.QueryRow(ctx, createCharacter, arg.Character, arg.Count)
 	var i Character
-	err := row.Scan(&i.ID, &i.Character)
+	err := row.Scan(&i.ID, &i.Character, &i.Count)
 	return i, err
 }
 
 const getAllCharacter = `-- name: GetAllCharacter :many
-select id, character
+select id, character, count
 from characters
 order by id
 `
@@ -64,7 +69,7 @@ func (q *Queries) GetAllCharacter(ctx context.Context) ([]Character, error) {
 	var items []Character
 	for rows.Next() {
 		var i Character
-		if err := rows.Scan(&i.ID, &i.Character); err != nil {
+		if err := rows.Scan(&i.ID, &i.Character, &i.Count); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -76,7 +81,7 @@ func (q *Queries) GetAllCharacter(ctx context.Context) ([]Character, error) {
 }
 
 const getArchiveCharacters = `-- name: GetArchiveCharacters :many
-select characters.id, characters.character
+select characters.id, characters.character, characters.count
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
@@ -92,7 +97,7 @@ func (q *Queries) GetArchiveCharacters(ctx context.Context, archiveID string) ([
 	var items []Character
 	for rows.Next() {
 		var i Character
-		if err := rows.Scan(&i.ID, &i.Character); err != nil {
+		if err := rows.Scan(&i.ID, &i.Character, &i.Count); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -104,26 +109,42 @@ func (q *Queries) GetArchiveCharacters(ctx context.Context, archiveID string) ([
 }
 
 const getArchivesByCharacter = `-- name: GetArchivesByCharacter :many
-select archives.archive_id
+select archives.id, archives.title, archives.summary, archives.language, archives.category, archives.page_count, archives.file_path, archives.archive_id, archives.hash, archives.thumbs_path, archives.cover_path, archives.type, archives.created_at, archives.updated_at, archives.release_date
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
 where characters.character = $1
 `
 
-func (q *Queries) GetArchivesByCharacter(ctx context.Context, character string) ([]string, error) {
+func (q *Queries) GetArchivesByCharacter(ctx context.Context, character string) ([]Archive, error) {
 	rows, err := q.db.Query(ctx, getArchivesByCharacter, character)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []Archive
 	for rows.Next() {
-		var archive_id string
-		if err := rows.Scan(&archive_id); err != nil {
+		var i Archive
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.ArchiveID,
+			&i.Hash,
+			&i.ThumbsPath,
+			&i.CoverPath,
+			&i.Type,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+		); err != nil {
 			return nil, err
 		}
-		items = append(items, archive_id)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -184,7 +205,7 @@ func (q *Queries) GetArchivesByCharacterList(ctx context.Context, arg GetArchive
 }
 
 const getCharacter = `-- name: GetCharacter :one
-select id, character
+select id, character, count
 from characters
 where character = $1
 `
@@ -192,16 +213,74 @@ where character = $1
 func (q *Queries) GetCharacter(ctx context.Context, character string) (Character, error) {
 	row := q.db.QueryRow(ctx, getCharacter, character)
 	var i Character
-	err := row.Scan(&i.ID, &i.Character)
+	err := row.Scan(&i.ID, &i.Character, &i.Count)
 	return i, err
 }
 
-const removeCharacterFromArchive = `-- name: RemoveCharacterFromArchive :exec
+const removeCharacterFromArchive = `-- name: RemoveCharacterFromArchive :many
 delete from archives_characters
 where archive_id = $1
+returning
+    character_id,
+    (
+        select characters.count
+        from characters
+        where characters.id = archives_characters.character_id
+    )
 `
 
-func (q *Queries) RemoveCharacterFromArchive(ctx context.Context, archiveID int64) error {
-	_, err := q.db.Exec(ctx, removeCharacterFromArchive, archiveID)
+type RemoveCharacterFromArchiveRow struct {
+	CharacterID int64 `json:"character_id"`
+	Count       int64 `json:"count"`
+}
+
+func (q *Queries) RemoveCharacterFromArchive(ctx context.Context, archiveID int64) ([]RemoveCharacterFromArchiveRow, error) {
+	rows, err := q.db.Query(ctx, removeCharacterFromArchive, archiveID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RemoveCharacterFromArchiveRow
+	for rows.Next() {
+		var i RemoveCharacterFromArchiveRow
+		if err := rows.Scan(&i.CharacterID, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const totalArchivesWithCharacter = `-- name: TotalArchivesWithCharacter :one
+select count(archives.archive_id)
+from archives
+join archives_characters on archives.id = archives_characters.archive_id
+join characters on archives_characters.character_id = characters.id
+where characters.character = $1
+`
+
+func (q *Queries) TotalArchivesWithCharacter(ctx context.Context, character string) (int64, error) {
+	row := q.db.QueryRow(ctx, totalArchivesWithCharacter, character)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const updateCharacterCount = `-- name: UpdateCharacterCount :exec
+update characters
+set count = $1
+where id = $2
+`
+
+type UpdateCharacterCountParams struct {
+	Count int64 `json:"count"`
+	ID    int64 `json:"id"`
+}
+
+func (q *Queries) UpdateCharacterCount(ctx context.Context, arg UpdateCharacterCountParams) error {
+	_, err := q.db.Exec(ctx, updateCharacterCount, arg.Count, arg.ID)
 	return err
 }

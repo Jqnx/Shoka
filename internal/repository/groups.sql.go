@@ -187,6 +187,18 @@ func (q *Queries) RemoveArtistsFromGroup(ctx context.Context, groupID int64) err
 	return err
 }
 
+const totalGroups = `-- name: TotalGroups :one
+select count(id)
+from groups
+`
+
+func (q *Queries) TotalGroups(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, totalGroups)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const updateGroup = `-- name: UpdateGroup :one
 update groups
 set name = $1,

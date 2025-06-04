@@ -38,6 +38,11 @@ from groups
 where name = $1
 ;
 
+-- name: TotalGroups :one
+select count(id)
+from groups
+;
+
 -- name: UpdateGroup :one
 update groups
 set name = $1,

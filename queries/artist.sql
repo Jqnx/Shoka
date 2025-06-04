@@ -1,6 +1,6 @@
 -- name: CreateArtist :one
-insert into artists (name, created_at, updated_at)
-values ($1, $2, $3)
+insert into artists (name, count, created_at, updated_at)
+values ($1, $2, $3, $4)
 returning *
 ;
 
@@ -15,19 +15,19 @@ values ($1, $2)
 ;
 
 -- name: GetAllArtists :many
-select id, name, created_at, updated_at
+select id, name, count, created_at, updated_at
 from artists
 order by id
 ;
 
 -- name: GetArtistByName :one
-select id, name, created_at, updated_at
+select id, name, count, created_at, updated_at
 from artists
 where name = $1
 ;
 
 -- name: GetArtistList :many
-select id, name, created_at, updated_at
+select id, name, count, created_at, updated_at
 from artists
 order by $1
 limit $2
@@ -74,6 +74,11 @@ from artist_links
 where link = $1
 ;
 
+-- name: TotalArtists :one
+select count(id)
+from artists
+;
+
 -- name: AddArtistToGroup :exec
 insert into artists_groups (artist_id, group_id)
 values ($1, $2)
@@ -92,9 +97,18 @@ where name = sqlc.arg(old_name)::text
 returning *
 ;
 
--- name: RemoveArtistFromArchive :exec
+-- name: UpdateArtistCount :exec
+update artists
+set count = $1
+where id = $2
+;
+
+-- name: RemoveArtistFromArchive :many
 delete from archives_artists
 where archive_id = $1
+returning
+    artist_id,
+    (select artists.count from artists where artists.id = archives_artists.artist_id)
 ;
 
 -- name: RemoveArtistAliases :exec
@@ -118,7 +132,7 @@ where id = $1
 ;
 
 -- name: GetArchiveArtists :many
-select artists.id, artists.name
+select artists.*
 from archives
 join archives_artists on archives.id = archives_artists.archive_id
 join artists on archives_artists.artist_id = artists.id

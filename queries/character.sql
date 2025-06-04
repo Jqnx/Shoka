@@ -1,6 +1,6 @@
 -- name: CreateCharacter :one
-insert into characters (character)
-values ($1)
+insert into characters (character, count)
+values ($1, $2)
 returning *
 ;
 
@@ -10,13 +10,13 @@ values ($1, $2)
 ;
 
 -- name: GetCharacter :one
-select id, character
+select id, character, count
 from characters
 where character = $1
 ;
 
 -- name: GetAllCharacter :many
-select id, character
+select id, character, count
 from characters
 order by id
 ;
@@ -27,13 +27,20 @@ from characters
 where character = $1
 ;
 
--- name: RemoveCharacterFromArchive :exec
+-- name: RemoveCharacterFromArchive :many
 delete from archives_characters
 where archive_id = $1
+returning
+    character_id,
+    (
+        select characters.count
+        from characters
+        where characters.id = archives_characters.character_id
+    )
 ;
 
 -- name: GetArchiveCharacters :many
-select characters.id, characters.character
+select characters.id, characters.character, characters.count
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
@@ -41,7 +48,7 @@ where archives.archive_id = $1
 ;
 
 -- name: GetArchivesByCharacter :many
-select archives.archive_id
+select archives.*
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
@@ -57,5 +64,19 @@ join characters on archives_characters.character_id = characters.id
 where characters.character = $1
 limit $2
 offset $3
+;
+
+-- name: TotalArchivesWithCharacter :one
+select count(archives.archive_id)
+from archives
+join archives_characters on archives.id = archives_characters.archive_id
+join characters on archives_characters.character_id = characters.id
+where characters.character = $1
+;
+
+-- name: UpdateCharacterCount :exec
+update characters
+set count = $1
+where id = $2
 ;
 

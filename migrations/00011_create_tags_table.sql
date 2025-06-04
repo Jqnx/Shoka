@@ -1,7 +1,8 @@
 -- +goose Up
 CREATE TABLE IF NOT EXISTS tags (
     id bigserial PRIMARY KEY,
-    tag text NOT NULL
+    tag text NOT NULL,
+    count bigint NOT NULL
 );
 
 create unique index idx_tag on tags(tag);

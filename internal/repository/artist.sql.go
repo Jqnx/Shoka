@@ -88,23 +88,30 @@ func (q *Queries) CreateAlias(ctx context.Context, arg CreateAliasParams) error 
 }
 
 const createArtist = `-- name: CreateArtist :one
-insert into artists (name, created_at, updated_at)
-values ($1, $2, $3)
-returning id, name, created_at, updated_at
+insert into artists (name, count, created_at, updated_at)
+values ($1, $2, $3, $4)
+returning id, name, count, created_at, updated_at
 `
 
 type CreateArtistParams struct {
 	Name      string    `json:"name"`
+	Count     int64     `json:"count"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func (q *Queries) CreateArtist(ctx context.Context, arg CreateArtistParams) (Artist, error) {
-	row := q.db.QueryRow(ctx, createArtist, arg.Name, arg.CreatedAt, arg.UpdatedAt)
+	row := q.db.QueryRow(ctx, createArtist,
+		arg.Name,
+		arg.Count,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
 	var i Artist
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.Count,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -137,7 +144,7 @@ func (q *Queries) DeleteArtist(ctx context.Context, id int64) error {
 }
 
 const getAllArtists = `-- name: GetAllArtists :many
-select id, name, created_at, updated_at
+select id, name, count, created_at, updated_at
 from artists
 order by id
 `
@@ -154,6 +161,7 @@ func (q *Queries) GetAllArtists(ctx context.Context) ([]Artist, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
+			&i.Count,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -168,28 +176,29 @@ func (q *Queries) GetAllArtists(ctx context.Context) ([]Artist, error) {
 }
 
 const getArchiveArtists = `-- name: GetArchiveArtists :many
-select artists.id, artists.name
+select artists.id, artists.name, artists.count, artists.created_at, artists.updated_at
 from archives
 join archives_artists on archives.id = archives_artists.archive_id
 join artists on archives_artists.artist_id = artists.id
 where archives.archive_id = $1
 `
 
-type GetArchiveArtistsRow struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
-}
-
-func (q *Queries) GetArchiveArtists(ctx context.Context, archiveID string) ([]GetArchiveArtistsRow, error) {
+func (q *Queries) GetArchiveArtists(ctx context.Context, archiveID string) ([]Artist, error) {
 	rows, err := q.db.Query(ctx, getArchiveArtists, archiveID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetArchiveArtistsRow
+	var items []Artist
 	for rows.Next() {
-		var i GetArchiveArtistsRow
-		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+		var i Artist
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Count,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -233,7 +242,7 @@ func (q *Queries) GetArtistAliases(ctx context.Context, name string) ([]GetArtis
 }
 
 const getArtistByName = `-- name: GetArtistByName :one
-select id, name, created_at, updated_at
+select id, name, count, created_at, updated_at
 from artists
 where name = $1
 `
@@ -244,6 +253,7 @@ func (q *Queries) GetArtistByName(ctx context.Context, name string) (Artist, err
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.Count,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -316,7 +326,7 @@ func (q *Queries) GetArtistLinks(ctx context.Context, name string) ([]GetArtistL
 }
 
 const getArtistList = `-- name: GetArtistList :many
-select id, name, created_at, updated_at
+select id, name, count, created_at, updated_at
 from artists
 order by $1
 limit $2
@@ -341,6 +351,7 @@ func (q *Queries) GetArtistList(ctx context.Context, arg GetArtistListParams) ([
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
+			&i.Count,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -364,14 +375,37 @@ func (q *Queries) RemoveArtistAliases(ctx context.Context, artistID int64) error
 	return err
 }
 
-const removeArtistFromArchive = `-- name: RemoveArtistFromArchive :exec
+const removeArtistFromArchive = `-- name: RemoveArtistFromArchive :many
 delete from archives_artists
 where archive_id = $1
+returning
+    artist_id,
+    (select artists.count from artists where artists.id = archives_artists.artist_id)
 `
 
-func (q *Queries) RemoveArtistFromArchive(ctx context.Context, archiveID int64) error {
-	_, err := q.db.Exec(ctx, removeArtistFromArchive, archiveID)
-	return err
+type RemoveArtistFromArchiveRow struct {
+	ArtistID int64 `json:"artist_id"`
+	Count    int64 `json:"count"`
+}
+
+func (q *Queries) RemoveArtistFromArchive(ctx context.Context, archiveID int64) ([]RemoveArtistFromArchiveRow, error) {
+	rows, err := q.db.Query(ctx, removeArtistFromArchive, archiveID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RemoveArtistFromArchiveRow
+	for rows.Next() {
+		var i RemoveArtistFromArchiveRow
+		if err := rows.Scan(&i.ArtistID, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const removeArtistFromGroup = `-- name: RemoveArtistFromGroup :exec
@@ -394,12 +428,24 @@ func (q *Queries) RemoveArtistLinks(ctx context.Context, artistID int64) error {
 	return err
 }
 
+const totalArtists = `-- name: TotalArtists :one
+select count(id)
+from artists
+`
+
+func (q *Queries) TotalArtists(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, totalArtists)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const updateArtist = `-- name: UpdateArtist :one
 update artists
 set name = $1,
     updated_at = $2
 where name = $3::text
-returning id, name, created_at, updated_at
+returning id, name, count, created_at, updated_at
 `
 
 type UpdateArtistParams struct {
@@ -414,8 +460,25 @@ func (q *Queries) UpdateArtist(ctx context.Context, arg UpdateArtistParams) (Art
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
+		&i.Count,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const updateArtistCount = `-- name: UpdateArtistCount :exec
+update artists
+set count = $1
+where id = $2
+`
+
+type UpdateArtistCountParams struct {
+	Count int64 `json:"count"`
+	ID    int64 `json:"id"`
+}
+
+func (q *Queries) UpdateArtistCount(ctx context.Context, arg UpdateArtistCountParams) error {
+	_, err := q.db.Exec(ctx, updateArtistCount, arg.Count, arg.ID)
+	return err
 }
