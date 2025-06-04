@@ -1,44 +1,47 @@
 package metadata
 
 import (
-	"encoding/xml"
+	"Shoka/internal/models"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 )
 
-type ComicInfo struct {
-	Title      string `xml:"Title"`
-	Summary    string `xml:"Summary"`
-	URL        string `xml:"URL"`
-	Genre      string `xml:"Genre"`
-	Series     string `xml:"Series"`
-	Characters string `xml:"Characters"`
-	Tags       string `xml:"Tags"`
-	Writer     string `xml:"Writer"`
-	Language   string `xml:"LanguageISO"`
-	Year       int    `xml:"Year"`
-	Month      int    `xml:"Month"`
-	Day        int    `xml:"Day"`
+type Form struct {
+	Title       string
+	Summary     string
+	URL         []string
+	Category    string
+	Parody      []string
+	Character   []string
+	Tags        []string
+	Artist      []string
+	Language    string
+	ReleaseDate time.Time
 }
 
-func newComicInfo() *ComicInfo {
-	return &ComicInfo{}
+func newFormMetadata() *Form {
+	return &Form{}
 }
 
-func (m *ComicInfo) Unmarshal(data any) {
-	err := xml.Unmarshal([]byte(data.(string)), &m)
-	if err != nil {
-		log.Println(err)
-	}
+func (m *Form) Unmarshal(data any) {
+	d := data.(models.ArchivePayload)
+	m.Title = d.Title
+	m.Summary = d.Summary
+	m.URL = d.URL
+	m.Category = d.Category
+	m.Parody = d.Parody
+	m.Character = d.Character
+	m.Tags = d.Tags
+	m.Artist = d.Artist
+	m.Language = d.Language
+	m.ReleaseDate = d.ReleaseDate
 }
 
-func (m *ComicInfo) getURL() *[]URL {
+func (m *Form) getURL() *[]URL {
 	var urls []URL
-	list := strings.Split(m.URL, ",")
 
-	for _, item := range list {
+	for _, item := range m.URL {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
 		url := URL{URL: b}
@@ -47,24 +50,22 @@ func (m *ComicInfo) getURL() *[]URL {
 	return &urls
 }
 
-func (m *ComicInfo) getSeries() *[]Parody {
-	var series []Parody
-	list := strings.Split(m.Series, ",")
+func (m *Form) getParody() *[]Parody {
+	var parodies []Parody
 
-	for _, item := range list {
+	for _, item := range m.Parody {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
-		se := Parody{Parody: b}
-		series = append(series, se)
+		parody := Parody{Parody: b}
+		parodies = append(parodies, parody)
 	}
-	return &series
+	return &parodies
 }
 
-func (m *ComicInfo) getCharacters() *[]Character {
+func (m *Form) getCharacters() *[]Character {
 	var characters []Character
-	list := strings.Split(m.Characters, ",")
 
-	for _, item := range list {
+	for _, item := range m.Character {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
 		character := Character{Character: b}
@@ -73,11 +74,10 @@ func (m *ComicInfo) getCharacters() *[]Character {
 	return &characters
 }
 
-func (m *ComicInfo) getTags() *[]Tag {
+func (m *Form) getTags() *[]Tag {
 	var tags []Tag
-	list := strings.Split(m.Tags, ",")
 
-	for _, item := range list {
+	for _, item := range m.Tags {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
 		tag := Tag{Tag: b}
@@ -86,20 +86,20 @@ func (m *ComicInfo) getTags() *[]Tag {
 	return &tags
 }
 
-func (m *ComicInfo) getWriter() *[]Artist {
-	var writers []Artist
-	list := strings.Split(m.Writer, ",")
+func (m *Form) getArtist() *[]Artist {
+	var artists []Artist
 
-	for _, item := range list {
+	for _, item := range m.Artist {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
-		writer := Artist{Artist: b}
-		writers = append(writers, writer)
+		artist := Artist{Artist: b}
+		artists = append(artists, artist)
 	}
-	return &writers
+	return &artists
 }
 
-func (m *ComicInfo) getReleaseDate(year, month, day int) *time.Time {
+// TODO: Fix Release Date
+func (m *Form) getReleaseDate(year, month, day int) *time.Time {
 	switch {
 	case day < 10 && month < 10:
 		dayString := fmt.Sprintf("0%d", day)
@@ -136,23 +136,22 @@ func (m *ComicInfo) getReleaseDate(year, month, day int) *time.Time {
 	}
 }
 
-func (m *ComicInfo) getMetadata() Metadata {
+func (m *Form) getMetadata() Metadata {
 	urls := m.getURL()
-	series := m.getSeries()
+	parodies := m.getParody()
 	characters := m.getCharacters()
 	tags := m.getTags()
-	writers := m.getWriter()
-	releaseDate := m.getReleaseDate(m.Year, m.Month, m.Day)
+	artists := m.getArtist()
 	return Metadata{
 		Title:       m.Title,
 		Summary:     m.Summary,
 		URL:         *urls,
-		Category:    strings.ToLower(m.Genre),
-		Parody:      *series,
+		Category:    m.Category,
+		Parody:      *parodies,
 		Character:   *characters,
 		Tags:        *tags,
-		Artist:      *writers,
-		Language:    strings.ToLower(m.Language),
-		ReleaseDate: *releaseDate,
+		Artist:      *artists,
+		Language:    m.Language,
+		ReleaseDate: m.ReleaseDate,
 	}
 }

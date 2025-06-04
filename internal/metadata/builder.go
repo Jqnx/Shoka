@@ -1,9 +1,11 @@
 package metadata
 
-import "time"
+import (
+	"time"
+)
 
 type IMetadata interface {
-	Unmarshal(data string)
+	Unmarshal(data any)
 	// setTitle(title string)
 	// setSummary()
 	// setPageCount()
@@ -53,6 +55,9 @@ type Artist struct {
 func GetBuilder(builderType string) IMetadata {
 	if builderType == "comicinfo" {
 		return newComicInfo()
+	}
+	if builderType == "form" {
+		return newFormMetadata()
 	}
 	return nil
 }

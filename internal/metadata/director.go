@@ -14,7 +14,7 @@ func (d *Director) setSource(s IMetadata) {
 	d.source = s
 }
 
-func (d *Director) FetchMetadata(data string) Metadata {
+func (d *Director) FetchMetadata(data any) Metadata {
 	d.source.Unmarshal(data)
 	return d.source.getMetadata()
 }
