@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 
-export const usePageStore = defineStore('pageStore', {
+export const usePageStore = defineStore('page', {
   state: () => {
     return {
       currentPage: 1,
