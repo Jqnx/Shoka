@@ -5,7 +5,13 @@ const baseApi = 'http://localhost:8081/api'
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: '2024-11-01',
-  devtools: { enabled: true },
+  devtools: {
+    enabled: true,
+
+    timeline: {
+      enabled: true,
+    },
+  },
   runtimeConfig: {
     baseApi: baseApi,
   },
@@ -21,7 +27,8 @@ export default defineNuxtConfig({
     'shadcn-nuxt',
     '@nuxt/image',
     '@pinia/nuxt',
-    'pinia-plugin-persistedstate/nuxt'
+    'pinia-plugin-persistedstate/nuxt',
+    '@vee-validate/nuxt'
   ],
   css: ['~/assets/css/tailwind.css'],
   vite: {
@@ -45,6 +52,6 @@ export default defineNuxtConfig({
     domains: ['localhost'],
     alias: {
       archive: `${baseApi}/a`,
-    } 
+    }
   },
 })
