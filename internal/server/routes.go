@@ -86,6 +86,11 @@ func (s *Server) RegisterRoutes() http.Handler {
 			language.GET("/", s.getAllLanguageHandler)
 		}
 
+		category := api.Group("/category")
+		{
+			category.GET("/:category", s.getArchiveByCategoryHandler)
+			category.GET("/", s.getAllCategoryHandler)
+		}
 	}
 
 	return r
