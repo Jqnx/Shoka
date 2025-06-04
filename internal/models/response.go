@@ -16,24 +16,23 @@ type ResponseError struct {
 }
 
 type ArchiveResponse struct {
-	ArchiveID string                            `json:"archive_id"`
-	Title     string                            `json:"title"`
-	Summary   *string                           `json:"summary"`
-	Tags      []repository.Tag                  `json:"tags"`
-	Artist    []repository.GetArchiveArtistsRow `json:"artist"`
-	Parody    []repository.Parody               `json:"parody"`
-	Character []repository.Character            `json:"character"`
-	Language  *string                           `json:"language"`
-	Category  *string                           `json:"category"`
-	PageCount int64                             `json:"page_count"`
-	Url       []repository.GetArchiveURLsRow    `json:"url"`
-	Hash      string                            `json:"hash"`
-	Pages     int                               `json:"pages"`
-	// ThumbsPath *string                           `json:"thumbs_path"`
-	Type        string     `json:"type"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ReleaseDate *time.Time `json:"release_date"`
+	ArchiveID   string                            `json:"archive_id"`
+	Title       string                            `json:"title"`
+	Summary     *string                           `json:"summary"`
+	Tags        []repository.Tag                  `json:"tags"`
+	Artist      []repository.GetArchiveArtistsRow `json:"artist"`
+	Parody      []repository.Parody               `json:"parody"`
+	Character   []repository.Character            `json:"character"`
+	Language    *string                           `json:"language"`
+	Category    *string                           `json:"category"`
+	PageCount   int64                             `json:"page_count"`
+	Url         []repository.GetArchiveURLsRow    `json:"url"`
+	Hash        string                            `json:"hash"`
+	Pages       int                               `json:"pages"`
+	Type        string                            `json:"type"`
+	CreatedAt   time.Time                         `json:"created_at"`
+	UpdatedAt   time.Time                         `json:"updated_at"`
+	ReleaseDate *time.Time                        `json:"release_date"`
 }
 
 type ArtistResponse struct {
