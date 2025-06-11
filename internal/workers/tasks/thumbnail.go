@@ -17,10 +17,10 @@ import (
 
 type ThumbnailPayload struct {
 	// ArchivePath string
-	Archive *repository.Archive
+	Archive *repository.GetArchiveByIDRow
 }
 
-func NewThumbnailGenerateTask(arch *repository.Archive) (*asynq.Task, error) {
+func NewThumbnailGenerateTask(arch *repository.GetArchiveByIDRow) (*asynq.Task, error) {
 	// payload, err := json.Marshal(ThumbnailPayload{ArchivePath: archivepath, Archive: arch})
 	payload, err := json.Marshal(ThumbnailPayload{Archive: arch})
 	if err != nil {

@@ -48,7 +48,22 @@ where archives.archive_id = $1
 ;
 
 -- name: GetArchivesByCharacter :many
-select archives.*
+select
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
@@ -57,7 +72,22 @@ where characters.character = $1
 
 
 -- name: GetArchivesByCharacterList :many
-select archives.*
+select
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id

@@ -5,13 +5,43 @@ where category is not null
 ;
 
 -- name: GetArchivesByCategory :many
-select *
+select
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date
 from archives
 where category = $1
 ;
 
 -- name: GetArchivesByCategoryList :many
-select *
+select
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date
 from archives
 where category = $1
 limit $2
@@ -25,7 +55,7 @@ where category = $1
 ;
 
 -- name: CategoryExists :execresult
-select *
+select category
 from archives
 where category = $1
 ;

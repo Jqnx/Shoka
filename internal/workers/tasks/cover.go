@@ -12,10 +12,10 @@ import (
 )
 
 type CreateCoverPayload struct {
-	Archive *repository.Archive
+	Archive *repository.GetArchiveByIDRow
 }
 
-func NewCreateCoverTask(arch *repository.Archive) (*asynq.Task, error) {
+func NewCreateCoverTask(arch *repository.GetArchiveByIDRow) (*asynq.Task, error) {
 	payload, err := json.Marshal(CreateCoverPayload{Archive: arch})
 	if err != nil {
 		return nil, err

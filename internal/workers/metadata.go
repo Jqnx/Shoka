@@ -7,7 +7,7 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-func (w *Workers) Metadata(arch *repository.Archive, src string) {
+func (w *Workers) Metadata(arch *repository.GetArchiveByIDRow, src string) {
 	ac := w.NewAsynqClient()
 	defer ac.Close()
 
@@ -24,7 +24,7 @@ func (c *Client) NewMetadata(src string) {
 	c.app.Log.Info("queued task new metadata:", "id", meta.ID, "queue", meta.Queue, "state", meta.State)
 }
 
-func newMetadataTask(arch *repository.Archive, src string, client *asynq.Client) (*asynq.TaskInfo, error) {
+func newMetadataTask(arch *repository.GetArchiveByIDRow, src string, client *asynq.Client) (*asynq.TaskInfo, error) {
 	newMeta, err := tasks.NewMetadataTask(arch, src)
 	if err != nil {
 		return nil, err

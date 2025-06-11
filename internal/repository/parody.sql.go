@@ -7,6 +7,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -99,22 +100,55 @@ func (q *Queries) GetArchiveParodies(ctx context.Context, archiveID string) ([]P
 }
 
 const getArchivesByParody = `-- name: GetArchivesByParody :many
-select archives.id, archives.title, archives.summary, archives.language, archives.category, archives.page_count, archives.file_path, archives.archive_id, archives.hash, archives.thumbs_path, archives.cover_path, archives.type, archives.created_at, archives.updated_at, archives.release_date
+select
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date
 from archives
 join archives_parodies on archives.id = archives_parodies.archive_id
 join parodies on archives_parodies.parody_id = parodies.id
 where parodies.parody = $1
 `
 
-func (q *Queries) GetArchivesByParody(ctx context.Context, parody string) ([]Archive, error) {
+type GetArchivesByParodyRow struct {
+	ID          int64      `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int64      `json:"page_count"`
+	FilePath    *string    `json:"file_path"`
+	ArchiveID   string     `json:"archive_id"`
+	Hash        string     `json:"hash"`
+	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	Type        string     `json:"type"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+}
+
+func (q *Queries) GetArchivesByParody(ctx context.Context, parody string) ([]GetArchivesByParodyRow, error) {
 	rows, err := q.db.Query(ctx, getArchivesByParody, parody)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Archive
+	var items []GetArchivesByParodyRow
 	for rows.Next() {
-		var i Archive
+		var i GetArchivesByParodyRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
@@ -143,7 +177,22 @@ func (q *Queries) GetArchivesByParody(ctx context.Context, parody string) ([]Arc
 }
 
 const getArchivesByParodyList = `-- name: GetArchivesByParodyList :many
-select archives.id, archives.title, archives.summary, archives.language, archives.category, archives.page_count, archives.file_path, archives.archive_id, archives.hash, archives.thumbs_path, archives.cover_path, archives.type, archives.created_at, archives.updated_at, archives.release_date
+select
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date
 from archives
 join archives_parodies on archives.id = archives_parodies.archive_id
 join parodies on archives_parodies.parody_id = parodies.id
@@ -158,15 +207,33 @@ type GetArchivesByParodyListParams struct {
 	Offset int32  `json:"offset"`
 }
 
-func (q *Queries) GetArchivesByParodyList(ctx context.Context, arg GetArchivesByParodyListParams) ([]Archive, error) {
+type GetArchivesByParodyListRow struct {
+	ID          int64      `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int64      `json:"page_count"`
+	FilePath    *string    `json:"file_path"`
+	ArchiveID   string     `json:"archive_id"`
+	Hash        string     `json:"hash"`
+	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	Type        string     `json:"type"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+}
+
+func (q *Queries) GetArchivesByParodyList(ctx context.Context, arg GetArchivesByParodyListParams) ([]GetArchivesByParodyListRow, error) {
 	rows, err := q.db.Query(ctx, getArchivesByParodyList, arg.Parody, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Archive
+	var items []GetArchivesByParodyListRow
 	for rows.Next() {
-		var i Archive
+		var i GetArchivesByParodyListRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,

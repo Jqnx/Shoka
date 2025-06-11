@@ -7,6 +7,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -38,20 +39,53 @@ func (q *Queries) GetAllLanguage(ctx context.Context) ([]*string, error) {
 }
 
 const getArchivesByLanguage = `-- name: GetArchivesByLanguage :many
-select id, title, summary, language, category, page_count, file_path, archive_id, hash, thumbs_path, cover_path, type, created_at, updated_at, release_date
+select
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date
 from archives
 where language = $1
 `
 
-func (q *Queries) GetArchivesByLanguage(ctx context.Context, language *string) ([]Archive, error) {
+type GetArchivesByLanguageRow struct {
+	ID          int64      `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int64      `json:"page_count"`
+	FilePath    *string    `json:"file_path"`
+	ArchiveID   string     `json:"archive_id"`
+	Hash        string     `json:"hash"`
+	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	Type        string     `json:"type"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+}
+
+func (q *Queries) GetArchivesByLanguage(ctx context.Context, language *string) ([]GetArchivesByLanguageRow, error) {
 	rows, err := q.db.Query(ctx, getArchivesByLanguage, language)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Archive
+	var items []GetArchivesByLanguageRow
 	for rows.Next() {
-		var i Archive
+		var i GetArchivesByLanguageRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
@@ -80,7 +114,22 @@ func (q *Queries) GetArchivesByLanguage(ctx context.Context, language *string) (
 }
 
 const getArchivesByLanguageList = `-- name: GetArchivesByLanguageList :many
-select id, title, summary, language, category, page_count, file_path, archive_id, hash, thumbs_path, cover_path, type, created_at, updated_at, release_date
+select
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date
 from archives
 where language = $1
 limit $2
@@ -93,15 +142,33 @@ type GetArchivesByLanguageListParams struct {
 	Offset   int32   `json:"offset"`
 }
 
-func (q *Queries) GetArchivesByLanguageList(ctx context.Context, arg GetArchivesByLanguageListParams) ([]Archive, error) {
+type GetArchivesByLanguageListRow struct {
+	ID          int64      `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int64      `json:"page_count"`
+	FilePath    *string    `json:"file_path"`
+	ArchiveID   string     `json:"archive_id"`
+	Hash        string     `json:"hash"`
+	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	Type        string     `json:"type"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+}
+
+func (q *Queries) GetArchivesByLanguageList(ctx context.Context, arg GetArchivesByLanguageListParams) ([]GetArchivesByLanguageListRow, error) {
 	rows, err := q.db.Query(ctx, getArchivesByLanguageList, arg.Language, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Archive
+	var items []GetArchivesByLanguageListRow
 	for rows.Next() {
-		var i Archive
+		var i GetArchivesByLanguageListRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
@@ -130,7 +197,7 @@ func (q *Queries) GetArchivesByLanguageList(ctx context.Context, arg GetArchives
 }
 
 const languageExists = `-- name: LanguageExists :execresult
-select id, title, summary, language, category, page_count, file_path, archive_id, hash, thumbs_path, cover_path, type, created_at, updated_at, release_date
+select language
 from archives
 where language = $1
 `

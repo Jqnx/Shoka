@@ -23,7 +23,7 @@ func NewWorkers(app *config.App, force bool, ctx context.Context) *Workers {
 // NewArchives scans for archives that are not in the database
 // then adds them and generates covers for them
 func (w *Workers) NewArchives() {
-	var payload repository.Archive
+	var payload repository.GetArchiveByIDRow
 	s := w.app.Noti.Listen("notifyarchives")
 
 	ac := w.NewAsynqClient()

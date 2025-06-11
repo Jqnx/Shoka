@@ -9,21 +9,22 @@ import (
 )
 
 type Archive struct {
-	ID          int64      `json:"id"`
-	Title       string     `json:"title"`
-	Summary     *string    `json:"summary"`
-	Language    *string    `json:"language"`
-	Category    *string    `json:"category"`
-	PageCount   int64      `json:"page_count"`
-	FilePath    *string    `json:"file_path"`
-	ArchiveID   string     `json:"archive_id"`
-	Hash        string     `json:"hash"`
-	ThumbsPath  *string    `json:"thumbs_path"`
-	CoverPath   *string    `json:"cover_path"`
-	Type        string     `json:"type"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ReleaseDate *time.Time `json:"release_date"`
+	ID           int64       `json:"id"`
+	Title        string      `json:"title"`
+	Summary      *string     `json:"summary"`
+	Language     *string     `json:"language"`
+	Category     *string     `json:"category"`
+	PageCount    int64       `json:"page_count"`
+	FilePath     *string     `json:"file_path"`
+	ArchiveID    string      `json:"archive_id"`
+	Hash         string      `json:"hash"`
+	ThumbsPath   *string     `json:"thumbs_path"`
+	CoverPath    *string     `json:"cover_path"`
+	Type         string      `json:"type"`
+	CreatedAt    time.Time   `json:"created_at"`
+	UpdatedAt    time.Time   `json:"updated_at"`
+	ReleaseDate  *time.Time  `json:"release_date"`
+	SearchVector interface{} `json:"search_vector"`
 }
 
 type ArchivesArtist struct {
@@ -100,4 +101,14 @@ type Url struct {
 	ID        int64  `json:"id"`
 	Url       string `json:"url"`
 	ArchiveID int64  `json:"archive_id"`
+}
+
+type User struct {
+	ID            int64      `json:"id"`
+	Name          string     `json:"name"`
+	Password      string     `json:"password"`
+	Session       *string    `json:"session"`
+	SessionExpiry *time.Time `json:"session_expiry"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 }

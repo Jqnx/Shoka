@@ -10,14 +10,28 @@ insert into archives (
     hash,
     thumbs_path,
     cover_path,
--- pages_path,
     type,
     created_at,
     updated_at,
     release_date
     )
 values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-returning *
+returning
+    id,
+    title,
+    summary,
+    language,
+    category,
+    page_count,
+    file_path,
+    archive_id,
+    hash,
+    thumbs_path,
+    cover_path,
+    type,
+    created_at,
+    updated_at,
+    release_date
 ;
 
 -- name: GetLastArchiveID :one
@@ -28,28 +42,111 @@ limit 1
 ;
 
 -- name: GetArchiveByID :one
-select *
+select
+    id,
+    title,
+    summary,
+    language,
+    category,
+    page_count,
+    file_path,
+    archive_id,
+    hash,
+    thumbs_path,
+    cover_path,
+    type,
+    created_at,
+    updated_at,
+    release_date
 from archives
 where archive_id = $1
 ;
 
 -- name: GetArchiveByFilePath :one
-select *
+select
+    id,
+    title,
+    summary,
+    language,
+    category,
+    page_count,
+    file_path,
+    archive_id,
+    hash,
+    thumbs_path,
+    cover_path,
+    type,
+    created_at,
+    updated_at,
+    release_date
 from archives
 where file_path = $1
 ;
 
 -- name: GetAllArchives :many
-select *
+select
+    id,
+    title,
+    summary,
+    language,
+    category,
+    page_count,
+    file_path,
+    archive_id,
+    hash,
+    thumbs_path,
+    cover_path,
+    type,
+    created_at,
+    updated_at,
+    release_date
 from archives
 order by archive_id
 ;
 
 -- name: GetArchiveList :many
-select *
+select
+    id,
+    title,
+    summary,
+    language,
+    category,
+    page_count,
+    file_path,
+    archive_id,
+    hash,
+    thumbs_path,
+    cover_path,
+    type,
+    created_at,
+    updated_at,
+    release_date
 from archives
 limit $1
 offset $2
+;
+
+-- name: SearchArchives :many
+select
+    id,
+    title,
+    summary,
+    language,
+    category,
+    page_count,
+    file_path,
+    archive_id,
+    hash,
+    thumbs_path,
+    cover_path,
+    type,
+    created_at,
+    updated_at,
+    release_date,
+    ts_rank_cd(search_vector, query) as rank
+from archives, websearch_to_tsquery('english', $1) query
+where search_vector @@ query
+order by rank desc
 ;
 
 -- name: ArchiveExists :execresult
@@ -90,7 +187,22 @@ set title = coalesce(sqlc.narg('title'), title),
     updated_at = coalesce($1, updated_at),
     release_date = coalesce(sqlc.narg('release_date'), release_date)
 where archive_id = $2
-returning *
+returning
+    id,
+    title,
+    summary,
+    language,
+    category,
+    page_count,
+    file_path,
+    archive_id,
+    hash,
+    thumbs_path,
+    cover_path,
+    type,
+    created_at,
+    updated_at,
+    release_date
 ;
 
 -- name: UpdateThumbPath :exec

@@ -17,11 +17,11 @@ import (
 )
 
 type MetadataPayload struct {
-	Archive *repository.Archive
+	Archive *repository.GetArchiveByIDRow
 	Source  string
 }
 
-func NewMetadataTask(arch *repository.Archive, src string) (*asynq.Task, error) {
+func NewMetadataTask(arch *repository.GetArchiveByIDRow, src string) (*asynq.Task, error) {
 	payload, err := json.Marshal(MetadataPayload{Archive: arch, Source: src})
 	if err != nil {
 		return nil, err

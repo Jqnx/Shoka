@@ -13,7 +13,7 @@ import (
 
 // TODO: REDO
 
-func (w *Workers) Thumbs(arch *repository.Archive) {
+func (w *Workers) Thumbs(arch *repository.GetArchiveByIDRow) {
 	ac := w.NewAsynqClient()
 	defer ac.Close()
 
@@ -71,7 +71,7 @@ func (c *Client) NewThumb() {
 	}
 }
 
-func newThumbTask(arch *repository.Archive, client *asynq.Client) (*asynq.TaskInfo, error) {
+func newThumbTask(arch *repository.GetArchiveByIDRow, client *asynq.Client) (*asynq.TaskInfo, error) {
 	newThumbs, err := tasks.NewThumbnailGenerateTask(arch)
 	if err != nil {
 		return nil, err

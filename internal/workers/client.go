@@ -10,10 +10,10 @@ import (
 type Client struct {
 	client *asynq.Client
 	app    *config.App
-	arch   *repository.Archive
+	arch   *repository.GetArchiveByIDRow
 }
 
-func NewClient(client *asynq.Client, app *config.App, arch *repository.Archive) *Client {
+func NewClient(client *asynq.Client, app *config.App, arch *repository.GetArchiveByIDRow) *Client {
 	return &Client{
 		client: client,
 		app:    app,

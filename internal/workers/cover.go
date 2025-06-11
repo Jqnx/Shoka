@@ -12,7 +12,7 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-func (w *Workers) Covers(ch chan *asynq.TaskInfo, arch *repository.Archive) {
+func (w *Workers) Covers(ch chan *asynq.TaskInfo, arch *repository.GetArchiveByIDRow) {
 	ac := w.NewAsynqClient()
 	defer ac.Close()
 
@@ -95,7 +95,7 @@ func (c *Client) NewCover(force bool) *asynq.TaskInfo {
 
 // newCoverTask creates and queues a NewCreateCoverTask
 // returns the TaskInfo and an error
-func newCoverTask(arch *repository.Archive, client *asynq.Client) (*asynq.TaskInfo, error) {
+func newCoverTask(arch *repository.GetArchiveByIDRow, client *asynq.Client) (*asynq.TaskInfo, error) {
 	newCovers, err := tasks.NewCreateCoverTask(arch)
 	if err != nil {
 		return nil, err

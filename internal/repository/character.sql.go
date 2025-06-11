@@ -7,6 +7,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 )
@@ -109,22 +110,55 @@ func (q *Queries) GetArchiveCharacters(ctx context.Context, archiveID string) ([
 }
 
 const getArchivesByCharacter = `-- name: GetArchivesByCharacter :many
-select archives.id, archives.title, archives.summary, archives.language, archives.category, archives.page_count, archives.file_path, archives.archive_id, archives.hash, archives.thumbs_path, archives.cover_path, archives.type, archives.created_at, archives.updated_at, archives.release_date
+select
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
 where characters.character = $1
 `
 
-func (q *Queries) GetArchivesByCharacter(ctx context.Context, character string) ([]Archive, error) {
+type GetArchivesByCharacterRow struct {
+	ID          int64      `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int64      `json:"page_count"`
+	FilePath    *string    `json:"file_path"`
+	ArchiveID   string     `json:"archive_id"`
+	Hash        string     `json:"hash"`
+	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	Type        string     `json:"type"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+}
+
+func (q *Queries) GetArchivesByCharacter(ctx context.Context, character string) ([]GetArchivesByCharacterRow, error) {
 	rows, err := q.db.Query(ctx, getArchivesByCharacter, character)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Archive
+	var items []GetArchivesByCharacterRow
 	for rows.Next() {
-		var i Archive
+		var i GetArchivesByCharacterRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
@@ -153,7 +187,22 @@ func (q *Queries) GetArchivesByCharacter(ctx context.Context, character string) 
 }
 
 const getArchivesByCharacterList = `-- name: GetArchivesByCharacterList :many
-select archives.id, archives.title, archives.summary, archives.language, archives.category, archives.page_count, archives.file_path, archives.archive_id, archives.hash, archives.thumbs_path, archives.cover_path, archives.type, archives.created_at, archives.updated_at, archives.release_date
+select
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
@@ -168,15 +217,33 @@ type GetArchivesByCharacterListParams struct {
 	Offset    int32  `json:"offset"`
 }
 
-func (q *Queries) GetArchivesByCharacterList(ctx context.Context, arg GetArchivesByCharacterListParams) ([]Archive, error) {
+type GetArchivesByCharacterListRow struct {
+	ID          int64      `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int64      `json:"page_count"`
+	FilePath    *string    `json:"file_path"`
+	ArchiveID   string     `json:"archive_id"`
+	Hash        string     `json:"hash"`
+	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	Type        string     `json:"type"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+}
+
+func (q *Queries) GetArchivesByCharacterList(ctx context.Context, arg GetArchivesByCharacterListParams) ([]GetArchivesByCharacterListRow, error) {
 	rows, err := q.db.Query(ctx, getArchivesByCharacterList, arg.Character, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Archive
+	var items []GetArchivesByCharacterListRow
 	for rows.Next() {
-		var i Archive
+		var i GetArchivesByCharacterListRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
