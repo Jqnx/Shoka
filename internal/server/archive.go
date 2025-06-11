@@ -280,6 +280,23 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+func (s *Server) searchArchiveHandler(c *gin.Context) {
+	query := c.Query("q")
+
+	ctx := context.Background()
+
+	archives, err := s.repo.SearchArchives(ctx, query)
+	if err != nil {
+		c.JSON(http.StatusNotFound, &models.ResponseError{
+			Status:  "error",
+			Message: config.ErrArchiveNotFound.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, archives)
+}
+
 // Update
 func (s *Server) updateArchiveHandler(c *gin.Context) {
 	var payload models.ArchivePayload
@@ -343,25 +360,25 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 
 // Delete
 
-func (s *Server) deleteArchiveHandler(c *gin.Context) {
-	id := c.Param("id")
-
-	ctx := context.Background()
-	if err := archive.DeleteTransaction(ctx, s.db, s.repo, id, s.log); err != nil {
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
-				Status:  "error",
-				Message: config.ErrArchiveNotFound.Error(),
-			})
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": "success"})
-}
+//func (s *Server) deleteArchiveHandler(c *gin.Context) {
+//	id := c.Param("id")
+//
+//	ctx := context.Background()
+//	if err := archive.DeleteTransaction(ctx, s.db, s.repo, id, s.log); err != nil {
+//		if err == pgx.ErrNoRows {
+//			c.JSON(http.StatusNotFound, &models.ResponseError{
+//				Status:  "error",
+//				Message: config.ErrArchiveNotFound.Error(),
+//			})
+//			return
+//		} else {
+//			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+//				Status:  "error",
+//				Message: err.Error(),
+//			})
+//			return
+//		}
+//	}
+//
+//	c.JSON(http.StatusOK, gin.H{"status": "success"})
+//}
