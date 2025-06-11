@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS archives (
     id bigserial PRIMARY KEY,
     title text NOT NULL,
     summary text,
-    language varchar(2),
+    language varchar(8),
     category text,
     page_count bigint NOT NULL DEFAULT 0,
     file_path text UNIQUE,

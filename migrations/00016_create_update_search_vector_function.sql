@@ -41,15 +41,14 @@ BEGIN
     WHERE arp.archive_id = p_archive_id;
 
     UPDATE archives
-    SET search_vector = to_tsvector('english',
-        COALESCE(v_archive_title, '') || ' ' ||
-        COALESCE(v_archive_language, '') || ' ' ||
-        COALESCE(v_archive_category, '') || ' ' ||
-        COALESCE(v_tags_string, '') || ' ' ||
-        COALESCE(v_artists_string, '') || ' ' ||
-		    COALESCE(v_characters_string, '') || ' ' ||
-        COALESCE(v_parodies_string, '')
-    )
+    SET search_vector = 
+        setweight(to_tsvector('english', COALESCE(v_archive_title, '')), 'A') ||
+        setweight(to_tsvector('english', COALESCE(v_archive_language, '')), 'B') ||
+        setweight(to_tsvector('english', COALESCE(v_archive_category, '')), 'B') ||
+        setweight(to_tsvector('english', COALESCE(v_tags_string, '')), 'B') ||
+        setweight(to_tsvector('english', COALESCE(v_artists_string, '')), 'B') ||
+        setweight(to_tsvector('english', COALESCE(v_characters_string, '')), 'B') ||
+        setweight(to_tsvector('english', COALESCE(v_parodies_string, '')), 'B')
     WHERE id = p_archive_id;
 END;
 $$
