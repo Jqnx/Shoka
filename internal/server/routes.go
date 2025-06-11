@@ -1,8 +1,10 @@
 package server
 
 import (
+	"Shoka/internal/server/middleware"
 	"net/http"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -11,13 +13,13 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
-	//r.Use(cors.Default())
-	//r.Use(cors.New(cors.Config{
-	//	AllowOrigins:     []string{"*"},
-	//	AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
-	//	AllowHeaders:     []string{"Accept", "Authorization", "Content-Type", "Origin"},
-	//	AllowCredentials: true,
-	//}))
+	r.Use(cors.Default())
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
+		AllowHeaders:     []string{"Accept", "Authorization", "Content-Type", "Origin"},
+		AllowCredentials: true,
+	}))
 
 	r.StaticFS("/thumb", http.Dir("./thumb"))
 	// Actual API
@@ -27,6 +29,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		archive := api.Group("/a")
 		{
 			archive.GET("/", s.getArchiveListHandler)
+			archive.GET("/search", s.searchArchiveHandler)
 			archive.GET("/:id", s.getArchiveHandler)
 			archive.GET("/:id/cover", s.getCoverHandler)
 			archive.GET("/:id/:page", s.getThumbHandler)
@@ -90,6 +93,14 @@ func (s *Server) RegisterRoutes() http.Handler {
 		{
 			category.GET("/:category", s.getArchiveByCategoryHandler)
 			category.GET("/", s.getAllCategoryHandler)
+		}
+
+		auth := api.Group("/auth")
+		{
+			auth.POST("/register", s.registerUser)
+			auth.POST("/login", s.signInUser)
+			auth.GET("/session", middleware.Auth(s.repo), s.getSession)
+			auth.POST("/logout", middleware.Auth(s.repo), s.signOutUser)
 		}
 	}
 

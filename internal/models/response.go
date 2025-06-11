@@ -51,6 +51,12 @@ type GroupResponse struct {
 	UpdatedAt time.Time                       `json:"updated_at"`
 }
 
+type UserResponse struct {
+	ID        int64     `json:"user_id"`
+	Name      string    `json:"username"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type Page struct {
 	Height int `json:"h"`
 	Width  int `json:"w"`
