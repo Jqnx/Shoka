@@ -17,7 +17,7 @@ type Form struct {
 	Tags        []string
 	Artist      []string
 	Language    string
-	ReleaseDate time.Time
+	ReleaseDate *time.Time
 }
 
 func newFormMetadata() *Form {

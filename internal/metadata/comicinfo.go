@@ -153,6 +153,6 @@ func (m *ComicInfo) getMetadata() Metadata {
 		Tags:        *tags,
 		Artist:      *writers,
 		Language:    strings.ToLower(m.Language),
-		ReleaseDate: *releaseDate,
+		ReleaseDate: releaseDate,
 	}
 }

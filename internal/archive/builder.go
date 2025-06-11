@@ -218,7 +218,7 @@ func (a *ArchiveBuilder) UpdateArchive(id string, meta *metadata.Metadata) Archi
 	a.setParody(&meta.Parody)
 	a.setCharacter(&meta.Character)
 	a.setArtist(&meta.Artist)
-	a.setReleaseDate(&meta.ReleaseDate)
+	a.setReleaseDate(meta.ReleaseDate)
 	a.setUpdatedAt()
 	return a.getArchive()
 }

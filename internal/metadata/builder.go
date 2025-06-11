@@ -29,7 +29,7 @@ type Metadata struct {
 	Tags        []Tag
 	Artist      []Artist
 	Language    string
-	ReleaseDate time.Time
+	ReleaseDate *time.Time
 }
 
 type URL struct {
