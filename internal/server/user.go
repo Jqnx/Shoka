@@ -138,7 +138,7 @@ func (s *Server) signInUser(c *gin.Context) {
 	})
 }
 
-func (s *Server) getSession(c *gin.Context) {
+func (s *Server) getUserSession(c *gin.Context) {
 	ctx := context.Background()
 	username := c.GetString("username")
 
@@ -185,5 +185,101 @@ func (s *Server) signOutUser(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"status": "Successfully logged out.",
+	})
+}
+
+func (s *Server) updateUserHandler(c *gin.Context) {
+	var payload models.UpdateUserPayload
+	if errPost := c.ShouldBind(&payload); errPost != nil {
+		var verr validator.ValidationErrors
+		if errors.As(errPost, &verr) {
+			c.JSON(http.StatusBadRequest, &models.ResponseFail{
+				Status: "fail",
+				Data:   config.Validate(verr),
+			})
+			return
+		}
+
+		c.JSON(http.StatusBadRequest, &models.ResponseFail{
+			Status: "fail",
+			Data:   errPost.Error(),
+		})
+		return
+	}
+
+	ctx := context.Background()
+	username := c.GetString("username")
+
+	user, err := s.repo.GetUserByName(ctx, username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	if payload.Password != nil {
+		passHash, err := bcrypt.GenerateFromPassword([]byte(*payload.Password), 10)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+
+		pass := string(passHash)
+
+		_, err = s.repo.UpdateUser(ctx, repository.UpdateUserParams{
+			ID:       user.ID,
+			Name:     payload.Name,
+			Password: &pass,
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+	} else {
+		_, err = s.repo.UpdateUser(ctx, repository.UpdateUserParams{
+			ID:   user.ID,
+			Name: payload.Name,
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+	}
+}
+
+func (s *Server) deleteUserHandler(c *gin.Context) {
+	ctx := context.Background()
+	username := c.GetString("username")
+
+	user, err := s.repo.GetUserByName(ctx, username)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	if err := s.repo.DeleteUser(ctx, user.ID); err != nil {
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "User sucessfully deleted.",
 	})
 }

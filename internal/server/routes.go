@@ -99,8 +99,14 @@ func (s *Server) RegisterRoutes() http.Handler {
 		{
 			auth.POST("/register", s.registerUser)
 			auth.POST("/login", s.signInUser)
-			auth.GET("/session", middleware.Auth(s.repo), s.getSession)
+			auth.GET("/session", middleware.Auth(s.repo), s.getUserSession)
 			auth.POST("/logout", middleware.Auth(s.repo), s.signOutUser)
+		}
+
+		user := api.Group("/user")
+		{
+			user.PUT("/update", middleware.Auth(s.repo), s.updateUserHandler)
+			user.DELETE("/delete", middleware.Auth(s.repo), s.deleteUserHandler)
 		}
 	}
 

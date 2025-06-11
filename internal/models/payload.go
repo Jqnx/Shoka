@@ -32,3 +32,8 @@ type UserPayload struct {
 	Name     string `json:"username" form:"username" binding:"required"`
 	Password string `json:"password" form:"password" binding:"required"`
 }
+
+type UpdateUserPayload struct {
+	Name     *string `json:"username" form:"username"`
+	Password *string `json:"password" form:"password"`
+}
