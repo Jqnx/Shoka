@@ -47,6 +47,16 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const deleteUser = `-- name: DeleteUser :exec
+delete from users
+where id = $1
+`
+
+func (q *Queries) DeleteUser(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, deleteUser, id)
+	return err
+}
+
 const getUserByID = `-- name: GetUserByID :one
 select id, name, password, session, session_expiry, created_at, updated_at
 from users
@@ -126,4 +136,40 @@ type UpdateSessionParams struct {
 func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) error {
 	_, err := q.db.Exec(ctx, updateSession, arg.Session, arg.SessionExpiry, arg.ID)
 	return err
+}
+
+const updateUser = `-- name: UpdateUser :one
+update users
+set name = coalesce($3, name),
+    password = coalesce($4, password),
+    updated_at = coalesce($1, updated_at)
+where id = $2
+returning id, name, password, session, session_expiry, created_at, updated_at
+`
+
+type UpdateUserParams struct {
+	UpdatedAt time.Time `json:"updated_at"`
+	ID        int64     `json:"id"`
+	Name      *string   `json:"name"`
+	Password  *string   `json:"password"`
+}
+
+func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUser,
+		arg.UpdatedAt,
+		arg.ID,
+		arg.Name,
+		arg.Password,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Password,
+		&i.Session,
+		&i.SessionExpiry,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }

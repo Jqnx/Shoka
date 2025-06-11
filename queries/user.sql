@@ -32,3 +32,17 @@ set session = $1,
 where id = $3
 ;
 
+-- name: UpdateUser :one
+update users
+set name = coalesce(sqlc.narg('name'), name),
+    password = coalesce(sqlc.narg('password'), password),
+    updated_at = coalesce($1, updated_at)
+where id = $2
+returning *
+;
+
+-- name: DeleteUser :exec
+delete from users
+where id = $1
+;
+
