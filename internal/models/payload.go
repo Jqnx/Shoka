@@ -37,3 +37,12 @@ type UpdateUserPayload struct {
 	Name     *string `json:"username" form:"username"`
 	Password *string `json:"password" form:"password"`
 }
+
+type ArchiveFilters struct {
+	Tags       []string `json:"tags" form:"tags"`
+	Artists    []string `json:"artists" form:"artists"`
+	Characters []string `json:"characters" form:"characters"`
+	Parodies   []string `json:"parodies" form:"parodies"`
+	Languages  []string `json:"languages" form:"languages"`
+	Categories []string `json:"categories" form:"categories"`
+}
