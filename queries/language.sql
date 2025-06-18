@@ -25,6 +25,12 @@ from archives
 where language = $1
 ;
 
+-- name: GetArchiveIDsByLanguage :many
+select archives.archive_id
+from archives
+where language = $1
+;
+
 -- name: GetArchivesByLanguageList :many
 select
     archives.id,

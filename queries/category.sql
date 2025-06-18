@@ -25,6 +25,12 @@ from archives
 where category = $1
 ;
 
+-- name: GetArchiveIDsByCategory :many
+select archives.archive_id
+from archives
+where category = $1
+;
+
 -- name: GetArchivesByCategoryList :many
 select
     archives.id,

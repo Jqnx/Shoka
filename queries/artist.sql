@@ -139,3 +139,59 @@ join artists on archives_artists.artist_id = artists.id
 where archives.archive_id = $1
 ;
 
+-- name: GetArchivesByArtist :many
+select
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date
+from archives
+join archives_artists on archives.id = archives_artists.archive_id
+join artists on archives_artists.artist_id = artists.id
+where artists.name = $1
+;
+
+-- name: GetArchivesByArtistList :many
+select
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date
+from archives
+join archives_artists on archives.id = archives_artists.archive_id
+join artists on archives_artists.artist_id = artists.id
+where artists.name = $1
+limit $2
+offset $3
+;
+
+-- name: GetArchiveIDsByArtist :many
+select archives.archive_id
+from archives
+join archives_artists on archives.id = archives_artists.archive_id
+join artists on archives_artists.artist_id = artists.id
+where artists.name = $1
+;
+

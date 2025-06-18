@@ -64,6 +64,15 @@ join tags on archives_tags.tag_id = tags.id
 where tags.tag = $1
 ;
 
+
+-- name: GetArchiveIDsByTag :many
+select archives.archive_id
+from archives
+join archives_tags on archives.id = archives_tags.archive_id
+join tags on archives_tags.tag_id = tags.id
+where tags.tag = $1
+;
+
 -- name: GetArchivesByTagList :many
 select
     archives.id,
@@ -88,6 +97,7 @@ where tags.tag = $1
 limit $2
 offset $3
 ;
+
 
 -- name: TotalArchivesWithTag :one
 select count(archives.archive_id)
