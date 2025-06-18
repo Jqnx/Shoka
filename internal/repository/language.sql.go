@@ -38,6 +38,32 @@ func (q *Queries) GetAllLanguage(ctx context.Context) ([]*string, error) {
 	return items, nil
 }
 
+const getArchiveIDsByLanguage = `-- name: GetArchiveIDsByLanguage :many
+select archives.archive_id
+from archives
+where language = $1
+`
+
+func (q *Queries) GetArchiveIDsByLanguage(ctx context.Context, language *string) ([]string, error) {
+	rows, err := q.db.Query(ctx, getArchiveIDsByLanguage, language)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var archive_id string
+		if err := rows.Scan(&archive_id); err != nil {
+			return nil, err
+		}
+		items = append(items, archive_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArchivesByLanguage = `-- name: GetArchivesByLanguage :many
 select
     archives.id,

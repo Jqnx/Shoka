@@ -71,6 +71,34 @@ func (q *Queries) GetAllParodies(ctx context.Context) ([]Parody, error) {
 	return items, nil
 }
 
+const getArchiveIDsByParody = `-- name: GetArchiveIDsByParody :many
+select archives.archive_id
+from archives
+join archives_parodies on archives.id = archives_parodies.archive_id
+join parodies on archives_parodies.parody_id = parodies.id
+where parodies.parody = $1
+`
+
+func (q *Queries) GetArchiveIDsByParody(ctx context.Context, parody string) ([]string, error) {
+	rows, err := q.db.Query(ctx, getArchiveIDsByParody, parody)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var archive_id string
+		if err := rows.Scan(&archive_id); err != nil {
+			return nil, err
+		}
+		items = append(items, archive_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArchiveParodies = `-- name: GetArchiveParodies :many
 select parodies.id, parodies.parody, parodies.count
 from archives

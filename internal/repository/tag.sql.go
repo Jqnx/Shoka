@@ -71,6 +71,34 @@ func (q *Queries) GetAllTags(ctx context.Context) ([]Tag, error) {
 	return items, nil
 }
 
+const getArchiveIDsByTag = `-- name: GetArchiveIDsByTag :many
+select archives.archive_id
+from archives
+join archives_tags on archives.id = archives_tags.archive_id
+join tags on archives_tags.tag_id = tags.id
+where tags.tag = $1
+`
+
+func (q *Queries) GetArchiveIDsByTag(ctx context.Context, tag string) ([]string, error) {
+	rows, err := q.db.Query(ctx, getArchiveIDsByTag, tag)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var archive_id string
+		if err := rows.Scan(&archive_id); err != nil {
+			return nil, err
+		}
+		items = append(items, archive_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArchiveTags = `-- name: GetArchiveTags :many
 select tags.id, tags.tag, tags.count
 from archives

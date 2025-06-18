@@ -109,6 +109,34 @@ func (q *Queries) GetArchiveCharacters(ctx context.Context, archiveID string) ([
 	return items, nil
 }
 
+const getArchiveIDsByCharacter = `-- name: GetArchiveIDsByCharacter :many
+select archives.archive_id
+from archives
+join archives_characters on archives.id = archives_characters.archive_id
+join characters on archives_characters.character_id = characters.id
+where characters.character = $1
+`
+
+func (q *Queries) GetArchiveIDsByCharacter(ctx context.Context, character string) ([]string, error) {
+	rows, err := q.db.Query(ctx, getArchiveIDsByCharacter, character)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var archive_id string
+		if err := rows.Scan(&archive_id); err != nil {
+			return nil, err
+		}
+		items = append(items, archive_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArchivesByCharacter = `-- name: GetArchivesByCharacter :many
 select
     archives.id,
