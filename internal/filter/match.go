@@ -4,7 +4,13 @@ import (
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
 	"Shoka/internal/util"
+	"context"
 )
+
+type ArchiveList struct {
+	Archives []repository.GetArchivesFilterSortListRow `json:"archives"`
+	Count    int                                       `json:"total"`
+}
 
 func matchArtistsTags(in models.ArchiveFilters, qtx *repository.Queries) ([]string, error) {
 	tags, err := fetchTags(in.Tags, qtx)
@@ -65,4 +71,28 @@ func Match(in models.ArchiveFilters, qtx *repository.Queries) ([]string, error) 
 	aTcP := util.MatchStringsInSlices(artistsTags, charactersParodies)
 	match := util.MatchStringsInSlices(aTcP, languagesCategories)
 	return match, nil
+}
+
+func MatchAndGet(in models.ArchiveFilters, qtx *repository.Queries, page, pageSize int, order string) (*ArchiveList, error) {
+	ctx := context.Background()
+	list, err := Match(in, qtx)
+	if err != nil {
+		return nil, err
+	}
+
+	archives, err := qtx.GetArchivesFilterSortList(ctx, repository.GetArchivesFilterSortListParams{
+		Ids:     list,
+		OrderBy: order,
+		Limit:   int32(pageSize),
+		Offset:  (int32(page) - 1) * int32(pageSize),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	results := &ArchiveList{
+		Archives: archives,
+		Count:    len(list),
+	}
+	return results, nil
 }
