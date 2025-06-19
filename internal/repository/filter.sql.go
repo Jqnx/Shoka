@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-const getArchivesFilterSortList = `-- name: GetArchivesFilterSortList :many
+const getArchiveSortList = `-- name: GetArchiveSortList :many
 select
     id,
     title,
@@ -30,23 +30,126 @@ select
 from archives
 order by
     case when $3::text = 'title_asc' then title end asc,
-    case when $3 = 'title_desc' then title end desc,
+    case when $3 = 'title_desc' then title end desc nulls last,
     case when $3 = 'page_count_asc' then page_count end asc,
-    case when $3 = 'page_count_desc' then page_count end desc,
+    case when $3 = 'page_count_desc' then page_count end desc nulls last,
     case when $3 = 'created_at_asc' then created_at end asc,
-    case when $3 = 'created_at_desc' then created_at end desc,
+    case when $3 = 'created_at_desc' then created_at end desc nulls last,
     case when $3 = 'updated_at_asc' then updated_at end asc,
-    case when $3 = 'updated_at_desc' then updated_at end desc,
+    case when $3 = 'updated_at_desc' then updated_at end desc nulls last,
     case when $3 = 'release_date_asc' then release_date end asc,
-    case when $3 = 'release_date_desc' then release_date end desc
+    case when $3 = 'release_date_desc' then release_date end desc nulls last
+limit $1
+offset $2
+`
+
+type GetArchiveSortListParams struct {
+	Limit   int32  `json:"limit"`
+	Offset  int32  `json:"offset"`
+	OrderBy string `json:"order_by"`
+}
+
+type GetArchiveSortListRow struct {
+	ID          int64      `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int64      `json:"page_count"`
+	FilePath    *string    `json:"file_path"`
+	ArchiveID   string     `json:"archive_id"`
+	Hash        string     `json:"hash"`
+	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	Type        string     `json:"type"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+}
+
+func (q *Queries) GetArchiveSortList(ctx context.Context, arg GetArchiveSortListParams) ([]GetArchiveSortListRow, error) {
+	rows, err := q.db.Query(ctx, getArchiveSortList, arg.Limit, arg.Offset, arg.OrderBy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchiveSortListRow
+	for rows.Next() {
+		var i GetArchiveSortListRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.ArchiveID,
+			&i.Hash,
+			&i.ThumbsPath,
+			&i.CoverPath,
+			&i.Type,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArchivesFilterSortList = `-- name: GetArchivesFilterSortList :many
+select
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date
+from archives
+where archives.archive_id = any($3::text[])
+order by
+    case when $4::text = 'title_asc' then archives.title end asc,
+    case when $4 = 'title_desc' then archives.title end desc nulls last,
+    case when $4 = 'page_count_asc' then archives.page_count end asc,
+    case
+        when $4 = 'page_count_desc' then archives.page_count
+    end desc nulls last,
+    case when $4 = 'created_at_asc' then archives.created_at end asc,
+    case
+        when $4 = 'created_at_desc' then archives.created_at
+    end desc nulls last,
+    case when $4 = 'updated_at_asc' then archives.updated_at end asc,
+    case
+        when $4 = 'updated_at_desc' then archives.updated_at
+    end desc nulls last,
+    case when $4 = 'release_date_asc' then archives.release_date end asc,
+    case
+        when $4 = 'release_date_desc' then archives.release_date
+    end desc nulls last
 limit $1
 offset $2
 `
 
 type GetArchivesFilterSortListParams struct {
-	Limit   int32  `json:"limit"`
-	Offset  int32  `json:"offset"`
-	OrderBy string `json:"order_by"`
+	Limit   int32    `json:"limit"`
+	Offset  int32    `json:"offset"`
+	Ids     []string `json:"ids"`
+	OrderBy string   `json:"order_by"`
 }
 
 type GetArchivesFilterSortListRow struct {
@@ -67,43 +170,13 @@ type GetArchivesFilterSortListRow struct {
 	ReleaseDate *time.Time `json:"release_date"`
 }
 
-// select
-// archives.id,
-// archives.title,
-// archives.summary,
-// archives.language,
-// archives.category,
-// archives.page_count,
-// archives.file_path,
-// archives.archive_id,
-// archives.hash,
-// archives.thumbs_path,
-// archives.cover_path,
-// archives.type,
-// archives.created_at,
-// archives.updated_at,
-// archives.release_date
-// from archives
-// join archives_tags on archives.id = archives_tags.archive_id
-// join tags on archives_tags.tag_id = tags.id
-// where (sqlc.narg('tags')::text[] is null or tags.tag =
-// any(sqlc.narg('tags')::text[]))
-// order by
-// case when @order_by::text = 'title_asc' then archives.title end asc,
-// case when @order_by = 'title_desc' then archives.title end desc,
-// case when @order_by = 'page_count_asc' then archives.page_count end asc,
-// case when @order_by = 'page_count_desc' then archives.page_count end desc,
-// case when @order_by = 'created_at_asc' then archives.created_at end asc,
-// case when @order_by = 'created_at_desc' then archives.created_at end desc,
-// case when @order_by = 'updated_at_asc' then archives.updated_at end asc,
-// case when @order_by = 'updated_at_desc' then archives.updated_at end desc,
-// case when @order_by = 'release_date_asc' then archives.release_date end asc,
-// case when @order_by = 'release_date_desc' then archives.release_date end desc
-// limit $1
-// offset $2
-// ;
 func (q *Queries) GetArchivesFilterSortList(ctx context.Context, arg GetArchivesFilterSortListParams) ([]GetArchivesFilterSortListRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesFilterSortList, arg.Limit, arg.Offset, arg.OrderBy)
+	rows, err := q.db.Query(ctx, getArchivesFilterSortList,
+		arg.Limit,
+		arg.Offset,
+		arg.Ids,
+		arg.OrderBy,
+	)
 	if err != nil {
 		return nil, err
 	}
