@@ -8,26 +8,46 @@
     PaginationPrevious,
   } from "@/components/ui/pagination";
 
-  const { currentPage } = storeToRefs(usePageStore());
+  const { currentPage, pageSize } = storeToRefs(usePageStore());
+  const { sortBy, sortDir, filters } = storeToRefs(useFiltersStore());
 
-  const pageSize = ref(30);
-  const { data: archives } = await useFetch("/api/a", {
-    query: { page: currentPage, size: pageSize },
-    key: "archives",
+  const { data: archives } = await useAsyncData(
+    "archives",
+    () =>
+      $fetch("/api/a/filter", {
+        method: "POST",
+        query: {
+          page: currentPage.value,
+          size: pageSize.value,
+          sortby: sortBy.value,
+          sortdir: sortDir.value,
+        },
+        body: {
+          tags: filters.value.tags,
+          artists: filters.value.artists,
+          characters: filters.value.characters,
+          parodies: filters.value.parodies,
+          languages: filters.value.languages,
+          categories: filters.value.categories,
+        },
+      }),
+    { watch: [sortBy, sortDir, currentPage] }
+  );
+
+  const router = useRouter();
+  router.beforeResolve((_) => {
+    currentPage.value = 1;
   });
 </script>
 
 <template>
   <div class="flex flex-1 flex-col gap-4 p-4 pt-0">
     <!--TODO: Filter options here -->
+    <ListOptions class="px-16" />
     <div
       class="px-16 py-4 grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-      <div
-        v-for="archive in archives.archives"
-        :key="archive.id">
-        <GalleryItem
-          :id="archive.archive_id"
-          :title="archive.title" />
+      <div v-for="archive in archives.archives" :key="archive.id">
+        <GalleryItem :id="archive.archive_id" :title="archive.title" />
       </div>
     </div>
     <Pagination
@@ -41,9 +61,7 @@
         <PaginationFirst />
         <PaginationPrevious />
 
-        <template
-          v-for="(item, index) in items"
-          :key="index">
+        <template v-for="(item, index) in items" :key="index">
           <PaginationItem
             v-if="item.type == 'page'"
             :key="index"
@@ -51,10 +69,7 @@
             :is-active="item.value == currentPage">
             {{ item.value }}
           </PaginationItem>
-          <PaginationEllipsis
-            v-else
-            :key="item.type"
-            :index="index" />
+          <PaginationEllipsis v-else :key="item.type" :index="index" />
         </template>
 
         <PaginationNext />
