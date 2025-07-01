@@ -13,10 +13,6 @@
     type SidebarProps,
   } from "@/components/ui/sidebar";
   import {
-    BookOpen,
-    Command,
-    Settings2,
-    Book,
     Library,
     Image,
     Images,
@@ -27,23 +23,25 @@
     User,
     Tag,
     PersonStanding,
+    LibrarySquare,
   } from "lucide-vue-next";
 
   const props = withDefaults(defineProps<SidebarProps>(), {
     variant: "inset",
   });
 
+  const { data: user } = useAuthState();
+
   const data = {
     user: {
-      name: "user",
-      email: "user@example.com",
+      name: user.value?.username,
       avatar: "",
     },
     navMain: [
       {
         title: "Archives",
         url: "/a",
-        icon: Library,
+        icon: BookImage,
         isActive: true,
       },
       {
@@ -64,7 +62,7 @@
       {
         title: "Tankoubons",
         url: "#",
-        icon: BookImage,
+        icon: LibrarySquare,
       },
     ],
     navSecondary: [
@@ -102,13 +100,11 @@
     <SidebarHeader>
       <SidebarMenu>
         <SidebarMenuItem>
-          <SidebarMenuButton
-            size="lg"
-            as-child>
+          <SidebarMenuButton size="lg" as-child>
             <NuxtLink to="/">
               <div
                 class="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-sidebar-primary-foreground">
-                <Album class="size-4" />
+                <Library class="size-4" />
               </div>
               <div class="grid flex-1 text-left text-sm leading-tight">
                 <span class="truncate font-medium">Shoka</span>
@@ -119,12 +115,8 @@
       </SidebarMenu>
     </SidebarHeader>
     <SidebarContent>
-      <NavMain
-        label="Media"
-        :items="data.navMain" />
-      <NavMain
-        label="Metadata"
-        :items="data.navSecondary" />
+      <NavMain label="Media" :items="data.navMain" />
+      <NavMain label="Metadata" :items="data.navSecondary" />
 
       <!--
       <NavSecondary :items="data.navSecondary" class="mt-auto" />

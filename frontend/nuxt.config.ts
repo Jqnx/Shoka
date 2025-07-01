@@ -28,7 +28,9 @@ export default defineNuxtConfig({
     '@nuxt/image',
     '@pinia/nuxt',
     'pinia-plugin-persistedstate/nuxt',
-    '@vee-validate/nuxt'
+    '@vee-validate/nuxt',
+    'vue-sonner/nuxt',
+    '@sidebase/nuxt-auth',
   ],
   css: ['~/assets/css/tailwind.css'],
   vite: {
@@ -54,4 +56,35 @@ export default defineNuxtConfig({
       archive: `${baseApi}/a`,
     }
   },
+  auth: {
+    isEnabled: true,
+    provider: {
+      type: 'local',
+      endpoints: {
+        signIn: { path: '/login', method: 'post'},
+        signUp: { path: '/register', method: 'post'},
+        signOut: { path: '/logout', method: 'post'},
+        getSession: { path: '/session', method: 'get'}
+      },
+      token: {
+        signInResponseTokenPointer: '/token',
+        type: 'Bearer',
+        cookieName: 'auth.token',
+        headerName: 'Authorization',
+        maxAgeInSeconds: 259200,
+        sameSiteAttribute: 'lax',
+        cookieDomain: '',
+        secureCookieAttribute: false,
+        httpOnlyCookieAttribute: false,
+      },
+      session: {
+        dataType: {
+          id: 'number',
+          username: 'string',
+          created_at: 'string,'
+        }
+      }
+    },
+    globalAppMiddleware: true,
+  }
 })
