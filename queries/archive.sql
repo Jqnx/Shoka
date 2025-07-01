@@ -150,6 +150,37 @@ where search_vector @@ query
 order by rank desc
 ;
 
+-- name: CountSearchArchives :many
+select count(*)
+from archives, websearch_to_tsquery('english', $1) query
+where search_vector @@ query
+;
+
+-- name: SearchArchivesList :many
+select
+    id,
+    title,
+    summary,
+    language,
+    category,
+    page_count,
+    file_path,
+    archive_id,
+    hash,
+    thumbs_path,
+    cover_path,
+    type,
+    created_at,
+    updated_at,
+    release_date,
+    ts_rank_cd(search_vector, query) as rank
+from archives, websearch_to_tsquery('english', $1) query
+where search_vector @@ query
+order by rank desc
+limit $2
+offset $3
+;
+
 -- name: ArchiveExists :execresult
 select title
 from archives
