@@ -4,8 +4,9 @@
 </script>
 
 <template>
+  <NuxtLoadingIndicator />
   <NuxtLayout>
     <NuxtPage />
   </NuxtLayout>
-  <Toaster />
+  <Toaster rich-colors close-button theme="dark" />
 </template>
