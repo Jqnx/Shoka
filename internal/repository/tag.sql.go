@@ -28,27 +28,27 @@ func (q *Queries) AddTagToArchive(ctx context.Context, arg AddTagToArchiveParams
 }
 
 const createTag = `-- name: CreateTag :one
-insert into tags (tag, count)
+insert into tags (name, count)
 values ($1, $2)
-returning id, tag, count
+returning id, name, count
 `
 
 type CreateTagParams struct {
-	Tag   string `json:"tag"`
+	Name  string `json:"name"`
 	Count int64  `json:"count"`
 }
 
 func (q *Queries) CreateTag(ctx context.Context, arg CreateTagParams) (Tag, error) {
-	row := q.db.QueryRow(ctx, createTag, arg.Tag, arg.Count)
+	row := q.db.QueryRow(ctx, createTag, arg.Name, arg.Count)
 	var i Tag
-	err := row.Scan(&i.ID, &i.Tag, &i.Count)
+	err := row.Scan(&i.ID, &i.Name, &i.Count)
 	return i, err
 }
 
 const getAllTags = `-- name: GetAllTags :many
-select id, tag, count
+select id, name, count
 from tags
-order by tag
+order by name
 `
 
 func (q *Queries) GetAllTags(ctx context.Context) ([]Tag, error) {
@@ -60,7 +60,7 @@ func (q *Queries) GetAllTags(ctx context.Context) ([]Tag, error) {
 	var items []Tag
 	for rows.Next() {
 		var i Tag
-		if err := rows.Scan(&i.ID, &i.Tag, &i.Count); err != nil {
+		if err := rows.Scan(&i.ID, &i.Name, &i.Count); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -76,11 +76,11 @@ select archives.archive_id
 from archives
 join archives_tags on archives.id = archives_tags.archive_id
 join tags on archives_tags.tag_id = tags.id
-where tags.tag = $1
+where tags.name = $1
 `
 
-func (q *Queries) GetArchiveIDsByTag(ctx context.Context, tag string) ([]string, error) {
-	rows, err := q.db.Query(ctx, getArchiveIDsByTag, tag)
+func (q *Queries) GetArchiveIDsByTag(ctx context.Context, name string) ([]string, error) {
+	rows, err := q.db.Query(ctx, getArchiveIDsByTag, name)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func (q *Queries) GetArchiveIDsByTag(ctx context.Context, tag string) ([]string,
 }
 
 const getArchiveTags = `-- name: GetArchiveTags :many
-select tags.id, tags.tag, tags.count
+select tags.id, tags.name, tags.count
 from archives
 join archives_tags on archives.id = archives_tags.archive_id
 join tags on archives_tags.tag_id = tags.id
@@ -116,7 +116,7 @@ func (q *Queries) GetArchiveTags(ctx context.Context, archiveID string) ([]Tag, 
 	var items []Tag
 	for rows.Next() {
 		var i Tag
-		if err := rows.Scan(&i.ID, &i.Tag, &i.Count); err != nil {
+		if err := rows.Scan(&i.ID, &i.Name, &i.Count); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -147,7 +147,7 @@ select
 from archives
 join archives_tags on archives.id = archives_tags.archive_id
 join tags on archives_tags.tag_id = tags.id
-where tags.tag = $1
+where tags.name = $1
 `
 
 type GetArchivesByTagRow struct {
@@ -168,8 +168,8 @@ type GetArchivesByTagRow struct {
 	ReleaseDate *time.Time `json:"release_date"`
 }
 
-func (q *Queries) GetArchivesByTag(ctx context.Context, tag string) ([]GetArchivesByTagRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByTag, tag)
+func (q *Queries) GetArchivesByTag(ctx context.Context, name string) ([]GetArchivesByTagRow, error) {
+	rows, err := q.db.Query(ctx, getArchivesByTag, name)
 	if err != nil {
 		return nil, err
 	}
@@ -224,13 +224,13 @@ select
 from archives
 join archives_tags on archives.id = archives_tags.archive_id
 join tags on archives_tags.tag_id = tags.id
-where tags.tag = $1
+where tags.name = $1
 limit $2
 offset $3
 `
 
 type GetArchivesByTagListParams struct {
-	Tag    string `json:"tag"`
+	Name   string `json:"name"`
 	Limit  int32  `json:"limit"`
 	Offset int32  `json:"offset"`
 }
@@ -254,7 +254,7 @@ type GetArchivesByTagListRow struct {
 }
 
 func (q *Queries) GetArchivesByTagList(ctx context.Context, arg GetArchivesByTagListParams) ([]GetArchivesByTagListRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByTagList, arg.Tag, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, getArchivesByTagList, arg.Name, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -290,15 +290,15 @@ func (q *Queries) GetArchivesByTagList(ctx context.Context, arg GetArchivesByTag
 }
 
 const getTag = `-- name: GetTag :one
-select id, tag, count
+select id, name, count
 from tags
-where tag = $1
+where name = $1
 `
 
-func (q *Queries) GetTag(ctx context.Context, tag string) (Tag, error) {
-	row := q.db.QueryRow(ctx, getTag, tag)
+func (q *Queries) GetTag(ctx context.Context, name string) (Tag, error) {
+	row := q.db.QueryRow(ctx, getTag, name)
 	var i Tag
-	err := row.Scan(&i.ID, &i.Tag, &i.Count)
+	err := row.Scan(&i.ID, &i.Name, &i.Count)
 	return i, err
 }
 
@@ -334,13 +334,13 @@ func (q *Queries) RemoveTagFromArchive(ctx context.Context, archiveID int64) ([]
 }
 
 const tagExists = `-- name: TagExists :execresult
-select id, tag
+select id, name
 from tags
-where tag = $1
+where name = $1
 `
 
-func (q *Queries) TagExists(ctx context.Context, tag string) (pgconn.CommandTag, error) {
-	return q.db.Exec(ctx, tagExists, tag)
+func (q *Queries) TagExists(ctx context.Context, name string) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, tagExists, name)
 }
 
 const totalArchivesWithTag = `-- name: TotalArchivesWithTag :one
@@ -348,11 +348,11 @@ select count(archives.archive_id)
 from archives
 join archives_tags on archives.id = archives_tags.archive_id
 join tags on archives_tags.tag_id = tags.id
-where tags.tag = $1
+where tags.name = $1
 `
 
-func (q *Queries) TotalArchivesWithTag(ctx context.Context, tag string) (int64, error) {
-	row := q.db.QueryRow(ctx, totalArchivesWithTag, tag)
+func (q *Queries) TotalArchivesWithTag(ctx context.Context, name string) (int64, error) {
+	row := q.db.QueryRow(ctx, totalArchivesWithTag, name)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

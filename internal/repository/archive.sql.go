@@ -44,6 +44,32 @@ func (q *Queries) CountArchives(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countSearchArchives = `-- name: CountSearchArchives :many
+select count(*)
+from archives, websearch_to_tsquery('english', $1) query
+where search_vector @@ query
+`
+
+func (q *Queries) CountSearchArchives(ctx context.Context, websearchToTsquery string) ([]int64, error) {
+	rows, err := q.db.Query(ctx, countSearchArchives, websearchToTsquery)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var count int64
+		if err := rows.Scan(&count); err != nil {
+			return nil, err
+		}
+		items = append(items, count)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createArchive = `-- name: CreateArchive :one
 insert into archives (
     title,
@@ -518,6 +544,93 @@ func (q *Queries) SearchArchives(ctx context.Context, websearchToTsquery string)
 	var items []SearchArchivesRow
 	for rows.Next() {
 		var i SearchArchivesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.ArchiveID,
+			&i.Hash,
+			&i.ThumbsPath,
+			&i.CoverPath,
+			&i.Type,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+			&i.Rank,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchArchivesList = `-- name: SearchArchivesList :many
+select
+    id,
+    title,
+    summary,
+    language,
+    category,
+    page_count,
+    file_path,
+    archive_id,
+    hash,
+    thumbs_path,
+    cover_path,
+    type,
+    created_at,
+    updated_at,
+    release_date,
+    ts_rank_cd(search_vector, query) as rank
+from archives, websearch_to_tsquery('english', $1) query
+where search_vector @@ query
+order by rank desc
+limit $2
+offset $3
+`
+
+type SearchArchivesListParams struct {
+	WebsearchToTsquery string `json:"websearch_to_tsquery"`
+	Limit              int32  `json:"limit"`
+	Offset             int32  `json:"offset"`
+}
+
+type SearchArchivesListRow struct {
+	ID          int64      `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int64      `json:"page_count"`
+	FilePath    *string    `json:"file_path"`
+	ArchiveID   string     `json:"archive_id"`
+	Hash        string     `json:"hash"`
+	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	Type        string     `json:"type"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+	Rank        float32    `json:"rank"`
+}
+
+func (q *Queries) SearchArchivesList(ctx context.Context, arg SearchArchivesListParams) ([]SearchArchivesListRow, error) {
+	rows, err := q.db.Query(ctx, searchArchivesList, arg.WebsearchToTsquery, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchArchivesListRow
+	for rows.Next() {
+		var i SearchArchivesListRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,

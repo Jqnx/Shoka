@@ -28,35 +28,35 @@ func (q *Queries) AddCharacterToArchive(ctx context.Context, arg AddCharacterToA
 }
 
 const characterExists = `-- name: CharacterExists :execresult
-select id, character
+select id, name
 from characters
-where character = $1
+where name = $1
 `
 
-func (q *Queries) CharacterExists(ctx context.Context, character string) (pgconn.CommandTag, error) {
-	return q.db.Exec(ctx, characterExists, character)
+func (q *Queries) CharacterExists(ctx context.Context, name string) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, characterExists, name)
 }
 
 const createCharacter = `-- name: CreateCharacter :one
-insert into characters (character, count)
+insert into characters (name, count)
 values ($1, $2)
-returning id, character, count
+returning id, name, count
 `
 
 type CreateCharacterParams struct {
-	Character string `json:"character"`
-	Count     int64  `json:"count"`
+	Name  string `json:"name"`
+	Count int64  `json:"count"`
 }
 
 func (q *Queries) CreateCharacter(ctx context.Context, arg CreateCharacterParams) (Character, error) {
-	row := q.db.QueryRow(ctx, createCharacter, arg.Character, arg.Count)
+	row := q.db.QueryRow(ctx, createCharacter, arg.Name, arg.Count)
 	var i Character
-	err := row.Scan(&i.ID, &i.Character, &i.Count)
+	err := row.Scan(&i.ID, &i.Name, &i.Count)
 	return i, err
 }
 
 const getAllCharacter = `-- name: GetAllCharacter :many
-select id, character, count
+select id, name, count
 from characters
 order by id
 `
@@ -70,7 +70,7 @@ func (q *Queries) GetAllCharacter(ctx context.Context) ([]Character, error) {
 	var items []Character
 	for rows.Next() {
 		var i Character
-		if err := rows.Scan(&i.ID, &i.Character, &i.Count); err != nil {
+		if err := rows.Scan(&i.ID, &i.Name, &i.Count); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -82,7 +82,7 @@ func (q *Queries) GetAllCharacter(ctx context.Context) ([]Character, error) {
 }
 
 const getArchiveCharacters = `-- name: GetArchiveCharacters :many
-select characters.id, characters.character, characters.count
+select characters.id, characters.name, characters.count
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
@@ -98,7 +98,7 @@ func (q *Queries) GetArchiveCharacters(ctx context.Context, archiveID string) ([
 	var items []Character
 	for rows.Next() {
 		var i Character
-		if err := rows.Scan(&i.ID, &i.Character, &i.Count); err != nil {
+		if err := rows.Scan(&i.ID, &i.Name, &i.Count); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -114,11 +114,11 @@ select archives.archive_id
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
-where characters.character = $1
+where characters.name = $1
 `
 
-func (q *Queries) GetArchiveIDsByCharacter(ctx context.Context, character string) ([]string, error) {
-	rows, err := q.db.Query(ctx, getArchiveIDsByCharacter, character)
+func (q *Queries) GetArchiveIDsByCharacter(ctx context.Context, name string) ([]string, error) {
+	rows, err := q.db.Query(ctx, getArchiveIDsByCharacter, name)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ select
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
-where characters.character = $1
+where characters.name = $1
 `
 
 type GetArchivesByCharacterRow struct {
@@ -178,8 +178,8 @@ type GetArchivesByCharacterRow struct {
 	ReleaseDate *time.Time `json:"release_date"`
 }
 
-func (q *Queries) GetArchivesByCharacter(ctx context.Context, character string) ([]GetArchivesByCharacterRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByCharacter, character)
+func (q *Queries) GetArchivesByCharacter(ctx context.Context, name string) ([]GetArchivesByCharacterRow, error) {
+	rows, err := q.db.Query(ctx, getArchivesByCharacter, name)
 	if err != nil {
 		return nil, err
 	}
@@ -234,15 +234,15 @@ select
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
-where characters.character = $1
+where characters.name = $1
 limit $2
 offset $3
 `
 
 type GetArchivesByCharacterListParams struct {
-	Character string `json:"character"`
-	Limit     int32  `json:"limit"`
-	Offset    int32  `json:"offset"`
+	Name   string `json:"name"`
+	Limit  int32  `json:"limit"`
+	Offset int32  `json:"offset"`
 }
 
 type GetArchivesByCharacterListRow struct {
@@ -264,7 +264,7 @@ type GetArchivesByCharacterListRow struct {
 }
 
 func (q *Queries) GetArchivesByCharacterList(ctx context.Context, arg GetArchivesByCharacterListParams) ([]GetArchivesByCharacterListRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByCharacterList, arg.Character, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, getArchivesByCharacterList, arg.Name, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -300,15 +300,15 @@ func (q *Queries) GetArchivesByCharacterList(ctx context.Context, arg GetArchive
 }
 
 const getCharacter = `-- name: GetCharacter :one
-select id, character, count
+select id, name, count
 from characters
-where character = $1
+where name = $1
 `
 
-func (q *Queries) GetCharacter(ctx context.Context, character string) (Character, error) {
-	row := q.db.QueryRow(ctx, getCharacter, character)
+func (q *Queries) GetCharacter(ctx context.Context, name string) (Character, error) {
+	row := q.db.QueryRow(ctx, getCharacter, name)
 	var i Character
-	err := row.Scan(&i.ID, &i.Character, &i.Count)
+	err := row.Scan(&i.ID, &i.Name, &i.Count)
 	return i, err
 }
 
@@ -354,11 +354,11 @@ select count(archives.archive_id)
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
-where characters.character = $1
+where characters.name = $1
 `
 
-func (q *Queries) TotalArchivesWithCharacter(ctx context.Context, character string) (int64, error) {
-	row := q.db.QueryRow(ctx, totalArchivesWithCharacter, character)
+func (q *Queries) TotalArchivesWithCharacter(ctx context.Context, name string) (int64, error) {
+	row := q.db.QueryRow(ctx, totalArchivesWithCharacter, name)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

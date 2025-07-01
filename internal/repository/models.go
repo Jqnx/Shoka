@@ -73,9 +73,9 @@ type ArtistsGroup struct {
 }
 
 type Character struct {
-	ID        int64  `json:"id"`
-	Character string `json:"character"`
-	Count     int64  `json:"count"`
+	ID    int64  `json:"id"`
+	Name  string `json:"name"`
+	Count int64  `json:"count"`
 }
 
 type Group struct {
@@ -86,14 +86,14 @@ type Group struct {
 }
 
 type Parody struct {
-	ID     int64  `json:"id"`
-	Parody string `json:"parody"`
-	Count  int64  `json:"count"`
+	ID    int64  `json:"id"`
+	Name  string `json:"name"`
+	Count int64  `json:"count"`
 }
 
 type Tag struct {
 	ID    int64  `json:"id"`
-	Tag   string `json:"tag"`
+	Name  string `json:"name"`
 	Count int64  `json:"count"`
 }
 

@@ -10,6 +10,91 @@ import (
 	"time"
 )
 
+const getArchiveSort = `-- name: GetArchiveSort :many
+select
+    id,
+    title,
+    summary,
+    language,
+    category,
+    page_count,
+    file_path,
+    archive_id,
+    hash,
+    thumbs_path,
+    cover_path,
+    type,
+    created_at,
+    updated_at,
+    release_date
+from archives
+order by
+    case when $1::text = 'title_asc' then title end asc,
+    case when $1 = 'title_desc' then title end desc nulls last,
+    case when $1 = 'page_count_asc' then page_count end asc,
+    case when $1 = 'page_count_desc' then page_count end desc nulls last,
+    case when $1 = 'created_at_asc' then created_at end asc,
+    case when $1 = 'created_at_desc' then created_at end desc nulls last,
+    case when $1 = 'updated_at_asc' then updated_at end asc,
+    case when $1 = 'updated_at_desc' then updated_at end desc nulls last,
+    case when $1 = 'release_date_asc' then release_date end asc,
+    case when $1 = 'release_date_desc' then release_date end desc nulls last
+`
+
+type GetArchiveSortRow struct {
+	ID          int64      `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int64      `json:"page_count"`
+	FilePath    *string    `json:"file_path"`
+	ArchiveID   string     `json:"archive_id"`
+	Hash        string     `json:"hash"`
+	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	Type        string     `json:"type"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+}
+
+func (q *Queries) GetArchiveSort(ctx context.Context, orderBy string) ([]GetArchiveSortRow, error) {
+	rows, err := q.db.Query(ctx, getArchiveSort, orderBy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchiveSortRow
+	for rows.Next() {
+		var i GetArchiveSortRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.ArchiveID,
+			&i.Hash,
+			&i.ThumbsPath,
+			&i.CoverPath,
+			&i.Type,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArchiveSortList = `-- name: GetArchiveSortList :many
 select
     id,
