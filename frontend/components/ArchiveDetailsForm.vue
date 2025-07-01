@@ -25,10 +25,21 @@
     TagsInputItemDelete,
     TagsInputItemText,
   } from "@/components/ui/tags-input";
+  import {
+    Combobox,
+    ComboboxAnchor,
+    ComboboxEmpty,
+    ComboboxGroup,
+    ComboboxInput,
+    ComboboxItem,
+    ComboboxList,
+  } from "@/components/ui/combobox";
   import { Textarea } from "@/components/ui/textarea";
-  import { toast } from "vue-sonner";
   import { Calendar } from "@/components/ui/calendar";
-  import { CalendarIcon } from "lucide-vue-next";
+  import { ArrowLeft, CalendarIcon } from "lucide-vue-next";
+  import { useFilter } from "reka-ui";
+  import ComboboxViewport from "./ui/combobox/ComboboxViewport.vue";
+  import { toast } from "vue-sonner";
 
   const { data: archive } = useNuxtData("archive");
 
@@ -115,30 +126,123 @@
   });
 
   const placeholder = ref();
+  const { contains } = useFilter({ sensitivity: "base" });
+
+  const { data: allArtists } = await useLazyFetch("/api/artist");
+  const openArtist = ref(false);
+  const searchArtist = ref("");
+  const filteredArtists = computed(() => {
+    const options = allArtists.value.filter(
+      (i: { name: string }) => !values.artist?.includes(i.name)
+    );
+    return searchArtist.value
+      ? options.filter((option: { name: string }) =>
+          contains(option.name, searchArtist.value)
+        )
+      : options;
+  });
+
+  const { data: allTags } = await useLazyFetch("/api/tag");
+  const openTag = ref(false);
+  const searchTag = ref("");
+  const filteredTags = computed(() => {
+    const options = allTags.value.filter(
+      (i: { tag: string }) => !values.tags?.includes(i.tag)
+    );
+    return searchTag.value
+      ? options.filter((option: { tag: string }) =>
+          contains(option.tag, searchTag.value)
+        )
+      : options;
+  });
+
+  const { data: allParodies } = await useLazyFetch("/api/parody");
+  const openParody = ref(false);
+  const searchParody = ref("");
+  const filteredParodies = computed(() => {
+    const options = allParodies.value.filter(
+      (i: { parody: string }) => !values.parody?.includes(i.parody)
+    );
+    return searchParody.value
+      ? options.filter((option: { parody: string }) =>
+          contains(option.parody, searchParody.value)
+        )
+      : options;
+  });
+
+  const { data: allCharacters } = await useLazyFetch("/api/character");
+  const openCharacter = ref(false);
+  const searchCharacter = ref("");
+  const filteredCharacters = computed(() => {
+    const options = allCharacters.value.filter(
+      (i: { character: string }) => !values.character?.includes(i.character)
+    );
+    return searchCharacter.value
+      ? options.filter((option: { character: string }) =>
+          contains(option.character, searchCharacter.value)
+        )
+      : options;
+  });
+
+  const { data: allLanguages } = await useLazyFetch("/api/lang");
+  const openLanguage = ref(false);
+  const searchLanguage = ref("");
+  const filteredLanguages = computed(() => {
+    const options = allLanguages.value.filter(
+      (i: string) => !values.language?.includes(i)
+    );
+    return searchLanguage.value
+      ? options.filter((option: string) =>
+          contains(option, searchLanguage.value)
+        )
+      : options;
+  });
+
+  const { data: allCategories } = await useLazyFetch("/api/category");
+  const openCategory = ref(false);
+  const searchCategory = ref("");
+  const filteredCategories = computed(() => {
+    const options = allCategories.value.filter(
+      (i: string) => !values.category?.includes(i)
+    );
+    return searchCategory.value
+      ? options.filter((option: string) =>
+          contains(option, searchCategory.value)
+        )
+      : options;
+  });
 
   const id = useRoute().params.id;
   const onSubmit = handleSubmit((values) => {
-    const res = $fetch(`/api/a/${id}`, {
+    $fetch(`/api/a/${id}`, {
       method: "PUT",
       body: JSON.stringify(values, null, 2),
-      onResponse() {
-        // refresh nuxt data on response
-        console.log(res);
+      onResponseError({ response }) {
+        const err = JSON.stringify(response._data.data, null, 2);
+        const test = JSON.parse(err);
+        if (test.language) {
+          toast.error(h("pre", test.language));
+        } else if (test.title) {
+          toast.error(h("pre", test.title));
+        }
+      },
+      onResponse({ response }) {
+        if (response.ok) {
+          refreshNuxtData("archive");
+          toast.success("Successfully updated archive.");
+        }
       },
     });
-    toast("Form Submitted", {
-      description: h(
-        "pre",
-        h("code", { class: "text-white" }, JSON.stringify(values, null, 2))
-      ),
-    });
   });
+
+  defineEmits(["back"]);
 </script>
 
 <template>
-  <div class="flex flex-col gap-1 w-full overflow-auto">
+  <div id="main" class="flex flex-col gap-1 w-full overflow-auto">
     <!-- Updateable: Title, Summary, Tags, Artists, Parodies, Characters, Languages, Categories, Release Date, URLs -->
     <form @submit="onSubmit">
+      <!-- Title -->
       <FormField v-slot="{ componentField }" name="title">
         <FormItem>
           <FormLabel>Title</FormLabel>
@@ -149,6 +253,8 @@
           <FormMessage />
         </FormItem>
       </FormField>
+
+      <!-- Summary -->
       <FormField v-slot="{ componentField }" name="summary">
         <FormItem>
           <FormLabel>Summary</FormLabel>
@@ -159,117 +265,351 @@
           <FormMessage />
         </FormItem>
       </FormField>
+
+      <!-- Artists -->
       <FormField v-slot="{ componentField }" name="artist">
         <FormItem>
           <FormLabel>Artist</FormLabel>
-          <FormControl>
-            <TagsInput
-              :model-value="componentField.modelValue"
-              class="bg-transparent"
-              @update:model-value="componentField['onUpdate:modelValue']">
-              <TagsInputItem
-                v-for="item in componentField.modelValue"
-                :key="item"
-                :value="item">
-                <TagsInputItemText />
-                <TagsInputItemDelete />
-              </TagsInputItem>
-              <TagsInputInput />
-            </TagsInput>
-          </FormControl>
+          <Combobox
+            v-model="componentField.modelValue"
+            v-model:open="openArtist"
+            :ignore-filter="true">
+            <FormControl>
+              <ComboboxAnchor as-child>
+                <TagsInput
+                  :model-value="componentField.modelValue"
+                  class="bg-input/30 w-full"
+                  @update:model-value="componentField['onUpdate:modelValue']">
+                  <TagsInputItem
+                    v-for="item in componentField.modelValue"
+                    :key="item"
+                    :value="item">
+                    <TagsInputItemText />
+                    <TagsInputItemDelete />
+                  </TagsInputItem>
+
+                  <ComboboxInput v-model="searchArtist" as-child>
+                    <TagsInputInput @keydown.enter="searchArtist = ''" />
+                  </ComboboxInput>
+                </TagsInput>
+
+                <ComboboxList
+                  :collision-padding="4"
+                  :avoid-collisions="false"
+                  class="max-h-(--reka-combobox-content-available-height) w-(--reka-combobox-trigger-width)">
+                  <ComboboxViewport class="max-h-[40vh]">
+                    <ComboboxEmpty />
+                    <ComboboxGroup>
+                      <ComboboxItem
+                        v-for="artist in filteredArtists"
+                        :key="artist.id"
+                        :value="artist.name"
+                        @select.prevent="
+                          (ev) => {
+                            if (typeof ev.detail.value === 'string') {
+                              searchArtist = '';
+                              componentField.modelValue.push(ev.detail.value);
+                            }
+
+                            if (artists.length === 0) {
+                              openArtist = false;
+                            }
+                          }
+                        ">
+                        {{ artist.name }}
+                      </ComboboxItem>
+                    </ComboboxGroup>
+                  </ComboboxViewport>
+                </ComboboxList>
+              </ComboboxAnchor>
+            </FormControl>
+          </Combobox>
           <FormDescription />
           <FormMessage />
         </FormItem>
       </FormField>
+
+      <!-- Tags -->
       <FormField v-slot="{ componentField }" name="tags">
         <FormItem>
           <FormLabel>Tags</FormLabel>
-          <FormControl>
-            <TagsInput
-              :model-value="componentField.modelValue"
-              class="bg-transparent"
-              @update:model-value="componentField['onUpdate:modelValue']">
-              <TagsInputItem
-                v-for="item in componentField.modelValue"
-                :key="item"
-                :value="item">
-                <TagsInputItemText />
-                <TagsInputItemDelete />
-              </TagsInputItem>
-              <TagsInputInput />
-            </TagsInput>
-          </FormControl>
+
+          <Combobox
+            v-model="componentField.modelValue"
+            v-model:open="openTag"
+            :ignore-filter="true">
+            <FormControl>
+              <ComboboxAnchor as-child>
+                <TagsInput
+                  :model-value="componentField.modelValue"
+                  class="bg-input/30 w-full"
+                  @update:model-value="componentField['onUpdate:modelValue']">
+                  <TagsInputItem
+                    v-for="item in componentField.modelValue"
+                    :key="item"
+                    :value="item">
+                    <TagsInputItemText />
+                    <TagsInputItemDelete />
+                  </TagsInputItem>
+
+                  <ComboboxInput v-model="searchTag" as-child>
+                    <TagsInputInput @keydown.enter="searchTag = ''" />
+                  </ComboboxInput>
+                </TagsInput>
+
+                <ComboboxList
+                  :collision-padding="4"
+                  :avoid-collisions="false"
+                  class="max-h-(--reka-combobox-content-available-height) w-(--reka-combobox-trigger-width)">
+                  <ComboboxViewport class="max-h-[40vh]">
+                    <ComboboxEmpty />
+                    <ComboboxGroup>
+                      <ComboboxItem
+                        v-for="tag in filteredTags"
+                        :key="tag.id"
+                        :value="tag.tag"
+                        @select.prevent="
+                          (ev) => {
+                            if (typeof ev.detail.value === 'string') {
+                              searchTag = '';
+                              componentField.modelValue.push(ev.detail.value);
+                            }
+
+                            if (allTags.length === 0) {
+                              openTag = false;
+                            }
+                          }
+                        ">
+                        {{ tag.tag }}
+                      </ComboboxItem>
+                    </ComboboxGroup>
+                  </ComboboxViewport>
+                </ComboboxList>
+              </ComboboxAnchor>
+            </FormControl>
+          </Combobox>
           <FormDescription />
           <FormMessage />
         </FormItem>
       </FormField>
+
+      <!-- Parodies & Characters -->
       <div class="grid sm:grid-cols-2 w-full gap-2">
+        <!-- Parodies -->
         <FormField v-slot="{ componentField }" name="parody">
           <FormItem>
             <FormLabel>Parody</FormLabel>
-            <FormControl>
-              <TagsInput
-                :model-value="componentField.modelValue"
-                class="bg-transparent"
-                @update:model-value="componentField['onUpdate:modelValue']">
-                <TagsInputItem
-                  v-for="item in componentField.modelValue"
-                  :key="item"
-                  :value="item">
-                  <TagsInputItemText />
-                  <TagsInputItemDelete />
-                </TagsInputItem>
-                <TagsInputInput />
-              </TagsInput>
-            </FormControl>
+
+            <Combobox
+              v-model="componentField.modelValue"
+              v-model:open="openParody"
+              :ignore-filter="true">
+              <FormControl>
+                <ComboboxAnchor as-child>
+                  <TagsInput
+                    :model-value="componentField.modelValue"
+                    class="bg-input/30 w-full"
+                    @update:model-value="componentField['onUpdate:modelValue']">
+                    <TagsInputItem
+                      v-for="item in componentField.modelValue"
+                      :key="item"
+                      :value="item">
+                      <TagsInputItemText />
+                      <TagsInputItemDelete />
+                    </TagsInputItem>
+
+                    <ComboboxInput v-model="searchParody" as-child>
+                      <TagsInputInput @keydown.enter="searchParody = ''" />
+                    </ComboboxInput>
+                  </TagsInput>
+
+                  <ComboboxList
+                    :collision-padding="4"
+                    :avoid-collisions="false"
+                    class="max-h-(--reka-combobox-content-available-height) w-(--reka-combobox-trigger-width)">
+                    <ComboboxViewport class="max-h-[40vh]">
+                      <ComboboxEmpty />
+                      <ComboboxGroup>
+                        <ComboboxItem
+                          v-for="parody in filteredParodies"
+                          :key="parody.id"
+                          :value="parody.parody"
+                          @select.prevent="
+                            (ev) => {
+                              if (typeof ev.detail.value === 'string') {
+                                searchParody = '';
+                                componentField.modelValue.push(ev.detail.value);
+                              }
+
+                              if (parodies.length === 0) {
+                                openParody = false;
+                              }
+                            }
+                          ">
+                          {{ parody.parody }}
+                        </ComboboxItem>
+                      </ComboboxGroup>
+                    </ComboboxViewport>
+                  </ComboboxList>
+                </ComboboxAnchor>
+              </FormControl>
+            </Combobox>
             <FormDescription />
             <FormMessage />
           </FormItem>
         </FormField>
+
+        <!-- Characters -->
         <FormField v-slot="{ componentField }" name="character">
           <FormItem>
             <FormLabel>Character</FormLabel>
-            <FormControl>
-              <TagsInput
-                :model-value="componentField.modelValue"
-                class="bg-transparent"
-                @update:model-value="componentField['onUpdate:modelValue']">
-                <TagsInputItem
-                  v-for="item in componentField.modelValue"
-                  :key="item"
-                  :value="item">
-                  <TagsInputItemText />
-                  <TagsInputItemDelete />
-                </TagsInputItem>
-                <TagsInputInput />
-              </TagsInput>
-            </FormControl>
+            <Combobox
+              v-model="componentField.modelValue"
+              v-model:open="openCharacter"
+              :ignore-filter="true">
+              <FormControl>
+                <ComboboxAnchor as-child>
+                  <TagsInput
+                    :model-value="componentField.modelValue"
+                    class="bg-input/30 w-full"
+                    @update:model-value="componentField['onUpdate:modelValue']">
+                    <TagsInputItem
+                      v-for="item in componentField.modelValue"
+                      :key="item"
+                      :value="item">
+                      <TagsInputItemText />
+                      <TagsInputItemDelete />
+                    </TagsInputItem>
+
+                    <ComboboxInput v-model="searchCharacter" as-child>
+                      <TagsInputInput @keydown.enter="searchCharacter = ''" />
+                    </ComboboxInput>
+                  </TagsInput>
+
+                  <ComboboxList
+                    :collision-padding="4"
+                    :avoid-collisions="false"
+                    class="max-h-(--reka-combobox-content-available-height) w-(--reka-combobox-trigger-width)">
+                    <ComboboxViewport class="max-h-[40vh]">
+                      <ComboboxEmpty />
+                      <ComboboxGroup>
+                        <ComboboxItem
+                          v-for="character in filteredCharacters"
+                          :key="character.id"
+                          :value="character.character"
+                          @select.prevent="
+                            (ev) => {
+                              if (typeof ev.detail.value === 'string') {
+                                searchCharacter = '';
+                                componentField.modelValue.push(ev.detail.value);
+                              }
+
+                              if (allCharacters.length === 0) {
+                                openCharacter = false;
+                              }
+                            }
+                          ">
+                          {{ character.character }}
+                        </ComboboxItem>
+                      </ComboboxGroup>
+                    </ComboboxViewport>
+                  </ComboboxList>
+                </ComboboxAnchor>
+              </FormControl>
+            </Combobox>
             <FormDescription />
             <FormMessage />
           </FormItem>
         </FormField>
       </div>
+
+      <!-- Language, Category & Release Date-->
       <div class="grid sm:grid-cols-3 gap-2">
+        <!-- Language -->
         <FormField v-slot="{ componentField }" name="language">
           <FormItem>
             <FormLabel>Language</FormLabel>
-            <FormControl>
-              <Input type="text" v-bind="componentField" />
-            </FormControl>
+            <Combobox
+              v-model:model-value="componentField.modelValue"
+              v-model:open="openLanguage"
+              :ignore-filter="true">
+              <FormControl>
+                <ComboboxAnchor as-child>
+                  <ComboboxInput v-model="searchLanguage" as-child>
+                    <Input class="w-full" type="text" v-bind="componentField" />
+                  </ComboboxInput>
+                </ComboboxAnchor>
+              </FormControl>
+
+              <ComboboxList
+                :collision-padding="4"
+                :avoid-collisions="false"
+                class="max-h-(--reka-combobox-content-available-height) w-(--reka-combobox-trigger-width)">
+                <ComboboxEmpty />
+
+                <ComboboxGroup>
+                  <ComboboxItem
+                    v-for="(language, index) in filteredLanguages"
+                    :key="index"
+                    :value="language"
+                    @select="
+                      () => {
+                        setFieldValue('language', language);
+                      }
+                    ">
+                    {{ language }}
+                  </ComboboxItem>
+                </ComboboxGroup>
+              </ComboboxList>
+            </Combobox>
             <FormDescription />
             <FormMessage />
           </FormItem>
         </FormField>
+
+        <!-- Category -->
         <FormField v-slot="{ componentField }" name="category">
           <FormItem>
             <FormLabel>Category</FormLabel>
-            <FormControl>
-              <Input type="text" v-bind="componentField" />
-            </FormControl>
+            <Combobox
+              v-model:model-value="componentField.modelValue"
+              v-model:open="openCategory"
+              :ignore-filter="true">
+              <FormControl>
+                <ComboboxAnchor as-child>
+                  <ComboboxInput v-model="searchCategory" as-child>
+                    <Input class="w-full" type="text" v-bind="componentField" />
+                  </ComboboxInput>
+                </ComboboxAnchor>
+              </FormControl>
+
+              <ComboboxList
+                :collision-padding="4"
+                :avoid-collisions="false"
+                class="max-h-(--reka-combobox-content-available-height) w-(--reka-combobox-trigger-width)">
+                <ComboboxEmpty />
+
+                <ComboboxGroup>
+                  <ComboboxItem
+                    v-for="(category, index) in filteredCategories"
+                    :key="index"
+                    :value="category"
+                    @select="
+                      () => {
+                        setFieldValue('category', category);
+                      }
+                    ">
+                    {{ category }}
+                  </ComboboxItem>
+                </ComboboxGroup>
+              </ComboboxList>
+            </Combobox>
             <FormDescription />
             <FormMessage />
           </FormItem>
         </FormField>
+
+        <!-- Release Date -->
         <FormField name="rd">
           <FormItem class="flex flex-col">
             <FormLabel>Release Date</FormLabel>
@@ -319,13 +659,15 @@
           </FormItem>
         </FormField>
       </div>
+
+      <!-- URLs -->
       <FormField v-slot="{ componentField }" name="url">
         <FormItem>
           <FormLabel>URL</FormLabel>
           <FormControl>
             <TagsInput
               :model-value="componentField.modelValue"
-              class="bg-transparent"
+              class="bg-input/30"
               @update:model-value="componentField['onUpdate:modelValue']">
               <TagsInputItem
                 v-for="item in componentField.modelValue"
@@ -341,7 +683,16 @@
           <FormMessage />
         </FormItem>
       </FormField>
-      <Button class="w-full" type="submit">Submit</Button>
+      <div class="flex gap-2 flex-1">
+        <Button
+          type="button"
+          class="rounded-sm items-center bg-stone-700 flex-initial"
+          @click="$emit('back')">
+          <ArrowLeft />
+          <span>Back</span>
+        </Button>
+        <Button class="w-full flex-1" type="submit">Submit</Button>
+      </div>
     </form>
   </div>
 </template>
