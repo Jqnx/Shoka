@@ -54,7 +54,14 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 	}
 
 	// Query with filters if query is not empty
-	if !reflect.DeepEqual(models.ArchiveFilters{}, payload) {
+	if !reflect.DeepEqual(models.ArchiveFilters{
+		Tags:       []string{},
+		Artists:    []string{},
+		Characters: []string{},
+		Parodies:   []string{},
+		Languages:  []string{},
+		Categories: []string{},
+	}, payload) {
 		switch sortby {
 		case "title":
 			if sortdir == "desc" {
@@ -489,4 +496,66 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 			return
 		}
 	}
+}
+
+func (s *Server) getAllFiltersHandler(c *gin.Context) {
+	ctx := context.Background()
+
+	tags, err := s.repo.GetAllTags(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+	artists, err := s.repo.GetAllArtists(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+	characters, err := s.repo.GetAllCharacter(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+	parodies, err := s.repo.GetAllParodies(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+	languages, err := s.repo.GetAllLanguage(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+	categories, err := s.repo.GetAllCategory(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"tags":       tags,
+		"artists":    artists,
+		"characters": characters,
+		"parodies":   parodies,
+		"languages":  languages,
+		"categories": categories,
+	})
 }

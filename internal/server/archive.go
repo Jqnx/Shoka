@@ -78,9 +78,10 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 	ctx := context.Background()
 	p := c.Query("page")
 	ps := c.Query("size")
+	sortby := c.Query("sortby")
+	sortdir := c.Query("sortdir")
 
-	if p == "" && ps == "" {
-		// archives, err := archive.GetAll(ctx, s.repo, s.log)
+	if p == "" && ps == "" && sortby == "" && sortdir == "" {
 		archives, err := s.repo.GetAllArchives(ctx)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, &models.ResponseError{
@@ -98,8 +99,141 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 			return
 		}
 		c.JSON(http.StatusOK, archives)
+	} else if p == "" && ps == "" {
+		switch sortby {
+		case "title":
+			if sortdir == "desc" {
+				archives, err := s.repo.GetArchiveSort(ctx, "title_desc")
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, archives)
+				return
+			} else {
+				archives, err := s.repo.GetArchiveSort(ctx, "title_asc")
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, archives)
+				return
+			}
+		case "page_count":
+			if sortdir == "desc" {
+				archives, err := s.repo.GetArchiveSort(ctx, "page_count_desc")
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, archives)
+				return
+			} else {
+				archives, err := s.repo.GetArchiveSort(ctx, "page_count_asc")
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, archives)
+				return
+			}
+		case "created_at":
+			if sortdir == "desc" {
+				archives, err := s.repo.GetArchiveSort(ctx, "created_at_desc")
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, archives)
+				return
+			} else {
+				archives, err := s.repo.GetArchiveSort(ctx, "created_at_asc")
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, archives)
+				return
+			}
+		case "updated_at":
+			if sortdir == "desc" {
+				archives, err := s.repo.GetArchiveSort(ctx, "updated_at_desc")
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, archives)
+				return
+			} else {
+				archives, err := s.repo.GetArchiveSort(ctx, "updated_at_asc")
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, archives)
+				return
+			}
+		case "release_date":
+			if sortdir == "asc" {
+				archives, err := s.repo.GetArchiveSort(ctx, "release_date_asc")
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, archives)
+				return
+			} else {
+				archives, err := s.repo.GetArchiveSort(ctx, "release_date_desc")
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, archives)
+				return
+			}
+		default:
+			archives, err := s.repo.GetArchiveSort(ctx, "title_asc")
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					Status:  "error",
+					Message: err.Error(),
+				})
+				return
+			}
+			c.JSON(http.StatusOK, archives)
+			return
+		}
 	} else {
-
 		page, _ := strconv.Atoi(p)
 		if page == 0 {
 			page = 1
@@ -109,37 +243,304 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 			pageSize = 10
 		}
 
-		archives, err := s.repo.GetArchiveList(ctx, repository.GetArchiveListParams{
-			Limit:  int32(pageSize),
-			Offset: (int32(page) - 1) * int32(pageSize),
-		})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
-				Status:  "error",
-				Message: err.Error(),
+		switch sortby {
+		case "title":
+			if sortdir == "desc" {
+				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					OrderBy: "title_desc",
+					Limit:   int32(pageSize),
+					Offset:  (int32(page) - 1) * int32(pageSize),
+				})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				count, err := s.repo.CountArchives(ctx)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"archives": archives,
+					"total":    count,
+				})
+				return
+			} else {
+				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					OrderBy: "title_asc",
+					Limit:   int32(pageSize),
+					Offset:  (int32(page) - 1) * int32(pageSize),
+				})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				count, err := s.repo.CountArchives(ctx)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"archives": archives,
+					"total":    count,
+				})
+				return
+			}
+		case "page_count":
+			if sortdir == "desc" {
+				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					OrderBy: "page_count_desc",
+					Limit:   int32(pageSize),
+					Offset:  (int32(page) - 1) * int32(pageSize),
+				})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				count, err := s.repo.CountArchives(ctx)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"archives": archives,
+					"total":    count,
+				})
+				return
+			} else {
+				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					OrderBy: "page_count_asc",
+					Limit:   int32(pageSize),
+					Offset:  (int32(page) - 1) * int32(pageSize),
+				})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				count, err := s.repo.CountArchives(ctx)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"archives": archives,
+					"total":    count,
+				})
+				return
+			}
+		case "created_at":
+			if sortdir == "desc" {
+				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					OrderBy: "created_at_desc",
+					Limit:   int32(pageSize),
+					Offset:  (int32(page) - 1) * int32(pageSize),
+				})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				count, err := s.repo.CountArchives(ctx)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"archives": archives,
+					"total":    count,
+				})
+				return
+			} else {
+				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					OrderBy: "created_at_asc",
+					Limit:   int32(pageSize),
+					Offset:  (int32(page) - 1) * int32(pageSize),
+				})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				count, err := s.repo.CountArchives(ctx)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"archives": archives,
+					"total":    count,
+				})
+				return
+			}
+		case "updated_at":
+			if sortdir == "desc" {
+				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					OrderBy: "updated_at_desc",
+					Limit:   int32(pageSize),
+					Offset:  (int32(page) - 1) * int32(pageSize),
+				})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				count, err := s.repo.CountArchives(ctx)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"archives": archives,
+					"total":    count,
+				})
+				return
+			} else {
+				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					OrderBy: "updated_at_asc",
+					Limit:   int32(pageSize),
+					Offset:  (int32(page) - 1) * int32(pageSize),
+				})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				count, err := s.repo.CountArchives(ctx)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"archives": archives,
+					"total":    count,
+				})
+				return
+			}
+		case "release_date":
+			if sortdir == "asc" {
+				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					OrderBy: "release_date_asc",
+					Limit:   int32(pageSize),
+					Offset:  (int32(page) - 1) * int32(pageSize),
+				})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				count, err := s.repo.CountArchives(ctx)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"archives": archives,
+					"total":    count,
+				})
+				return
+			} else {
+				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					OrderBy: "release_date_desc",
+					Limit:   int32(pageSize),
+					Offset:  (int32(page) - 1) * int32(pageSize),
+				})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				count, err := s.repo.CountArchives(ctx)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"archives": archives,
+					"total":    count,
+				})
+				return
+			}
+		default:
+			archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+				OrderBy: "title_asc",
+				Limit:   int32(pageSize),
+				Offset:  (int32(page) - 1) * int32(pageSize),
+			})
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					Status:  "error",
+					Message: err.Error(),
+				})
+				return
+			}
+			count, err := s.repo.CountArchives(ctx)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					Status:  "error",
+					Message: err.Error(),
+				})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"archives": archives,
+				"total":    count,
 			})
 			return
 		}
-		if len(archives) == 0 {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
-				Status:  "error",
-				Message: config.ErrNoArchive.Error(),
-			})
-			return
-		}
-		count, err := s.repo.CountArchives(ctx)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"archives": archives,
-			"total":    count,
-		})
 	}
 }
 
@@ -280,12 +681,45 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// TODO: Add search for artists, groups, tankoubons aswell
 func (s *Server) searchArchiveHandler(c *gin.Context) {
 	query := c.Query("q")
+	p := c.Query("page")
+	ps := c.Query("size")
 
 	ctx := context.Background()
 
-	archives, err := s.repo.SearchArchives(ctx, query)
+	//archives, err := s.repo.SearchArchives(ctx, query)
+	//if err != nil {
+	//	c.JSON(http.StatusNotFound, &models.ResponseError{
+	//		Status:  "error",
+	//		Message: config.ErrArchiveNotFound.Error(),
+	//	})
+	//	return
+	//}
+
+	page, _ := strconv.Atoi(p)
+	if page == 0 {
+		page = 1
+	}
+	pageSize, _ := strconv.Atoi(ps)
+	if pageSize == 0 {
+		pageSize = 10
+	}
+
+	archives, err := s.repo.SearchArchivesList(ctx, repository.SearchArchivesListParams{
+		WebsearchToTsquery: query,
+		Limit:              int32(pageSize),
+		Offset:             (int32(page) - 1) * int32(pageSize),
+	})
+	if err != nil {
+		c.JSON(http.StatusNotFound, &models.ResponseError{
+			Status:  "error",
+			Message: config.ErrArchiveNotFound.Error(),
+		})
+		return
+	}
+	count, err := s.repo.CountSearchArchives(ctx, query)
 	if err != nil {
 		c.JSON(http.StatusNotFound, &models.ResponseError{
 			Status:  "error",
@@ -294,7 +728,10 @@ func (s *Server) searchArchiveHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, archives)
+	c.JSON(http.StatusOK, gin.H{
+		"archives": archives,
+		"total":    count[0],
+	})
 }
 
 // Update

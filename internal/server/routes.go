@@ -26,11 +26,12 @@ func (s *Server) RegisterRoutes() http.Handler {
 	// Archive API
 	api := r.Group("/api")
 	{
+		api.GET("/search", s.searchArchiveHandler)
 		archive := api.Group("/a")
 		{
 			archive.GET("/", s.getArchiveListHandler)
-			archive.GET("/search", s.searchArchiveHandler)
 			archive.POST("/filter", s.getArchiveFilterHandler)
+			archive.GET("/filters", s.getAllFiltersHandler)
 			archive.GET("/:id", s.getArchiveHandler)
 			archive.GET("/:id/cover", s.getCoverHandler)
 			archive.GET("/:id/:page", s.getThumbHandler)
