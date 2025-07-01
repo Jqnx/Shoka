@@ -16,6 +16,10 @@
     query: { page: currentPage, size: pageSize },
     key: "archives",
   });
+  const router = useRouter();
+  router.beforeResolve((_) => {
+    currentPage.value = 1;
+  });
 </script>
 
 <template>
@@ -23,12 +27,8 @@
     <!--TODO: Filter options here -->
     <div
       class="px-16 py-4 grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-      <div
-        v-for="archive in archives.archives"
-        :key="archive.id">
-        <GalleryItem
-          :id="archive.archive_id"
-          :title="archive.title" />
+      <div v-for="archive in archives.archives" :key="archive.id">
+        <GalleryItem :id="archive.archive_id" :title="archive.title" />
       </div>
     </div>
     <Pagination
@@ -42,9 +42,7 @@
         <PaginationFirst />
         <PaginationPrevious />
 
-        <template
-          v-for="(item, index) in items"
-          :key="index">
+        <template v-for="(item, index) in items" :key="index">
           <PaginationItem
             v-if="item.type == 'page'"
             :key="index"
@@ -52,10 +50,7 @@
             :is-active="item.value == currentPage">
             {{ item.value }}
           </PaginationItem>
-          <PaginationEllipsis
-            v-else
-            :key="item.type"
-            :index="index" />
+          <PaginationEllipsis v-else :key="item.type" :index="index" />
         </template>
 
         <PaginationNext />
