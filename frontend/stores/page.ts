@@ -4,6 +4,7 @@ export const usePageStore = defineStore('page', {
   state: () => {
     return {
       currentPage: 1,
+      pageSize: 30
     }
   },
   persist: {
