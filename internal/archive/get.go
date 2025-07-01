@@ -140,29 +140,29 @@ func GetAll(c context.Context, q *repository.Queries, log *slog.Logger) (*[]mode
 	return &result, nil
 }
 
-func GetByTag(c context.Context, q *repository.Queries, tag string, log *slog.Logger) ([]string, error) {
-	archives, err := q.GetArchivesByTag(c, tag)
-	if err != nil {
-		log.Error(err.Error())
-		return nil, err
-	}
-	return archives, nil
-}
-
-func GetByCharacter(c context.Context, q *repository.Queries, character string, log *slog.Logger) ([]string, error) {
-	archives, err := q.GetArchivesByCharacter(c, character)
-	if err != nil {
-		log.Error(err.Error())
-		return nil, err
-	}
-	return archives, nil
-}
-
-func GetByParody(c context.Context, q *repository.Queries, parody string, log *slog.Logger) ([]string, error) {
-	archives, err := q.GetArchivesByParody(c, parody)
-	if err != nil {
-		log.Error(err.Error())
-		return nil, err
-	}
-	return archives, nil
-}
+//func GetByTag(c context.Context, q *repository.Queries, tag string, log *slog.Logger) ([]string, error) {
+//	archives, err := q.GetArchivesByTag(c, tag)
+//	if err != nil {
+//		log.Error(err.Error())
+//		return nil, err
+//	}
+//	return archives, nil
+//}
+//
+//func GetByCharacter(c context.Context, q *repository.Queries, character string, log *slog.Logger) ([]string, error) {
+//	archives, err := q.GetArchivesByCharacter(c, character)
+//	if err != nil {
+//		log.Error(err.Error())
+//		return nil, err
+//	}
+//	return archives, nil
+//}
+//
+//func GetByParody(c context.Context, q *repository.Queries, parody string, log *slog.Logger) ([]string, error) {
+//	archives, err := q.GetArchivesByParody(c, parody)
+//	if err != nil {
+//		log.Error(err.Error())
+//		return nil, err
+//	}
+//	return archives, nil
+//}

@@ -3,97 +3,92 @@ package archive
 import (
 	"Shoka/internal/config"
 	"Shoka/internal/fsutil"
-	"Shoka/internal/models"
 	"Shoka/internal/repository"
 	"context"
 	"errors"
-	"log/slog"
-	"strings"
 	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // TODO: ArchivePayload to Archive converter
-func CreateTransaction(c context.Context,
-	db *pgxpool.Pool,
-	q *repository.Queries,
-	payload *models.ArchivePayload,
-	log *slog.Logger,
-) (*models.ArchiveResponse, error) {
-	tx, err := db.Begin(c)
-	if err != nil {
-		log.Error(err.Error())
-		return nil, err
-	}
-	defer tx.Rollback(c)
-	qtx := q.WithTx(tx)
-
-	//aid, err := qtx.GetArchiveLastAID(c)
-	//if err != nil {
-	//	if err == pgx.ErrNoRows {
-	//		aid = 0
-	//	} else {
-	//		log.Error(err.Error())
-	//		return nil, err
-	//	}
-	//}
-
-	archiveID := NewArchiveID()
-
-	lang := strings.ToLower(payload.Language)
-	category := strings.ToLower(payload.Category)
-	archive, err := qtx.CreateArchive(c, repository.CreateArchiveParams{
-		Title:     payload.Title,
-		Summary:   &payload.Summary,
-		Language:  &lang,
-		Category:  &category,
-		FilePath:  &payload.FilePath,
-		ArchiveID: archiveID,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-	})
-	if err != nil {
-		log.Error(err.Error())
-		return nil, err
-	}
-
-	//if err := Artist(c, qtx, payload, &archive); err != nil {
-	//	log.Error(err.Error())
-	//	return nil, err
-	//}
-
-	//if err := Tag(c, qtx, payload, &archive); err != nil {
-	//	log.Error(err.Error())
-	//	return nil, err
-	//}
-
-	//if err := Character(c, qtx, payload, &archive); err != nil {
-	//	log.Error(err.Error())
-	//	return nil, err
-	//}
-
-	//if err := Parody(c, qtx, payload, &archive); err != nil {
-	//	log.Error(err.Error())
-	//	return nil, err
-	//}
-
-	//if err := URL(c, qtx, payload, &archive); err != nil {
-	//	log.Error(err.Error())
-	//	return nil, err
-	//}
-
-	result, err := Get(c, qtx, archive.ArchiveID, log)
-	if err != nil {
-		log.Error(err.Error())
-		return nil, err
-	}
-
-	return result, tx.Commit(c)
-}
+//func CreateTransaction(c context.Context,
+//	db *pgxpool.Pool,
+//	q *repository.Queries,
+//	payload *models.ArchivePayload,
+//	log *slog.Logger,
+//) (*models.ArchiveResponse, error) {
+//	tx, err := db.Begin(c)
+//	if err != nil {
+//		log.Error(err.Error())
+//		return nil, err
+//	}
+//	defer tx.Rollback(c)
+//	qtx := q.WithTx(tx)
+//
+//	//aid, err := qtx.GetArchiveLastAID(c)
+//	//if err != nil {
+//	//	if err == pgx.ErrNoRows {
+//	//		aid = 0
+//	//	} else {
+//	//		log.Error(err.Error())
+//	//		return nil, err
+//	//	}
+//	//}
+//
+//	archiveID := NewArchiveID()
+//
+//	lang := strings.ToLower(payload.Language)
+//	category := strings.ToLower(payload.Category)
+//	archive, err := qtx.CreateArchive(c, repository.CreateArchiveParams{
+//		Title:    payload.Title,
+//		Summary:  &payload.Summary,
+//		Language: &lang,
+//		Category: &category,
+//		// FilePath:  &payload.FilePath,
+//		ArchiveID: archiveID,
+//		CreatedAt: time.Now(),
+//		UpdatedAt: time.Now(),
+//	})
+//	if err != nil {
+//		log.Error(err.Error())
+//		return nil, err
+//	}
+//
+//	//if err := Artist(c, qtx, payload, &archive); err != nil {
+//	//	log.Error(err.Error())
+//	//	return nil, err
+//	//}
+//
+//	//if err := Tag(c, qtx, payload, &archive); err != nil {
+//	//	log.Error(err.Error())
+//	//	return nil, err
+//	//}
+//
+//	//if err := Character(c, qtx, payload, &archive); err != nil {
+//	//	log.Error(err.Error())
+//	//	return nil, err
+//	//}
+//
+//	//if err := Parody(c, qtx, payload, &archive); err != nil {
+//	//	log.Error(err.Error())
+//	//	return nil, err
+//	//}
+//
+//	//if err := URL(c, qtx, payload, &archive); err != nil {
+//	//	log.Error(err.Error())
+//	//	return nil, err
+//	//}
+//
+//	result, err := Get(c, qtx, archive.ArchiveID, log)
+//	if err != nil {
+//		log.Error(err.Error())
+//		return nil, err
+//	}
+//
+//	return result, tx.Commit(c)
+//}
 
 // TODO: Create thumndir in archive creation
-func CreateFromFile(c context.Context, path string, app *config.App) (*repository.Archive, error) {
+func CreateFromFile(c context.Context, path string, app *config.App) (*repository.CreateArchiveRow, error) {
 	if fsutil.MatchExtension(path, config.ArchiveExtensions) {
 
 		//exists, err := app.Repo.FilePathExists(c, &path)
