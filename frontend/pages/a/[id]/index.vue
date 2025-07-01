@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-  import { NuxtImg } from "#components";
+  import { Pencil } from "lucide-vue-next";
 
   const { id } = useRoute().params;
 
@@ -13,6 +13,10 @@
     },
     key: "archive",
   });
+
+  const ArchiveDetails = resolveComponent("ArchiveDetails");
+  const ArchiveDetailsForm = resolveComponent("ArchiveDetailsForm");
+  const toggle = ref(true);
 </script>
 
 <!--TODO: Mobile UI -->
@@ -20,21 +24,17 @@
 
 <template>
   <div>
-    <div class="flex flex-col gap-4 p-4 px-24">
-      <div class="flex gap-10 justify-center py-8 bg-muted/75 rounded-xl">
-        <div class="w-2/5 flex items-center justify-center">
-          <figure class="flex items-center w-3/4">
-            <NuxtLink :to="`${id}/1`">
+    <div class="flex flex-col gap-4 p-4 xl:px-24">
+      <div
+        class="flex flex-col justify-center py-8 bg-muted/70 rounded-xl lg:flex-row">
+        <div class="w-full 2xl:w-2/5">
+          <!-- Archive Cover -->
+          <figure class="w-3/4 pb-4 m-auto">
+            <NuxtLink :to="{ name: 'a-id-page', params: { id: id, page: 1 } }">
               <NuxtImg
-                v-slot="{ src, isLoaded, imgAttrs }"
                 :src="`/archive/${id}/cover`"
-                sizes="500px"
-                class="rounded-sm"
-                :custom="true">
-                <img
-                  v-if="isLoaded"
-                  v-bind="imgAttrs"
-                  :src="src" />
+                sizes="450px"
+                class="rounded-sm m-auto">
                 <!--TODO: FIX SKELETON WHILE IMAGE IS LOADING 
               <Skeleton v-else class="absolute rounded-xl size-full" />
               -->
@@ -42,28 +42,37 @@
             </NuxtLink>
           </figure>
         </div>
-        <div class="w-3/5 flex items-center mx-4">
-          <ArchiveDetails />
+        <!-- Archive Details -->
+        <div class="w-full 2xl:w-3/5 flex flex-col px-4 md:pr-4">
+          <component
+            :is="toggle ? ArchiveDetails : ArchiveDetailsForm"
+            @back="toggle = !toggle" />
+          <div class="w-full pt-4">
+            <Button
+              v-if="toggle"
+              class="rounded-sm items-center"
+              @click="toggle = !toggle">
+              <Pencil />
+              <span>Edit</span>
+            </Button>
+          </div>
         </div>
       </div>
-      <div class="grid grid-cols-6 gap-4">
+      <!-- Thumbnail Gallery -->
+      <div
+        class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
         <div
           v-for="page in archive.page_count"
           :key="page"
           class="hover:opacity-50">
           <NuxtLink
-            :to="`${id}/${page}`"
-            class="flex justify-center">
+            :to="{ name: 'a-id-page', params: { id: id, page: page } }"
+            class="flex justify-center"
+            no-prefetch>
             <NuxtImg
-              v-slot="{ src, isLoaded, imgAttrs }"
               :src="`/archive/${id}/${page}`"
               sizes="300px"
-              class="rounded-sm"
-              :custom="true">
-              <img
-                v-if="isLoaded"
-                v-bind="imgAttrs"
-                :src="src" />
+              class="rounded-sm">
               <!--TODO: FIX SKELETON WHILE IMAGE IS LOADING 
                 <Skeleton v-else class="absolute rounded-xl size-full" />
                 -->
