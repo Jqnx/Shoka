@@ -5,12 +5,20 @@
     parseAbsolute,
   } from "@internationalized/date";
   import { toDate } from "reka-ui/date";
+  import { toast } from "vue-sonner";
   const { data: archive } = useNuxtData("archive");
 
   const df = new DateFormatter("en-GB", {
     dateStyle: "short",
     timeStyle: "long",
   });
+
+  const { copy } = useClipboard();
+
+  const copyArchiveId = () => {
+    copy(archive.value.archive_id);
+    toast.success(`Copied ${archive.value.archive_id} to clipboard.`);
+  };
 </script>
 
 <template>
@@ -21,13 +29,17 @@
     </h1>
 
     <!-- Summary -->
-    <p class="scroll-m-20 text-lg font-semibold tracking-tight text-text py-1">
+    <p
+      class="scroll-m-20 text-lg font-semibold tracking-tight text-slate-400 py-1">
       {{ archive.summary }}
     </p>
 
     <!-- ID -->
-    <p class="text-md font-semibold py-2 text-text">
-      #{{ archive.archive_id }}
+    <p class="text-md font-semibold py-2" @click="copyArchiveId">
+      <span class="text-slate-500">#</span>
+      <span class="text-text">
+        {{ archive.archive_id }}
+      </span>
     </p>
 
     <!-- Artists -->
@@ -38,7 +50,10 @@
       </Badge>
       <div v-for="artist in archive.artist" v-else :key="artist.id">
         <Badge class="bg-slate-700 hover:bg-slate-600">
-          <NuxtLink :to="`/artist/${artist.name}`">{{ artist.name }}</NuxtLink>
+          <NuxtLink
+            :to="{ name: 'artist-artist', params: { artist: artist.name } }"
+            >{{ artist.name }}</NuxtLink
+          >
         </Badge>
       </div>
     </div>
@@ -51,7 +66,9 @@
       >
       <div v-for="tag in archive.tags" v-else :key="tag.id">
         <Badge class="bg-slate-700 hover:bg-slate-600">
-          <NuxtLink :to="`/tag/${tag.tag}`">{{ tag.tag }}</NuxtLink>
+          <NuxtLink :to="{ name: 'tag-tag', params: { tag: tag.name } }">{{
+            tag.name
+          }}</NuxtLink>
         </Badge>
       </div>
     </div>
@@ -64,9 +81,10 @@
       </Badge>
       <div v-for="parody in archive.parody" v-else :key="parody.id">
         <Badge class="bg-slate-700 hover:bg-slate-600">
-          <NuxtLink :to="`/parody/${parody.parody}`">{{
-            parody.parody
-          }}</NuxtLink>
+          <NuxtLink
+            :to="{ name: 'parody-parody', params: { parody: parody.name } }"
+            >{{ parody.name }}</NuxtLink
+          >
         </Badge>
       </div>
     </div>
@@ -79,9 +97,13 @@
       </Badge>
       <div v-for="character in archive.character" v-else :key="character.id">
         <Badge class="bg-slate-700 hover:bg-slate-600">
-          <NuxtLink :to="`/character/${character.character}`">{{
-            character.character
-          }}</NuxtLink>
+          <NuxtLink
+            :to="{
+              name: 'character-character',
+              params: { character: character.name },
+            }"
+            >{{ character.name }}</NuxtLink
+          >
         </Badge>
       </div>
     </div>
@@ -94,9 +116,10 @@
       </Badge>
       <div v-else :key="archive.archive_id">
         <Badge class="bg-slate-700 hover:bg-slate-600">
-          <NuxtLink :to="`/lang/${archive.language}`">{{
-            archive.language
-          }}</NuxtLink>
+          <NuxtLink
+            :to="{ name: 'lang-lang', params: { lang: archive.language } }"
+            >{{ archive.language }}</NuxtLink
+          >
         </Badge>
       </div>
     </div>
@@ -109,9 +132,13 @@
       </Badge>
       <div v-else :key="archive.archive_id">
         <Badge class="bg-slate-700 hover:bg-slate-600">
-          <NuxtLink :to="`/cat/${archive.category}`">{{
-            archive.category
-          }}</NuxtLink>
+          <NuxtLink
+            :to="{
+              name: 'category-category',
+              params: { category: archive.category },
+            }"
+            >{{ archive.category }}</NuxtLink
+          >
         </Badge>
       </div>
     </div>
@@ -181,7 +208,7 @@
       </Badge>
       <div v-for="url in archive.url" v-else :key="url.id">
         <Badge class="bg-slate-700 hover:bg-slate-600">
-          <NuxtLink :to="`${url.url}`"> {{ url.url }}</NuxtLink>
+          <NuxtLink :to="`${url.url}`" target="_blank"> {{ url.url }}</NuxtLink>
         </Badge>
       </div>
     </div>
