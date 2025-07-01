@@ -105,7 +105,7 @@ func (s *Server) getArchiveByParodyHandler(c *gin.Context) {
 		}
 
 		archives, err := s.repo.GetArchivesByParodyList(ctx, repository.GetArchivesByParodyListParams{
-			Parody: parody,
+			Name:   parody,
 			Offset: (int32(page) - 1) * int32(pageSize),
 			Limit:  int32(pageSize),
 		})

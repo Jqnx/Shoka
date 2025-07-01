@@ -106,9 +106,9 @@ func (s *Server) getArchiveByCharacterHandler(c *gin.Context) {
 			pageSize = 10
 		}
 		archives, err := s.repo.GetArchivesByCharacterList(ctx, repository.GetArchivesByCharacterListParams{
-			Character: character,
-			Offset:    (int32(page) - 1) * int32(pageSize),
-			Limit:     int32(pageSize),
+			Name:   character,
+			Offset: (int32(page) - 1) * int32(pageSize),
+			Limit:  int32(pageSize),
 		})
 		if err != nil {
 			// If no archives found respond with 404 ErrNoArchive

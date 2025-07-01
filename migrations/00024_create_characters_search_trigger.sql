@@ -7,7 +7,7 @@ as
 DECLARE
     r RECORD;
 BEGIN
-    IF OLD.character IS DISTINCT FROM NEW.character THEN
+    IF OLD.name IS DISTINCT FROM NEW.name THEN
         FOR r IN SELECT archive_id FROM archives_characters WHERE character_id = NEW.id LOOP
             PERFORM update_archive_search_vector(r.archive_id);
         END LOOP;
@@ -19,7 +19,7 @@ language plpgsql
 ;
 
 CREATE TRIGGER characters_ts_update_trigger
-AFTER UPDATE OF character ON characters
+AFTER UPDATE OF name ON characters
 FOR EACH ROW EXECUTE FUNCTION characters_ts_update_trigger_func();
 -- +goose StatementEnd
 -- +goose Down

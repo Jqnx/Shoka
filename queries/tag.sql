@@ -1,5 +1,5 @@
 -- name: CreateTag :one
-insert into tags (tag, count)
+insert into tags (name, count)
 values ($1, $2)
 returning *
 ;
@@ -10,21 +10,21 @@ values ($1, $2)
 ;
 
 -- name: GetTag :one
-select id, tag, count
+select id, name, count
 from tags
-where tag = $1
+where name = $1
 ;
 
 -- name: GetAllTags :many
-select id, tag, count
+select id, name, count
 from tags
-order by tag
+order by name
 ;
 
 -- name: TagExists :execresult
-select id, tag
+select id, name
 from tags
-where tag = $1
+where name = $1
 ;
 
 -- name: RemoveTagFromArchive :many
@@ -34,7 +34,7 @@ returning tag_id, (select tags.count from tags where tags.id = archives_tags.tag
 ;
 
 -- name: GetArchiveTags :many
-select tags.id, tags.tag, tags.count
+select tags.id, tags.name, tags.count
 from archives
 join archives_tags on archives.id = archives_tags.archive_id
 join tags on archives_tags.tag_id = tags.id
@@ -61,7 +61,7 @@ select
 from archives
 join archives_tags on archives.id = archives_tags.archive_id
 join tags on archives_tags.tag_id = tags.id
-where tags.tag = $1
+where tags.name = $1
 ;
 
 
@@ -70,7 +70,7 @@ select archives.archive_id
 from archives
 join archives_tags on archives.id = archives_tags.archive_id
 join tags on archives_tags.tag_id = tags.id
-where tags.tag = $1
+where tags.name = $1
 ;
 
 -- name: GetArchivesByTagList :many
@@ -93,7 +93,7 @@ select
 from archives
 join archives_tags on archives.id = archives_tags.archive_id
 join tags on archives_tags.tag_id = tags.id
-where tags.tag = $1
+where tags.name = $1
 limit $2
 offset $3
 ;
@@ -104,7 +104,7 @@ select count(archives.archive_id)
 from archives
 join archives_tags on archives.id = archives_tags.archive_id
 join tags on archives_tags.tag_id = tags.id
-where tags.tag = $1
+where tags.name = $1
 ;
 
 -- name: UpdateTagCount :exec

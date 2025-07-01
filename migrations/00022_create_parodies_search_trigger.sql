@@ -6,7 +6,7 @@ as $$
 DECLARE
     r RECORD;
 BEGIN
-    IF OLD.parody IS DISTINCT FROM NEW.parody THEN
+    IF OLD.name IS DISTINCT FROM NEW.name THEN
         FOR r IN SELECT archive_id FROM archives_parodies WHERE parody_id = NEW.id LOOP
             PERFORM update_archive_search_vector(r.archive_id);
         END LOOP;
@@ -18,7 +18,7 @@ language plpgsql
 ;
 
 CREATE TRIGGER parodies_ts_update_trigger
-AFTER UPDATE OF parody ON parodies
+AFTER UPDATE OF name ON parodies
 FOR EACH ROW EXECUTE FUNCTION parodies_ts_update_trigger_func();
 -- +goose StatementEnd
 -- +goose Down

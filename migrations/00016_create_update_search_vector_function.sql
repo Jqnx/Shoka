@@ -16,7 +16,7 @@ BEGIN
     SELECT title, language, category INTO v_archive_title, v_archive_language, v_archive_category
     FROM archives WHERE id = p_archive_id;
 
-    SELECT string_agg(t.tag, ' ')
+    SELECT string_agg(t.name, ' ')
     INTO v_tags_string
     FROM tags t
     JOIN archives_tags arg ON t.id = arg.tag_id
@@ -28,13 +28,13 @@ BEGIN
     JOIN archives_artists ara ON a.id = ara.artist_id
     WHERE ara.archive_id = p_archive_id;
 
-    SELECT string_agg(c.character, ' ')
+    SELECT string_agg(c.name, ' ')
     INTO v_characters_string
     FROM characters c
     JOIN archives_characters arc ON c.id = arc.character_id
     WHERE arc.archive_id = p_archive_id;
 
-    SELECT string_agg(p.parody, ' ')
+    SELECT string_agg(p.name, ' ')
     INTO v_parodies_string
     FROM parodies p
     JOIN archives_parodies arp ON p.id = arp.parody_id

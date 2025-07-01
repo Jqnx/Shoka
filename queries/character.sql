@@ -1,5 +1,5 @@
 -- name: CreateCharacter :one
-insert into characters (character, count)
+insert into characters (name, count)
 values ($1, $2)
 returning *
 ;
@@ -10,21 +10,21 @@ values ($1, $2)
 ;
 
 -- name: GetCharacter :one
-select id, character, count
+select id, name, count
 from characters
-where character = $1
+where name = $1
 ;
 
 -- name: GetAllCharacter :many
-select id, character, count
+select id, name, count
 from characters
 order by id
 ;
 
 -- name: CharacterExists :execresult
-select id, character
+select id, name
 from characters
-where character = $1
+where name = $1
 ;
 
 -- name: RemoveCharacterFromArchive :many
@@ -40,7 +40,7 @@ returning
 ;
 
 -- name: GetArchiveCharacters :many
-select characters.id, characters.character, characters.count
+select characters.id, characters.name, characters.count
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
@@ -67,7 +67,7 @@ select
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
-where characters.character = $1
+where characters.name = $1
 ;
 
 -- name: GetArchiveIDsByCharacter :many
@@ -75,7 +75,7 @@ select archives.archive_id
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
-where characters.character = $1
+where characters.name = $1
 ;
 
 -- name: GetArchivesByCharacterList :many
@@ -98,7 +98,7 @@ select
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
-where characters.character = $1
+where characters.name = $1
 limit $2
 offset $3
 ;
@@ -108,7 +108,7 @@ select count(archives.archive_id)
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
-where characters.character = $1
+where characters.name = $1
 ;
 
 -- name: UpdateCharacterCount :exec

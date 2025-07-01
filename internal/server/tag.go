@@ -108,7 +108,7 @@ func (s *Server) getArchiveByTagHandler(c *gin.Context) {
 		}
 
 		archives, err := s.repo.GetArchivesByTagList(ctx, repository.GetArchivesByTagListParams{
-			Tag:    tag,
+			Name:   tag,
 			Offset: (int32(page) - 1) * int32(pageSize),
 			Limit:  int32(pageSize),
 		})

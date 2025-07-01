@@ -1,5 +1,5 @@
 -- name: CreateParody :one
-insert into parodies (parody, count)
+insert into parodies (name, count)
 values ($1, $2)
 returning *
 ;
@@ -10,21 +10,21 @@ values ($1, $2)
 ;
 
 -- name: GetParody :one
-select id, parody, count
+select id, name, count
 from parodies
-where parody = $1
+where name = $1
 ;
 
 -- name: GetAllParodies :many
-select id, parody, count
+select id, name, count
 from parodies
 order by id
 ;
 
 -- name: ParodyExists :execresult
-select id, parody
+select id, name
 from parodies
-where parody = $1
+where name = $1
 ;
 
 -- name: RemoveParodyFromArchive :many
@@ -40,7 +40,7 @@ returning
 ;
 
 -- name: GetArchiveParodies :many
-select parodies.id, parodies.parody, parodies.count
+select parodies.id, parodies.name, parodies.count
 from archives
 join archives_parodies on archives.id = archives_parodies.archive_id
 join parodies on archives_parodies.parody_id = parodies.id
@@ -67,7 +67,7 @@ select
 from archives
 join archives_parodies on archives.id = archives_parodies.archive_id
 join parodies on archives_parodies.parody_id = parodies.id
-where parodies.parody = $1
+where parodies.name = $1
 ;
 
 -- name: GetArchiveIDsByParody :many
@@ -75,7 +75,7 @@ select archives.archive_id
 from archives
 join archives_parodies on archives.id = archives_parodies.archive_id
 join parodies on archives_parodies.parody_id = parodies.id
-where parodies.parody = $1
+where parodies.name = $1
 ;
 
 -- name: GetArchivesByParodyList :many
@@ -98,7 +98,7 @@ select
 from archives
 join archives_parodies on archives.id = archives_parodies.archive_id
 join parodies on archives_parodies.parody_id = parodies.id
-where parodies.parody = $1
+where parodies.name = $1
 limit $2
 offset $3
 ;
@@ -108,7 +108,7 @@ select count(archives.archive_id)
 from archives
 join archives_parodies on archives.id = archives_parodies.archive_id
 join parodies on archives_parodies.parody_id = parodies.id
-where parodies.parody = $1
+where parodies.name = $1
 ;
 
 -- name: UpdateParodyCount :exec

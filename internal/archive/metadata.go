@@ -40,7 +40,7 @@ func (m *Metadata) Tag(c context.Context) error {
 		i := strings.ToLower(item.Tag)
 		tag, _ := m.Qtx.GetTag(c, i)
 
-		if tag.Tag == i {
+		if tag.Name == i {
 			if err := m.Qtx.AddTagToArchive(c, repository.AddTagToArchiveParams{
 				ArchiveID: m.ID,
 				TagID:     tag.ID,
@@ -55,7 +55,7 @@ func (m *Metadata) Tag(c context.Context) error {
 			}
 		} else {
 			tag, err := m.Qtx.CreateTag(c, repository.CreateTagParams{
-				Tag:   i,
+				Name:  i,
 				Count: 1,
 			})
 			if err != nil {
@@ -89,7 +89,7 @@ func (m *Metadata) Character(c context.Context) error {
 		i := strings.ToLower(item.Character)
 		char, _ := m.Qtx.GetCharacter(c, i)
 
-		if char.Character == i {
+		if char.Name == i {
 			if err := m.Qtx.AddCharacterToArchive(c, repository.AddCharacterToArchiveParams{
 				ArchiveID:   m.ID,
 				CharacterID: char.ID,
@@ -104,8 +104,8 @@ func (m *Metadata) Character(c context.Context) error {
 			}
 		} else {
 			char, err := m.Qtx.CreateCharacter(c, repository.CreateCharacterParams{
-				Character: i,
-				Count:     1,
+				Name:  i,
+				Count: 1,
 			})
 			if err != nil {
 				return err
@@ -139,7 +139,7 @@ func (m *Metadata) Parody(c context.Context) error {
 		i := strings.ToLower(item.Parody)
 		parody, _ := m.Qtx.GetParody(c, i)
 
-		if parody.Parody == i {
+		if parody.Name == i {
 			if err := m.Qtx.AddParodyToArchive(c, repository.AddParodyToArchiveParams{
 				ArchiveID: m.ID,
 				ParodyID:  parody.ID,
@@ -154,8 +154,8 @@ func (m *Metadata) Parody(c context.Context) error {
 			}
 		} else {
 			parody, err := m.Qtx.CreateParody(c, repository.CreateParodyParams{
-				Parody: i,
-				Count:  1,
+				Name:  i,
+				Count: 1,
 			})
 			if err != nil {
 				return err

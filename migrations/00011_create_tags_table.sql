@@ -1,11 +1,11 @@
 -- +goose Up
 CREATE TABLE IF NOT EXISTS tags (
     id bigserial PRIMARY KEY,
-    tag text NOT NULL,
+    name text NOT NULL,
     count bigint NOT NULL
 );
 
-create unique index idx_tag on tags(tag);
+create unique index idx_tag on tags(name);
 
 -- +goose Down
 DROP TABLE IF EXISTS tags;

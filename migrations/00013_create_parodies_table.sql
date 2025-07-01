@@ -1,11 +1,11 @@
 -- +goose Up
 CREATE TABLE IF NOT EXISTS parodies (
     id bigserial PRIMARY KEY,
-    parody text NOT NULL,
+    name text NOT NULL,
     count bigint NOT NULL
 );
 
-create unique index parody on parodies(parody);
+create unique index idx_parody on parodies(name);
 
 -- +goose Down
 DROP TABLE IF EXISTS parodies;
