@@ -182,10 +182,10 @@ func (a *ArchiveBuilder) getArchive() Archive {
 		FilePath:    a.FilePath,
 		Hash:        a.Hash,
 		ThumbsPath:  a.ThumbsPath,
-		// CoverPath:  a.CoverPath,
-		PagesPath: a.PagesPath,
-		CreatedAt: a.CreatedAt,
-		UpdatedAt: a.UpdatedAt,
+		CoverPath:   a.CoverPath,
+		PagesPath:   a.PagesPath,
+		CreatedAt:   a.CreatedAt,
+		UpdatedAt:   a.UpdatedAt,
 	}
 }
 
@@ -200,7 +200,7 @@ func (a *ArchiveBuilder) NewArchive(path string) Archive {
 	a.setPageCount()
 	a.setType()
 	a.setThumbsPath()
-	// a.setCoverPath()
+	a.setCoverPath()
 	a.createPagesPath()
 	a.setCreatedAt()
 	a.setUpdatedAt()

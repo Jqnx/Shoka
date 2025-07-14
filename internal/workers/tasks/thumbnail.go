@@ -2,7 +2,6 @@ package tasks
 
 import (
 	"Shoka/internal/config"
-	"Shoka/internal/fsutil"
 	"Shoka/internal/repository"
 	"Shoka/internal/thumb"
 	"context"
@@ -12,8 +11,6 @@ import (
 
 	"github.com/hibiken/asynq"
 )
-
-// TODO: REDO
 
 type ThumbnailPayload struct {
 	// ArchivePath string
@@ -43,37 +40,22 @@ func (w *ThumbnailProcessor) ProcessTask(ctx context.Context, t *asynq.Task) err
 
 	now := time.Now()
 
-	// TODO: Make sure pagedir always exists, it breaks the watching of thumbs on request if it does not exist
-
 	// Create context
 	c := context.Background()
 
-	// TODO: Move page dir check/creation to handler
-	// Check if dir exists, if not create
+	pd := ""
+	td := ""
+	thumb := thumb.NewThumb(payload.Archive, w.app, pd, td)
+	thumb.GetThumbDir()
+	thumb.CreatePageDir(thumb.ThumbDir)
 
-	// Initialize new ThumbDir
-	d := fsutil.NewThumbDir(
-		w.app.Cfg.ThumbDir,
-		payload.Archive.Type,
-		payload.Archive.Hash)
-
-	thumbdir, err := d.GetThumbDir()
-	if err != nil {
+	if err := thumb.Generate(); err != nil {
 		return err
 	}
 
-	pagedir, err := d.CreatePageDir(thumbdir)
-	if err != nil {
-		return err
-	}
-
-	if err := thumb.GenerateThumbs(payload.Archive, pagedir, w.app); err != nil {
-		return err
-	}
-
-	if payload.Archive.ThumbsPath != &thumbdir {
+	if payload.Archive.ThumbsPath != &thumb.ThumbDir {
 		if err := w.app.Repo.UpdateThumbPath(c, repository.UpdateThumbPathParams{
-			ThumbsPath: &thumbdir,
+			ThumbsPath: &thumb.ThumbDir,
 			ArchiveID:  payload.Archive.ArchiveID,
 		}); err != nil {
 			return err
@@ -81,7 +63,7 @@ func (w *ThumbnailProcessor) ProcessTask(ctx context.Context, t *asynq.Task) err
 	}
 
 	since := time.Since(now)
-	w.app.Log.Info("new thumbs", "fp:", pagedir, "elapsed:", since)
+	w.app.Log.Info("new thumbs", "fp:", thumb.PageDir, "elapsed:", since)
 	return nil
 }
 

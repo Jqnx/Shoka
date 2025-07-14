@@ -24,6 +24,7 @@ func NewWorkers(app *config.App, force bool, ctx context.Context) *Workers {
 // then adds them and generates covers for them
 func (w *Workers) NewArchives() {
 	var payload repository.GetArchiveByIDRow
+	force := false
 	s := w.app.Noti.Listen("notifyarchives")
 
 	ac := w.NewAsynqClient()
@@ -47,14 +48,13 @@ func (w *Workers) NewArchives() {
 		c := NewClient(ac, w.app, &payload)
 		// Create cover client
 		// w.Covers(&payload, item)
-		c.NewCover(false)
+		c.NewCover(force)
 
 		// Thumbnail Client
 		// workers.NewThumbClient(*cfg, &app, false)
 
-		// Preview Client
-
 		// Metadata Client
+		// TODO: Metadata source should be changeable via configuration in ui/config file
 		c.NewMetadata("file")
 	}
 

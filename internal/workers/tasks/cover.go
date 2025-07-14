@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/hibiken/asynq"
 )
@@ -35,6 +36,8 @@ func (w *CoverProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error {
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
 	}
 
+	now := time.Now()
+
 	// Create context
 	c := context.Background()
 
@@ -59,7 +62,8 @@ func (w *CoverProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error {
 		}
 	}
 
-	w.app.Log.Info("new cover", "fp:", cover)
+	since := time.Since(now)
+	w.app.Log.Info("new cover", "fp:", cover, "elapsed:", since)
 
 	return nil
 }

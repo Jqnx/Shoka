@@ -49,16 +49,16 @@ func (c *Client) NewCover(force bool) *asynq.TaskInfo {
 				c.app.Log.Error("could not check if file exists:", "error", err.Error())
 			}
 		}
-	}
-
-	// If cover_path is not in db create covers
-	// Default behavior
-	if c.arch.CoverPath == nil {
+	} else {
+		// If cover_path is not in db create covers
+		// Default behavior
 
 		// Checks if file exists on filesystem first
-		path, _ := filepath.Abs(filepath.Join(*c.arch.ThumbsPath, "cover"))
+		// TODO: Change coverpath to a full path
+		path := filepath.Join(*c.arch.ThumbsPath, "cover")
 		name := fmt.Sprintf("%v.webp", c.arch.Hash)
-		_, err := os.Stat(filepath.Join(path, name))
+		full, _ := filepath.Abs(filepath.Join(path, name))
+		_, err := os.Stat(full)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
 				cover, err := newCoverTask(c.arch, c.client)

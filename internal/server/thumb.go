@@ -1,7 +1,6 @@
 package server
 
 import (
-	"Shoka/internal/config"
 	"Shoka/internal/fsutil"
 	"Shoka/internal/models"
 	"Shoka/internal/workers"
@@ -15,46 +14,101 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5"
+	"github.com/hibiken/asynq"
 )
 
 func (s *Server) generateThumbHandler(c *gin.Context) {
 	id := c.Param("id")
-	// force := c.Query("force")
+	f := c.Query("force")
+	var force bool
+
+	if f != "" {
+		b, err := strconv.ParseBool(f)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, &models.ResponseError{
+				Status:  "error",
+				Message: "force has invalid boolean value",
+			})
+		}
+		force = b
+	}
 
 	ctx := context.Background()
 
 	arch, err := s.repo.GetArchiveByID(ctx, id)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
-				Status:  "error",
-				Message: config.ErrArchiveNotFound.Error(),
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	ch := make(chan *asynq.TaskInfo)
+
+	if arch.ThumbsPath == nil {
+		w := workers.NewWorkers(s.app, false, ctx)
+		go w.Thumbs(ch, &arch)
+		thumb := <-ch
+		if thumb != nil {
+			loc := fmt.Sprintf("/api/status/%s", thumb.ID)
+			c.Header("Location", loc)
+			c.JSON(http.StatusOK, &gin.H{
+				"status":   "success",
+				"location": loc,
 			})
 			return
 		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
-				Status:  "error",
-				Message: err.Error(),
+			c.JSON(http.StatusOK, &models.ResponseError{
+				Status:  "success",
+				Message: "set thumbs_path in database, thumbnails already existed on disk but archive's thumbs_path was missing from db",
 			})
 			return
 		}
 	}
-	p, _ := filepath.Abs(*arch.ThumbsPath)
 
-	d, err := os.ReadDir(filepath.Join(p, "pages"))
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+	p, _ := filepath.Abs(*arch.ThumbsPath)
+	if force {
+		w := workers.NewWorkers(s.app, true, ctx)
+		go w.Thumbs(ch, &arch)
+		thumb := <-ch
+		loc := fmt.Sprintf("/api/status/%s", thumb.ID)
+		c.Header("Location", loc)
+		c.JSON(http.StatusOK, &gin.H{
+			"status":   "success",
+			"location": loc,
+		})
+	} else {
+		d, err := os.ReadDir(filepath.Join(p, "pages"))
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				w := workers.NewWorkers(s.app, false, ctx)
+				go w.Thumbs(ch, &arch)
+				thumb := <-ch
+				loc := fmt.Sprintf("/api/status/%s", thumb.ID)
+				c.Header("Location", loc)
+				c.JSON(http.StatusOK, &gin.H{
+					"status":   "success",
+					"location": loc,
+				})
+			}
+		} else if len(d) != int(arch.PageCount) {
 			w := workers.NewWorkers(s.app, false, ctx)
-			go w.Thumbs(&arch)
+			go w.Thumbs(ch, &arch)
+			thumb := <-ch
+			loc := fmt.Sprintf("/api/status/%s", thumb.ID)
+			c.Header("Location", loc)
+			c.JSON(http.StatusOK, &gin.H{
+				"status":   "success",
+				"location": loc,
+			})
+		} else {
+			c.JSON(http.StatusBadRequest, &models.ResponseError{
+				Status:  "failed",
+				Message: "thumbnails already exist, try using force=true to force generate new ones",
+			})
 		}
-	} else if len(d) < int(arch.PageCount) {
-		w := workers.NewWorkers(s.app, false, ctx)
-		go w.Thumbs(&arch)
 	}
-	c.JSON(http.StatusOK, &gin.H{
-		"status": "success",
-	})
 }
 
 func (s *Server) getThumbHandler(c *gin.Context) {
@@ -89,6 +143,23 @@ func (s *Server) getThumbHandler(c *gin.Context) {
 	}
 
 	pageDir := filepath.Join(*arch.ThumbsPath, "pages")
+	_, err = os.Stat(pageDir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				Status:  "error",
+				Message: "archives page directory does not exist",
+			})
+			return
+		} else {
+			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+	}
+
 	var file string
 
 	cont := fsutil.ArchiveContents(*arch.FilePath)
