@@ -15,6 +15,13 @@ func Auth(repo *repository.Queries) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := context.Background()
 		header := c.Request.Header.Get("Authorization")
+		if header == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, &models.ResponseError{
+				Status:  "error",
+				Message: "No authorization header set.",
+			})
+			return
+		}
 		token := strings.Split(header, " ")[1]
 
 		user, err := repo.GetUserByToken(ctx, &token)
@@ -36,6 +43,7 @@ func Auth(repo *repository.Queries) gin.HandlerFunc {
 		}
 
 		c.Set("username", user.Name)
+		c.Set("userid", user.ID)
 		c.Next()
 	}
 }
