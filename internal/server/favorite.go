@@ -7,17 +7,140 @@ import (
 	"Shoka/internal/repository"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"reflect"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 )
 
-// TODO: Maybe filter/sort all function for when there is no page or pagesize given.
+func (s *Server) favoriteArchiveHandler(c *gin.Context) {
+	ctx := context.Background()
 
-func (s *Server) getArchiveFilterHandler(c *gin.Context) {
+	archiveId := c.Param("id")
+	userId := c.GetInt64("userid")
+
+	archive, err := s.repo.GetArchiveByID(ctx, archiveId)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	check, err := s.repo.ArchiveIsFavorited(ctx, repository.ArchiveIsFavoritedParams{
+		ArchiveID: archive.ID,
+		UserID:    userId,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	if check.RowsAffected() == 0 {
+		if err := s.repo.AddFavoriteArchive(ctx, repository.AddFavoriteArchiveParams{
+			ArchiveID:   archive.ID,
+			UserID:      userId,
+			FavoritedAt: time.Now(),
+		}); err != nil {
+			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"archive":     archive,
+			"user_id":     userId,
+			"is_favorite": true,
+		})
+	} else {
+		if err := s.repo.RemoveFavoriteArchive(ctx, repository.RemoveFavoriteArchiveParams{
+			ArchiveID: archive.ID,
+			UserID:    userId,
+		}); err != nil {
+			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"archive":     archive,
+			"user_id":     userId,
+			"is_favorite": false,
+		})
+	}
+}
+
+// TODO: Add sorting and filters to get user favorite archives list
+func (s *Server) getUserFavoriteArchives(c *gin.Context) {
+	ctx := context.Background()
+	userId := c.GetInt64("userid")
+
+	p := c.Query("page")
+	ps := c.Query("size")
+
+	page, _ := strconv.Atoi(p)
+	if page == 0 {
+		page = 1
+	}
+	pageSize, _ := strconv.Atoi(ps)
+	if pageSize == 0 {
+		pageSize = 10
+	}
+
+	if p == "" && ps == "" {
+		archives, err := s.repo.GetUserFavoriteArchivesAll(ctx, userId)
+		if err != nil {
+			c.JSON(http.StatusNotFound, &models.ResponseError{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"archives": archives,
+		})
+		return
+	}
+
+	archives, err := s.repo.GetUserFavoriteArchivesList(ctx, repository.GetUserFavoriteArchivesListParams{
+		ID:     userId,
+		Limit:  int32(pageSize),
+		Offset: (int32(page) - 1) * int32(pageSize),
+	})
+	if err != nil {
+		c.JSON(http.StatusNotFound, &models.ResponseError{
+			Status:  "error",
+			Message: config.ErrArchiveNotFound.Error(),
+		})
+		return
+	}
+	count, err := s.repo.CountUserFavoriteArchives(ctx, userId)
+	if err != nil {
+		c.JSON(http.StatusNotFound, &models.ResponseError{
+			Status:  "error",
+			Message: config.ErrArchiveNotFound.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"archives": archives,
+		"total":    count,
+	})
+}
+
+func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 	var payload models.ArchiveFilters
 	if errPost := c.ShouldBind(&payload); errPost != nil {
 		var verr validator.ValidationErrors
@@ -38,6 +161,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 	ctx := context.Background()
 
 	// URL Queries
+	userid := c.GetInt64("userid")
 	p := c.Query("page")
 	ps := c.Query("size")
 	sortby := c.Query("sortby")
@@ -65,7 +189,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 		switch sortby {
 		case "title":
 			if sortdir == "desc" {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "title_desc")
+				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "title_desc")
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -76,7 +200,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				c.JSON(http.StatusOK, archives)
 				return
 			} else {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "title_asc")
+				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "title_asc")
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -89,7 +213,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 			}
 		case "page_count":
 			if sortdir == "desc" {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "page_count_desc")
+				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "page_count_desc")
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -100,7 +224,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				c.JSON(http.StatusOK, archives)
 				return
 			} else {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "page_count_asc")
+				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "page_count_asc")
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -113,7 +237,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 			}
 		case "created_at":
 			if sortdir == "desc" {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "created_at_desc")
+				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "created_at_desc")
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -124,7 +248,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				c.JSON(http.StatusOK, archives)
 				return
 			} else {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "created_at_asc")
+				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "created_at_asc")
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -137,7 +261,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 			}
 		case "updated_at":
 			if sortdir == "desc" {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "updated_at_desc")
+				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "updated_at_desc")
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -148,7 +272,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				c.JSON(http.StatusOK, archives)
 				return
 			} else {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "updated_at_asc")
+				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "updated_at_asc")
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -161,7 +285,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 			}
 		case "release_date":
 			if sortdir == "asc" {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "release_date_asc")
+				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "release_date_asc")
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -172,7 +296,32 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				c.JSON(http.StatusOK, archives)
 				return
 			} else {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "release_date_desc")
+				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "release_date_desc")
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					fmt.Println(err)
+					return
+				}
+				c.JSON(http.StatusOK, archives)
+				return
+			}
+		case "favorited_at":
+			if sortdir == "asc" {
+				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "favorited_at_asc")
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, archives)
+				return
+			} else {
+				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "favorited_at_desc")
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -184,7 +333,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				return
 			}
 		default:
-			archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "title_asc")
+			archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "favorited_at_desc")
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, &models.ResponseError{
 					Status:  "error",
@@ -197,7 +346,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 		}
 	} else {
 		// Otherwise only sort
-		count, err := s.repo.CountArchives(ctx)
+		count, err := s.repo.CountUserFavoriteArchives(ctx, userid)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, &models.ResponseError{
 				Status:  "error",
@@ -208,7 +357,8 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 		switch sortby {
 		case "title":
 			if sortdir == "desc" {
-				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
+					UserID:  int32(userid),
 					OrderBy: "title_desc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -226,7 +376,8 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				})
 				return
 			} else {
-				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
+					UserID:  int32(userid),
 					OrderBy: "title_asc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -246,7 +397,8 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 			}
 		case "page_count":
 			if sortdir == "desc" {
-				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
+					UserID:  int32(userid),
 					OrderBy: "page_count_desc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -264,7 +416,8 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				})
 				return
 			} else {
-				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
+					UserID:  int32(userid),
 					OrderBy: "page_count_asc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -284,7 +437,8 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 			}
 		case "created_at":
 			if sortdir == "desc" {
-				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
+					UserID:  int32(userid),
 					OrderBy: "created_at_desc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -302,7 +456,8 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				})
 				return
 			} else {
-				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
+					UserID:  int32(userid),
 					OrderBy: "created_at_asc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -322,7 +477,8 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 			}
 		case "updated_at":
 			if sortdir == "desc" {
-				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
+					UserID:  int32(userid),
 					OrderBy: "updated_at_desc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -340,7 +496,8 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				})
 				return
 			} else {
-				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
+					UserID:  int32(userid),
 					OrderBy: "updated_at_asc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -360,7 +517,8 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 			}
 		case "release_date":
 			if sortdir == "asc" {
-				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
+					UserID:  int32(userid),
 					OrderBy: "release_date_asc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -378,7 +536,8 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				})
 				return
 			} else {
-				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
+					UserID:  int32(userid),
 					OrderBy: "release_date_desc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -396,9 +555,50 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				})
 				return
 			}
+		case "favorited_at":
+			if sortdir == "asc" {
+				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
+					UserID:  int32(userid),
+					OrderBy: "favorited_at_asc",
+					Limit:   int32(pageSize),
+					Offset:  (int32(page) - 1) * int32(pageSize),
+				})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"archives": archives,
+					"total":    count,
+				})
+				return
+			} else {
+				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
+					UserID:  int32(userid),
+					OrderBy: "favorited_at_desc",
+					Limit:   int32(pageSize),
+					Offset:  (int32(page) - 1) * int32(pageSize),
+				})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"archives": archives,
+					"total":    count,
+				})
+				return
+			}
 		default:
-			archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
-				OrderBy: "title_asc",
+			archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
+				UserID:  int32(userid),
+				OrderBy: "favorited_at_desc",
 				Limit:   int32(pageSize),
 				Offset:  (int32(page) - 1) * int32(pageSize),
 			})
@@ -416,66 +616,4 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 			return
 		}
 	}
-}
-
-func (s *Server) getAllFiltersHandler(c *gin.Context) {
-	ctx := context.Background()
-
-	tags, err := s.repo.GetAllTags(ctx)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
-			Status:  "error",
-			Message: err.Error(),
-		})
-		return
-	}
-	artists, err := s.repo.GetAllArtists(ctx)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
-			Status:  "error",
-			Message: err.Error(),
-		})
-		return
-	}
-	characters, err := s.repo.GetAllCharacter(ctx)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
-			Status:  "error",
-			Message: err.Error(),
-		})
-		return
-	}
-	parodies, err := s.repo.GetAllParodies(ctx)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
-			Status:  "error",
-			Message: err.Error(),
-		})
-		return
-	}
-	languages, err := s.repo.GetAllLanguage(ctx)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
-			Status:  "error",
-			Message: err.Error(),
-		})
-		return
-	}
-	categories, err := s.repo.GetAllCategory(ctx)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
-			Status:  "error",
-			Message: err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"tags":       tags,
-		"artists":    artists,
-		"characters": characters,
-		"parodies":   parodies,
-		"languages":  languages,
-		"categories": categories,
-	})
 }

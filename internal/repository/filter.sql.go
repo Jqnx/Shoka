@@ -10,6 +10,19 @@ import (
 	"time"
 )
 
+const countFilteredArchives = `-- name: CountFilteredArchives :one
+select count(archives.archive_id)
+from archives
+where archives.archive_id = any($1::text[])
+`
+
+func (q *Queries) CountFilteredArchives(ctx context.Context, ids []string) (int64, error) {
+	row := q.db.QueryRow(ctx, countFilteredArchives, ids)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const getArchiveSort = `-- name: GetArchiveSort :many
 select
     id,
@@ -186,6 +199,27 @@ func (q *Queries) GetArchiveSortList(ctx context.Context, arg GetArchiveSortList
 		return nil, err
 	}
 	return items, nil
+}
+
+const getArchivesFilter = `-- name: GetArchivesFilter :one
+select archives.archive_id
+from archives
+where archives.archive_id = any($3::text[])
+limit $1
+offset $2
+`
+
+type GetArchivesFilterParams struct {
+	Limit  int32    `json:"limit"`
+	Offset int32    `json:"offset"`
+	Ids    []string `json:"ids"`
+}
+
+func (q *Queries) GetArchivesFilter(ctx context.Context, arg GetArchivesFilterParams) (string, error) {
+	row := q.db.QueryRow(ctx, getArchivesFilter, arg.Limit, arg.Offset, arg.Ids)
+	var archive_id string
+	err := row.Scan(&archive_id)
+	return archive_id, err
 }
 
 const getArchivesFilterSortList = `-- name: GetArchivesFilterSortList :many

@@ -15,13 +15,15 @@ func RemoveDuplicatesStrPointer(in []*string) []string {
 
 func MatchStringsInSlices(in1 []string, in2 []string) []string {
 	var list []string
-	for _, i := range in1 {
-		if in2 != nil {
+	if in1 == nil {
+		return in2
+	} else if in2 == nil {
+		return in1
+	} else {
+		for _, i := range in1 {
 			if slices.Contains(in2, i) {
 				list = append(list, i)
 			}
-		} else {
-			return in1
 		}
 	}
 	return list

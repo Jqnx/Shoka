@@ -12,6 +12,11 @@ type ArchiveList struct {
 	Count    int                                       `json:"total"`
 }
 
+type FavoriteArchiveList struct {
+	Archives []repository.GetFavoriteArchivesFilterSortListRow `json:"archives"`
+	Count    int64                                             `json:"total"`
+}
+
 func matchArtistsTags(in models.ArchiveFilters, qtx *repository.Queries) ([]string, error) {
 	tags, err := fetchTags(in.Tags, qtx)
 	if err != nil {
@@ -69,6 +74,7 @@ func Match(in models.ArchiveFilters, qtx *repository.Queries) ([]string, error) 
 	}
 
 	aTcP := util.MatchStringsInSlices(artistsTags, charactersParodies)
+
 	match := util.MatchStringsInSlices(aTcP, languagesCategories)
 	return match, nil
 }
@@ -95,4 +101,71 @@ func MatchAndGet(in models.ArchiveFilters, qtx *repository.Queries, page, pageSi
 		Count:    len(list),
 	}
 	return results, nil
+}
+
+func MatchAndGetFavorites(in models.ArchiveFilters, qtx *repository.Queries, page, pageSize int, userid int64, order string) (*FavoriteArchiveList, error) {
+	ctx := context.Background()
+	list, err := Match(in, qtx)
+	if err != nil {
+		return nil, err
+	}
+
+	archives, err := qtx.GetFavoriteArchivesFilterSortList(ctx, repository.GetFavoriteArchivesFilterSortListParams{
+		UserID:  int32(userid),
+		Ids:     list,
+		OrderBy: order,
+		Limit:   int32(pageSize),
+		Offset:  (int32(page) - 1) * int32(pageSize),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	count, err := qtx.CountFavoriteFilteredArchives(ctx, repository.CountFavoriteFilteredArchivesParams{
+		Ids:    list,
+		UserID: int32(userid),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	results := &FavoriteArchiveList{
+		Archives: archives,
+		Count:    count,
+	}
+
+	return results, nil
+}
+
+func MatchAndGetShuffle(in models.ArchiveFilters, qtx *repository.Queries, rng int, userid int64, favorite bool) (string, error) {
+	ctx := context.Background()
+	list, err := Match(in, qtx)
+	if err != nil {
+		return "", err
+	}
+
+	if favorite {
+		archive, err := qtx.GetFavoriteArchivesFilter(ctx, repository.GetFavoriteArchivesFilterParams{
+			UserID: int32(userid),
+			Ids:    list,
+			Limit:  1,
+			Offset: int32(rng),
+		})
+		if err != nil {
+			return "", err
+		}
+
+		return archive, nil
+	} else {
+		archive, err := qtx.GetArchivesFilter(ctx, repository.GetArchivesFilterParams{
+			Ids:    list,
+			Limit:  1,
+			Offset: int32(rng),
+		})
+		if err != nil {
+			return "", err
+		}
+
+		return archive, nil
+	}
 }

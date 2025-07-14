@@ -39,6 +39,15 @@ order by
 limit $1
 offset $2
 ;
+
+-- name: GetArchivesFilter :one
+select archives.archive_id
+from archives
+where archives.archive_id = any(sqlc.arg('ids')::text[])
+limit $1
+offset $2
+;
+
 -- name: GetArchiveSortList :many
 select
     id,
@@ -101,5 +110,11 @@ order by
     case when @order_by = 'updated_at_desc' then updated_at end desc nulls last,
     case when @order_by = 'release_date_asc' then release_date end asc,
     case when @order_by = 'release_date_desc' then release_date end desc nulls last
+;
+
+-- name: CountFilteredArchives :one
+select count(archives.archive_id)
+from archives
+where archives.archive_id = any(sqlc.arg('ids')::text[])
 ;
 

@@ -479,6 +479,25 @@ func (q *Queries) GetArchiveList(ctx context.Context, arg GetArchiveListParams) 
 	return items, nil
 }
 
+const getArchiveShuffle = `-- name: GetArchiveShuffle :one
+select archive_id
+from archives
+limit $1
+offset $2
+`
+
+type GetArchiveShuffleParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) GetArchiveShuffle(ctx context.Context, arg GetArchiveShuffleParams) (string, error) {
+	row := q.db.QueryRow(ctx, getArchiveShuffle, arg.Limit, arg.Offset)
+	var archive_id string
+	err := row.Scan(&archive_id)
+	return archive_id, err
+}
+
 const getLastArchiveID = `-- name: GetLastArchiveID :one
 select archive_id
 from archives

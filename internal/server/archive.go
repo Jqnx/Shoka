@@ -3,6 +3,7 @@ package server
 import (
 	"Shoka/internal/archive"
 	"Shoka/internal/config"
+	"Shoka/internal/filter"
 	"Shoka/internal/fsutil"
 	"Shoka/internal/metadata"
 	"Shoka/internal/models"
@@ -12,7 +13,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -98,7 +101,9 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 			})
 			return
 		}
-		c.JSON(http.StatusOK, archives)
+		c.JSON(http.StatusOK, gin.H{
+			"archives": archives,
+		})
 	} else if p == "" && ps == "" {
 		switch sortby {
 		case "title":
@@ -545,9 +550,8 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 }
 
 func (s *Server) getArchiveHandler(c *gin.Context) {
-	id := c.Param("id")
-
 	ctx := context.Background()
+	id := c.Param("id")
 
 	arch, err := s.repo.GetArchiveByID(ctx, id)
 	if err != nil {
@@ -658,27 +662,105 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 		}
 	}
 
-	result := &models.ArchiveResponse{
-		ArchiveID:   arch.ArchiveID,
-		Title:       arch.Title,
-		Summary:     arch.Summary,
-		Tags:        tags,
-		Artist:      artists,
-		Parody:      parodies,
-		Character:   characters,
-		Language:    arch.Language,
-		Category:    arch.Category,
-		PageCount:   arch.PageCount,
-		Url:         urls,
-		Hash:        arch.Hash,
-		Pages:       pages,
-		Type:        arch.Type,
-		CreatedAt:   arch.CreatedAt,
-		UpdatedAt:   arch.UpdatedAt,
-		ReleaseDate: arch.ReleaseDate,
+	var userid int64
+	header := c.Request.Header.Get("Authorization")
+	if header != "" {
+		token := strings.Split(header, " ")[1]
+		user, err := s.repo.GetUserByToken(ctx, &token)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, &models.ResponseError{
+				Status:  "error",
+				Message: "Unauthorized",
+			})
+			return
+		}
+		userid = user.ID
 	}
 
-	c.JSON(http.StatusOK, result)
+	if userid != 0 {
+		check, err := s.repo.ArchiveIsFavorited(ctx, repository.ArchiveIsFavoritedParams{
+			UserID:    userid,
+			ArchiveID: arch.ID,
+		})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				Status:  "error",
+				Message: err.Error(),
+			})
+		}
+		if check.RowsAffected() == 0 {
+			result := &models.ArchiveResponseFavorite{
+				ID:          arch.ID,
+				ArchiveID:   arch.ArchiveID,
+				Title:       arch.Title,
+				Summary:     arch.Summary,
+				Tags:        tags,
+				Artist:      artists,
+				Parody:      parodies,
+				Character:   characters,
+				Language:    arch.Language,
+				Category:    arch.Category,
+				PageCount:   arch.PageCount,
+				Url:         urls,
+				Hash:        arch.Hash,
+				Pages:       pages,
+				Type:        arch.Type,
+				CreatedAt:   arch.CreatedAt,
+				UpdatedAt:   arch.UpdatedAt,
+				ReleaseDate: arch.ReleaseDate,
+				IsFavorite:  false,
+			}
+
+			c.JSON(http.StatusOK, result)
+		} else {
+			result := &models.ArchiveResponseFavorite{
+				ID:          arch.ID,
+				ArchiveID:   arch.ArchiveID,
+				Title:       arch.Title,
+				Summary:     arch.Summary,
+				Tags:        tags,
+				Artist:      artists,
+				Parody:      parodies,
+				Character:   characters,
+				Language:    arch.Language,
+				Category:    arch.Category,
+				PageCount:   arch.PageCount,
+				Url:         urls,
+				Hash:        arch.Hash,
+				Pages:       pages,
+				Type:        arch.Type,
+				CreatedAt:   arch.CreatedAt,
+				UpdatedAt:   arch.UpdatedAt,
+				ReleaseDate: arch.ReleaseDate,
+				IsFavorite:  true,
+			}
+
+			c.JSON(http.StatusOK, result)
+		}
+	} else {
+		result := &models.ArchiveResponse{
+			ID:          arch.ID,
+			ArchiveID:   arch.ArchiveID,
+			Title:       arch.Title,
+			Summary:     arch.Summary,
+			Tags:        tags,
+			Artist:      artists,
+			Parody:      parodies,
+			Character:   characters,
+			Language:    arch.Language,
+			Category:    arch.Category,
+			PageCount:   arch.PageCount,
+			Url:         urls,
+			Hash:        arch.Hash,
+			Pages:       pages,
+			Type:        arch.Type,
+			CreatedAt:   arch.CreatedAt,
+			UpdatedAt:   arch.UpdatedAt,
+			ReleaseDate: arch.ReleaseDate,
+		}
+
+		c.JSON(http.StatusOK, result)
+	}
 }
 
 // TODO: Add search for artists, groups, tankoubons aswell
@@ -688,15 +770,6 @@ func (s *Server) searchArchiveHandler(c *gin.Context) {
 	ps := c.Query("size")
 
 	ctx := context.Background()
-
-	//archives, err := s.repo.SearchArchives(ctx, query)
-	//if err != nil {
-	//	c.JSON(http.StatusNotFound, &models.ResponseError{
-	//		Status:  "error",
-	//		Message: config.ErrArchiveNotFound.Error(),
-	//	})
-	//	return
-	//}
 
 	page, _ := strconv.Atoi(p)
 	if page == 0 {
@@ -732,6 +805,100 @@ func (s *Server) searchArchiveHandler(c *gin.Context) {
 		"archives": archives,
 		"total":    count[0],
 	})
+}
+
+func (s *Server) shuffleArchiveHandler(c *gin.Context) {
+	var payload models.ArchiveFilters
+	if errPost := c.ShouldBind(&payload); errPost != nil {
+		var verr validator.ValidationErrors
+		if errors.As(errPost, &verr) {
+			c.JSON(http.StatusBadRequest, &models.ResponseFail{
+				Status: "fail",
+				Data:   config.Validate(verr),
+			})
+			return
+		}
+		c.JSON(http.StatusBadRequest, &models.ResponseFail{
+			Status: "fail",
+			Data:   errPost.Error(),
+		})
+		return
+	}
+
+	var userid int64
+	ctx := context.Background()
+	countQuery := c.Query("c")
+	count, _ := strconv.Atoi(countQuery)
+	favorite, err := strconv.ParseBool(c.Query("favorite"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, &models.ResponseError{
+			Status:  "error",
+			Message: "invalid favorite value, needs to be: true or false",
+		})
+		return
+	}
+
+	header := c.Request.Header.Get("Authorization")
+	if header != "" {
+		token := strings.Split(header, " ")[1]
+		user, err := s.repo.GetUserByToken(ctx, &token)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, &models.ResponseError{
+				Status:  "error",
+				Message: "Unauthorized",
+			})
+			return
+		}
+		userid = user.ID
+	}
+
+	if !reflect.DeepEqual(models.ArchiveFilters{
+		Tags:       []string{},
+		Artists:    []string{},
+		Characters: []string{},
+		Parodies:   []string{},
+		Languages:  []string{},
+		Categories: []string{},
+	}, payload) {
+		archive, err := filter.MatchAndGetShuffle(payload, s.repo, count, userid, favorite)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, archive)
+	} else {
+		if favorite {
+			archive, err := s.repo.GetUserFavoriteArchivesShuffle(ctx, repository.GetUserFavoriteArchivesShuffleParams{
+				ID:     userid,
+				Limit:  1,
+				Offset: int32(count),
+			})
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					Status:  "error",
+					Message: err.Error(),
+				})
+				return
+			}
+			c.JSON(http.StatusOK, archive)
+		} else {
+			archive, err := s.repo.GetArchiveShuffle(ctx, repository.GetArchiveShuffleParams{
+				Limit:  1,
+				Offset: int32(count),
+			})
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					Status:  "error",
+					Message: err.Error(),
+				})
+				return
+			}
+			c.JSON(http.StatusOK, archive)
+		}
+	}
 }
 
 // Update

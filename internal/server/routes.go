@@ -36,9 +36,11 @@ func (s *Server) RegisterRoutes() http.Handler {
 			archive.GET("/:id/cover", s.getCoverHandler)
 			archive.GET("/:id/:page", s.getThumbHandler)
 			archive.GET("/:id/scanmeta", s.scanMetadataHandler)
+			archive.POST("/shuffle", s.shuffleArchiveHandler)
 			archive.POST("/", s.createArchiveHandler)
 			archive.POST("/:id/cover", s.generateCoverHandler)
 			archive.POST("/:id/thumb", s.generateThumbHandler)
+			archive.POST("/:id/favorite", middleware.Auth(s.repo), s.favoriteArchiveHandler)
 			archive.PUT("/:id", s.updateArchiveHandler)
 			// archive.DELETE("/:id", s.deleteArchiveHandler)
 			// archive.GET("/lastid", s.getLastIDHandler)
@@ -107,6 +109,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 		user := api.Group("/user")
 		{
+			// user.GET("/favorites", middleware.Auth(s.repo), s.getUserFavoriteArchives)
+			user.POST("/favorites", middleware.Auth(s.repo), s.getFavoriteArchiveFilterHandler)
 			user.PUT("/update", middleware.Auth(s.repo), s.updateUserHandler)
 			user.DELETE("/delete", middleware.Auth(s.repo), s.deleteUserHandler)
 		}

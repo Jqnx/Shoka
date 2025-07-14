@@ -78,6 +78,12 @@ type Character struct {
 	Count int64  `json:"count"`
 }
 
+type FavoriteArchive struct {
+	ArchiveID   int64     `json:"archive_id"`
+	UserID      int64     `json:"user_id"`
+	FavoritedAt time.Time `json:"favorited_at"`
+}
+
 type Group struct {
 	ID        int64     `json:"id"`
 	Name      string    `json:"name"`

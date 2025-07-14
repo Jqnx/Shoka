@@ -126,6 +126,12 @@ limit $1
 offset $2
 ;
 
+-- name: GetArchiveShuffle :one
+select archive_id
+from archives
+limit $1
+offset $2
+;
 
 -- name: SearchArchives :many
 select
