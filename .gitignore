@@ -41,7 +41,7 @@ tailwindcss
 
 # Directories
 content/
-thumb/
+/thumb/
 
 # Metadata files
 ComicInfo.xml
