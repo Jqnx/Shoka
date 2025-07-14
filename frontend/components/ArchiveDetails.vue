@@ -35,7 +35,9 @@
     </p>
 
     <!-- ID -->
-    <p class="text-md font-semibold py-2" @click="copyArchiveId">
+    <p
+      class="text-md font-semibold cursor-pointer p-0.5 w-max hover:bg-slate-700 hover:rounded-md"
+      @click="copyArchiveId">
       <span class="text-slate-500">#</span>
       <span class="text-text">
         {{ archive.archive_id }}
