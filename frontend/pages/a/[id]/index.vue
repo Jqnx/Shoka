@@ -1,9 +1,14 @@
 <script lang="ts" setup>
-  import { Pencil } from "lucide-vue-next";
+  import { HeartMinus, HeartPlus, Pencil } from "lucide-vue-next";
 
   const { id } = useRoute().params;
 
+  const { token } = useAuth();
+
   const { data: archive } = await useFetch(`/api/a/${id}`, {
+    onRequest({ options }) {
+      options.headers.set("Authorization", `${token.value}`);
+    },
     onResponse({ response }) {
       if (response._data.pages != response._data.page_count) {
         useFetch(`/api/a/${id}/thumb`, {
@@ -13,6 +18,22 @@
     },
     key: "archive",
   });
+
+  async function favorite() {
+    return $fetch(`/api/a/${id}/favorite`, {
+      method: "post",
+      onRequest({ options }) {
+        options.headers.set("Authorization", `${token.value}`);
+        archive.value.is_favorite = true;
+      },
+      onResponseError() {
+        archive.value.is_favorite = false;
+      },
+      async onResponse() {
+        refreshNuxtData("archive");
+      },
+    });
+  }
 
   const ArchiveDetails = resolveComponent("ArchiveDetails");
   const ArchiveDetailsForm = resolveComponent("ArchiveDetailsForm");
@@ -47,7 +68,7 @@
           <component
             :is="toggle ? ArchiveDetails : ArchiveDetailsForm"
             @back="toggle = !toggle" />
-          <div class="w-full pt-4">
+          <div class="flex gap-2 my-4">
             <Button
               v-if="toggle"
               class="rounded-sm items-center"
@@ -55,6 +76,19 @@
               <Pencil />
               <span>Edit</span>
             </Button>
+            <div v-if="toggle">
+              <Button
+                v-if="archive.is_favorite"
+                class="rounded-sm items-center bg-destructive hover:bg-destructive/90"
+                @click="favorite">
+                <HeartMinus />
+                <span>Favorite</span>
+              </Button>
+              <Button v-else class="rounded-sm items-cente" @click="favorite">
+                <HeartPlus />
+                <span>Favorite</span>
+              </Button>
+            </div>
           </div>
         </div>
       </div>

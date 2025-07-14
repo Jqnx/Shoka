@@ -17,13 +17,11 @@
     useSidebar,
   } from "@/components/ui/sidebar";
   import {
-    BadgeCheck,
-    Bell,
     ChevronsUpDown,
-    CreditCard,
+    Heart,
     LogOut,
     Panda,
-    Sparkles,
+    Settings,
   } from "lucide-vue-next";
 
   defineProps<{
@@ -78,25 +76,18 @@
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <DropdownMenuItem>
-              <Sparkles />
-              Upgrade to Pro
-            </DropdownMenuItem>
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuItem>
-              <BadgeCheck />
-              Account
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <CreditCard />
-              Billing
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Bell />
-              Notifications
-            </DropdownMenuItem>
+            <NuxtLink :to="{ name: 'favorites' }">
+              <DropdownMenuItem>
+                <Heart />
+                Favorites
+              </DropdownMenuItem>
+            </NuxtLink>
+            <NuxtLink :to="{ name: 'settings' }">
+              <DropdownMenuItem>
+                <Settings />
+                Settings
+              </DropdownMenuItem>
+            </NuxtLink>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem @click="() => signOut({ callbackUrl: '/login' })">

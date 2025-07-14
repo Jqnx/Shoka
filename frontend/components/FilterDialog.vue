@@ -11,7 +11,15 @@
   } from "@/components/ui/dialog";
   import { ChevronLeft, ChevronRight, ListFilter } from "lucide-vue-next";
 
-  const { filters } = storeToRefs(useFiltersStore());
+  const route = useRoute();
+
+  const filters = computed(() => {
+    if (route.name === "favorites") {
+      return storeToRefs(useFavoriteFiltersStore());
+    } else {
+      return storeToRefs(useFiltersStore());
+    }
+  });
 
   const formSchema = toTypedSchema(
     z.object({
@@ -27,25 +35,29 @@
   const { handleSubmit, values, setFieldValue } = useForm({
     validationSchema: formSchema,
     initialValues: {
-      tags: filters.value.tags,
-      artists: filters.value.artists,
-      parodies: filters.value.parodies,
-      characters: filters.value.characters,
-      languages: filters.value.languages,
-      categories: filters.value.categories,
+      tags: filters.value.filters.value.tags,
+      artists: filters.value.filters.value.artists,
+      parodies: filters.value.filters.value.parodies,
+      characters: filters.value.filters.value.characters,
+      languages: filters.value.filters.value.languages,
+      categories: filters.value.filters.value.categories,
     },
     keepValuesOnUnmount: true,
   });
 
   const onSubmit = handleSubmit((values) => {
-    filters.value.tags = values.tags || [];
-    filters.value.artists = values.artists || [];
-    filters.value.characters = values.characters || [];
-    filters.value.parodies = values.parodies || [];
-    filters.value.languages = values.languages || [];
-    filters.value.categories = values.categories || [];
+    filters.value.filters.value.tags = values.tags || [];
+    filters.value.filters.value.artists = values.artists || [];
+    filters.value.filters.value.characters = values.characters || [];
+    filters.value.filters.value.parodies = values.parodies || [];
+    filters.value.filters.value.languages = values.languages || [];
+    filters.value.filters.value.categories = values.categories || [];
 
-    refreshNuxtData("archives");
+    if (route.name === "favorites") {
+      refreshNuxtData("favorites");
+    } else {
+      refreshNuxtData("archives");
+    }
   });
 
   const active = ref(0);
