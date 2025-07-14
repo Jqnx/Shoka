@@ -57,14 +57,21 @@
       }
     }
 
-    const options = data.value.filter(
-      (i: { name: string }) => !val?.includes(i.name)
-    );
-    return search.value
-      ? options.filter((option: { name: string }) =>
-          contains(option.name, search.value)
-        )
-      : options;
+    if (props.field === "languages" || props.field === "categories") {
+      const options = data.value.filter((i: string) => !val?.includes(i));
+      return search.value
+        ? options.filter((option: string) => contains(option, search.value))
+        : options;
+    } else {
+      const options = data.value.filter(
+        (i: { name: string }) => !val?.includes(i.name)
+      );
+      return search.value
+        ? options.filter((option: { name: string }) =>
+            contains(option.name, search.value)
+          )
+        : options;
+    }
   });
 
   const hover = ref("");
