@@ -50,7 +50,7 @@
   const tags: string[] = [];
   if (archive.value.tags) {
     for (const tag of archive.value.tags) {
-      tags.push(tag.tag);
+      tags.push(tag.name);
     }
   }
 
@@ -64,14 +64,14 @@
   const parodies: string[] = [];
   if (archive.value.parody) {
     for (const parody of archive.value.parody) {
-      parodies.push(parody.parody);
+      parodies.push(parody.name);
     }
   }
 
   const characters: string[] = [];
   if (archive.value.character) {
     for (const character of archive.value.character) {
-      characters.push(character.character);
+      characters.push(character.name);
     }
   }
 
@@ -147,11 +147,11 @@
   const searchTag = ref("");
   const filteredTags = computed(() => {
     const options = allTags.value.filter(
-      (i: { tag: string }) => !values.tags?.includes(i.tag)
+      (i: { name: string }) => !values.tags?.includes(i.name)
     );
     return searchTag.value
-      ? options.filter((option: { tag: string }) =>
-          contains(option.tag, searchTag.value)
+      ? options.filter((option: { name: string }) =>
+          contains(option.name, searchTag.value)
         )
       : options;
   });
@@ -161,11 +161,11 @@
   const searchParody = ref("");
   const filteredParodies = computed(() => {
     const options = allParodies.value.filter(
-      (i: { parody: string }) => !values.parody?.includes(i.parody)
+      (i: { name: string }) => !values.parody?.includes(i.name)
     );
     return searchParody.value
-      ? options.filter((option: { parody: string }) =>
-          contains(option.parody, searchParody.value)
+      ? options.filter((option: { name: string }) =>
+          contains(option.name, searchParody.value)
         )
       : options;
   });
@@ -175,11 +175,11 @@
   const searchCharacter = ref("");
   const filteredCharacters = computed(() => {
     const options = allCharacters.value.filter(
-      (i: { character: string }) => !values.character?.includes(i.character)
+      (i: { name: string }) => !values.character?.includes(i.name)
     );
     return searchCharacter.value
-      ? options.filter((option: { character: string }) =>
-          contains(option.character, searchCharacter.value)
+      ? options.filter((option: { name: string }) =>
+          contains(option.name, searchCharacter.value)
         )
       : options;
   });
@@ -367,7 +367,7 @@
                       <ComboboxItem
                         v-for="tag in filteredTags"
                         :key="tag.id"
-                        :value="tag.tag"
+                        :value="tag.name"
                         @select.prevent="
                           (ev) => {
                             if (typeof ev.detail.value === 'string') {
@@ -380,7 +380,7 @@
                             }
                           }
                         ">
-                        {{ tag.tag }}
+                        {{ tag.name }}
                       </ComboboxItem>
                     </ComboboxGroup>
                   </ComboboxViewport>
@@ -433,7 +433,7 @@
                         <ComboboxItem
                           v-for="parody in filteredParodies"
                           :key="parody.id"
-                          :value="parody.parody"
+                          :value="parody.name"
                           @select.prevent="
                             (ev) => {
                               if (typeof ev.detail.value === 'string') {
@@ -446,7 +446,7 @@
                               }
                             }
                           ">
-                          {{ parody.parody }}
+                          {{ parody.name }}
                         </ComboboxItem>
                       </ComboboxGroup>
                     </ComboboxViewport>
@@ -496,7 +496,7 @@
                         <ComboboxItem
                           v-for="character in filteredCharacters"
                           :key="character.id"
-                          :value="character.character"
+                          :value="character.name"
                           @select.prevent="
                             (ev) => {
                               if (typeof ev.detail.value === 'string') {
@@ -509,7 +509,7 @@
                               }
                             }
                           ">
-                          {{ character.character }}
+                          {{ character.name }}
                         </ComboboxItem>
                       </ComboboxGroup>
                     </ComboboxViewport>
