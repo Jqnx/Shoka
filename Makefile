@@ -2,25 +2,6 @@
 
 # Build the application
 all: build test
-templ-install:
-	@if ! command -v templ > /dev/null; then \
-		read -p "Go's 'templ' is not installed on your machine. Do you want to install it? [Y/n] " choice; \
-		if [ "$$choice" != "n" ] && [ "$$choice" != "N" ]; then \
-			go install github.com/a-h/templ/cmd/templ@latest; \
-			if [ ! -x "$$(command -v templ)" ]; then \
-				echo "templ installation failed. Exiting..."; \
-				exit 1; \
-			fi; \
-		else \
-			echo "You chose not to install templ. Exiting..."; \
-			exit 1; \
-		fi; \
-	fi
-tailwind-install:
-	@if [ ! -f tailwindcss ]; then curl -sL https://github.com/tailwindlabs/tailwindcss/releases/download/v4.0.6/tailwindcss-linux-x64 -o tailwindcss; fi
-	
-	@chmod +x tailwindcss
-
 build: 
 	@echo "Building..."
 	@go build -o main cmd/api/main.go
@@ -76,12 +57,6 @@ redodb:
 worker:
 	@echo "Starting asynq server"
 	@go run ./cmd/worker/main.go
-
-#wipe-db:
-#	@echo "Shutting down container..."
-#	@docker compose down
-#	@docker volume rm shoka_psql_volume
-#	@docker compose up --build
 
 # Live Reload
 watch:
