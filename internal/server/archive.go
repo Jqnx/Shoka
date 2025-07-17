@@ -678,6 +678,7 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 	}
 
 	if userid != 0 {
+		fav := false
 		check, err := s.repo.ArchiveIsFavorited(ctx, repository.ArchiveIsFavoritedParams{
 			UserID:    userid,
 			ArchiveID: arch.ID,
@@ -687,56 +688,61 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 				Status:  "error",
 				Message: err.Error(),
 			})
+			return
 		}
-		if check.RowsAffected() == 0 {
-			result := &models.ArchiveResponseFavorite{
-				ID:          arch.ID,
-				ArchiveID:   arch.ArchiveID,
-				Title:       arch.Title,
-				Summary:     arch.Summary,
-				Tags:        tags,
-				Artist:      artists,
-				Parody:      parodies,
-				Character:   characters,
-				Language:    arch.Language,
-				Category:    arch.Category,
-				PageCount:   arch.PageCount,
-				Url:         urls,
-				Hash:        arch.Hash,
-				Pages:       pages,
-				Type:        arch.Type,
-				CreatedAt:   arch.CreatedAt,
-				UpdatedAt:   arch.UpdatedAt,
-				ReleaseDate: arch.ReleaseDate,
-				IsFavorite:  false,
-			}
+		if check.RowsAffected() != 0 {
+			fav = true
+		}
 
-			c.JSON(http.StatusOK, result)
+		read := &ReadingProgress{}
+		rp, err := s.repo.GetUserReadingProgress(ctx, repository.GetUserReadingProgressParams{
+			UserID:    userid,
+			ArchiveID: arch.ID,
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				read.ReadingState = "unread"
+				read.Progress = 0
+				read.LastRead = nil
+			} else {
+				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					Status:  "error",
+					Message: err.Error(),
+				})
+				return
+			}
 		} else {
-			result := &models.ArchiveResponseFavorite{
-				ID:          arch.ID,
-				ArchiveID:   arch.ArchiveID,
-				Title:       arch.Title,
-				Summary:     arch.Summary,
-				Tags:        tags,
-				Artist:      artists,
-				Parody:      parodies,
-				Character:   characters,
-				Language:    arch.Language,
-				Category:    arch.Category,
-				PageCount:   arch.PageCount,
-				Url:         urls,
-				Hash:        arch.Hash,
-				Pages:       pages,
-				Type:        arch.Type,
-				CreatedAt:   arch.CreatedAt,
-				UpdatedAt:   arch.UpdatedAt,
-				ReleaseDate: arch.ReleaseDate,
-				IsFavorite:  true,
-			}
-
-			c.JSON(http.StatusOK, result)
+			read.ReadingState = rp.State
+			read.Progress = rp.Page
+			read.LastRead = &rp.LastRead
 		}
+
+		result := &models.ArchiveResponseFavorite{
+			ID:           arch.ID,
+			ArchiveID:    arch.ArchiveID,
+			Title:        arch.Title,
+			Summary:      arch.Summary,
+			Tags:         tags,
+			Artist:       artists,
+			Parody:       parodies,
+			Character:    characters,
+			Language:     arch.Language,
+			Category:     arch.Category,
+			PageCount:    arch.PageCount,
+			Url:          urls,
+			Hash:         arch.Hash,
+			Pages:        pages,
+			Type:         arch.Type,
+			Progress:     read.Progress,
+			ReadingState: read.ReadingState,
+			LastRead:     read.LastRead,
+			CreatedAt:    arch.CreatedAt,
+			UpdatedAt:    arch.UpdatedAt,
+			ReleaseDate:  arch.ReleaseDate,
+			IsFavorite:   fav,
+		}
+
+		c.JSON(http.StatusOK, result)
 	} else {
 		result := &models.ArchiveResponse{
 			ID:          arch.ID,
@@ -964,25 +970,25 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 
 // Delete
 
-//func (s *Server) deleteArchiveHandler(c *gin.Context) {
-//	id := c.Param("id")
+//	func (s *Server) deleteArchiveHandler(c *gin.Context) {
+//		id := c.Param("id")
 //
-//	ctx := context.Background()
-//	if err := archive.DeleteTransaction(ctx, s.db, s.repo, id, s.log); err != nil {
-//		if err == pgx.ErrNoRows {
-//			c.JSON(http.StatusNotFound, &models.ResponseError{
-//				Status:  "error",
-//				Message: config.ErrArchiveNotFound.Error(),
-//			})
-//			return
-//		} else {
-//			c.JSON(http.StatusInternalServerError, &models.ResponseError{
-//				Status:  "error",
-//				Message: err.Error(),
-//			})
-//			return
+//		ctx := context.Background()
+//		if err := archive.DeleteTransaction(ctx, s.db, s.repo, id, s.log); err != nil {
+//			if err == pgx.ErrNoRows {
+//				c.JSON(http.StatusNotFound, &models.ResponseError{
+//					Status:  "error",
+//					Message: config.ErrArchiveNotFound.Error(),
+//				})
+//				return
+//			} else {
+//				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+//					Status:  "error",
+//					Message: err.Error(),
+//				})
+//				return
+//			}
 //		}
-//	}
 //
-//	c.JSON(http.StatusOK, gin.H{"status": "success"})
-//}
+//		c.JSON(http.StatusOK, gin.H{"status": "success"})
+//	}

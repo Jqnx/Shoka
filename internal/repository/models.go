@@ -97,6 +97,14 @@ type Parody struct {
 	Count int64  `json:"count"`
 }
 
+type ReadingProgress struct {
+	ArchiveID int64     `json:"archive_id"`
+	UserID    int64     `json:"user_id"`
+	Page      int64     `json:"page"`
+	State     string    `json:"state"`
+	LastRead  time.Time `json:"last_read"`
+}
+
 type Tag struct {
 	ID    int64  `json:"id"`
 	Name  string `json:"name"`

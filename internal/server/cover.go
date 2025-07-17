@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
@@ -74,6 +73,5 @@ func (s *Server) getCoverHandler(c *gin.Context) {
 		return
 	}
 
-	file := filepath.Join(*arch.ThumbsPath, "cover", *arch.CoverPath)
-	c.File(file)
+	c.File(*arch.CoverPath)
 }

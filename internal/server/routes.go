@@ -41,7 +41,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 			archive.POST("/:id/cover", s.generateCoverHandler)
 			archive.POST("/:id/thumb", s.generateThumbHandler)
 			archive.POST("/:id/favorite", middleware.Auth(s.repo), s.favoriteArchiveHandler)
+			archive.POST("/:id/:page", middleware.Auth(s.repo), s.updateReadingProgressHandler)
 			archive.PUT("/:id", s.updateArchiveHandler)
+			archive.DELETE("/:id/rp", middleware.Auth(s.repo), s.deleteReadingProgressHandler)
 			// archive.DELETE("/:id", s.deleteArchiveHandler)
 			// archive.GET("/lastid", s.getLastIDHandler)
 		}
