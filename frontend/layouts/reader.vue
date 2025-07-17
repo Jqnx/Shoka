@@ -44,13 +44,22 @@
   };
 
   const goNext = () => {
-    navigateTo({
-      name: "a-id-page",
-      params: {
-        id: params.value.id,
-        page: clamp(pageInt.value + 1, 1, data.value.page_count),
-      },
-    });
+    if (pageInt.value === data.value.page_count) {
+      navigateTo({
+        name: "a-id",
+        params: {
+          id: params.value.id,
+        },
+      });
+    } else {
+      navigateTo({
+        name: "a-id-page",
+        params: {
+          id: params.value.id,
+          page: clamp(pageInt.value + 1, 1, data.value.page_count),
+        },
+      });
+    }
   };
 
   const clickPage = (event: MouseEvent) => {
