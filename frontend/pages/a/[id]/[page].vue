@@ -3,6 +3,8 @@
     layout: "reader",
   });
 
+  const { token } = useAuth();
+
   const params = computed(() => {
     return useRoute().params;
   });
@@ -16,6 +18,24 @@
   const data = useNuxtData("archive_page_count");
 
   const { preload, fit } = storeToRefs(useReaderSettingsStore());
+
+  onBeforeRouteUpdate(() => {
+    $fetch(`/api/a/${params.value.id}/${params.value.page}`, {
+      method: "post",
+      onRequest({ options }) {
+        options.headers.set("Authorization", `${token.value}`);
+      },
+    });
+  });
+
+  onBeforeRouteLeave(() => {
+    $fetch(`/api/a/${params.value.id}/${params.value.page}`, {
+      method: "post",
+      onRequest({ options }) {
+        options.headers.set("Authorization", `${token.value}`);
+      },
+    });
+  });
 </script>
 <template>
   <div class="flex justify-center">
