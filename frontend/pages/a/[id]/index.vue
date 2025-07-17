@@ -71,7 +71,7 @@
           <div class="flex gap-2 my-4">
             <Button
               v-if="toggle"
-              class="rounded-sm items-center"
+              class="rounded-sm items-center cursor-pointer"
               @click="toggle = !toggle">
               <Pencil />
               <span>Edit</span>
@@ -79,12 +79,15 @@
             <div v-if="toggle">
               <Button
                 v-if="archive.is_favorite"
-                class="rounded-sm items-center bg-destructive hover:bg-destructive/90"
+                class="rounded-sm items-center bg-destructive hover:bg-destructive/90 cursor-pointer"
                 @click="favorite">
                 <HeartMinus />
                 <span>Favorite</span>
               </Button>
-              <Button v-else class="rounded-sm items-cente" @click="favorite">
+              <Button
+                v-else
+                class="rounded-sm items-center cursor-pointer"
+                @click="favorite">
                 <HeartPlus />
                 <span>Favorite</span>
               </Button>
