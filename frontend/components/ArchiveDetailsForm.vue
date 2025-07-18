@@ -36,7 +36,7 @@
   } from "@/components/ui/combobox";
   import { Textarea } from "@/components/ui/textarea";
   import { Calendar } from "@/components/ui/calendar";
-  import { ArrowLeft, CalendarIcon } from "lucide-vue-next";
+  import { CalendarIcon } from "lucide-vue-next";
   import { useFilter } from "reka-ui";
   import ComboboxViewport from "./ui/combobox/ComboboxViewport.vue";
   import { toast } from "vue-sonner";
@@ -234,8 +234,6 @@
       },
     });
   });
-
-  defineEmits(["back"]);
 </script>
 
 <template>
@@ -684,14 +682,7 @@
         </FormItem>
       </FormField>
       <div class="flex gap-2 flex-1">
-        <Button
-          type="button"
-          class="rounded-sm items-center bg-stone-700 flex-initial"
-          @click="$emit('back')">
-          <ArrowLeft />
-          <span>Back</span>
-        </Button>
-        <Button class="w-full flex-1" type="submit">Submit</Button>
+        <Button class="w-full flex-1" type="submit">Save</Button>
       </div>
     </form>
   </div>

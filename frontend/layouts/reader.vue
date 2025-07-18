@@ -11,7 +11,7 @@
 
   const breakpoints = useBreakpoints(
     {
-      mobile: 368,
+      mobile: 412,
     },
     { ssrWidth: 1536 }
   );
