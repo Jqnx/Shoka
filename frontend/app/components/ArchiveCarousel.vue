@@ -10,13 +10,8 @@
   import Autoplay from "embla-carousel-autoplay";
 
   defineProps<{
-    title?: string;
+    archives?: any;
   }>();
-
-  const { data: archives } = await useFetch("/api/a/", {
-    query: { page: 1, size: 14, sortby: "release_date" },
-    key: "recentArchives",
-  });
 
   const emblaMainApi = ref<CarouselApi>();
   const emblaThumbnailApi = ref<CarouselApi>();
@@ -57,7 +52,7 @@
         <CarouselItem
           v-for="(archive, index) in archives.archives"
           :key="index"
-          class="md:basis-1/2 lg:basis-1/6">
+          class="basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 xl:basis-1/6">
           <div class="p-1">
             <GalleryItem :id="archive.archive_id" :title="archive.title" />
           </div>
