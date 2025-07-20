@@ -17,6 +17,8 @@
     ComboboxList,
     ComboboxSeparator,
   } from "@/components/ui/combobox";
+  import Button from "~/components/ui/button/Button.vue";
+  import { Search } from "lucide-vue-next";
   const defaultOpen = useCookie<boolean>("sidebar:state");
   const { currentPage, pageSize } = storeToRefs(usePageStore());
   const { searchQuery } = storeToRefs(useSearchStore());
@@ -61,30 +63,29 @@
   <SidebarProvider :default-open="defaultOpen">
     <AppSidebar />
     <SidebarInset>
-      <header class="flex h-16 shrink-0 items-center gap-2">
+      <header class="flex h-16 shrink-0 items-center">
         <div class="flex items-center gap-2 px-4">
           <SidebarTrigger class="-ml-1" />
           <Separator
             orientation="vertical"
-            class="mr-2 data-[orientation=vertical]:h-4" />
+            class="data-[orientation=vertical]:h-4" />
         </div>
-        <div class="flex flex-1 justify-center items-center gap-2 px-4">
+        <div class="flex flex-1 justify-center items-center mr-8 px-4">
           <div class="relative w-full max-w-xl items-center">
             <Combobox :ignore-filter="true">
               <ComboboxAnchor class="w-full">
                 <ComboboxInput v-model="searchQuery" as-child>
                   <Input
                     placeholder="Search..."
-                    class="pl-10 rounded-xl"
+                    class="pl-12 rounded-xl"
                     type="text" />
                 </ComboboxInput>
-                <span
-                  class="absolute start-0 inset-y-0 flex items-center justify-center px-2">
-                  <Icon
-                    name="lucide:search"
-                    size="1.25em"
-                    class="text-muted-foreground" />
-                </span>
+                <Button
+                  variant="ghost"
+                  class="absolute rounded-l-xl start-0 -inset-y-1.5 flex items-center justify-center size-10"
+                  @click="goSearch()">
+                  <Search class="size-[1.25em] text-muted-foreground" />
+                </Button>
               </ComboboxAnchor>
               <ComboboxList
                 class="w-(--reka-combobox-trigger-width) max-h-[80dvh]">
