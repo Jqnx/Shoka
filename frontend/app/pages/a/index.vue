@@ -45,9 +45,9 @@
 <template>
   <div class="flex flex-1 flex-col gap-4 p-4 pt-0">
     <!--TODO: Filter options here -->
-    <ListOptions class="px-16" />
+    <ListOptions />
     <div
-      class="px-16 py-4 grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+      class="py-4 grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
       <div v-for="archive in archives.archives" :key="archive.id">
         <GalleryItem :id="archive.archive_id" :title="archive.title" />
       </div>
