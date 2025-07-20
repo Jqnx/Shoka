@@ -44,7 +44,6 @@
 
 <template>
   <div class="flex flex-1 flex-col gap-4 p-4 pt-0">
-    <!--TODO: Filter options here -->
     <ListOptions />
     <div
       class="py-4 grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
