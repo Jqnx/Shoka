@@ -2,7 +2,7 @@
 -- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS favorite_archives (
   archive_id bigint,
-  user_id bigint,
+  user_id uuid,
   favorited_at timestamptz NOT NULL,
   PRIMARY KEY (archive_id, user_id),
   FOREIGN KEY (archive_id) REFERENCES archives(id),

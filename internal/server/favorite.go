@@ -15,13 +15,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 )
 
 func (s *Server) favoriteArchiveHandler(c *gin.Context) {
 	ctx := context.Background()
 
 	archiveId := c.Param("id")
-	userId := c.GetInt64("userid")
+	userId, _ := uuid.Parse(c.GetString("userid"))
 
 	archive, err := s.repo.GetArchiveByID(ctx, archiveId)
 	if err != nil {
@@ -83,7 +84,7 @@ func (s *Server) favoriteArchiveHandler(c *gin.Context) {
 // TODO: Add sorting and filters to get user favorite archives list
 func (s *Server) getUserFavoriteArchives(c *gin.Context) {
 	ctx := context.Background()
-	userId := c.GetInt64("userid")
+	userId, _ := uuid.Parse(c.GetString("userid"))
 
 	p := c.Query("page")
 	ps := c.Query("size")
@@ -161,7 +162,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 	ctx := context.Background()
 
 	// URL Queries
-	userid := c.GetInt64("userid")
+	userid, _ := uuid.Parse(c.GetString("userid"))
 	p := c.Query("page")
 	ps := c.Query("size")
 	sortby := c.Query("sortby")
@@ -358,7 +359,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 		case "title":
 			if sortdir == "desc" {
 				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
-					UserID:  int32(userid),
+					UserID:  userid,
 					OrderBy: "title_desc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -377,7 +378,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 				return
 			} else {
 				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
-					UserID:  int32(userid),
+					UserID:  userid,
 					OrderBy: "title_asc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -398,7 +399,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 		case "page_count":
 			if sortdir == "desc" {
 				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
-					UserID:  int32(userid),
+					UserID:  userid,
 					OrderBy: "page_count_desc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -417,7 +418,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 				return
 			} else {
 				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
-					UserID:  int32(userid),
+					UserID:  userid,
 					OrderBy: "page_count_asc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -438,7 +439,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 		case "created_at":
 			if sortdir == "desc" {
 				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
-					UserID:  int32(userid),
+					UserID:  userid,
 					OrderBy: "created_at_desc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -457,7 +458,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 				return
 			} else {
 				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
-					UserID:  int32(userid),
+					UserID:  userid,
 					OrderBy: "created_at_asc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -478,7 +479,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 		case "updated_at":
 			if sortdir == "desc" {
 				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
-					UserID:  int32(userid),
+					UserID:  userid,
 					OrderBy: "updated_at_desc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -497,7 +498,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 				return
 			} else {
 				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
-					UserID:  int32(userid),
+					UserID:  userid,
 					OrderBy: "updated_at_asc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -518,7 +519,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 		case "release_date":
 			if sortdir == "asc" {
 				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
-					UserID:  int32(userid),
+					UserID:  userid,
 					OrderBy: "release_date_asc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -537,7 +538,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 				return
 			} else {
 				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
-					UserID:  int32(userid),
+					UserID:  userid,
 					OrderBy: "release_date_desc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -558,7 +559,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 		case "favorited_at":
 			if sortdir == "asc" {
 				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
-					UserID:  int32(userid),
+					UserID:  userid,
 					OrderBy: "favorited_at_asc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -577,7 +578,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 				return
 			} else {
 				archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
-					UserID:  int32(userid),
+					UserID:  userid,
 					OrderBy: "favorited_at_desc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -597,7 +598,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 			}
 		default:
 			archives, err := s.repo.GetFavoriteArchiveSortList(ctx, repository.GetFavoriteArchiveSortListParams{
-				UserID:  int32(userid),
+				UserID:  userid,
 				OrderBy: "favorited_at_desc",
 				Limit:   int32(pageSize),
 				Offset:  (int32(page) - 1) * int32(pageSize),

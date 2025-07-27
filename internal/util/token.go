@@ -2,7 +2,10 @@ package util
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
+	"strings"
 )
 
 func GenerateToken(length int) (string, error) {
@@ -11,4 +14,11 @@ func GenerateToken(length int) (string, error) {
 		return "", err
 	}
 	return base64.URLEncoding.EncodeToString(bytes), nil
+}
+
+func GetAuthTokenFromHeader(header string) string {
+	token := strings.Split(header, " ")[1]
+	tokenHash := sha256.Sum256([]byte(token))
+	tokenHashString := hex.EncodeToString(tokenHash[:])
+	return tokenHashString
 }

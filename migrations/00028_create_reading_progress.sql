@@ -2,7 +2,7 @@
 -- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS reading_progress (
   archive_id bigint,
-  user_id bigint,
+  user_id uuid,
   page bigint NOT NULL,
   state text NOT NULL,
   last_read timestamptz NOT NULL,

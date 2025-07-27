@@ -5,6 +5,8 @@ import (
 	"Shoka/internal/repository"
 	"Shoka/internal/util"
 	"context"
+
+	"github.com/google/uuid"
 )
 
 type ArchiveList struct {
@@ -103,7 +105,7 @@ func MatchAndGet(in models.ArchiveFilters, qtx *repository.Queries, page, pageSi
 	return results, nil
 }
 
-func MatchAndGetFavorites(in models.ArchiveFilters, qtx *repository.Queries, page, pageSize int, userid int64, order string) (*FavoriteArchiveList, error) {
+func MatchAndGetFavorites(in models.ArchiveFilters, qtx *repository.Queries, page, pageSize int, userid uuid.UUID, order string) (*FavoriteArchiveList, error) {
 	ctx := context.Background()
 	list, err := Match(in, qtx)
 	if err != nil {
@@ -111,7 +113,7 @@ func MatchAndGetFavorites(in models.ArchiveFilters, qtx *repository.Queries, pag
 	}
 
 	archives, err := qtx.GetFavoriteArchivesFilterSortList(ctx, repository.GetFavoriteArchivesFilterSortListParams{
-		UserID:  int32(userid),
+		UserID:  userid,
 		Ids:     list,
 		OrderBy: order,
 		Limit:   int32(pageSize),
@@ -123,7 +125,7 @@ func MatchAndGetFavorites(in models.ArchiveFilters, qtx *repository.Queries, pag
 
 	count, err := qtx.CountFavoriteFilteredArchives(ctx, repository.CountFavoriteFilteredArchivesParams{
 		Ids:    list,
-		UserID: int32(userid),
+		UserID: userid,
 	})
 	if err != nil {
 		return nil, err
@@ -137,7 +139,7 @@ func MatchAndGetFavorites(in models.ArchiveFilters, qtx *repository.Queries, pag
 	return results, nil
 }
 
-func MatchAndGetShuffle(in models.ArchiveFilters, qtx *repository.Queries, rng int, userid int64, favorite bool) (string, error) {
+func MatchAndGetShuffle(in models.ArchiveFilters, qtx *repository.Queries, rng int, userid uuid.UUID, favorite bool) (string, error) {
 	ctx := context.Background()
 	list, err := Match(in, qtx)
 	if err != nil {
@@ -146,7 +148,7 @@ func MatchAndGetShuffle(in models.ArchiveFilters, qtx *repository.Queries, rng i
 
 	if favorite {
 		archive, err := qtx.GetFavoriteArchivesFilter(ctx, repository.GetFavoriteArchivesFilterParams{
-			UserID: int32(userid),
+			UserID: userid,
 			Ids:    list,
 			Limit:  1,
 			Offset: int32(rng),

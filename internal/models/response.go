@@ -3,6 +3,8 @@ package models
 import (
 	"Shoka/internal/repository"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type ResponseFail struct {
@@ -78,7 +80,7 @@ type GroupResponse struct {
 }
 
 type UserResponse struct {
-	ID        int64     `json:"user_id"`
+	ID        uuid.UUID `json:"user_id"`
 	Name      string    `json:"username"`
 	CreatedAt time.Time `json:"created_at"`
 }

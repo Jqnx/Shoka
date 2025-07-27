@@ -88,7 +88,7 @@ where
         from archives
         join favorite_archives on archives.id = favorite_archives.archive_id
         join users on favorite_archives.user_id = users.id
-        where users.id = sqlc.arg(user_id)::int
+        where users.id = sqlc.arg(user_id)::uuid
     )
 order by
     case when @order_by::text = 'title_asc' then archives.title end asc,
@@ -130,7 +130,7 @@ where
         from archives
         join favorite_archives on archives.id = favorite_archives.archive_id
         join users on favorite_archives.user_id = users.id
-        where users.id = sqlc.arg(user_id)::int
+        where users.id = sqlc.arg(user_id)::uuid
     )
 limit $1
 offset $2
@@ -146,7 +146,7 @@ where
         from archives
         join favorite_archives on archives.id = favorite_archives.archive_id
         join users on favorite_archives.user_id = users.id
-        where users.id = sqlc.arg(user_id)::int
+        where users.id = sqlc.arg(user_id)::uuid
     )
 ;
 
@@ -170,7 +170,7 @@ select
 from archives
 join favorite_archives on archives.id = favorite_archives.archive_id
 join users on favorite_archives.user_id = users.id
-where users.id = sqlc.arg(user_id)::int
+where users.id = sqlc.arg(user_id)::uuid
 order by
     case when @order_by::text = 'title_asc' then archives.title end asc,
     case when @order_by = 'title_desc' then archives.title end desc nulls last,

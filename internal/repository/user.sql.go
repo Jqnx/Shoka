@@ -8,19 +8,23 @@ package repository
 import (
 	"context"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const createUser = `-- name: CreateUser :one
 insert into users (
+  id,
   name,
   password,
   created_at,
   updated_at
-) values ( $1, $2, $3, $4 )
-returning id, name, password, session, session_expiry, created_at, updated_at
+) values ( $1, $2, $3, $4, $5 )
+returning id, name, password, created_at, updated_at
 `
 
 type CreateUserParams struct {
+	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`
 	Password  string    `json:"password"`
 	CreatedAt time.Time `json:"created_at"`
@@ -29,6 +33,7 @@ type CreateUserParams struct {
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, createUser,
+		arg.ID,
 		arg.Name,
 		arg.Password,
 		arg.CreatedAt,
@@ -39,8 +44,6 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.ID,
 		&i.Name,
 		&i.Password,
-		&i.Session,
-		&i.SessionExpiry,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -52,26 +55,24 @@ delete from users
 where id = $1
 `
 
-func (q *Queries) DeleteUser(ctx context.Context, id int64) error {
+func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteUser, id)
 	return err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-select id, name, password, session, session_expiry, created_at, updated_at
+select id, name, password, created_at, updated_at
 from users
 where id = $1
 `
 
-func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
+func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByID, id)
 	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.Password,
-		&i.Session,
-		&i.SessionExpiry,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -79,7 +80,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 }
 
 const getUserByName = `-- name: GetUserByName :one
-select id, name, password, session, session_expiry, created_at, updated_at
+select id, name, password, created_at, updated_at
 from users
 where name = $1
 `
@@ -91,51 +92,10 @@ func (q *Queries) GetUserByName(ctx context.Context, name string) (User, error) 
 		&i.ID,
 		&i.Name,
 		&i.Password,
-		&i.Session,
-		&i.SessionExpiry,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
-}
-
-const getUserByToken = `-- name: GetUserByToken :one
-select id, name, password, session, session_expiry, created_at, updated_at
-from users
-where session = $1
-`
-
-func (q *Queries) GetUserByToken(ctx context.Context, session *string) (User, error) {
-	row := q.db.QueryRow(ctx, getUserByToken, session)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Password,
-		&i.Session,
-		&i.SessionExpiry,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const updateSession = `-- name: UpdateSession :exec
-update users
-set session = $1,
-    session_expiry = $2
-where id = $3
-`
-
-type UpdateSessionParams struct {
-	Session       *string    `json:"session"`
-	SessionExpiry *time.Time `json:"session_expiry"`
-	ID            int64      `json:"id"`
-}
-
-func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) error {
-	_, err := q.db.Exec(ctx, updateSession, arg.Session, arg.SessionExpiry, arg.ID)
-	return err
 }
 
 const updateUser = `-- name: UpdateUser :one
@@ -144,12 +104,12 @@ set name = coalesce($3, name),
     password = coalesce($4, password),
     updated_at = coalesce($1, updated_at)
 where id = $2
-returning id, name, password, session, session_expiry, created_at, updated_at
+returning id, name, password, created_at, updated_at
 `
 
 type UpdateUserParams struct {
 	UpdatedAt time.Time `json:"updated_at"`
-	ID        int64     `json:"id"`
+	ID        uuid.UUID `json:"id"`
 	Name      *string   `json:"name"`
 	Password  *string   `json:"password"`
 }
@@ -166,8 +126,6 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.ID,
 		&i.Name,
 		&i.Password,
-		&i.Session,
-		&i.SessionExpiry,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

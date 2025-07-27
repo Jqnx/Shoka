@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type ReadingProgress struct {
@@ -47,7 +48,7 @@ func (s *Server) updateReadingProgressHandler(c *gin.Context) {
 
 	archive_id := c.Param("id")
 	p := c.Param("page")
-	user_id := c.GetInt64("userid")
+	user_id, _ := uuid.Parse(c.GetString("userid"))
 
 	arch, err := s.repo.GetArchiveByID(ctx, archive_id)
 	if err != nil {
@@ -124,7 +125,7 @@ func (s *Server) deleteReadingProgressHandler(c *gin.Context) {
 	ctx := context.Background()
 
 	archive_id := c.Param("id")
-	user_id := c.GetInt64("userid")
+	user_id, _ := uuid.Parse(c.GetString("userid"))
 
 	arch, err := s.repo.GetArchiveByID(ctx, archive_id)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -19,7 +20,7 @@ values ($1, $2, $3)
 
 type AddFavoriteArchiveParams struct {
 	ArchiveID   int64     `json:"archive_id"`
-	UserID      int64     `json:"user_id"`
+	UserID      uuid.UUID `json:"user_id"`
 	FavoritedAt time.Time `json:"favorited_at"`
 }
 
@@ -35,8 +36,8 @@ where user_id = $1 and archive_id = $2
 `
 
 type ArchiveIsFavoritedParams struct {
-	UserID    int64 `json:"user_id"`
-	ArchiveID int64 `json:"archive_id"`
+	UserID    uuid.UUID `json:"user_id"`
+	ArchiveID int64     `json:"archive_id"`
 }
 
 func (q *Queries) ArchiveIsFavorited(ctx context.Context, arg ArchiveIsFavoritedParams) (pgconn.CommandTag, error) {
@@ -53,13 +54,13 @@ where
         from archives
         join favorite_archives on archives.id = favorite_archives.archive_id
         join users on favorite_archives.user_id = users.id
-        where users.id = $2::int
+        where users.id = $2::uuid
     )
 `
 
 type CountFavoriteFilteredArchivesParams struct {
-	Ids    []string `json:"ids"`
-	UserID int32    `json:"user_id"`
+	Ids    []string  `json:"ids"`
+	UserID uuid.UUID `json:"user_id"`
 }
 
 func (q *Queries) CountFavoriteFilteredArchives(ctx context.Context, arg CountFavoriteFilteredArchivesParams) (int64, error) {
@@ -75,7 +76,7 @@ from favorite_archives
 where user_id = $1
 `
 
-func (q *Queries) CountUserFavoriteArchives(ctx context.Context, userID int64) (int64, error) {
+func (q *Queries) CountUserFavoriteArchives(ctx context.Context, userID uuid.UUID) (int64, error) {
 	row := q.db.QueryRow(ctx, countUserFavoriteArchives, userID)
 	var count int64
 	err := row.Scan(&count)
@@ -102,7 +103,7 @@ select
 from archives
 join favorite_archives on archives.id = favorite_archives.archive_id
 join users on favorite_archives.user_id = users.id
-where users.id = $3::int
+where users.id = $3::uuid
 order by
     case when $4::text = 'title_asc' then archives.title end asc,
     case when $4 = 'title_desc' then archives.title end desc nulls last,
@@ -133,10 +134,10 @@ offset $2
 `
 
 type GetFavoriteArchiveSortListParams struct {
-	Limit   int32  `json:"limit"`
-	Offset  int32  `json:"offset"`
-	UserID  int32  `json:"user_id"`
-	OrderBy string `json:"order_by"`
+	Limit   int32     `json:"limit"`
+	Offset  int32     `json:"offset"`
+	UserID  uuid.UUID `json:"user_id"`
+	OrderBy string    `json:"order_by"`
 }
 
 type GetFavoriteArchiveSortListRow struct {
@@ -209,17 +210,17 @@ where
         from archives
         join favorite_archives on archives.id = favorite_archives.archive_id
         join users on favorite_archives.user_id = users.id
-        where users.id = $4::int
+        where users.id = $4::uuid
     )
 limit $1
 offset $2
 `
 
 type GetFavoriteArchivesFilterParams struct {
-	Limit  int32    `json:"limit"`
-	Offset int32    `json:"offset"`
-	Ids    []string `json:"ids"`
-	UserID int32    `json:"user_id"`
+	Limit  int32     `json:"limit"`
+	Offset int32     `json:"offset"`
+	Ids    []string  `json:"ids"`
+	UserID uuid.UUID `json:"user_id"`
 }
 
 func (q *Queries) GetFavoriteArchivesFilter(ctx context.Context, arg GetFavoriteArchivesFilterParams) (string, error) {
@@ -260,7 +261,7 @@ where
         from archives
         join favorite_archives on archives.id = favorite_archives.archive_id
         join users on favorite_archives.user_id = users.id
-        where users.id = $4::int
+        where users.id = $4::uuid
     )
 order by
     case when $5::text = 'title_asc' then archives.title end asc,
@@ -292,11 +293,11 @@ offset $2
 `
 
 type GetFavoriteArchivesFilterSortListParams struct {
-	Limit   int32    `json:"limit"`
-	Offset  int32    `json:"offset"`
-	Ids     []string `json:"ids"`
-	UserID  int32    `json:"user_id"`
-	OrderBy string   `json:"order_by"`
+	Limit   int32     `json:"limit"`
+	Offset  int32     `json:"offset"`
+	Ids     []string  `json:"ids"`
+	UserID  uuid.UUID `json:"user_id"`
+	OrderBy string    `json:"order_by"`
 }
 
 type GetFavoriteArchivesFilterSortListRow struct {
@@ -401,7 +402,7 @@ type GetUserFavoriteArchivesAllRow struct {
 	ReleaseDate *time.Time `json:"release_date"`
 }
 
-func (q *Queries) GetUserFavoriteArchivesAll(ctx context.Context, id int64) ([]GetUserFavoriteArchivesAllRow, error) {
+func (q *Queries) GetUserFavoriteArchivesAll(ctx context.Context, id uuid.UUID) ([]GetUserFavoriteArchivesAllRow, error) {
 	rows, err := q.db.Query(ctx, getUserFavoriteArchivesAll, id)
 	if err != nil {
 		return nil, err
@@ -463,9 +464,9 @@ offset $3
 `
 
 type GetUserFavoriteArchivesListParams struct {
-	ID     int64 `json:"id"`
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+	ID     uuid.UUID `json:"id"`
+	Limit  int32     `json:"limit"`
+	Offset int32     `json:"offset"`
 }
 
 type GetUserFavoriteArchivesListRow struct {
@@ -533,9 +534,9 @@ offset $3
 `
 
 type GetUserFavoriteArchivesShuffleParams struct {
-	ID     int64 `json:"id"`
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+	ID     uuid.UUID `json:"id"`
+	Limit  int32     `json:"limit"`
+	Offset int32     `json:"offset"`
 }
 
 func (q *Queries) GetUserFavoriteArchivesShuffle(ctx context.Context, arg GetUserFavoriteArchivesShuffleParams) (string, error) {
@@ -551,8 +552,8 @@ where archive_id = $1 and user_id = $2
 `
 
 type RemoveFavoriteArchiveParams struct {
-	ArchiveID int64 `json:"archive_id"`
-	UserID    int64 `json:"user_id"`
+	ArchiveID int64     `json:"archive_id"`
+	UserID    uuid.UUID `json:"user_id"`
 }
 
 func (q *Queries) RemoveFavoriteArchive(ctx context.Context, arg RemoveFavoriteArchiveParams) error {

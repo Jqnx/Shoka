@@ -6,12 +6,16 @@ import (
 	"Shoka/internal/repository"
 	"Shoka/internal/util"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -47,6 +51,7 @@ func (s *Server) registerUser(c *gin.Context) {
 		}
 
 		_, err = s.repo.CreateUser(ctx, repository.CreateUserParams{
+			ID:        uuid.New(),
 			Name:      payload.Name,
 			Password:  string(passHash),
 			CreatedAt: time.Now(),
@@ -57,6 +62,7 @@ func (s *Server) registerUser(c *gin.Context) {
 				Status:  "error",
 				Message: err.Error(),
 			})
+			fmt.Println(err)
 			return
 		}
 
@@ -120,10 +126,18 @@ func (s *Server) signInUser(c *gin.Context) {
 	}
 
 	expiry := time.Now().Add(time.Hour * 24 * 3)
-	if err := s.repo.UpdateSession(ctx, repository.UpdateSessionParams{
-		ID:            user.ID,
-		Session:       &token,
-		SessionExpiry: &expiry,
+	useragent := c.Request.UserAgent()
+	ip := util.GetIPFromGinContext(c)
+	tokenHash := sha256.Sum256([]byte(token))
+	thString := hex.EncodeToString(tokenHash[:])
+	if err := s.repo.CreateSession(ctx, repository.CreateSessionParams{
+		SessionID: uuid.New(),
+		UserID:    user.ID,
+		Token:     thString,
+		ExpiresAt: expiry,
+		CreatedAt: time.Now(),
+		IpAddress: &ip,
+		UserAgent: &useragent,
 	}); err != nil {
 		c.JSON(http.StatusInternalServerError, &models.ResponseError{
 			Status:  "error",
@@ -160,22 +174,9 @@ func (s *Server) getUserSession(c *gin.Context) {
 
 func (s *Server) signOutUser(c *gin.Context) {
 	ctx := context.Background()
-	username := c.GetString("username")
+	token := c.GetString("token")
 
-	user, err := s.repo.GetUserByName(ctx, username)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
-			Status:  "error",
-			Message: err.Error(),
-		})
-		return
-	}
-
-	if err := s.repo.UpdateSession(ctx, repository.UpdateSessionParams{
-		ID:            user.ID,
-		Session:       nil,
-		SessionExpiry: nil,
-	}); err != nil {
+	if err := s.repo.DeleteSession(ctx, token); err != nil {
 		c.JSON(http.StatusInternalServerError, &models.ResponseError{
 			Status:  "error",
 			Message: err.Error(),

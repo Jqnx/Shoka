@@ -5,7 +5,10 @@
 package repository
 
 import (
+	"net/netip"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Archive struct {
@@ -80,7 +83,7 @@ type Character struct {
 
 type FavoriteArchive struct {
 	ArchiveID   int64     `json:"archive_id"`
-	UserID      int64     `json:"user_id"`
+	UserID      uuid.UUID `json:"user_id"`
 	FavoritedAt time.Time `json:"favorited_at"`
 }
 
@@ -99,10 +102,20 @@ type Parody struct {
 
 type ReadingProgress struct {
 	ArchiveID int64     `json:"archive_id"`
-	UserID    int64     `json:"user_id"`
+	UserID    uuid.UUID `json:"user_id"`
 	Page      int64     `json:"page"`
 	State     string    `json:"state"`
 	LastRead  time.Time `json:"last_read"`
+}
+
+type Session struct {
+	SessionID uuid.UUID   `json:"session_id"`
+	UserID    uuid.UUID   `json:"user_id"`
+	Token     string      `json:"token"`
+	ExpiresAt time.Time   `json:"expires_at"`
+	CreatedAt time.Time   `json:"created_at"`
+	IpAddress *netip.Addr `json:"ip_address"`
+	UserAgent *string     `json:"user_agent"`
 }
 
 type Tag struct {
@@ -118,11 +131,9 @@ type Url struct {
 }
 
 type User struct {
-	ID            int64      `json:"id"`
-	Name          string     `json:"name"`
-	Password      string     `json:"password"`
-	Session       *string    `json:"session"`
-	SessionExpiry *time.Time `json:"session_expiry"`
-	CreatedAt     time.Time  `json:"created_at"`
-	UpdatedAt     time.Time  `json:"updated_at"`
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	Password  string    `json:"password"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }

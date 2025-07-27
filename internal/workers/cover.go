@@ -57,7 +57,8 @@ func (c *Client) NewCover(force bool) *asynq.TaskInfo {
 		// TODO: Change coverpath to a full path
 		path := filepath.Join(*c.arch.ThumbsPath, "cover")
 		name := fmt.Sprintf("%v.webp", c.arch.Hash)
-		full, _ := filepath.Abs(filepath.Join(path, name))
+		joined := filepath.Join(path, name)
+		full, _ := filepath.Abs(joined)
 		_, err := os.Stat(full)
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
@@ -72,7 +73,7 @@ func (c *Client) NewCover(force bool) *asynq.TaskInfo {
 			}
 		}
 		if err := c.app.Repo.UpdateCoverPath(ctx, repository.UpdateCoverPathParams{
-			CoverPath: &name,
+			CoverPath: &joined,
 			ArchiveID: c.arch.ArchiveID,
 		}); err != nil {
 			c.app.Log.Error("could not update cover_path in db:", "error", err.Error())

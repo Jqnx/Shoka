@@ -9,6 +9,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -18,8 +19,8 @@ where archive_id = $1 and user_id = $2
 `
 
 type DeleteReadingProgressParams struct {
-	ArchiveID int64 `json:"archive_id"`
-	UserID    int64 `json:"user_id"`
+	ArchiveID int64     `json:"archive_id"`
+	UserID    uuid.UUID `json:"user_id"`
 }
 
 func (q *Queries) DeleteReadingProgress(ctx context.Context, arg DeleteReadingProgressParams) error {
@@ -34,8 +35,8 @@ where archive_id = $1 and user_id = $2
 `
 
 type GetUserReadingProgressParams struct {
-	ArchiveID int64 `json:"archive_id"`
-	UserID    int64 `json:"user_id"`
+	ArchiveID int64     `json:"archive_id"`
+	UserID    uuid.UUID `json:"user_id"`
 }
 
 func (q *Queries) GetUserReadingProgress(ctx context.Context, arg GetUserReadingProgressParams) (ReadingProgress, error) {
@@ -63,7 +64,7 @@ insert into reading_progress (
 
 type InsertReadingProgressParams struct {
 	ArchiveID int64     `json:"archive_id"`
-	UserID    int64     `json:"user_id"`
+	UserID    uuid.UUID `json:"user_id"`
 	Page      int64     `json:"page"`
 	State     string    `json:"state"`
 	LastRead  time.Time `json:"last_read"`
@@ -97,7 +98,7 @@ returning
 type UpdateReadingProgressParams struct {
 	LastRead  time.Time `json:"last_read"`
 	ArchiveID int64     `json:"archive_id"`
-	UserID    int64     `json:"user_id"`
+	UserID    uuid.UUID `json:"user_id"`
 	Page      *int64    `json:"page"`
 	State     *string   `json:"state"`
 }
@@ -128,8 +129,8 @@ where archive_id = $1 and user_id = $2
 `
 
 type UserReadingProgressExistsParams struct {
-	ArchiveID int64 `json:"archive_id"`
-	UserID    int64 `json:"user_id"`
+	ArchiveID int64     `json:"archive_id"`
+	UserID    uuid.UUID `json:"user_id"`
 }
 
 func (q *Queries) UserReadingProgressExists(ctx context.Context, arg UserReadingProgressExistsParams) (pgconn.CommandTag, error) {

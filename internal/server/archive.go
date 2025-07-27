@@ -8,6 +8,7 @@ import (
 	"Shoka/internal/metadata"
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
+	"Shoka/internal/util"
 	"context"
 	"errors"
 	"net/http"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -662,11 +664,11 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 		}
 	}
 
-	var userid int64
+	var userid uuid.UUID
 	header := c.Request.Header.Get("Authorization")
 	if header != "" {
-		token := strings.Split(header, " ")[1]
-		user, err := s.repo.GetUserByToken(ctx, &token)
+		token := util.GetAuthTokenFromHeader(header)
+		user, err := s.repo.GetUserByToken(ctx, token)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, &models.ResponseError{
 				Status:  "error",
@@ -677,7 +679,7 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 		userid = user.ID
 	}
 
-	if userid != 0 {
+	if userid != uuid.Nil {
 		fav := false
 		check, err := s.repo.ArchiveIsFavorited(ctx, repository.ArchiveIsFavoritedParams{
 			UserID:    userid,
@@ -831,7 +833,7 @@ func (s *Server) shuffleArchiveHandler(c *gin.Context) {
 		return
 	}
 
-	var userid int64
+	var userid uuid.UUID
 	ctx := context.Background()
 	countQuery := c.Query("c")
 	count, _ := strconv.Atoi(countQuery)
@@ -847,7 +849,7 @@ func (s *Server) shuffleArchiveHandler(c *gin.Context) {
 	header := c.Request.Header.Get("Authorization")
 	if header != "" {
 		token := strings.Split(header, " ")[1]
-		user, err := s.repo.GetUserByToken(ctx, &token)
+		user, err := s.repo.GetUserByToken(ctx, token)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, &models.ResponseError{
 				Status:  "error",
