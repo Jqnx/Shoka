@@ -79,9 +79,11 @@
                   <FormControl>
                     <Input type="username" v-bind="componentField" />
                   </FormControl>
-                  <FormLabel v-if="errors.username">{{
-                    errors.username
-                  }}</FormLabel>
+                  <FormLabel v-if="errors.username">
+                    <p class="text-destructive">
+                      {{ errors.username }}
+                    </p>
+                  </FormLabel>
                 </FormItem>
               </FormField>
               <FormField v-slot="{ componentField }" name="password">
@@ -90,9 +92,11 @@
                   <FormControl>
                     <Input type="password" v-bind="componentField" />
                   </FormControl>
-                  <FormLabel v-if="errors.password">{{
-                    errors.password
-                  }}</FormLabel>
+                  <FormLabel v-if="errors.password">
+                    <p class="text-destructive">
+                      {{ errors.password }}
+                    </p>
+                  </FormLabel>
                 </FormItem>
               </FormField>
               <FormField v-slot="{ componentField }" name="vpassword">
@@ -101,9 +105,11 @@
                   <FormControl>
                     <Input type="password" v-bind="componentField" />
                   </FormControl>
-                  <FormLabel v-if="errors.vpassword">{{
-                    errors.vpassword
-                  }}</FormLabel>
+                  <FormLabel v-if="errors.vpassword">
+                    <p class="text-destructive">
+                      {{ errors.vpassword }}
+                    </p>
+                  </FormLabel>
                 </FormItem>
               </FormField>
               <Button type="submit" class="w-full"> Sign Up </Button>
