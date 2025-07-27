@@ -38,7 +38,7 @@
   });
 </script>
 <template>
-  <div class="flex justify-center">
+  <div class="flex flex-col items-center justify-center min-h-screen">
     <div v-for="(_, index) in preload" :key="index">
       <NuxtImg
         :src="`/archive/${params.id}/${clamp(
@@ -49,6 +49,9 @@
         preload
         hidden />
     </div>
-    <NuxtImg :class="fit" :src="`/archive/${params.id}/${params.page}`" />
+    <NuxtImg
+      draggable="false"
+      :class="fit"
+      :src="`/archive/${params.id}/${params.page}`" />
   </div>
 </template>
