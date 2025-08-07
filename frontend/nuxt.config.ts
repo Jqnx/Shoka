@@ -32,7 +32,7 @@ export default defineNuxtConfig({
     'vue-sonner/nuxt',
     '@sidebase/nuxt-auth',
   ],
-  css: ['~/assets/css/tailwind.css'],
+  css: ['./app/assets/css/tailwind.css'],
   vite: {
     plugins: [
       tailwindcss(),
@@ -48,7 +48,7 @@ export default defineNuxtConfig({
   },
   shadcn: {
     prefix: '',
-    componentDir: './components/ui'
+    componentDir: './app/components/ui'
   },
   image: {
     domains: ['localhost'],
