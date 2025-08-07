@@ -14,8 +14,13 @@ select
     archives.type,
     archives.created_at,
     archives.updated_at,
-    archives.release_date
+    archives.release_date,
+    reading_progress.page
 from archives
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = sqlc.arg('uid')
 where archives.archive_id = any(sqlc.arg('ids')::text[])
 order by
     case when @order_by::text = 'title_asc' then archives.title end asc,
@@ -50,22 +55,27 @@ offset $2
 
 -- name: GetArchiveSortList :many
 select
-    id,
-    title,
-    summary,
-    language,
-    category,
-    page_count,
-    file_path,
-    archive_id,
-    hash,
-    thumbs_path,
-    cover_path,
-    type,
-    created_at,
-    updated_at,
-    release_date
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date,
+    reading_progress.page
 from archives
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = sqlc.arg('uid')
 order by
     case when @order_by::text = 'title_asc' then title end asc,
     case when @order_by = 'title_desc' then title end desc nulls last,
@@ -83,22 +93,27 @@ offset $2
 
 -- name: GetArchiveSort :many
 select
-    id,
-    title,
-    summary,
-    language,
-    category,
-    page_count,
-    file_path,
-    archive_id,
-    hash,
-    thumbs_path,
-    cover_path,
-    type,
-    created_at,
-    updated_at,
-    release_date
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date,
+    reading_progress.page
 from archives
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = sqlc.arg('uid')
 order by
     case when @order_by::text = 'title_asc' then title end asc,
     case when @order_by = 'title_desc' then title end desc nulls last,

@@ -85,43 +85,53 @@ where file_path = $1
 
 -- name: GetAllArchives :many
 select
-    id,
-    title,
-    summary,
-    language,
-    category,
-    page_count,
-    file_path,
-    archive_id,
-    hash,
-    thumbs_path,
-    cover_path,
-    type,
-    created_at,
-    updated_at,
-    release_date
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date,
+    reading_progress.page
 from archives
-order by archive_id
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = sqlc.arg('uid')
+order by archives.archive_id
 ;
 
 -- name: GetArchiveList :many
 select
-    id,
-    title,
-    summary,
-    language,
-    category,
-    page_count,
-    file_path,
-    archive_id,
-    hash,
-    thumbs_path,
-    cover_path,
-    type,
-    created_at,
-    updated_at,
-    release_date
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date,
+    reading_progress.page
 from archives
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = sqlc.arg('uid')
 limit $1
 offset $2
 ;

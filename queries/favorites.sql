@@ -23,6 +23,10 @@ select
 from archives
 join favorite_archives on archives.id = favorite_archives.archive_id
 join users on favorite_archives.user_id = users.id
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = users.id
 where users.id = $1
 limit $2
 offset $3
@@ -58,6 +62,10 @@ select
 from archives
 join favorite_archives on archives.id = favorite_archives.archive_id
 join users on favorite_archives.user_id = users.id
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = users.id
 where users.id = $1
 order by favorited_at desc
 ;
@@ -78,9 +86,14 @@ select
     archives.type,
     archives.created_at,
     archives.updated_at,
-    archives.release_date
+    archives.release_date,
+    reading_progress.page
 from archives
 join favorite_archives on archives.id = favorite_archives.archive_id
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = sqlc.arg(user_id)::uuid
 where
     archives.archive_id = any(sqlc.arg('ids')::text[])
     and archives.archive_id in (
@@ -166,10 +179,15 @@ select
     archives.type,
     archives.created_at,
     archives.updated_at,
-    archives.release_date
+    archives.release_date,
+    reading_progress.page
 from archives
 join favorite_archives on archives.id = favorite_archives.archive_id
 join users on favorite_archives.user_id = users.id
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = sqlc.arg(user_id)::uuid
 where users.id = sqlc.arg(user_id)::uuid
 order by
     case when @order_by::text = 'title_asc' then archives.title end asc,
