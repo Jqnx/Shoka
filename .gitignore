@@ -25,6 +25,9 @@ tmp/
 # .env file
 .env
 
+# config file
+config.yaml
+
 # Project build
 main
 *templ.go
@@ -42,6 +45,7 @@ tailwindcss
 # Directories
 content/
 /thumb/
+downloads/
 
 # Metadata files
 ComicInfo.xml
