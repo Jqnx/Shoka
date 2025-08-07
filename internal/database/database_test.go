@@ -2,8 +2,10 @@ package database
 
 import (
 	"Shoka/internal/config"
+	"Shoka/internal/logger"
 	"context"
 	"log"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 )
 
 var (
+	l    slog.Logger
 	host string
 	port string
 	db   = config.Database{
@@ -63,6 +66,8 @@ func TestMain(m *testing.M) {
 		log.Fatalf("could not start postgres container: %v", err)
 	}
 
+	logger := logger.NewSlog()
+	l = *logger
 	m.Run()
 
 	if teardown != nil && teardown(context.Background()) != nil {
@@ -75,9 +80,9 @@ func TestNew(t *testing.T) {
 	conf.Database.DBHost = host
 	conf.Database.DBPort = port
 
-	pool := NewPool(ctx, &conf, nil)
-	srv := NewConn(ctx, pool, nil)
-	if srv == nil {
-		t.Fatal("New() returned nil")
+	_, err := NewPool(ctx, &conf, &l)
+	if err != nil {
+		t.Fatalf("err: %v", err)
 	}
+	t.Log("connected to database.")
 }
