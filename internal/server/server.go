@@ -6,39 +6,27 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/joho/godotenv/autoload"
-	"riverqueue.com/riverui"
 )
 
 type Server struct {
-	port     int
-	repo     *repository.Queries
-	db       *pgxpool.Pool
-	log      *slog.Logger
-	workerui *riverui.Server
-	app      *config.App
+	port int
+	repo *repository.Queries
+	db   *pgxpool.Pool
+	log  *slog.Logger
+	app  *config.App
 }
 
-func NewServer(
-	config *config.Config,
-	db *pgxpool.Pool,
-	repo *repository.Queries,
-	log *slog.Logger,
-	app *config.App,
-	// workerui *riverui.Server,
-) *http.Server {
-	port, _ := strconv.Atoi(config.Server.Port)
+func NewServer(app *config.App) *http.Server {
 	NewServer := &Server{
-		port: port,
-		repo: repo,
-		db:   db,
-		log:  log,
+		port: app.Cfg.Server.Port,
+		repo: app.Repo,
+		db:   app.DB,
+		log:  app.Log,
 		app:  app,
-		// workerui: workerui,
 	}
 
 	// Declare Server config
