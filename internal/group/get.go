@@ -1,13 +1,13 @@
 package group
 
 import (
+	"Shoka/internal/logger"
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
 	"context"
-	"log/slog"
 )
 
-func Get(c context.Context, q *repository.Queries, name string, log *slog.Logger) (*models.GroupResponse, error) {
+func Get(c context.Context, q *repository.Queries, name string, log logger.Logger) (*models.GroupResponse, error) {
 	group, err := q.GetGroup(c, name)
 	if err != nil {
 		log.Error(err.Error())
@@ -28,7 +28,7 @@ func Get(c context.Context, q *repository.Queries, name string, log *slog.Logger
 	return result, nil
 }
 
-func GetAll(c context.Context, q *repository.Queries, log *slog.Logger) (*[]models.GroupResponse, error) {
+func GetAll(c context.Context, q *repository.Queries, log logger.Logger) (*[]models.GroupResponse, error) {
 	groups, err := q.GetAllGroups(c)
 	if err != nil {
 		return nil, err

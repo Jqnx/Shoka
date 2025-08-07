@@ -1,10 +1,10 @@
 package artist
 
 import (
+	"Shoka/internal/logger"
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
 	"context"
-	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -17,7 +17,7 @@ func CreateTransaction(c context.Context,
 	db *pgxpool.Pool,
 	q *repository.Queries,
 	p *models.ArtistPayload,
-	log *slog.Logger,
+	log logger.Logger,
 ) (*models.ArtistResponse, error) {
 	tx, err := db.Begin(c)
 	if err != nil {

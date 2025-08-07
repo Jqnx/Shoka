@@ -1,13 +1,14 @@
 package config
 
 import (
-	"log/slog"
+	"Shoka/internal/logger"
 	"os"
 
 	"github.com/spf13/viper"
 )
 
 var (
+	Logger            = "zerolog"
 	ConfigFile        = "config.yaml"
 	ImageExtensions   = []string{"png", "jpg", "jpeg", "gif", "webp"}
 	ArchiveExtensions = []string{"zip", "cbz"}
@@ -43,7 +44,7 @@ type Config struct {
 	Workers     Workers  `mapstructure:"workers"`
 }
 
-func LoadConfig(log *slog.Logger) (*Config, error) {
+func LoadConfig(log logger.Logger) (*Config, error) {
 	viper.AutomaticEnv()
 
 	// Set config file

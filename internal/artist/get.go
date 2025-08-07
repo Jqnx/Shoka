@@ -1,15 +1,15 @@
 package artist
 
 import (
+	"Shoka/internal/logger"
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
 	"context"
-	"log/slog"
 )
 
 // TODO:
 
-func GetAll(c context.Context, q *repository.Queries, log *slog.Logger) (*[]models.ArtistResponse, error) {
+func GetAll(c context.Context, q *repository.Queries, log logger.Logger) (*[]models.ArtistResponse, error) {
 	artists, err := q.GetAllArtists(c)
 	if err != nil {
 		log.Error(err.Error())
@@ -49,7 +49,7 @@ func GetAll(c context.Context, q *repository.Queries, log *slog.Logger) (*[]mode
 	return &result, nil
 }
 
-func Get(c context.Context, q *repository.Queries, name string, log *slog.Logger) (*models.ArtistResponse, error) {
+func Get(c context.Context, q *repository.Queries, name string, log logger.Logger) (*models.ArtistResponse, error) {
 	artist, err := q.GetArtistByName(c, name)
 	if err != nil {
 		log.Error(err.Error())

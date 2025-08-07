@@ -1,9 +1,9 @@
 package artist
 
 import (
+	"Shoka/internal/logger"
 	"Shoka/internal/repository"
 	"context"
-	"log/slog"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -12,7 +12,7 @@ func DeleteTransaction(c context.Context,
 	db *pgxpool.Pool,
 	q *repository.Queries,
 	name string,
-	log *slog.Logger,
+	log logger.Logger,
 ) error {
 	tx, err := db.Begin(c)
 	if err != nil {

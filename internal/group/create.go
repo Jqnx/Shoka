@@ -1,10 +1,10 @@
 package group
 
 import (
+	"Shoka/internal/logger"
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
 	"context"
-	"log/slog"
 	"strings"
 	"time"
 
@@ -15,7 +15,7 @@ func CreateTransaction(c context.Context,
 	db *pgxpool.Pool,
 	q *repository.Queries,
 	p *models.GroupPayload,
-	log *slog.Logger,
+	log logger.Logger,
 ) (*models.GroupResponse, error) {
 	tx, err := db.Begin(c)
 	if err != nil {

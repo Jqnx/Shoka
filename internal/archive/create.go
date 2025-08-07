@@ -114,7 +114,8 @@ func CreateFromFile(c context.Context, path string, app *config.App) (*repositor
 			UpdatedAt: time.Now(),
 		})
 		if err != nil {
-			app.Log.ErrorContext(c, err.Error())
+			app.Log.Error("failed to insert archive in db", "error", err)
+			// app.Log.ErrorContext(c, err.Error())
 			return nil, err
 		}
 		app.Log.Info("archive", "created:", title)
@@ -151,7 +152,8 @@ func (b *Archive) Insert(c context.Context, app *config.App) error {
 		UpdatedAt: b.UpdatedAt,
 	})
 	if err != nil {
-		app.Log.ErrorContext(c, err.Error())
+		app.Log.Error("failed to insert archive in db", "error", err)
+		// app.Log.ErrorContext(c, err.Error())
 		return err
 	}
 	return nil

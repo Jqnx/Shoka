@@ -22,7 +22,7 @@ func main() {
 	ctx := context.Background()
 
 	// Starting new logger
-	log := logger.NewSlog()
+	log := logger.NewLogger(config.Logger)
 
 	// Loading Config
 	err := godotenv.Load()

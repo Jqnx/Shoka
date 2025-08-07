@@ -4,10 +4,10 @@
 package notifier
 
 import (
+	"Shoka/internal/logger"
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"slices"
 	"sync"
 	"time"
@@ -73,14 +73,14 @@ func (s *subscription) Unlisten(ctx context.Context) {
 
 type notifier struct {
 	mu                        sync.RWMutex
-	logger                    *slog.Logger
+	logger                    logger.Logger
 	listener                  Listener
 	subscriptions             map[string][]*subscription
 	channelChanges            []channelChange
 	waitForNotificationCancel context.CancelFunc
 }
 
-func NewNotifier(l *slog.Logger, li Listener) Notifier {
+func NewNotifier(l logger.Logger, li Listener) Notifier {
 	return &notifier{
 		mu:                        sync.RWMutex{},
 		logger:                    l,

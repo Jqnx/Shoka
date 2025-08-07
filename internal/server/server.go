@@ -2,9 +2,9 @@ package server
 
 import (
 	"Shoka/internal/config"
+	"Shoka/internal/logger"
 	"Shoka/internal/repository"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -16,7 +16,7 @@ type Server struct {
 	port int
 	repo *repository.Queries
 	db   *pgxpool.Pool
-	log  *slog.Logger
+	log  logger.Logger
 	app  *config.App
 }
 

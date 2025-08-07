@@ -1,10 +1,10 @@
 package group
 
 import (
+	"Shoka/internal/logger"
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
 	"context"
-	"log/slog"
 	"strings"
 	"time"
 
@@ -16,7 +16,7 @@ func UpdateTransaction(c context.Context,
 	q *repository.Queries,
 	p *models.GroupPayload,
 	oldname string,
-	log *slog.Logger,
+	log logger.Logger,
 ) (*models.GroupResponse, error) {
 	tx, err := db.Begin(c)
 	if err != nil {
