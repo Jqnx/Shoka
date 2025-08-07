@@ -1,22 +1,36 @@
-<script lang="ts">
-  import Skeleton from "./ui/skeleton/Skeleton.vue";
-  export default {
-    props: {
-      id: {
-        type: String,
-        default: "",
-      },
-      title: {
-        type: String,
-        default: "",
-      },
+<script setup lang="ts">
+  import { Progress } from "@/components/ui/progress";
+  const props = defineProps({
+    id: {
+      type: String,
+      default: "",
     },
-  };
+    title: {
+      type: String,
+      default: "",
+    },
+    page_count: {
+      type: Number,
+      default: 0,
+    },
+    progress: {
+      type: Number,
+      default: 0,
+    },
+  });
+
+  const progressValue = computed(() => {
+    return (props.progress / props.page_count) * 100;
+  });
 </script>
 
 <template>
   <article class="group relative rounded-2xl overflow-hidden">
     <NuxtLink :to="`/a/${id}`" class="block pt-[140%]">
+      <Progress
+        class="z-1 bg-transparent h-1"
+        :model-value="progressValue"
+        :title="`${props.progress} of ${props.page_count} pages read`" />
       <div class="absolute inset-0">
         <figure>
           <NuxtImg

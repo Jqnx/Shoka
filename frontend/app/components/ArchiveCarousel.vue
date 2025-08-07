@@ -54,7 +54,11 @@
           :key="index"
           class="basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/5 xl:basis-1/6">
           <div class="p-1">
-            <GalleryItem :id="archive.archive_id" :title="archive.title" />
+            <GalleryItem
+              :id="archive.archive_id"
+              :title="archive.title"
+              :progress="archive.page"
+              :page_count="archive.page_count" />
           </div>
         </CarouselItem>
       </CarouselContent>
