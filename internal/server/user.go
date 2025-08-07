@@ -136,7 +136,7 @@ func (s *Server) signInUser(c *gin.Context) {
 		Token:     thString,
 		ExpiresAt: expiry,
 		CreatedAt: time.Now(),
-		IpAddress: &ip,
+		IpAddress: ip,
 		UserAgent: &useragent,
 	}); err != nil {
 		c.JSON(http.StatusInternalServerError, &models.ResponseError{
