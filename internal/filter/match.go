@@ -81,7 +81,7 @@ func Match(in models.ArchiveFilters, qtx *repository.Queries) ([]string, error) 
 	return match, nil
 }
 
-func MatchAndGet(in models.ArchiveFilters, qtx *repository.Queries, page, pageSize int, order string) (*ArchiveList, error) {
+func MatchAndGet(in models.ArchiveFilters, qtx *repository.Queries, page, pageSize int, order string, uid uuid.UUID) (*ArchiveList, error) {
 	ctx := context.Background()
 	list, err := Match(in, qtx)
 	if err != nil {
@@ -89,6 +89,7 @@ func MatchAndGet(in models.ArchiveFilters, qtx *repository.Queries, page, pageSi
 	}
 
 	archives, err := qtx.GetArchivesFilterSortList(ctx, repository.GetArchivesFilterSortListParams{
+		Uid:     uid,
 		Ids:     list,
 		OrderBy: order,
 		Limit:   int32(pageSize),
