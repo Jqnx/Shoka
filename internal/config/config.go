@@ -34,12 +34,13 @@ type Workers struct {
 }
 
 type Config struct {
-	TimeZone   string   `mapstructure:"tz"`
-	ContentDir string   `mapstructure:"content_dir"`
-	ThumbDir   string   `mapstructure:"thumb_dir"`
-	Server     Server   `mapstructure:"server"`
-	Database   Database `mapstructure:"db"`
-	Workers    Workers  `mapstructure:"workers"`
+	TimeZone    string   `mapstructure:"tz"`
+	ContentDir  string   `mapstructure:"content_dir"`
+	ThumbDir    string   `mapstructure:"thumb_dir"`
+	DownloadDir string   `mapstructure:"download_dir"`
+	Server      Server   `mapstructure:"server"`
+	Database    Database `mapstructure:"db"`
+	Workers     Workers  `mapstructure:"workers"`
 }
 
 func LoadConfig(log *slog.Logger) (*Config, error) {
@@ -80,6 +81,7 @@ func LoadConfig(log *slog.Logger) (*Config, error) {
 func setDefaults() {
 	viper.SetDefault("content_dir", "content")
 	viper.SetDefault("thumb_dir", "thumb")
+	viper.SetDefault("download_dir", "downloads")
 	viper.SetDefault("workers.max", 5)
 	viper.SetDefault("tz", "Etc/UTC")
 }
@@ -89,7 +91,7 @@ func getEnv() {
 	viper.BindEnv("tz", "TZ")
 
 	// Config.Database
-	// viper.BindEnv("db.host", "DB_HOST")
+	viper.BindEnv("db.host", "DB_HOST")
 	viper.BindEnv("db.port", "DB_PORT")
 	viper.BindEnv("db.database", "DB_DATABASE")
 	viper.BindEnv("db.user", "DB_USERNAME")
