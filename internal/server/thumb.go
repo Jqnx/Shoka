@@ -126,15 +126,7 @@ func (s *Server) getThumbHandler(c *gin.Context) {
 		return
 	}
 
-	if arch.ThumbsPath == nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
-			Status:  "error",
-			Message: "archive has no thumbspath",
-		})
-		return
-	}
-
-	if *arch.ThumbsPath == "" {
+	if arch.ThumbsPath == nil || *arch.ThumbsPath == "" {
 		c.JSON(http.StatusInternalServerError, &models.ResponseError{
 			Status:  "error",
 			Message: "archive has no thumbspath",
