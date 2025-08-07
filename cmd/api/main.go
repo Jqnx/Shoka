@@ -61,7 +61,7 @@ func main() {
 	// Creating db connection pool & connecting to db
 	db, err := database.NewPool(ctx, cfg, log)
 	if err != nil {
-		log.Error("failed to connect to database", "error", err)
+		log.Error("db: failed to connect to database", "error", err)
 		os.Exit(1)
 	}
 	log.Info("Connected to database.")
@@ -69,7 +69,7 @@ func main() {
 	// Setup listener
 	li := notifier.NewListener(db)
 	if err := li.Connect(ctx); err != nil {
-		log.Error("error connecting to database", "err", err)
+		log.Error("listener: error connecting to database", "error", err)
 		os.Exit(1)
 	}
 
