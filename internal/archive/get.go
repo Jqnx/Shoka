@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+
+	"github.com/google/uuid"
 )
 
 // TODO:
@@ -81,8 +83,8 @@ func (a *Archive) Get(ctx context.Context, app *config.App) (*models.ArchiveResp
 	return result, tx.Commit(ctx)
 }
 
-func GetAll(c context.Context, q *repository.Queries, log *slog.Logger) (*[]models.ArchiveResponse, error) {
-	archives, err := q.GetAllArchives(c)
+func GetAll(c context.Context, q *repository.Queries, log *slog.Logger, uid uuid.UUID) (*[]models.ArchiveResponse, error) {
+	archives, err := q.GetAllArchives(c, uid)
 	if err != nil {
 		log.Error(err.Error())
 		return nil, err
