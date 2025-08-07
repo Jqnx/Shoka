@@ -99,10 +99,15 @@ select
     archives.type,
     archives.created_at,
     archives.updated_at,
-    archives.release_date
+    archives.release_date,
+    reading_progress.page
 from archives
 join favorite_archives on archives.id = favorite_archives.archive_id
 join users on favorite_archives.user_id = users.id
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = $3::uuid
 where users.id = $3::uuid
 order by
     case when $4::text = 'title_asc' then archives.title end asc,
@@ -156,6 +161,7 @@ type GetFavoriteArchiveSortListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
 }
 
 func (q *Queries) GetFavoriteArchiveSortList(ctx context.Context, arg GetFavoriteArchiveSortListParams) ([]GetFavoriteArchiveSortListRow, error) {
@@ -188,6 +194,7 @@ func (q *Queries) GetFavoriteArchiveSortList(ctx context.Context, arg GetFavorit
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.Page,
 		); err != nil {
 			return nil, err
 		}
@@ -251,17 +258,22 @@ select
     archives.type,
     archives.created_at,
     archives.updated_at,
-    archives.release_date
+    archives.release_date,
+    reading_progress.page
 from archives
 join favorite_archives on archives.id = favorite_archives.archive_id
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = $3::uuid
 where
-    archives.archive_id = any($3::text[])
+    archives.archive_id = any($4::text[])
     and archives.archive_id in (
         select archives.archive_id
         from archives
         join favorite_archives on archives.id = favorite_archives.archive_id
         join users on favorite_archives.user_id = users.id
-        where users.id = $4::uuid
+        where users.id = $3::uuid
     )
 order by
     case when $5::text = 'title_asc' then archives.title end asc,
@@ -295,8 +307,8 @@ offset $2
 type GetFavoriteArchivesFilterSortListParams struct {
 	Limit   int32     `json:"limit"`
 	Offset  int32     `json:"offset"`
-	Ids     []string  `json:"ids"`
 	UserID  uuid.UUID `json:"user_id"`
+	Ids     []string  `json:"ids"`
 	OrderBy string    `json:"order_by"`
 }
 
@@ -316,14 +328,15 @@ type GetFavoriteArchivesFilterSortListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
 }
 
 func (q *Queries) GetFavoriteArchivesFilterSortList(ctx context.Context, arg GetFavoriteArchivesFilterSortListParams) ([]GetFavoriteArchivesFilterSortListRow, error) {
 	rows, err := q.db.Query(ctx, getFavoriteArchivesFilterSortList,
 		arg.Limit,
 		arg.Offset,
-		arg.Ids,
 		arg.UserID,
+		arg.Ids,
 		arg.OrderBy,
 	)
 	if err != nil {
@@ -349,6 +362,7 @@ func (q *Queries) GetFavoriteArchivesFilterSortList(ctx context.Context, arg Get
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.Page,
 		); err != nil {
 			return nil, err
 		}
@@ -380,6 +394,10 @@ select
 from archives
 join favorite_archives on archives.id = favorite_archives.archive_id
 join users on favorite_archives.user_id = users.id
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = users.id
 where users.id = $1
 order by favorited_at desc
 `
@@ -458,6 +476,10 @@ select
 from archives
 join favorite_archives on archives.id = favorite_archives.archive_id
 join users on favorite_archives.user_id = users.id
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = users.id
 where users.id = $1
 limit $2
 offset $3

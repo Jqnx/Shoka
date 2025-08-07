@@ -9,6 +9,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -153,12 +154,22 @@ select
     archives.type,
     archives.created_at,
     archives.updated_at,
-    archives.release_date
+    archives.release_date,
+    reading_progress.page
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = $2
 where characters.name = $1
 `
+
+type GetArchivesByCharacterParams struct {
+	Name string    `json:"name"`
+	Uid  uuid.UUID `json:"uid"`
+}
 
 type GetArchivesByCharacterRow struct {
 	ID          int64      `json:"id"`
@@ -176,10 +187,11 @@ type GetArchivesByCharacterRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
 }
 
-func (q *Queries) GetArchivesByCharacter(ctx context.Context, name string) ([]GetArchivesByCharacterRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByCharacter, name)
+func (q *Queries) GetArchivesByCharacter(ctx context.Context, arg GetArchivesByCharacterParams) ([]GetArchivesByCharacterRow, error) {
+	rows, err := q.db.Query(ctx, getArchivesByCharacter, arg.Name, arg.Uid)
 	if err != nil {
 		return nil, err
 	}
@@ -203,6 +215,7 @@ func (q *Queries) GetArchivesByCharacter(ctx context.Context, name string) ([]Ge
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.Page,
 		); err != nil {
 			return nil, err
 		}
@@ -230,19 +243,25 @@ select
     archives.type,
     archives.created_at,
     archives.updated_at,
-    archives.release_date
+    archives.release_date,
+    reading_progress.page
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = $4
 where characters.name = $1
 limit $2
 offset $3
 `
 
 type GetArchivesByCharacterListParams struct {
-	Name   string `json:"name"`
-	Limit  int32  `json:"limit"`
-	Offset int32  `json:"offset"`
+	Name   string    `json:"name"`
+	Limit  int32     `json:"limit"`
+	Offset int32     `json:"offset"`
+	Uid    uuid.UUID `json:"uid"`
 }
 
 type GetArchivesByCharacterListRow struct {
@@ -261,10 +280,16 @@ type GetArchivesByCharacterListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
 }
 
 func (q *Queries) GetArchivesByCharacterList(ctx context.Context, arg GetArchivesByCharacterListParams) ([]GetArchivesByCharacterListRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByCharacterList, arg.Name, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, getArchivesByCharacterList,
+		arg.Name,
+		arg.Limit,
+		arg.Offset,
+		arg.Uid,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -288,6 +313,7 @@ func (q *Queries) GetArchivesByCharacterList(ctx context.Context, arg GetArchive
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.Page,
 		); err != nil {
 			return nil, err
 		}

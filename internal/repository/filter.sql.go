@@ -8,6 +8,8 @@ package repository
 import (
 	"context"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const countFilteredArchives = `-- name: CountFilteredArchives :one
@@ -25,34 +27,44 @@ func (q *Queries) CountFilteredArchives(ctx context.Context, ids []string) (int6
 
 const getArchiveSort = `-- name: GetArchiveSort :many
 select
-    id,
-    title,
-    summary,
-    language,
-    category,
-    page_count,
-    file_path,
-    archive_id,
-    hash,
-    thumbs_path,
-    cover_path,
-    type,
-    created_at,
-    updated_at,
-    release_date
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date,
+    reading_progress.page
 from archives
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = $1
 order by
-    case when $1::text = 'title_asc' then title end asc,
-    case when $1 = 'title_desc' then title end desc nulls last,
-    case when $1 = 'page_count_asc' then page_count end asc,
-    case when $1 = 'page_count_desc' then page_count end desc nulls last,
-    case when $1 = 'created_at_asc' then created_at end asc,
-    case when $1 = 'created_at_desc' then created_at end desc nulls last,
-    case when $1 = 'updated_at_asc' then updated_at end asc,
-    case when $1 = 'updated_at_desc' then updated_at end desc nulls last,
-    case when $1 = 'release_date_asc' then release_date end asc,
-    case when $1 = 'release_date_desc' then release_date end desc nulls last
+    case when $2::text = 'title_asc' then title end asc,
+    case when $2 = 'title_desc' then title end desc nulls last,
+    case when $2 = 'page_count_asc' then page_count end asc,
+    case when $2 = 'page_count_desc' then page_count end desc nulls last,
+    case when $2 = 'created_at_asc' then created_at end asc,
+    case when $2 = 'created_at_desc' then created_at end desc nulls last,
+    case when $2 = 'updated_at_asc' then updated_at end asc,
+    case when $2 = 'updated_at_desc' then updated_at end desc nulls last,
+    case when $2 = 'release_date_asc' then release_date end asc,
+    case when $2 = 'release_date_desc' then release_date end desc nulls last
 `
+
+type GetArchiveSortParams struct {
+	Uid     uuid.UUID `json:"uid"`
+	OrderBy string    `json:"order_by"`
+}
 
 type GetArchiveSortRow struct {
 	ID          int64      `json:"id"`
@@ -70,10 +82,11 @@ type GetArchiveSortRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
 }
 
-func (q *Queries) GetArchiveSort(ctx context.Context, orderBy string) ([]GetArchiveSortRow, error) {
-	rows, err := q.db.Query(ctx, getArchiveSort, orderBy)
+func (q *Queries) GetArchiveSort(ctx context.Context, arg GetArchiveSortParams) ([]GetArchiveSortRow, error) {
+	rows, err := q.db.Query(ctx, getArchiveSort, arg.Uid, arg.OrderBy)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +110,7 @@ func (q *Queries) GetArchiveSort(ctx context.Context, orderBy string) ([]GetArch
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.Page,
 		); err != nil {
 			return nil, err
 		}
@@ -110,41 +124,47 @@ func (q *Queries) GetArchiveSort(ctx context.Context, orderBy string) ([]GetArch
 
 const getArchiveSortList = `-- name: GetArchiveSortList :many
 select
-    id,
-    title,
-    summary,
-    language,
-    category,
-    page_count,
-    file_path,
-    archive_id,
-    hash,
-    thumbs_path,
-    cover_path,
-    type,
-    created_at,
-    updated_at,
-    release_date
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date,
+    reading_progress.page
 from archives
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = $3
 order by
-    case when $3::text = 'title_asc' then title end asc,
-    case when $3 = 'title_desc' then title end desc nulls last,
-    case when $3 = 'page_count_asc' then page_count end asc,
-    case when $3 = 'page_count_desc' then page_count end desc nulls last,
-    case when $3 = 'created_at_asc' then created_at end asc,
-    case when $3 = 'created_at_desc' then created_at end desc nulls last,
-    case when $3 = 'updated_at_asc' then updated_at end asc,
-    case when $3 = 'updated_at_desc' then updated_at end desc nulls last,
-    case when $3 = 'release_date_asc' then release_date end asc,
-    case when $3 = 'release_date_desc' then release_date end desc nulls last
+    case when $4::text = 'title_asc' then title end asc,
+    case when $4 = 'title_desc' then title end desc nulls last,
+    case when $4 = 'page_count_asc' then page_count end asc,
+    case when $4 = 'page_count_desc' then page_count end desc nulls last,
+    case when $4 = 'created_at_asc' then created_at end asc,
+    case when $4 = 'created_at_desc' then created_at end desc nulls last,
+    case when $4 = 'updated_at_asc' then updated_at end asc,
+    case when $4 = 'updated_at_desc' then updated_at end desc nulls last,
+    case when $4 = 'release_date_asc' then release_date end asc,
+    case when $4 = 'release_date_desc' then release_date end desc nulls last
 limit $1
 offset $2
 `
 
 type GetArchiveSortListParams struct {
-	Limit   int32  `json:"limit"`
-	Offset  int32  `json:"offset"`
-	OrderBy string `json:"order_by"`
+	Limit   int32     `json:"limit"`
+	Offset  int32     `json:"offset"`
+	Uid     uuid.UUID `json:"uid"`
+	OrderBy string    `json:"order_by"`
 }
 
 type GetArchiveSortListRow struct {
@@ -163,10 +183,16 @@ type GetArchiveSortListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
 }
 
 func (q *Queries) GetArchiveSortList(ctx context.Context, arg GetArchiveSortListParams) ([]GetArchiveSortListRow, error) {
-	rows, err := q.db.Query(ctx, getArchiveSortList, arg.Limit, arg.Offset, arg.OrderBy)
+	rows, err := q.db.Query(ctx, getArchiveSortList,
+		arg.Limit,
+		arg.Offset,
+		arg.Uid,
+		arg.OrderBy,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -190,6 +216,7 @@ func (q *Queries) GetArchiveSortList(ctx context.Context, arg GetArchiveSortList
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.Page,
 		); err != nil {
 			return nil, err
 		}
@@ -238,37 +265,43 @@ select
     archives.type,
     archives.created_at,
     archives.updated_at,
-    archives.release_date
+    archives.release_date,
+    reading_progress.page
 from archives
-where archives.archive_id = any($3::text[])
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = $3
+where archives.archive_id = any($4::text[])
 order by
-    case when $4::text = 'title_asc' then archives.title end asc,
-    case when $4 = 'title_desc' then archives.title end desc nulls last,
-    case when $4 = 'page_count_asc' then archives.page_count end asc,
+    case when $5::text = 'title_asc' then archives.title end asc,
+    case when $5 = 'title_desc' then archives.title end desc nulls last,
+    case when $5 = 'page_count_asc' then archives.page_count end asc,
     case
-        when $4 = 'page_count_desc' then archives.page_count
+        when $5 = 'page_count_desc' then archives.page_count
     end desc nulls last,
-    case when $4 = 'created_at_asc' then archives.created_at end asc,
+    case when $5 = 'created_at_asc' then archives.created_at end asc,
     case
-        when $4 = 'created_at_desc' then archives.created_at
+        when $5 = 'created_at_desc' then archives.created_at
     end desc nulls last,
-    case when $4 = 'updated_at_asc' then archives.updated_at end asc,
+    case when $5 = 'updated_at_asc' then archives.updated_at end asc,
     case
-        when $4 = 'updated_at_desc' then archives.updated_at
+        when $5 = 'updated_at_desc' then archives.updated_at
     end desc nulls last,
-    case when $4 = 'release_date_asc' then archives.release_date end asc,
+    case when $5 = 'release_date_asc' then archives.release_date end asc,
     case
-        when $4 = 'release_date_desc' then archives.release_date
+        when $5 = 'release_date_desc' then archives.release_date
     end desc nulls last
 limit $1
 offset $2
 `
 
 type GetArchivesFilterSortListParams struct {
-	Limit   int32    `json:"limit"`
-	Offset  int32    `json:"offset"`
-	Ids     []string `json:"ids"`
-	OrderBy string   `json:"order_by"`
+	Limit   int32     `json:"limit"`
+	Offset  int32     `json:"offset"`
+	Uid     uuid.UUID `json:"uid"`
+	Ids     []string  `json:"ids"`
+	OrderBy string    `json:"order_by"`
 }
 
 type GetArchivesFilterSortListRow struct {
@@ -287,12 +320,14 @@ type GetArchivesFilterSortListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
 }
 
 func (q *Queries) GetArchivesFilterSortList(ctx context.Context, arg GetArchivesFilterSortListParams) ([]GetArchivesFilterSortListRow, error) {
 	rows, err := q.db.Query(ctx, getArchivesFilterSortList,
 		arg.Limit,
 		arg.Offset,
+		arg.Uid,
 		arg.Ids,
 		arg.OrderBy,
 	)
@@ -319,6 +354,7 @@ func (q *Queries) GetArchivesFilterSortList(ctx context.Context, arg GetArchives
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.Page,
 		); err != nil {
 			return nil, err
 		}

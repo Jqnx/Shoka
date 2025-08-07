@@ -9,6 +9,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -80,10 +81,20 @@ select
     archives.type,
     archives.created_at,
     archives.updated_at,
-    archives.release_date
+    archives.release_date,
+    reading_progress.page
 from archives
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = $2
 where language = $1
 `
+
+type GetArchivesByLanguageParams struct {
+	Language *string   `json:"language"`
+	Uid      uuid.UUID `json:"uid"`
+}
 
 type GetArchivesByLanguageRow struct {
 	ID          int64      `json:"id"`
@@ -101,10 +112,11 @@ type GetArchivesByLanguageRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
 }
 
-func (q *Queries) GetArchivesByLanguage(ctx context.Context, language *string) ([]GetArchivesByLanguageRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByLanguage, language)
+func (q *Queries) GetArchivesByLanguage(ctx context.Context, arg GetArchivesByLanguageParams) ([]GetArchivesByLanguageRow, error) {
+	rows, err := q.db.Query(ctx, getArchivesByLanguage, arg.Language, arg.Uid)
 	if err != nil {
 		return nil, err
 	}
@@ -128,6 +140,7 @@ func (q *Queries) GetArchivesByLanguage(ctx context.Context, language *string) (
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.Page,
 		); err != nil {
 			return nil, err
 		}
@@ -155,17 +168,23 @@ select
     archives.type,
     archives.created_at,
     archives.updated_at,
-    archives.release_date
+    archives.release_date,
+    reading_progress.page
 from archives
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = $4
 where language = $1
 limit $2
 offset $3
 `
 
 type GetArchivesByLanguageListParams struct {
-	Language *string `json:"language"`
-	Limit    int32   `json:"limit"`
-	Offset   int32   `json:"offset"`
+	Language *string   `json:"language"`
+	Limit    int32     `json:"limit"`
+	Offset   int32     `json:"offset"`
+	Uid      uuid.UUID `json:"uid"`
 }
 
 type GetArchivesByLanguageListRow struct {
@@ -184,10 +203,16 @@ type GetArchivesByLanguageListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
 }
 
 func (q *Queries) GetArchivesByLanguageList(ctx context.Context, arg GetArchivesByLanguageListParams) ([]GetArchivesByLanguageListRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByLanguageList, arg.Language, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, getArchivesByLanguageList,
+		arg.Language,
+		arg.Limit,
+		arg.Offset,
+		arg.Uid,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -211,6 +236,7 @@ func (q *Queries) GetArchivesByLanguageList(ctx context.Context, arg GetArchives
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.Page,
 		); err != nil {
 			return nil, err
 		}

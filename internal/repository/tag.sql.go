@@ -9,6 +9,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -143,12 +144,22 @@ select
     archives.type,
     archives.created_at,
     archives.updated_at,
-    archives.release_date
+    archives.release_date,
+    reading_progress.page
 from archives
 join archives_tags on archives.id = archives_tags.archive_id
 join tags on archives_tags.tag_id = tags.id
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = $2
 where tags.name = $1
 `
+
+type GetArchivesByTagParams struct {
+	Name string    `json:"name"`
+	Uid  uuid.UUID `json:"uid"`
+}
 
 type GetArchivesByTagRow struct {
 	ID          int64      `json:"id"`
@@ -166,10 +177,11 @@ type GetArchivesByTagRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
 }
 
-func (q *Queries) GetArchivesByTag(ctx context.Context, name string) ([]GetArchivesByTagRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByTag, name)
+func (q *Queries) GetArchivesByTag(ctx context.Context, arg GetArchivesByTagParams) ([]GetArchivesByTagRow, error) {
+	rows, err := q.db.Query(ctx, getArchivesByTag, arg.Name, arg.Uid)
 	if err != nil {
 		return nil, err
 	}
@@ -193,6 +205,7 @@ func (q *Queries) GetArchivesByTag(ctx context.Context, name string) ([]GetArchi
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.Page,
 		); err != nil {
 			return nil, err
 		}
@@ -220,19 +233,25 @@ select
     archives.type,
     archives.created_at,
     archives.updated_at,
-    archives.release_date
+    archives.release_date,
+    reading_progress.page
 from archives
 join archives_tags on archives.id = archives_tags.archive_id
 join tags on archives_tags.tag_id = tags.id
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = $4
 where tags.name = $1
 limit $2
 offset $3
 `
 
 type GetArchivesByTagListParams struct {
-	Name   string `json:"name"`
-	Limit  int32  `json:"limit"`
-	Offset int32  `json:"offset"`
+	Name   string    `json:"name"`
+	Limit  int32     `json:"limit"`
+	Offset int32     `json:"offset"`
+	Uid    uuid.UUID `json:"uid"`
 }
 
 type GetArchivesByTagListRow struct {
@@ -251,10 +270,16 @@ type GetArchivesByTagListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
 }
 
 func (q *Queries) GetArchivesByTagList(ctx context.Context, arg GetArchivesByTagListParams) ([]GetArchivesByTagListRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByTagList, arg.Name, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, getArchivesByTagList,
+		arg.Name,
+		arg.Limit,
+		arg.Offset,
+		arg.Uid,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -278,6 +303,7 @@ func (q *Queries) GetArchivesByTagList(ctx context.Context, arg GetArchivesByTag
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.Page,
 		); err != nil {
 			return nil, err
 		}

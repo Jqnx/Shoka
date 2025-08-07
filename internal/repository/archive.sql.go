@@ -9,6 +9,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -201,23 +202,28 @@ func (q *Queries) FilePathExists(ctx context.Context, filePath *string) (pgconn.
 
 const getAllArchives = `-- name: GetAllArchives :many
 select
-    id,
-    title,
-    summary,
-    language,
-    category,
-    page_count,
-    file_path,
-    archive_id,
-    hash,
-    thumbs_path,
-    cover_path,
-    type,
-    created_at,
-    updated_at,
-    release_date
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date,
+    reading_progress.page
 from archives
-order by archive_id
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = $1
+order by archives.archive_id
 `
 
 type GetAllArchivesRow struct {
@@ -236,10 +242,11 @@ type GetAllArchivesRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
 }
 
-func (q *Queries) GetAllArchives(ctx context.Context) ([]GetAllArchivesRow, error) {
-	rows, err := q.db.Query(ctx, getAllArchives)
+func (q *Queries) GetAllArchives(ctx context.Context, uid uuid.UUID) ([]GetAllArchivesRow, error) {
+	rows, err := q.db.Query(ctx, getAllArchives, uid)
 	if err != nil {
 		return nil, err
 	}
@@ -263,6 +270,7 @@ func (q *Queries) GetAllArchives(ctx context.Context) ([]GetAllArchivesRow, erro
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.Page,
 		); err != nil {
 			return nil, err
 		}
@@ -400,29 +408,35 @@ func (q *Queries) GetArchiveByID(ctx context.Context, archiveID string) (GetArch
 
 const getArchiveList = `-- name: GetArchiveList :many
 select
-    id,
-    title,
-    summary,
-    language,
-    category,
-    page_count,
-    file_path,
-    archive_id,
-    hash,
-    thumbs_path,
-    cover_path,
-    type,
-    created_at,
-    updated_at,
-    release_date
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date,
+    reading_progress.page
 from archives
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = $3
 limit $1
 offset $2
 `
 
 type GetArchiveListParams struct {
-	Limit  int32 `json:"limit"`
-	Offset int32 `json:"offset"`
+	Limit  int32     `json:"limit"`
+	Offset int32     `json:"offset"`
+	Uid    uuid.UUID `json:"uid"`
 }
 
 type GetArchiveListRow struct {
@@ -441,10 +455,11 @@ type GetArchiveListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
 }
 
 func (q *Queries) GetArchiveList(ctx context.Context, arg GetArchiveListParams) ([]GetArchiveListRow, error) {
-	rows, err := q.db.Query(ctx, getArchiveList, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, getArchiveList, arg.Limit, arg.Offset, arg.Uid)
 	if err != nil {
 		return nil, err
 	}
@@ -468,6 +483,7 @@ func (q *Queries) GetArchiveList(ctx context.Context, arg GetArchiveListParams) 
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.Page,
 		); err != nil {
 			return nil, err
 		}

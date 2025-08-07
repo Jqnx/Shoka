@@ -9,6 +9,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -90,10 +91,20 @@ select
     archives.type,
     archives.created_at,
     archives.updated_at,
-    archives.release_date
+    archives.release_date,
+    reading_progress.page
 from archives
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = $2
 where category = $1
 `
+
+type GetArchivesByCategoryParams struct {
+	Category *string   `json:"category"`
+	Uid      uuid.UUID `json:"uid"`
+}
 
 type GetArchivesByCategoryRow struct {
 	ID          int64      `json:"id"`
@@ -111,10 +122,11 @@ type GetArchivesByCategoryRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
 }
 
-func (q *Queries) GetArchivesByCategory(ctx context.Context, category *string) ([]GetArchivesByCategoryRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByCategory, category)
+func (q *Queries) GetArchivesByCategory(ctx context.Context, arg GetArchivesByCategoryParams) ([]GetArchivesByCategoryRow, error) {
+	rows, err := q.db.Query(ctx, getArchivesByCategory, arg.Category, arg.Uid)
 	if err != nil {
 		return nil, err
 	}
@@ -138,6 +150,7 @@ func (q *Queries) GetArchivesByCategory(ctx context.Context, category *string) (
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.Page,
 		); err != nil {
 			return nil, err
 		}
@@ -165,17 +178,23 @@ select
     archives.type,
     archives.created_at,
     archives.updated_at,
-    archives.release_date
+    archives.release_date,
+    reading_progress.page
 from archives
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = $4
 where category = $1
 limit $2
 offset $3
 `
 
 type GetArchivesByCategoryListParams struct {
-	Category *string `json:"category"`
-	Limit    int32   `json:"limit"`
-	Offset   int32   `json:"offset"`
+	Category *string   `json:"category"`
+	Limit    int32     `json:"limit"`
+	Offset   int32     `json:"offset"`
+	Uid      uuid.UUID `json:"uid"`
 }
 
 type GetArchivesByCategoryListRow struct {
@@ -194,10 +213,16 @@ type GetArchivesByCategoryListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
 }
 
 func (q *Queries) GetArchivesByCategoryList(ctx context.Context, arg GetArchivesByCategoryListParams) ([]GetArchivesByCategoryListRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByCategoryList, arg.Category, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, getArchivesByCategoryList,
+		arg.Category,
+		arg.Limit,
+		arg.Offset,
+		arg.Uid,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -221,6 +246,7 @@ func (q *Queries) GetArchivesByCategoryList(ctx context.Context, arg GetArchives
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.Page,
 		); err != nil {
 			return nil, err
 		}

@@ -9,6 +9,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
@@ -143,12 +144,22 @@ select
     archives.type,
     archives.created_at,
     archives.updated_at,
-    archives.release_date
+    archives.release_date,
+    reading_progress.page
 from archives
 join archives_parodies on archives.id = archives_parodies.archive_id
 join parodies on archives_parodies.parody_id = parodies.id
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = $2
 where parodies.name = $1
 `
+
+type GetArchivesByParodyParams struct {
+	Name string    `json:"name"`
+	Uid  uuid.UUID `json:"uid"`
+}
 
 type GetArchivesByParodyRow struct {
 	ID          int64      `json:"id"`
@@ -166,10 +177,11 @@ type GetArchivesByParodyRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
 }
 
-func (q *Queries) GetArchivesByParody(ctx context.Context, name string) ([]GetArchivesByParodyRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByParody, name)
+func (q *Queries) GetArchivesByParody(ctx context.Context, arg GetArchivesByParodyParams) ([]GetArchivesByParodyRow, error) {
+	rows, err := q.db.Query(ctx, getArchivesByParody, arg.Name, arg.Uid)
 	if err != nil {
 		return nil, err
 	}
@@ -193,6 +205,7 @@ func (q *Queries) GetArchivesByParody(ctx context.Context, name string) ([]GetAr
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.Page,
 		); err != nil {
 			return nil, err
 		}
@@ -220,19 +233,25 @@ select
     archives.type,
     archives.created_at,
     archives.updated_at,
-    archives.release_date
+    archives.release_date,
+    reading_progress.page
 from archives
 join archives_parodies on archives.id = archives_parodies.archive_id
 join parodies on archives_parodies.parody_id = parodies.id
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = $4
 where parodies.name = $1
 limit $2
 offset $3
 `
 
 type GetArchivesByParodyListParams struct {
-	Name   string `json:"name"`
-	Limit  int32  `json:"limit"`
-	Offset int32  `json:"offset"`
+	Name   string    `json:"name"`
+	Limit  int32     `json:"limit"`
+	Offset int32     `json:"offset"`
+	Uid    uuid.UUID `json:"uid"`
 }
 
 type GetArchivesByParodyListRow struct {
@@ -251,10 +270,16 @@ type GetArchivesByParodyListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
 }
 
 func (q *Queries) GetArchivesByParodyList(ctx context.Context, arg GetArchivesByParodyListParams) ([]GetArchivesByParodyListRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByParodyList, arg.Name, arg.Limit, arg.Offset)
+	rows, err := q.db.Query(ctx, getArchivesByParodyList,
+		arg.Name,
+		arg.Limit,
+		arg.Offset,
+		arg.Uid,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -278,6 +303,7 @@ func (q *Queries) GetArchivesByParodyList(ctx context.Context, arg GetArchivesBy
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.Page,
 		); err != nil {
 			return nil, err
 		}
