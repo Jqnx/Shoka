@@ -1,7 +1,11 @@
 <script setup lang="ts">
+  const { token } = useAuth();
   const { data: recent } = await useFetch("/api/a/", {
     query: { page: 1, size: 14, sortby: "release_date" },
     key: "recentArchives",
+    onRequest({ options }) {
+      options.headers.set("Authorization", `${token.value}`);
+    },
   });
 </script>
 

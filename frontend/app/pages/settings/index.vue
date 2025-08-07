@@ -1,13 +1,9 @@
-<template>
-  <div>
-    
-  </div>
-</template>
-
 <script lang="ts" setup>
-
+  useHead({
+    title: "Settings",
+  });
 </script>
 
-<style>
-
-</style>
+<template>
+  <div></div>
+</template>

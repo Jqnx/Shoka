@@ -11,8 +11,8 @@
   };
 
   const { data } = await useFetch(`/api/a/${params.value.id}`, {
-    key: "archive_page_count",
-    pick: ["page_count"] as any,
+    key: "archive_reader",
+    pick: ["title", "page_count"] as any,
   });
 
   const goBack = () => {

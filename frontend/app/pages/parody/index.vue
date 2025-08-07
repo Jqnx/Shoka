@@ -1,6 +1,11 @@
 <script setup lang="ts">
   import Button from "~/components/ui/button/Button.vue";
   import Separator from "~/components/ui/separator/Separator.vue";
+
+  useHead({
+    title: "Parodies",
+  });
+
   const { data: parodies } = await useFetch("/api/parody", {
     key: "parodies",
   });

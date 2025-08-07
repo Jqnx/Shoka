@@ -52,6 +52,10 @@
     key: "archive",
   });
 
+  useHead({
+    title: `${archive.value.title}`,
+  });
+
   async function favorite() {
     return $fetch(`/api/a/${id}/favorite`, {
       method: "post",

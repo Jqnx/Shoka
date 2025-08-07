@@ -1,6 +1,11 @@
 <script setup lang="ts">
   import Button from "~/components/ui/button/Button.vue";
   import Separator from "~/components/ui/separator/Separator.vue";
+
+  useHead({
+    title: "Tags",
+  });
+
   const { data: tags } = await useFetch("/api/tag", {
     key: "tags",
   });

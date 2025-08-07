@@ -1,6 +1,11 @@
 <script setup lang="ts">
   import Button from "~/components/ui/button/Button.vue";
   import Separator from "~/components/ui/separator/Separator.vue";
+
+  useHead({
+    title: "Characters",
+  });
+
   const { data: characters } = await useFetch("/api/character", {
     key: "characters",
   });

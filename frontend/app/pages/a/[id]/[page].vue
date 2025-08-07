@@ -4,6 +4,7 @@
   });
 
   const { token } = useAuth();
+  const data = useNuxtData("archive_reader");
 
   const params = computed(() => {
     return useRoute().params;
@@ -15,7 +16,9 @@
     return Math.min(Math.max(num, min), max);
   };
 
-  const data = useNuxtData("archive_page_count");
+  useHead({
+    title: `${data.data.value.title} - Page ${pageInt.value}`,
+  });
 
   const { preload, fit } = storeToRefs(useReaderSettingsStore());
 
@@ -37,6 +40,7 @@
     });
   });
 </script>
+
 <template>
   <div class="flex flex-col items-center justify-center min-h-screen">
     <div v-for="(_, index) in preload" :key="index">
