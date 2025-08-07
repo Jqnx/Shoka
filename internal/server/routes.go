@@ -21,7 +21,6 @@ func (s *Server) RegisterRoutes() http.Handler {
 		AllowCredentials: true,
 	}))
 
-	r.StaticFS("/thumb", http.Dir("./thumb"))
 	// Actual API
 	// Archive API
 	api := r.Group("/api")
