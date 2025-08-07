@@ -1,84 +1,97 @@
 package config
 
 import (
-	"log"
-	"path/filepath"
+	"log/slog"
+	"os"
 
-	"github.com/kelseyhightower/envconfig"
+	"github.com/spf13/viper"
 )
 
 var (
+	ConfigFile        = "config.yaml"
 	ImageExtensions   = []string{"png", "jpg", "jpeg", "gif", "webp"}
 	ArchiveExtensions = []string{"zip", "cbz"}
 	ComicInfoFile     = "ComicInfo.xml"
 )
 
 type Server struct {
-	Port string `envconfig:"PORT"`
+	Port int `mapstructure:"port"`
 }
 
 type Database struct {
-	DBHost     string `envconfig:"DB_HOST"`
-	DBPort     string `envconfig:"DB_PORT"`
-	DBDatabase string `envconfig:"DB_DATABASE"`
-	DBUser     string `envconfig:"DB_USERNAME"`
-	DBPassword string `envconfig:"DB_PASSWORD"`
-	DBSchema   string `envconfig:"DB_SCHEMA"`
+	DBHost     string `mapstructure:"host"`
+	DBPort     string `mapstructure:"port"`
+	DBDatabase string `mapstructure:"database"`
+	DBUser     string `mapstructure:"user"`
+	DBPassword string `mapstructure:"password"`
+	DBSchema   string `mapstructure:"schema"`
 }
 
 type Workers struct {
-	RedisHost string `envconfig:"REDIS_HOST"`
-	RedisPort string `envconfig:"REDIS_PORT"`
-	Max       int
+	RedisHost string ` mapstructure:"redis_host"`
+	RedisPort string ` mapstructure:"redis_port"`
+	Max       int    `mapstructure:"max"`
 }
 
 type Config struct {
-	ContentDir string
-	ThumbDir   string
-	Server     Server
-	Database   Database
-	Workers    Workers
+	TimeZone   string   `mapstructure:"tz"`
+	ContentDir string   `mapstructure:"content_dir"`
+	ThumbDir   string   `mapstructure:"thumb_dir"`
+	Server     Server   `mapstructure:"server"`
+	Database   Database `mapstructure:"db"`
+	Workers    Workers  `mapstructure:"workers"`
 }
 
-func setDefaults() Config {
-	// content := GetDefaultContentPath()
-	// thumb := GetThumbPath()
-	return Config{
-		ContentDir: "content",
-		ThumbDir:   "thumb",
-		Workers: Workers{
-			Max: 5,
-		},
+func LoadConfig(log *slog.Logger) *Config {
+	viper.AutomaticEnv()
+
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(".")
+
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			os.Create(ConfigFile)
+			setDefaults()
+			viper.WriteConfig()
+		} else {
+			log.Error("Error reading config", "err", err)
+		}
 	}
-}
 
-func GetDefaultContentPath() string {
-	path, err := filepath.Abs("content")
-	if err != nil {
-		log.Panic(err)
-		return ""
+	var c Config
+	setDefaults()
+	viper.WriteConfig()
+	viper.Set("server.port", 8081)
+	viper.SetDefault("db.schema", "public")
+	getEnv()
+	if err := viper.Unmarshal(&c); err != nil {
+		log.Error("error unmarshalling config", "err", err)
 	}
-	return path
+
+	return &c
 }
 
-func GetThumbPath() string {
-	path, err := filepath.Abs("thumb")
-	if err != nil {
-		log.Panic(err)
-		return ""
-	}
-	return path
+func setDefaults() {
+	viper.SetDefault("content_dir", "content")
+	viper.SetDefault("thumb_dir", "thumb")
+	viper.SetDefault("workers.max", 5)
+	viper.SetDefault("tz", "Europe/Brussels")
 }
 
-func LoadConfig() *Config {
-	cfg := setDefaults()
-	readEnv(&cfg)
-	return &cfg
-}
+func getEnv() {
+	// Config
+	viper.BindEnv("tz", "TZ")
 
-func readEnv(cfg *Config) {
-	err := envconfig.Process("", cfg)
-	if err != nil {
-		log.Panic(err)
-	}
+	// Config.Database
+	// viper.BindEnv("db.host", "DB_HOST")
+	viper.BindEnv("db.port", "DB_PORT")
+	viper.BindEnv("db.database", "DB_DATABASE")
+	viper.BindEnv("db.user", "DB_USERNAME")
+	viper.BindEnv("db.password", "DB_PASSWORD")
+	viper.BindEnv("db.schema", "DB_SCHEMA")
+
+	// Config.Workers
+	viper.BindEnv("workers.redis_host", "REDIS_HOST")
+	viper.BindEnv("workers.redis_port", "REDIS_PORT")
 }
