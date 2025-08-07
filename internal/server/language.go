@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -45,13 +46,14 @@ func (s *Server) getArchiveByLanguageHandler(c *gin.Context) {
 	p := c.Query("page")
 	ps := c.Query("size")
 
-	// Creates context
 	ctx := context.Background()
 
-	// Checks if tag exists
 	exists, err := s.repo.LanguageExists(ctx, &language)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, err.Error())
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
 		return
 	}
 
@@ -59,23 +61,39 @@ func (s *Server) getArchiveByLanguageHandler(c *gin.Context) {
 	if exists.RowsAffected() == 0 {
 		c.JSON(http.StatusNotFound, &models.ResponseError{
 			Status:  "error",
-			Message: config.ErrCharacterNotFound.Error(),
+			Message: config.ErrLanguageNotFound.Error(),
 		})
 		return
 	}
 
+	var uid uuid.UUID
+	header := c.Request.Header.Get("Authorization")
+	if header != "" {
+		token := util.GetAuthTokenFromHeader(header)
+		user, err := s.repo.GetUserByToken(ctx, token)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, &models.ResponseError{
+				Status:  "error",
+				Message: "Unauthorized",
+			})
+			return
+		}
+		uid = user.ID
+	}
+
 	// Get archives
 	if p == "" && ps == "" {
-		archives, err := s.repo.GetArchivesByLanguage(ctx, &language)
+		archives, err := s.repo.GetArchivesByLanguage(ctx, repository.GetArchivesByLanguageParams{
+			Language: &language,
+			Uid:      uid,
+		})
 		if err != nil {
-			// If no archives found respond with 404 ErrNoArchive
 			if err == pgx.ErrNoRows {
-				c.JSON(http.StatusNotFound, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.ResponseError{
 					Status:  "error",
 					Message: config.ErrNoArchive.Error(),
 				})
 				return
-				// Otherwise respond with 500 and error
 			} else {
 				c.JSON(http.StatusInternalServerError, &models.ResponseError{
 					Status:  "error",
@@ -99,7 +117,6 @@ func (s *Server) getArchiveByLanguageHandler(c *gin.Context) {
 			"total":    total,
 		})
 	} else {
-
 		page, _ := strconv.Atoi(p)
 		if page == 0 {
 			page = 1
@@ -109,19 +126,18 @@ func (s *Server) getArchiveByLanguageHandler(c *gin.Context) {
 			pageSize = 10
 		}
 		archives, err := s.repo.GetArchivesByLanguageList(ctx, repository.GetArchivesByLanguageListParams{
+			Uid:      uid,
 			Language: &language,
 			Offset:   (int32(page) - 1) * int32(pageSize),
 			Limit:    int32(pageSize),
 		})
 		if err != nil {
-			// If no archives found respond with 404 ErrNoArchive
 			if err == pgx.ErrNoRows {
-				c.JSON(http.StatusNotFound, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.ResponseError{
 					Status:  "error",
-					Message: config.ErrNoArchive.Error(),
+					Message: config.ErrNoLanguage.Error(),
 				})
 				return
-				// Otherwise respond with 500 and error
 			} else {
 				c.JSON(http.StatusInternalServerError, &models.ResponseError{
 					Status:  "error",

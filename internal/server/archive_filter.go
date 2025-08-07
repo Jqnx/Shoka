@@ -5,6 +5,7 @@ import (
 	"Shoka/internal/filter"
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
+	"Shoka/internal/util"
 	"context"
 	"errors"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 )
 
 // TODO: Maybe filter/sort all function for when there is no page or pagesize given.
@@ -36,6 +38,21 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 	}
 
 	ctx := context.Background()
+
+	var uid uuid.UUID
+	header := c.Request.Header.Get("Authorization")
+	if header != "" {
+		token := util.GetAuthTokenFromHeader(header)
+		user, err := s.repo.GetUserByToken(ctx, token)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, &models.ResponseError{
+				Status:  "error",
+				Message: "Unauthorized",
+			})
+			return
+		}
+		uid = user.ID
+	}
 
 	// URL Queries
 	p := c.Query("page")
@@ -65,7 +82,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 		switch sortby {
 		case "title":
 			if sortdir == "desc" {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "title_desc")
+				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "title_desc", uid)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -76,7 +93,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				c.JSON(http.StatusOK, archives)
 				return
 			} else {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "title_asc")
+				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "title_asc", uid)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -89,7 +106,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 			}
 		case "page_count":
 			if sortdir == "desc" {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "page_count_desc")
+				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "page_count_desc", uid)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -100,7 +117,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				c.JSON(http.StatusOK, archives)
 				return
 			} else {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "page_count_asc")
+				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "page_count_asc", uid)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -113,7 +130,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 			}
 		case "created_at":
 			if sortdir == "desc" {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "created_at_desc")
+				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "created_at_desc", uid)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -124,7 +141,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				c.JSON(http.StatusOK, archives)
 				return
 			} else {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "created_at_asc")
+				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "created_at_asc", uid)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -137,7 +154,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 			}
 		case "updated_at":
 			if sortdir == "desc" {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "updated_at_desc")
+				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "updated_at_desc", uid)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -148,7 +165,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				c.JSON(http.StatusOK, archives)
 				return
 			} else {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "updated_at_asc")
+				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "updated_at_asc", uid)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -161,7 +178,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 			}
 		case "release_date":
 			if sortdir == "asc" {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "release_date_asc")
+				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "release_date_asc", uid)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -172,7 +189,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				c.JSON(http.StatusOK, archives)
 				return
 			} else {
-				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "release_date_desc")
+				archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "release_date_desc", uid)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, &models.ResponseError{
 						Status:  "error",
@@ -184,7 +201,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				return
 			}
 		default:
-			archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "title_asc")
+			archives, err := filter.MatchAndGet(payload, s.repo, page, pageSize, "title_asc", uid)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, &models.ResponseError{
 					Status:  "error",
@@ -209,6 +226,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 		case "title":
 			if sortdir == "desc" {
 				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					Uid:     uid,
 					OrderBy: "title_desc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -227,6 +245,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				return
 			} else {
 				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					Uid:     uid,
 					OrderBy: "title_asc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -247,6 +266,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 		case "page_count":
 			if sortdir == "desc" {
 				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					Uid:     uid,
 					OrderBy: "page_count_desc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -265,6 +285,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				return
 			} else {
 				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					Uid:     uid,
 					OrderBy: "page_count_asc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -285,6 +306,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 		case "created_at":
 			if sortdir == "desc" {
 				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					Uid:     uid,
 					OrderBy: "created_at_desc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -303,6 +325,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				return
 			} else {
 				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					Uid:     uid,
 					OrderBy: "created_at_asc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -323,6 +346,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 		case "updated_at":
 			if sortdir == "desc" {
 				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					Uid:     uid,
 					OrderBy: "updated_at_desc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -341,6 +365,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				return
 			} else {
 				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					Uid:     uid,
 					OrderBy: "updated_at_asc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -361,6 +386,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 		case "release_date":
 			if sortdir == "asc" {
 				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					Uid:     uid,
 					OrderBy: "release_date_asc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -379,6 +405,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 				return
 			} else {
 				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					Uid:     uid,
 					OrderBy: "release_date_desc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
@@ -398,6 +425,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 			}
 		default:
 			archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+				Uid:     uid,
 				OrderBy: "title_asc",
 				Limit:   int32(pageSize),
 				Offset:  (int32(page) - 1) * int32(pageSize),
