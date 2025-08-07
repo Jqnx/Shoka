@@ -75,4 +75,4 @@ watch:
             fi; \
         fi
 
-.PHONY: all build run test clean watch tailwind-install docker-run docker-down itest templ-install resetdb migratedb redodb
+.PHONY: all build run test clean watch docker-run docker-down itest resetdb migratedb redodb
