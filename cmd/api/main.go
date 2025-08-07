@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
@@ -50,18 +51,26 @@ func main() {
 	log := logger.NewSlog()
 
 	// Loading Config
-	cfg := config.LoadConfig()
+	cfg, err := config.LoadConfig(log)
+	if err != nil {
+		log.Error("failed to load config", "error", err)
+		os.Exit(1)
+	}
 	log.Info("Config Loaded")
 
 	// Creating db connection pool & connecting to db
-	// db := database.NewConn(ctx, cfg, log)
-	db := database.NewPool(ctx, cfg, log)
+	db, err := database.NewPool(ctx, cfg, log)
+	if err != nil {
+		log.Error("failed to connect to database", "error", err)
+		os.Exit(1)
+	}
 	log.Info("Connected to database.")
 
 	// Setup listener
 	li := notifier.NewListener(db)
 	if err := li.Connect(ctx); err != nil {
-		panic(err)
+		log.Error("error connecting to database", "err", err)
+		os.Exit(1)
 	}
 
 	// Setup notifier
@@ -77,14 +86,9 @@ func main() {
 
 	// Starting web server
 	log.Info(fmt.Sprintf("starting server on :%v", cfg.Server.Port))
-	server := server.NewServer(
-		cfg,
-		app.DB,
-		app.Repo,
-		app.Log,
-		// workerui,
-		&app,
-	)
+	server := server.NewServer(&app)
+
+	// TODO: Add worker here in goroutine instead of its own binary
 
 	// Start workers
 	w := workers.NewWorkers(&app, false, ctx)
@@ -96,7 +100,7 @@ func main() {
 	// Run graceful shutdown in a separate goroutine
 	go gracefulShutdown(server, done)
 
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		panic(fmt.Sprintf("http server error: %s", err))
 	}

@@ -42,41 +42,46 @@ type Config struct {
 	Workers    Workers  `mapstructure:"workers"`
 }
 
-func LoadConfig(log *slog.Logger) *Config {
+func LoadConfig(log *slog.Logger) (*Config, error) {
 	viper.AutomaticEnv()
 
+	// Set config file
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
 
+	// Read config file, create new one with defaults if one doesn't exist
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			os.Create(ConfigFile)
 			setDefaults()
 			viper.WriteConfig()
 		} else {
-			log.Error("Error reading config", "err", err)
+			return nil, err
 		}
 	}
 
 	var c Config
 	setDefaults()
 	viper.WriteConfig()
+
 	viper.Set("server.port", 8081)
 	viper.SetDefault("db.schema", "public")
+
 	getEnv()
+
 	if err := viper.Unmarshal(&c); err != nil {
-		log.Error("error unmarshalling config", "err", err)
+		return nil, err
 	}
 
-	return &c
+	return &c, nil
 }
 
 func setDefaults() {
 	viper.SetDefault("content_dir", "content")
 	viper.SetDefault("thumb_dir", "thumb")
 	viper.SetDefault("workers.max", 5)
-	viper.SetDefault("tz", "Europe/Brussels")
+	viper.SetDefault("tz", "Etc/UTC")
 }
 
 func getEnv() {

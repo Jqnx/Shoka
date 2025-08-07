@@ -30,4 +30,19 @@ var (
 	// Parody
 	ErrParodyNotFound = errors.New("parody not found")
 	ErrNoParody       = errors.New("no parodies found")
+
+	// Language
+	ErrLanguageNotFound = errors.New("language not found")
+	ErrNoLanguage       = errors.New("no languages found")
+
+	// Category
+	ErrCategoryNotFound = errors.New("category not found")
+	ErrNoCategory       = errors.New("no categories found")
+
+	// Database
+	ErrNoDBHost     = errors.New("missing db host")
+	ErrNoDBPort     = errors.New("missing db port")
+	ErrNoDBDatabase = errors.New("missing db database")
+	ErrNoDBUser     = errors.New("missing db user")
+	ErrNoDBPassword = errors.New("missing db password")
 )
