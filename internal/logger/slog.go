@@ -45,6 +45,12 @@ func (s *SlogLogger) Error(msg string, args ...interface{}) {
 	s.logger.Error(msg, kvs...)
 }
 
+func (s *SlogLogger) Fatal(msg string, args ...interface{}) {
+	kvs, _ := argsToKeyValues(args)
+	s.logger.Error(msg, kvs...)
+	os.Exit(1)
+}
+
 func (s *SlogLogger) With(args ...interface{}) Logger {
 	kvs, _ := argsToKeyValues(args)
 	return &SlogLogger{

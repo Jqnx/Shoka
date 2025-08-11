@@ -52,3 +52,7 @@ func (z *ZapLogger) WithContext(ctx context.Context) Logger {
 		sugar:  z.sugar.With("context", ctx),
 	}
 }
+
+func (z *ZapLogger) Fatal(msg string, args ...interface{}) {
+	z.sugar.Fatalw(msg, args...)
+}

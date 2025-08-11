@@ -92,6 +92,12 @@ func (zl *ZerologLogger) Error(msg string, args ...interface{}) {
 	event.Msg(msg)
 }
 
+func (zl *ZerologLogger) Fatal(msg string, args ...interface{}) {
+	event := zl.logger.Fatal()
+	zl.addFields(event, args...)
+	event.Msg(msg)
+}
+
 func (zl *ZerologLogger) With(args ...interface{}) Logger {
 	ctx := zl.logger.With()
 	for i := 0; i < len(args); i += 2 {
