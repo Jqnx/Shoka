@@ -21,6 +21,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 		AllowCredentials: true,
 	}))
 
+	// Websocket
+	r.GET("/ws", s.app.Hub.HandleWebSocket)
+
 	// Actual API
 	// Archive API
 	api := r.Group("/api")
@@ -28,7 +31,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		api.GET("/search", s.searchArchiveHandler)
 		archive := api.Group("/a")
 		{
-			archive.GET("/", s.getArchiveListHandler)
+			archive.GET("", s.getArchiveListHandler)
 			archive.POST("/filter", s.getArchiveFilterHandler)
 			archive.GET("/filters", s.getAllFiltersHandler)
 			archive.GET("/:id", s.getArchiveHandler)
@@ -36,7 +39,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 			archive.GET("/:id/:page", s.getThumbHandler)
 			archive.GET("/:id/scanmeta", s.scanMetadataHandler)
 			archive.POST("/shuffle", s.shuffleArchiveHandler)
-			archive.POST("/", s.createArchiveHandler)
+			archive.POST("", s.createArchiveHandler)
 			archive.POST("/:id/cover", s.generateCoverHandler)
 			archive.POST("/:id/thumb", s.generateThumbHandler)
 			archive.POST("/:id/favorite", middleware.Auth(s.repo), s.favoriteArchiveHandler)
@@ -50,9 +53,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 		// Artist API
 		artist := api.Group("/artist")
 		{
-			artist.GET("/", s.getAllArtistHandler)
+			artist.GET("", s.getAllArtistHandler)
 			artist.GET("/:name", s.getArtistHandler)
-			artist.POST("/", s.createArtistHandler)
+			artist.POST("", s.createArtistHandler)
 			artist.PUT("/:name", s.updateArtistHandler)
 			artist.DELETE("/:name", s.deleteArtistHandler)
 		}
@@ -60,9 +63,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 		// Group API
 		group := api.Group("/group")
 		{
-			group.GET("/", s.getAllGroupHandler)
+			group.GET("", s.getAllGroupHandler)
 			group.GET("/:name", s.getGroupHandler)
-			group.POST("/", s.createGroupHandler)
+			group.POST("", s.createGroupHandler)
 			group.PUT("/:name", s.updateGroupHandler)
 			group.DELETE("/:name", s.deleteGroupHandler)
 		}
@@ -71,33 +74,33 @@ func (s *Server) RegisterRoutes() http.Handler {
 		tag := api.Group("/tag")
 		{
 			tag.GET("/:tag", s.getArchiveByTagHandler)
-			tag.GET("/", s.getAllTagHandler)
+			tag.GET("", s.getAllTagHandler)
 		}
 
 		// Character API
 		character := api.Group("/character")
 		{
 			character.GET("/:character", s.getArchiveByCharacterHandler)
-			character.GET("/", s.getAllCharacterHandler)
+			character.GET("", s.getAllCharacterHandler)
 		}
 
 		// Parody API
 		parody := api.Group("/parody")
 		{
 			parody.GET("/:parody", s.getArchiveByParodyHandler)
-			parody.GET("/", s.getAllParodyHandler)
+			parody.GET("", s.getAllParodyHandler)
 		}
 
 		language := api.Group("/lang")
 		{
 			language.GET("/:language", s.getArchiveByLanguageHandler)
-			language.GET("/", s.getAllLanguageHandler)
+			language.GET("", s.getAllLanguageHandler)
 		}
 
 		category := api.Group("/category")
 		{
 			category.GET("/:category", s.getArchiveByCategoryHandler)
-			category.GET("/", s.getAllCategoryHandler)
+			category.GET("", s.getAllCategoryHandler)
 		}
 
 		auth := api.Group("/auth")
@@ -114,6 +117,14 @@ func (s *Server) RegisterRoutes() http.Handler {
 			user.POST("/favorites", middleware.Auth(s.repo), s.getFavoriteArchiveFilterHandler)
 			user.PUT("/update", middleware.Auth(s.repo), s.updateUserHandler)
 			user.DELETE("/delete", middleware.Auth(s.repo), s.deleteUserHandler)
+		}
+
+		download := api.Group("/download")
+		{
+			download.POST("", s.addDownloadHandler)
+			download.GET("", s.getAllDownloadsHandler)
+			download.GET("/:id", s.getDownloadHandler)
+			download.DELETE("/:id", s.deleteDownloadHandler)
 		}
 	}
 
