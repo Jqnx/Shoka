@@ -45,4 +45,8 @@ var (
 	ErrNoDBDatabase = errors.New("missing db database")
 	ErrNoDBUser     = errors.New("missing db user")
 	ErrNoDBPassword = errors.New("missing db password")
+
+	// Redis
+	ErrNoRedisHost = errors.New("missing redis host")
+	ErrNoRedisPort = errors.New("missing redis port")
 )
