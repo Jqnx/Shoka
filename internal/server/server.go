@@ -2,6 +2,7 @@ package server
 
 import (
 	"Shoka/internal/config"
+	"Shoka/internal/downloader"
 	"Shoka/internal/logger"
 	"Shoka/internal/repository"
 	"fmt"
@@ -18,15 +19,17 @@ type Server struct {
 	db   *pgxpool.Pool
 	log  logger.Logger
 	app  *config.App
+	dm   *downloader.Manager
 }
 
-func NewServer(app *config.App) *http.Server {
+func NewServer(app *config.App, dm *downloader.Manager) *http.Server {
 	NewServer := &Server{
 		port: app.Cfg.Server.Port,
 		repo: app.Repo,
 		db:   app.DB,
 		log:  app.Log,
 		app:  app,
+		dm:   dm,
 	}
 
 	// Declare Server config

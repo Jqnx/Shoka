@@ -81,6 +81,17 @@ type Character struct {
 	Count int64  `json:"count"`
 }
 
+type Download struct {
+	ID        uuid.UUID `json:"id"`
+	Url       string    `json:"url"`
+	Filename  string    `json:"filename"`
+	Status    string    `json:"status"`
+	Progress  *int32    `json:"progress"`
+	Error     *string   `json:"error"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type FavoriteArchive struct {
 	ArchiveID   int64     `json:"archive_id"`
 	UserID      uuid.UUID `json:"user_id"`

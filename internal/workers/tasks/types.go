@@ -6,4 +6,5 @@ const (
 	TypeCreateArchive   = "archives:create"
 	TypeCreateCover     = "cover:create"
 	TypeNewMetadata     = "metadata:new"
+	TypeDownload        = "file:download"
 )
