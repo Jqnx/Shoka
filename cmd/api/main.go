@@ -3,19 +3,24 @@ package main
 import (
 	"Shoka/internal/config"
 	"Shoka/internal/database"
+	"Shoka/internal/downloader"
+	"Shoka/internal/fsutil"
 	"Shoka/internal/logger"
 	"Shoka/internal/notifier"
 	"Shoka/internal/repository"
 	"Shoka/internal/server"
+	"Shoka/internal/websocket"
 	"Shoka/internal/workers"
+	"Shoka/internal/workers/tasks"
 	"context"
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/hibiken/asynq"
 )
 
 func gracefulShutdown(apiServer *http.Server, done chan bool) {
@@ -42,8 +47,6 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 	done <- true
 }
 
-// TODO: Create helper function to create every necessary directory
-
 func main() {
 	ctx := context.Background()
 
@@ -53,24 +56,27 @@ func main() {
 	// Loading Config
 	cfg, err := config.LoadConfig(log)
 	if err != nil {
-		log.Error("failed to load config", "error", err)
-		os.Exit(1)
+		log.Fatal("failed to load config", "error", err)
 	}
 	log.Info("Config Loaded")
+
+	// Create necessary directories
+	if err := fsutil.CreateDirs(cfg); err != nil {
+		log.Error("failed to create directories", "error", err)
+	}
 
 	// Creating db connection pool & connecting to db
 	db, err := database.NewPool(ctx, cfg, log)
 	if err != nil {
-		log.Error("db: failed to connect to database", "error", err)
-		os.Exit(1)
+		log.Fatal("db: failed to connect to database", "error", err)
 	}
+	defer db.Close()
 	log.Info("Connected to database.")
 
 	// Setup listener
 	li := notifier.NewListener(db)
 	if err := li.Connect(ctx); err != nil {
-		log.Error("listener: error connecting to database", "error", err)
-		os.Exit(1)
+		log.Fatal("listener: error connecting to database", "error", err)
 	}
 
 	// Setup notifier
@@ -81,14 +87,47 @@ func main() {
 	repo := repository.New(db)
 	log.Info("New repository initialized.")
 
+	srv, err := workers.NewServer(cfg)
+	if err != nil {
+		log.Fatal("error connecting to redis", "error", err)
+	}
+	log.Info("Connected to redis.")
+
+	// Start new Asynq client
+	client, err := workers.NewAsynqClient(cfg)
+	if err != nil {
+		log.Fatal("error connecting to redis", "error", err)
+	}
+
+	// Initialize new WebSocket Hub
+	hub := websocket.NewHub(log)
+	log.Info("Initialized new WebSocket Hub.")
+
 	// Initializing new App
-	app := config.NewApp(repo, log, db, cfg, noti)
+	app := config.NewApp(repo, log, db, cfg, noti, client, hub)
+	defer app.Close()
+
+	dm := downloader.NewDownloadManager(&app)
+	defer dm.Close()
 
 	// Starting web server
 	log.Info(fmt.Sprintf("starting server on :%v", cfg.Server.Port))
-	server := server.NewServer(&app)
+	server := server.NewServer(&app, dm)
 
-	// TODO: Add worker here in goroutine instead of its own binary
+	// Defining asynq handlers
+	mux := asynq.NewServeMux()
+	mux.Handle(tasks.TypeCreateArchive, tasks.NewArchiveProcessor(cfg, &app))
+	mux.Handle(tasks.TypeCreateCover, tasks.NewCoverProcessor(&app))
+	mux.Handle(tasks.TypeCreateThumbnail, tasks.NewThumbnailProcessor(&app))
+	mux.Handle(tasks.TypeNewMetadata, tasks.NewMetadataProcessor(&app))
+	mux.Handle(downloader.TypeDownload, downloader.NewDownloadProcessor(dm))
+
+	// Start asynq server
+	go func() {
+		if err := srv.Run(mux); err != nil {
+			log.Fatal(err.Error())
+		}
+	}()
 
 	// Start workers
 	w := workers.NewWorkers(&app, false, ctx)
