@@ -1,6 +1,7 @@
 import tailwindcss from "@tailwindcss/vite";
 
 const baseApi = 'http://localhost:8081/api'
+const baseWs = 'ws://localhost:8081/ws'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -14,6 +15,9 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     baseApi: baseApi,
+    public: {
+      ws: baseWs,
+    }
   },
   devServer: {
     port: 8080,

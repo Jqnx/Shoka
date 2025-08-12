@@ -24,6 +24,7 @@
     Tag,
     PersonStanding,
     LibrarySquare,
+    Download,
   } from "lucide-vue-next";
 
   const props = withDefaults(defineProps<SidebarProps>(), {
@@ -37,7 +38,7 @@
       name: user.value?.username,
       avatar: "",
     },
-    navMain: [
+    Media: [
       {
         title: "Archives",
         url: "/a",
@@ -65,7 +66,7 @@
         icon: LibrarySquare,
       },
     ],
-    navSecondary: [
+    Metadata: [
       {
         title: "Artists",
         url: "/artist",
@@ -92,6 +93,13 @@
         icon: BookUser,
       },
     ],
+    Misc: [
+      {
+        title: "Downloads",
+        url: "/downloads",
+        icon: Download,
+      },
+    ],
   };
 </script>
 
@@ -115,12 +123,10 @@
       </SidebarMenu>
     </SidebarHeader>
     <SidebarContent>
-      <NavMain label="Media" :items="data.navMain" />
-      <NavMain label="Metadata" :items="data.navSecondary" />
+      <NavMain label="Media" :items="data.Media" />
+      <NavMain label="Metadata" :items="data.Metadata" />
 
-      <!--
-      <NavSecondary :items="data.navSecondary" class="mt-auto" />
-      -->
+      <NavSecondary label="Misc" :items="data.Misc" class="mt-auto" />
     </SidebarContent>
     <SidebarFooter>
       <NavUser :user="data.user" />
