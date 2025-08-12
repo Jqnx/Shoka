@@ -17,7 +17,6 @@
     FormLabel,
   } from "@/components/ui/form";
   import { z } from "zod";
-  import { toast } from "vue-sonner";
 
   const props = defineProps<{
     class?: HTMLAttributes["class"];
@@ -57,7 +56,6 @@
   const { signUp } = useAuth();
 
   const onSubmit = handleSubmit((values) => {
-    toast(JSON.stringify(values, null, 2));
     signUp(values, { callbackUrl: "/", redirect: true });
   });
 </script>
