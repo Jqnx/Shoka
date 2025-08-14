@@ -21,6 +21,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 		AllowCredentials: true,
 	}))
 
+	// Static Assets
+	r.Static("/assets", "./assets")
+
 	// Websocket
 	r.GET("/ws", s.app.Hub.HandleWebSocket)
 
@@ -32,6 +35,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		archive := api.Group("/a")
 		{
 			archive.GET("", s.getArchiveListHandler)
+			archive.GET("/recent", middleware.Auth(s.repo), s.getRecentlyReadHandler)
 			archive.POST("/filter", s.getArchiveFilterHandler)
 			archive.GET("/filters", s.getAllFiltersHandler)
 			archive.GET("/:id", s.getArchiveHandler)

@@ -66,6 +66,7 @@
       <CarouselNext />
     </Carousel>
     <Carousel
+      v-if="archives.total > 6"
       class="relative max-w-28 w-full"
       :opts="{
         align: 'center',

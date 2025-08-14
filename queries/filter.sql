@@ -15,7 +15,9 @@ select
     archives.created_at,
     archives.updated_at,
     archives.release_date,
-    reading_progress.page
+    reading_progress.page,
+    reading_progress.last_read,
+    reading_progress.state
 from archives
 left join
     reading_progress
@@ -40,6 +42,10 @@ order by
     case when @order_by = 'release_date_asc' then archives.release_date end asc,
     case
         when @order_by = 'release_date_desc' then archives.release_date
+    end desc nulls last,
+    case when @order_by = 'last_read_asc' then reading_progress.last_read end asc,
+    case
+        when @order_by = 'last_read_desc' then reading_progress.last_read
     end desc nulls last
 limit $1
 offset $2
@@ -70,7 +76,9 @@ select
     archives.created_at,
     archives.updated_at,
     archives.release_date,
-    reading_progress.page
+    reading_progress.page,
+    reading_progress.last_read,
+    reading_progress.state
 from archives
 left join
     reading_progress
@@ -86,7 +94,11 @@ order by
     case when @order_by = 'updated_at_asc' then updated_at end asc,
     case when @order_by = 'updated_at_desc' then updated_at end desc nulls last,
     case when @order_by = 'release_date_asc' then release_date end asc,
-    case when @order_by = 'release_date_desc' then release_date end desc nulls last
+    case when @order_by = 'release_date_desc' then release_date end desc nulls last,
+    case when @order_by = 'last_read_asc' then reading_progress.last_read end asc,
+    case
+        when @order_by = 'last_read_desc' then reading_progress.last_read
+    end desc nulls last
 limit $1
 offset $2
 ;
@@ -108,7 +120,9 @@ select
     archives.created_at,
     archives.updated_at,
     archives.release_date,
-    reading_progress.page
+    reading_progress.page,
+    reading_progress.last_read,
+    reading_progress.state
 from archives
 left join
     reading_progress
@@ -124,7 +138,11 @@ order by
     case when @order_by = 'updated_at_asc' then updated_at end asc,
     case when @order_by = 'updated_at_desc' then updated_at end desc nulls last,
     case when @order_by = 'release_date_asc' then release_date end asc,
-    case when @order_by = 'release_date_desc' then release_date end desc nulls last
+    case when @order_by = 'release_date_desc' then release_date end desc nulls last,
+    case when @order_by = 'last_read_asc' then reading_progress.last_read end asc,
+    case
+        when @order_by = 'last_read_desc' then reading_progress.last_read
+    end desc nulls last
 ;
 
 -- name: CountFilteredArchives :one

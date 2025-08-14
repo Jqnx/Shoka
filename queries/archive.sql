@@ -100,13 +100,44 @@ select
     archives.created_at,
     archives.updated_at,
     archives.release_date,
-    reading_progress.page
+    reading_progress.page,
+    reading_progress.last_read,
+    reading_progress.state
 from archives
 left join
     reading_progress
     on archives.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg('uid')
 order by archives.archive_id
+;
+
+-- name: GetRecentlyReadArchives :many
+select
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date,
+    reading_progress.page,
+    reading_progress.last_read,
+    reading_progress.state
+from archives
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = sqlc.arg('uid')
+where reading_progress.last_read is not null
+order by reading_progress.last_read
 ;
 
 -- name: GetArchiveList :many
@@ -126,7 +157,9 @@ select
     archives.created_at,
     archives.updated_at,
     archives.release_date,
-    reading_progress.page
+    reading_progress.page,
+    reading_progress.last_read,
+    reading_progress.state
 from archives
 left join
     reading_progress

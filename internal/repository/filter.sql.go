@@ -42,7 +42,9 @@ select
     archives.created_at,
     archives.updated_at,
     archives.release_date,
-    reading_progress.page
+    reading_progress.page,
+    reading_progress.last_read,
+    reading_progress.state
 from archives
 left join
     reading_progress
@@ -58,7 +60,11 @@ order by
     case when $2 = 'updated_at_asc' then updated_at end asc,
     case when $2 = 'updated_at_desc' then updated_at end desc nulls last,
     case when $2 = 'release_date_asc' then release_date end asc,
-    case when $2 = 'release_date_desc' then release_date end desc nulls last
+    case when $2 = 'release_date_desc' then release_date end desc nulls last,
+    case when $2 = 'last_read_asc' then reading_progress.last_read end asc,
+    case
+        when $2 = 'last_read_desc' then reading_progress.last_read
+    end desc nulls last
 `
 
 type GetArchiveSortParams struct {
@@ -83,6 +89,8 @@ type GetArchiveSortRow struct {
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
 	Page        *int64     `json:"page"`
+	LastRead    *time.Time `json:"last_read"`
+	State       *string    `json:"state"`
 }
 
 func (q *Queries) GetArchiveSort(ctx context.Context, arg GetArchiveSortParams) ([]GetArchiveSortRow, error) {
@@ -111,6 +119,8 @@ func (q *Queries) GetArchiveSort(ctx context.Context, arg GetArchiveSortParams) 
 			&i.UpdatedAt,
 			&i.ReleaseDate,
 			&i.Page,
+			&i.LastRead,
+			&i.State,
 		); err != nil {
 			return nil, err
 		}
@@ -139,7 +149,9 @@ select
     archives.created_at,
     archives.updated_at,
     archives.release_date,
-    reading_progress.page
+    reading_progress.page,
+    reading_progress.last_read,
+    reading_progress.state
 from archives
 left join
     reading_progress
@@ -155,7 +167,11 @@ order by
     case when $4 = 'updated_at_asc' then updated_at end asc,
     case when $4 = 'updated_at_desc' then updated_at end desc nulls last,
     case when $4 = 'release_date_asc' then release_date end asc,
-    case when $4 = 'release_date_desc' then release_date end desc nulls last
+    case when $4 = 'release_date_desc' then release_date end desc nulls last,
+    case when $4 = 'last_read_asc' then reading_progress.last_read end asc,
+    case
+        when $4 = 'last_read_desc' then reading_progress.last_read
+    end desc nulls last
 limit $1
 offset $2
 `
@@ -184,6 +200,8 @@ type GetArchiveSortListRow struct {
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
 	Page        *int64     `json:"page"`
+	LastRead    *time.Time `json:"last_read"`
+	State       *string    `json:"state"`
 }
 
 func (q *Queries) GetArchiveSortList(ctx context.Context, arg GetArchiveSortListParams) ([]GetArchiveSortListRow, error) {
@@ -217,6 +235,8 @@ func (q *Queries) GetArchiveSortList(ctx context.Context, arg GetArchiveSortList
 			&i.UpdatedAt,
 			&i.ReleaseDate,
 			&i.Page,
+			&i.LastRead,
+			&i.State,
 		); err != nil {
 			return nil, err
 		}
@@ -266,7 +286,9 @@ select
     archives.created_at,
     archives.updated_at,
     archives.release_date,
-    reading_progress.page
+    reading_progress.page,
+    reading_progress.last_read,
+    reading_progress.state
 from archives
 left join
     reading_progress
@@ -291,6 +313,10 @@ order by
     case when $5 = 'release_date_asc' then archives.release_date end asc,
     case
         when $5 = 'release_date_desc' then archives.release_date
+    end desc nulls last,
+    case when $5 = 'last_read_asc' then reading_progress.last_read end asc,
+    case
+        when $5 = 'last_read_desc' then reading_progress.last_read
     end desc nulls last
 limit $1
 offset $2
@@ -321,6 +347,8 @@ type GetArchivesFilterSortListRow struct {
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
 	Page        *int64     `json:"page"`
+	LastRead    *time.Time `json:"last_read"`
+	State       *string    `json:"state"`
 }
 
 func (q *Queries) GetArchivesFilterSortList(ctx context.Context, arg GetArchivesFilterSortListParams) ([]GetArchivesFilterSortListRow, error) {
@@ -355,6 +383,8 @@ func (q *Queries) GetArchivesFilterSortList(ctx context.Context, arg GetArchives
 			&i.UpdatedAt,
 			&i.ReleaseDate,
 			&i.Page,
+			&i.LastRead,
+			&i.State,
 		); err != nil {
 			return nil, err
 		}

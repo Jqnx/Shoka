@@ -53,7 +53,7 @@ func (s *Server) addDownloadHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, download)
+	c.JSON(http.StatusCreated, download)
 }
 
 func (s *Server) getAllDownloadsHandler(c *gin.Context) {

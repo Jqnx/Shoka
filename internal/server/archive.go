@@ -275,6 +275,36 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 				c.JSON(http.StatusOK, archives)
 				return
 			}
+		case "last_read":
+			if sortdir == "asc" {
+				archives, err := s.repo.GetArchiveSort(ctx, repository.GetArchiveSortParams{
+					OrderBy: "last_read_asc",
+					Uid:     uid,
+				})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, archives)
+				return
+			} else {
+				archives, err := s.repo.GetArchiveSort(ctx, repository.GetArchiveSortParams{
+					OrderBy: "last_read_desc",
+					Uid:     uid,
+				})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, archives)
+				return
+			}
 		default:
 			archives, err := s.repo.GetArchiveSort(ctx, repository.GetArchiveSortParams{
 				OrderBy: "title_asc",
@@ -557,6 +587,62 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
 					Uid:     uid,
 					OrderBy: "release_date_desc",
+					Limit:   int32(pageSize),
+					Offset:  (int32(page) - 1) * int32(pageSize),
+				})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				count, err := s.repo.CountArchives(ctx)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"archives": archives,
+					"total":    count,
+				})
+				return
+			}
+		case "last_read":
+			if sortdir == "asc" {
+				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					Uid:     uid,
+					OrderBy: "last_read_asc",
+					Limit:   int32(pageSize),
+					Offset:  (int32(page) - 1) * int32(pageSize),
+				})
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				count, err := s.repo.CountArchives(ctx)
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+						Status:  "error",
+						Message: err.Error(),
+					})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"archives": archives,
+					"total":    count,
+				})
+				return
+			} else {
+				archives, err := s.repo.GetArchiveSortList(ctx, repository.GetArchiveSortListParams{
+					Uid:     uid,
+					OrderBy: "last_read_desc",
 					Limit:   int32(pageSize),
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
@@ -1041,9 +1127,12 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 		return
 	}
 
+	// Fetch Metadata
 	mb := metadata.GetBuilder("form")
 	d := metadata.NewDirector(mb)
 	meta := d.FetchMetadata(payload)
+
+	// Update Archive
 	ab := archive.GetBuilder(s.app)
 	archive := ab.UpdateArchive(id, &meta)
 	if err := archive.Update(ctx, s.app); err != nil {

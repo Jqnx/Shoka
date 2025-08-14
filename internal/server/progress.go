@@ -43,6 +43,26 @@ func GetReadingProgress(page, max int64) *ReadingProgress {
 	return nil
 }
 
+func (s *Server) getRecentlyReadHandler(c *gin.Context) {
+	ctx := context.Background()
+
+	user_id, _ := uuid.Parse(c.GetString("userid"))
+
+	arch, err := s.repo.GetRecentlyReadArchives(ctx, user_id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, &gin.H{
+		"archives": arch,
+		"total":    len(arch),
+	})
+}
+
 func (s *Server) updateReadingProgressHandler(c *gin.Context) {
 	ctx := context.Background()
 

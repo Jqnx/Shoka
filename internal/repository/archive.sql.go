@@ -217,7 +217,9 @@ select
     archives.created_at,
     archives.updated_at,
     archives.release_date,
-    reading_progress.page
+    reading_progress.page,
+    reading_progress.last_read,
+    reading_progress.state
 from archives
 left join
     reading_progress
@@ -243,6 +245,8 @@ type GetAllArchivesRow struct {
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
 	Page        *int64     `json:"page"`
+	LastRead    *time.Time `json:"last_read"`
+	State       *string    `json:"state"`
 }
 
 func (q *Queries) GetAllArchives(ctx context.Context, uid uuid.UUID) ([]GetAllArchivesRow, error) {
@@ -271,6 +275,8 @@ func (q *Queries) GetAllArchives(ctx context.Context, uid uuid.UUID) ([]GetAllAr
 			&i.UpdatedAt,
 			&i.ReleaseDate,
 			&i.Page,
+			&i.LastRead,
+			&i.State,
 		); err != nil {
 			return nil, err
 		}
@@ -423,7 +429,9 @@ select
     archives.created_at,
     archives.updated_at,
     archives.release_date,
-    reading_progress.page
+    reading_progress.page,
+    reading_progress.last_read,
+    reading_progress.state
 from archives
 left join
     reading_progress
@@ -456,6 +464,8 @@ type GetArchiveListRow struct {
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
 	Page        *int64     `json:"page"`
+	LastRead    *time.Time `json:"last_read"`
+	State       *string    `json:"state"`
 }
 
 func (q *Queries) GetArchiveList(ctx context.Context, arg GetArchiveListParams) ([]GetArchiveListRow, error) {
@@ -484,6 +494,8 @@ func (q *Queries) GetArchiveList(ctx context.Context, arg GetArchiveListParams) 
 			&i.UpdatedAt,
 			&i.ReleaseDate,
 			&i.Page,
+			&i.LastRead,
+			&i.State,
 		); err != nil {
 			return nil, err
 		}
@@ -526,6 +538,95 @@ func (q *Queries) GetLastArchiveID(ctx context.Context) (string, error) {
 	var archive_id string
 	err := row.Scan(&archive_id)
 	return archive_id, err
+}
+
+const getRecentlyReadArchives = `-- name: GetRecentlyReadArchives :many
+select
+    archives.id,
+    archives.title,
+    archives.summary,
+    archives.language,
+    archives.category,
+    archives.page_count,
+    archives.file_path,
+    archives.archive_id,
+    archives.hash,
+    archives.thumbs_path,
+    archives.cover_path,
+    archives.type,
+    archives.created_at,
+    archives.updated_at,
+    archives.release_date,
+    reading_progress.page,
+    reading_progress.last_read,
+    reading_progress.state
+from archives
+left join
+    reading_progress
+    on archives.id = reading_progress.archive_id
+    and reading_progress.user_id = $1
+where reading_progress.last_read is not null
+order by reading_progress.last_read
+`
+
+type GetRecentlyReadArchivesRow struct {
+	ID          int64      `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int64      `json:"page_count"`
+	FilePath    *string    `json:"file_path"`
+	ArchiveID   string     `json:"archive_id"`
+	Hash        string     `json:"hash"`
+	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	Type        string     `json:"type"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
+	LastRead    *time.Time `json:"last_read"`
+	State       *string    `json:"state"`
+}
+
+func (q *Queries) GetRecentlyReadArchives(ctx context.Context, uid uuid.UUID) ([]GetRecentlyReadArchivesRow, error) {
+	rows, err := q.db.Query(ctx, getRecentlyReadArchives, uid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetRecentlyReadArchivesRow
+	for rows.Next() {
+		var i GetRecentlyReadArchivesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.ArchiveID,
+			&i.Hash,
+			&i.ThumbsPath,
+			&i.CoverPath,
+			&i.Type,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+			&i.Page,
+			&i.LastRead,
+			&i.State,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const searchArchives = `-- name: SearchArchives :many
