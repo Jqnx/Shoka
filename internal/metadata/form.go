@@ -38,61 +38,61 @@ func (m *Form) Unmarshal(data any) {
 	m.ReleaseDate = d.ReleaseDate
 }
 
-func (m *Form) getURL() *[]URL {
-	var urls []URL
+func (m *Form) getURL() *[]models.URL {
+	var urls []models.URL
 
 	for _, item := range m.URL {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
-		url := URL{URL: b}
+		url := models.URL{URL: b}
 		urls = append(urls, url)
 	}
 	return &urls
 }
 
-func (m *Form) getParody() *[]Parody {
-	var parodies []Parody
+func (m *Form) getParody() *[]models.Parody {
+	var parodies []models.Parody
 
 	for _, item := range m.Parody {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
-		parody := Parody{Parody: b}
+		parody := models.Parody{Parody: b}
 		parodies = append(parodies, parody)
 	}
 	return &parodies
 }
 
-func (m *Form) getCharacters() *[]Character {
-	var characters []Character
+func (m *Form) getCharacters() *[]models.Character {
+	var characters []models.Character
 
 	for _, item := range m.Character {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
-		character := Character{Character: b}
+		character := models.Character{Character: b}
 		characters = append(characters, character)
 	}
 	return &characters
 }
 
-func (m *Form) getTags() *[]Tag {
-	var tags []Tag
+func (m *Form) getTags() *[]models.Tag {
+	var tags []models.Tag
 
 	for _, item := range m.Tags {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
-		tag := Tag{Tag: b}
+		tag := models.Tag{Tag: b}
 		tags = append(tags, tag)
 	}
 	return &tags
 }
 
-func (m *Form) getArtist() *[]Artist {
-	var artists []Artist
+func (m *Form) getArtist() *[]models.Artist {
+	var artists []models.Artist
 
 	for _, item := range m.Artist {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
-		artist := Artist{Artist: b}
+		artist := models.Artist{Artist: b}
 		artists = append(artists, artist)
 	}
 	return &artists
@@ -136,13 +136,13 @@ func (m *Form) getReleaseDate(year, month, day int) *time.Time {
 	}
 }
 
-func (m *Form) getMetadata() Metadata {
+func (m *Form) GetMetadata() models.Metadata {
 	urls := m.getURL()
 	parodies := m.getParody()
 	characters := m.getCharacters()
 	tags := m.getTags()
 	artists := m.getArtist()
-	return Metadata{
+	return models.Metadata{
 		Title:       m.Title,
 		Summary:     m.Summary,
 		URL:         *urls,

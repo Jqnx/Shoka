@@ -3,7 +3,7 @@ package archive
 import (
 	"Shoka/internal/config"
 	"Shoka/internal/fsutil"
-	"Shoka/internal/metadata"
+	"Shoka/internal/models"
 	"time"
 )
 
@@ -22,11 +22,11 @@ type ArchiveBuilder struct {
 	Summary     *string
 	Language    *string
 	Category    *string
-	Tags        *[]metadata.Tag
-	URL         *[]metadata.URL
-	Parody      *[]metadata.Parody
-	Character   *[]metadata.Character
-	Artist      *[]metadata.Artist
+	Tags        *[]models.Tag
+	URL         *[]models.URL
+	Parody      *[]models.Parody
+	Character   *[]models.Character
+	Artist      *[]models.Artist
 	ReleaseDate *time.Time
 	PageCount   int64
 	FilePath    *string
@@ -207,7 +207,7 @@ func (a *ArchiveBuilder) NewArchive(path string) Archive {
 	return a.getArchive()
 }
 
-func (a *ArchiveBuilder) UpdateArchive(id string, meta *metadata.Metadata) Archive {
+func (a *ArchiveBuilder) UpdateArchive(id string, meta *models.Metadata) Archive {
 	a.setArchiveID(id)
 	a.setTitle(meta.Title)
 	a.setSummary(meta.Summary)
@@ -223,23 +223,23 @@ func (a *ArchiveBuilder) UpdateArchive(id string, meta *metadata.Metadata) Archi
 	return a.getArchive()
 }
 
-func (a *ArchiveBuilder) setTags(t *[]metadata.Tag) {
+func (a *ArchiveBuilder) setTags(t *[]models.Tag) {
 	a.Tags = t
 }
 
-func (a *ArchiveBuilder) setURL(u *[]metadata.URL) {
+func (a *ArchiveBuilder) setURL(u *[]models.URL) {
 	a.URL = u
 }
 
-func (a *ArchiveBuilder) setParody(p *[]metadata.Parody) {
+func (a *ArchiveBuilder) setParody(p *[]models.Parody) {
 	a.Parody = p
 }
 
-func (a *ArchiveBuilder) setCharacter(c *[]metadata.Character) {
+func (a *ArchiveBuilder) setCharacter(c *[]models.Character) {
 	a.Character = c
 }
 
-func (a *ArchiveBuilder) setArtist(b *[]metadata.Artist) {
+func (a *ArchiveBuilder) setArtist(b *[]models.Artist) {
 	a.Artist = b
 }
 

@@ -1,7 +1,7 @@
 package archive
 
 import (
-	"Shoka/internal/metadata"
+	"Shoka/internal/models"
 	"time"
 )
 
@@ -39,11 +39,11 @@ type Archive struct {
 	Summary     *string
 	Language    *string
 	Category    *string
-	Tags        *[]metadata.Tag
-	URL         *[]metadata.URL
-	Parody      *[]metadata.Parody
-	Character   *[]metadata.Character
-	Artist      *[]metadata.Artist
+	Tags        *[]models.Tag
+	URL         *[]models.URL
+	Parody      *[]models.Parody
+	Character   *[]models.Character
+	Artist      *[]models.Artist
 	ReleaseDate *time.Time
 	PageCount   int64
 	FilePath    *string

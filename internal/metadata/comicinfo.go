@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"Shoka/internal/models"
 	"encoding/xml"
 	"fmt"
 	"log"
@@ -34,66 +35,66 @@ func (m *ComicInfo) Unmarshal(data any) {
 	}
 }
 
-func (m *ComicInfo) getURL() *[]URL {
-	var urls []URL
+func (m *ComicInfo) getURL() *[]models.URL {
+	var urls []models.URL
 	list := strings.Split(m.URL, ",")
 
 	for _, item := range list {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
-		url := URL{URL: b}
+		url := models.URL{URL: b}
 		urls = append(urls, url)
 	}
 	return &urls
 }
 
-func (m *ComicInfo) getSeries() *[]Parody {
-	var series []Parody
+func (m *ComicInfo) getSeries() *[]models.Parody {
+	var series []models.Parody
 	list := strings.Split(m.Series, ",")
 
 	for _, item := range list {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
-		se := Parody{Parody: b}
+		se := models.Parody{Parody: b}
 		series = append(series, se)
 	}
 	return &series
 }
 
-func (m *ComicInfo) getCharacters() *[]Character {
-	var characters []Character
+func (m *ComicInfo) getCharacters() *[]models.Character {
+	var characters []models.Character
 	list := strings.Split(m.Characters, ",")
 
 	for _, item := range list {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
-		character := Character{Character: b}
+		character := models.Character{Character: b}
 		characters = append(characters, character)
 	}
 	return &characters
 }
 
-func (m *ComicInfo) getTags() *[]Tag {
-	var tags []Tag
+func (m *ComicInfo) getTags() *[]models.Tag {
+	var tags []models.Tag
 	list := strings.Split(m.Tags, ",")
 
 	for _, item := range list {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
-		tag := Tag{Tag: b}
+		tag := models.Tag{Tag: b}
 		tags = append(tags, tag)
 	}
 	return &tags
 }
 
-func (m *ComicInfo) getWriter() *[]Artist {
-	var writers []Artist
+func (m *ComicInfo) getWriter() *[]models.Artist {
+	var writers []models.Artist
 	list := strings.Split(m.Writer, ",")
 
 	for _, item := range list {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
-		writer := Artist{Artist: b}
+		writer := models.Artist{Artist: b}
 		writers = append(writers, writer)
 	}
 	return &writers
@@ -136,14 +137,14 @@ func (m *ComicInfo) getReleaseDate(year, month, day int) *time.Time {
 	}
 }
 
-func (m *ComicInfo) getMetadata() Metadata {
+func (m *ComicInfo) GetMetadata() models.Metadata {
 	urls := m.getURL()
 	series := m.getSeries()
 	characters := m.getCharacters()
 	tags := m.getTags()
 	writers := m.getWriter()
 	releaseDate := m.getReleaseDate(m.Year, m.Month, m.Day)
-	return Metadata{
+	return models.Metadata{
 		Title:       m.Title,
 		Summary:     m.Summary,
 		URL:         *urls,
