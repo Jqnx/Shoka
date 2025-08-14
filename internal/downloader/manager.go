@@ -39,6 +39,11 @@ type ActiveDownload struct {
 	LastProgressUpdate time.Time
 	Cancelled          bool
 	FilePath           string
+	BytesDownloaded    int64
+	LastSpeedUpdate    time.Time
+	LastBytesCount     int64
+	DownloadSpeed      int64
+	StartTime          time.Time
 }
 
 func NewDownloadManager(app *config.App) *Manager {

@@ -41,13 +41,19 @@ func (d *DownloadProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 
 	downloadCtx, cancel := context.WithCancel(ctx)
 
+	now := time.Now()
 	activeDownload := &ActiveDownload{
 		ID:                 payload.ID,
 		Cancel:             cancel,
 		Progress:           0,
-		LastProgressUpdate: time.Now(),
+		LastProgressUpdate: now,
 		Cancelled:          false,
 		FilePath:           "",
+		BytesDownloaded:    0,
+		LastSpeedUpdate:    now,
+		LastBytesCount:     0,
+		DownloadSpeed:      0,
+		StartTime:          now,
 	}
 
 	d.dm.ActiveMutex.Lock()

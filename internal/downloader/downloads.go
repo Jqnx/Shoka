@@ -97,6 +97,9 @@ func (dm *Manager) EnrichWithActiveProgress(downloads []repository.Download) {
 	for i := range downloads {
 		if activeDownload, exists := dm.ActiveDownloads[downloads[i].ID.String()]; exists {
 			downloads[i].Progress = &activeDownload.Progress
+			downloads[i].Speed = &activeDownload.DownloadSpeed
+			downloads[i].Downloaded = &activeDownload.BytesDownloaded
+			downloads[i].StartedAt = &activeDownload.StartTime
 		}
 	}
 }
@@ -138,6 +141,7 @@ func (dm *Manager) DeleteDownload(ctx context.Context, download *repository.Down
 }
 
 // TODO: redo to handle the sites i want, probably use an interface so multiple sites can plug into that.
+// TODO: Check if requested link is valid file (image file, zip file, cbz file, w/e file just not pure html)
 func (dm *Manager) DownloadFileWithCancel(ctx context.Context, id, url string, activeDownload *ActiveDownload) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -198,6 +202,9 @@ func (dm *Manager) DownloadFileWithCancel(ctx context.Context, id, url string, a
 			}
 			downloaded += int64(n)
 
+			// Update Download Speed
+			dm.updateActiveDownloadBytes(downloaded, activeDownload)
+
 			// Update progress
 			if contentLength > 0 {
 				progress := int32((downloaded * 100) / contentLength)
@@ -216,21 +223,37 @@ func (dm *Manager) DownloadFileWithCancel(ctx context.Context, id, url string, a
 	return nil
 }
 
+func (dm *Manager) updateActiveDownloadBytes(totalBytes int64, activeDownload *ActiveDownload) {
+	now := time.Now()
+
+	activeDownload.BytesDownloaded = totalBytes
+
+	timeSinceLastUpdate := now.Sub(activeDownload.LastSpeedUpdate)
+	if timeSinceLastUpdate >= time.Second {
+		bytesSinceLastUpdate := totalBytes - activeDownload.LastBytesCount
+
+		if timeSinceLastUpdate > 0 {
+			activeDownload.DownloadSpeed = int64(float64(bytesSinceLastUpdate) / timeSinceLastUpdate.Seconds())
+		}
+
+		activeDownload.LastSpeedUpdate = now
+		activeDownload.LastBytesCount = totalBytes
+	}
+}
+
 func (dm *Manager) UpdateActiveDownloadProgress(id string, progress int32, activeDownload *ActiveDownload) {
 	now := time.Now()
 
-	// Update in-memory progress
 	activeDownload.Progress = progress
 
-	// Only update database and broadcast every 5% progress change or every 5 seconds
-	shouldUpdate := progress-activeDownload.Progress >= 5 ||
-		now.Sub(activeDownload.LastProgressUpdate) >= 5*time.Second ||
+	// Only update database and broadcast every 2 seconds
+	shouldUpdate := now.Sub(activeDownload.LastProgressUpdate) >= time.Second ||
 		progress == 100
 
 	if shouldUpdate {
 		activeDownload.LastProgressUpdate = now
 
-		dm.log.Info("download", "id", activeDownload.ID, "file", activeDownload.FilePath, "progress", activeDownload.Progress)
+		dm.log.Info("download", "id", activeDownload.ID, "file", activeDownload.FilePath, "progress", activeDownload.Progress, "speed", activeDownload.DownloadSpeed)
 
 		// Update database asynchronously
 		go func() {
@@ -260,8 +283,10 @@ func (dm *Manager) UpdateActiveDownloadProgress(id string, progress int32, activ
 				return
 			}
 
-			// Use current progress
 			download.Progress = &progress
+			download.Speed = &activeDownload.DownloadSpeed
+			download.Downloaded = &activeDownload.BytesDownloaded
+			download.StartedAt = &activeDownload.StartTime
 			dm.broadcastUpdate(&download)
 		}()
 	}
@@ -296,7 +321,7 @@ func (dm *Manager) UpdateDownloadStatusInDB(id, status string, progress int32, e
 }
 
 func (dm *Manager) broadcastUpdate(download *repository.Download) {
-	message, _ := json.Marshal(map[string]interface{}{
+	message, _ := json.Marshal(map[string]any{
 		"type": "download_update",
 		"data": download,
 	})
@@ -304,7 +329,7 @@ func (dm *Manager) broadcastUpdate(download *repository.Download) {
 }
 
 func (dm *Manager) broadcastDeletion(id string) {
-	message, _ := json.Marshal(map[string]interface{}{
+	message, _ := json.Marshal(map[string]any{
 		"type": "download_deleted",
 		"data": map[string]string{"id": id},
 	})

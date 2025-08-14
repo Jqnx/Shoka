@@ -82,14 +82,17 @@ type Character struct {
 }
 
 type Download struct {
-	ID        uuid.UUID `json:"id"`
-	Url       string    `json:"url"`
-	Filename  string    `json:"filename"`
-	Status    string    `json:"status"`
-	Progress  *int32    `json:"progress"`
-	Error     *string   `json:"error"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID         uuid.UUID  `json:"id"`
+	Url        string     `json:"url"`
+	Filename   string     `json:"filename"`
+	Status     string     `json:"status"`
+	Progress   *int32     `json:"progress"`
+	Error      *string    `json:"error"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+	Speed      *int64     `json:"speed"`
+	Downloaded *int64     `json:"downloaded"`
+	StartedAt  *time.Time `json:"started_at"`
 }
 
 type FavoriteArchive struct {

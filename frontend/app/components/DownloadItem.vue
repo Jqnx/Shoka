@@ -43,6 +43,19 @@
     }
   });
 
+  const formatBytes = (bytesPerSecond: number) => {
+    const units = ["B", "KB", "MB", "GB"];
+    let size = bytesPerSecond;
+    let unitIndex = 0;
+
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex++;
+    }
+
+    return `${size.toFixed(1)} ${units[unitIndex]}`;
+  };
+
   // Methods
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -55,7 +68,7 @@
     <div class="flex items-center gap-3">
       <!-- Download Info -->
       <div class="flex-1 shrink min-w-0">
-        <div class="flex items-center gap-3 md:mb-2">
+        <div class="flex items-center gap-3 lg:mb-2">
           <!-- Filename -->
           <h3 class="text-lg font-medium truncate">
             {{ download.filename }}
@@ -67,18 +80,26 @@
           </Badge>
         </div>
 
-        <div class="flex flex-col gap-1 md:flex-row md:items-center md:gap-0">
+        <div class="flex flex-col gap-1 lg:flex-row lg:items-center lg:gap-8">
           <!-- URL -->
-          <p class="text-sm text-gray-500 truncate flex-1">
+          <p class="text-sm text-gray-500 truncate flex-1 grow-3">
             {{ download.url }}
           </p>
 
           <!-- Progress Bar -->
-          <Progress
-            v-if="download.progress != 0"
-            class="md:flex-1"
-            :model-value="download.progress"
-            :title="`${download.progress}%`" />
+          <div
+            v-if="download.progress > 0 && download.downloaded > 0"
+            class="flex items-center gap-4 lg:flex-1 lg:grow-5">
+            <Progress
+              class="lg:flex-1"
+              :model-value="download.progress"
+              :title="`${download.progress}% - ${formatBytes(
+                download.downloaded
+              )}`" />
+            <span class="text-gray-300 text-sm">
+              {{ formatBytes(download.speed) }}/s
+            </span>
+          </div>
         </div>
 
         <!-- Error Message -->

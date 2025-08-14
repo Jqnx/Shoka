@@ -8,7 +8,10 @@ CREATE TABLE IF NOT EXISTS downloads (
   progress integer DEFAULT 0,
   error text,
   created_at timestamptz NOT NULL,
-  updated_at timestamptz NOT NULL
+  updated_at timestamptz NOT NULL,
+  speed bigint,
+  downloaded bigint,
+  started_at timestamptz
 );
 
 CREATE INDEX IF NOT EXISTS idx_downloads_status ON downloads (status);
