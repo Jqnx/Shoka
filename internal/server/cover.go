@@ -19,7 +19,7 @@ func (s *Server) generateCoverHandler(c *gin.Context) {
 
 	arch, err := s.repo.GetArchiveByID(ctx, id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -50,7 +50,7 @@ func (s *Server) getCoverHandler(c *gin.Context) {
 
 	arch, err := s.repo.GetArchiveByID(ctx, id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err,
 		})
@@ -58,7 +58,7 @@ func (s *Server) getCoverHandler(c *gin.Context) {
 	}
 
 	if arch.ThumbsPath == nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: "no cover found",
 		})
@@ -66,7 +66,7 @@ func (s *Server) getCoverHandler(c *gin.Context) {
 	}
 
 	if *arch.ThumbsPath == "" {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: "no cover found",
 		})

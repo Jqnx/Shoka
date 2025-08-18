@@ -21,13 +21,13 @@ func (s *Server) getAllLanguageHandler(c *gin.Context) {
 	languages, err := s.repo.GetAllLanguage(ctx)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
+			c.JSON(http.StatusNotFound, &models.Response{
 				Status:  "error",
 				Message: config.ErrNoCharacter.Error(),
 			})
 			return
 		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -50,7 +50,7 @@ func (s *Server) getArchiveByLanguageHandler(c *gin.Context) {
 
 	exists, err := s.repo.LanguageExists(ctx, &language)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -59,7 +59,7 @@ func (s *Server) getArchiveByLanguageHandler(c *gin.Context) {
 
 	// If tag does not exists respond with 404 ErrTagNotFound
 	if exists.RowsAffected() == 0 {
-		c.JSON(http.StatusNotFound, &models.ResponseError{
+		c.JSON(http.StatusNotFound, &models.Response{
 			Status:  "error",
 			Message: config.ErrLanguageNotFound.Error(),
 		})
@@ -72,7 +72,7 @@ func (s *Server) getArchiveByLanguageHandler(c *gin.Context) {
 		token := util.GetAuthTokenFromHeader(header)
 		user, err := s.repo.GetUserByToken(ctx, token)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, &models.ResponseError{
+			c.JSON(http.StatusUnauthorized, &models.Response{
 				Status:  "error",
 				Message: "Unauthorized",
 			})
@@ -89,13 +89,13 @@ func (s *Server) getArchiveByLanguageHandler(c *gin.Context) {
 		})
 		if err != nil {
 			if err == pgx.ErrNoRows {
-				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
 					Message: config.ErrNoArchive.Error(),
 				})
 				return
 			} else {
-				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
 					Message: err.Error(),
 				})
@@ -104,7 +104,7 @@ func (s *Server) getArchiveByLanguageHandler(c *gin.Context) {
 		}
 		total, err := s.repo.TotalArchivesWithLanguage(ctx, &language)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -133,13 +133,13 @@ func (s *Server) getArchiveByLanguageHandler(c *gin.Context) {
 		})
 		if err != nil {
 			if err == pgx.ErrNoRows {
-				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
 					Message: config.ErrNoLanguage.Error(),
 				})
 				return
 			} else {
-				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
 					Message: err.Error(),
 				})
@@ -148,7 +148,7 @@ func (s *Server) getArchiveByLanguageHandler(c *gin.Context) {
 		}
 		total, err := s.repo.TotalArchivesWithLanguage(ctx, &language)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})

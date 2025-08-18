@@ -26,7 +26,7 @@ func (s *Server) favoriteArchiveHandler(c *gin.Context) {
 
 	archive, err := s.repo.GetArchiveByID(ctx, archiveId)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -38,7 +38,7 @@ func (s *Server) favoriteArchiveHandler(c *gin.Context) {
 		UserID:    userId,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -51,7 +51,7 @@ func (s *Server) favoriteArchiveHandler(c *gin.Context) {
 			UserID:      userId,
 			FavoritedAt: time.Now(),
 		}); err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -67,7 +67,7 @@ func (s *Server) favoriteArchiveHandler(c *gin.Context) {
 			ArchiveID: archive.ID,
 			UserID:    userId,
 		}); err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -101,7 +101,7 @@ func (s *Server) getUserFavoriteArchives(c *gin.Context) {
 	if p == "" && ps == "" {
 		archives, err := s.repo.GetUserFavoriteArchivesAll(ctx, userId)
 		if err != nil {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
+			c.JSON(http.StatusNotFound, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -120,7 +120,7 @@ func (s *Server) getUserFavoriteArchives(c *gin.Context) {
 		Offset: (int32(page) - 1) * int32(pageSize),
 	})
 	if err != nil {
-		c.JSON(http.StatusNotFound, &models.ResponseError{
+		c.JSON(http.StatusNotFound, &models.Response{
 			Status:  "error",
 			Message: config.ErrArchiveNotFound.Error(),
 		})
@@ -128,7 +128,7 @@ func (s *Server) getUserFavoriteArchives(c *gin.Context) {
 	}
 	count, err := s.repo.CountUserFavoriteArchives(ctx, userId)
 	if err != nil {
-		c.JSON(http.StatusNotFound, &models.ResponseError{
+		c.JSON(http.StatusNotFound, &models.Response{
 			Status:  "error",
 			Message: config.ErrArchiveNotFound.Error(),
 		})
@@ -192,7 +192,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 			if sortdir == "desc" {
 				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "title_desc")
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -203,7 +203,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 			} else {
 				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "title_asc")
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -216,7 +216,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 			if sortdir == "desc" {
 				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "page_count_desc")
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -227,7 +227,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 			} else {
 				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "page_count_asc")
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -240,7 +240,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 			if sortdir == "desc" {
 				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "created_at_desc")
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -251,7 +251,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 			} else {
 				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "created_at_asc")
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -264,7 +264,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 			if sortdir == "desc" {
 				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "updated_at_desc")
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -275,7 +275,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 			} else {
 				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "updated_at_asc")
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -288,7 +288,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 			if sortdir == "asc" {
 				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "release_date_asc")
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -299,7 +299,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 			} else {
 				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "release_date_desc")
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -313,7 +313,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 			if sortdir == "asc" {
 				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "favorited_at_asc")
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -324,7 +324,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 			} else {
 				archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "favorited_at_desc")
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -336,7 +336,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 		default:
 			archives, err := filter.MatchAndGetFavorites(payload, s.repo, page, pageSize, userid, "favorited_at_desc")
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
 					Message: err.Error(),
 				})
@@ -349,7 +349,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 		// Otherwise only sort
 		count, err := s.repo.CountUserFavoriteArchives(ctx, userid)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -365,7 +365,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -384,7 +384,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -405,7 +405,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -424,7 +424,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -445,7 +445,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -464,7 +464,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -485,7 +485,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -504,7 +504,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -525,7 +525,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -544,7 +544,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -565,7 +565,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -584,7 +584,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -604,7 +604,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 				Offset:  (int32(page) - 1) * int32(pageSize),
 			})
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
 					Message: err.Error(),
 				})

@@ -12,7 +12,7 @@ type ResponseFail struct {
 	Data   any    `json:"data"`
 }
 
-type ResponseError struct {
+type Response struct {
 	Status  string `json:"status"`
 	Message any    `json:"message"`
 }

@@ -52,14 +52,14 @@ func (s *Server) createArchiveHandler(c *gin.Context) {
 	ctx := context.Background()
 	result, err := s.repo.ArchiveExists(ctx, payload.Title)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
 		return
 	}
 	if result.RowsAffected() != 0 {
-		c.JSON(http.StatusConflict, &models.ResponseError{
+		c.JSON(http.StatusConflict, &models.Response{
 			Status:  "error",
 			Message: config.ErrArchiveNoDuplicates.Error(),
 		})
@@ -94,7 +94,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 		token := util.GetAuthTokenFromHeader(header)
 		user, err := s.repo.GetUserByToken(ctx, token)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, &models.ResponseError{
+			c.JSON(http.StatusUnauthorized, &models.Response{
 				Status:  "error",
 				Message: "Unauthorized",
 			})
@@ -106,7 +106,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 	if p == "" && ps == "" && sortby == "" && sortdir == "" {
 		archives, err := s.repo.GetAllArchives(ctx, uid)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -114,7 +114,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 		}
 
 		if len(archives) == 0 {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
+			c.JSON(http.StatusNotFound, &models.Response{
 				Status:  "error",
 				Message: config.ErrNoArchive.Error(),
 			})
@@ -132,7 +132,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Uid:     uid,
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -146,7 +146,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Uid:     uid,
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -162,7 +162,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Uid:     uid,
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -176,7 +176,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Uid:     uid,
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -192,7 +192,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Uid:     uid,
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -206,7 +206,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Uid:     uid,
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -222,7 +222,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Uid:     uid,
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -236,7 +236,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Uid:     uid,
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -252,7 +252,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Uid:     uid,
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -266,7 +266,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Uid:     uid,
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -282,7 +282,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Uid:     uid,
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -296,7 +296,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Uid:     uid,
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -311,7 +311,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 				Uid:     uid,
 			})
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
 					Message: err.Error(),
 				})
@@ -340,7 +340,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Uid:     uid,
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -348,7 +348,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 				}
 				count, err := s.repo.CountArchives(ctx)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -367,7 +367,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Uid:     uid,
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -375,7 +375,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 				}
 				count, err := s.repo.CountArchives(ctx)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -396,7 +396,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Uid:     uid,
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -404,7 +404,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 				}
 				count, err := s.repo.CountArchives(ctx)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -423,7 +423,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Uid:     uid,
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -431,7 +431,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 				}
 				count, err := s.repo.CountArchives(ctx)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -452,7 +452,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -460,7 +460,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 				}
 				count, err := s.repo.CountArchives(ctx)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -479,7 +479,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -487,7 +487,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 				}
 				count, err := s.repo.CountArchives(ctx)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -508,7 +508,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -516,7 +516,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 				}
 				count, err := s.repo.CountArchives(ctx)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -535,7 +535,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -543,7 +543,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 				}
 				count, err := s.repo.CountArchives(ctx)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -564,7 +564,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -572,7 +572,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 				}
 				count, err := s.repo.CountArchives(ctx)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -591,7 +591,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -599,7 +599,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 				}
 				count, err := s.repo.CountArchives(ctx)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -620,7 +620,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -628,7 +628,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 				}
 				count, err := s.repo.CountArchives(ctx)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -647,7 +647,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 					Offset:  (int32(page) - 1) * int32(pageSize),
 				})
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -655,7 +655,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 				}
 				count, err := s.repo.CountArchives(ctx)
 				if err != nil {
-					c.JSON(http.StatusInternalServerError, &models.ResponseError{
+					c.JSON(http.StatusInternalServerError, &models.Response{
 						Status:  "error",
 						Message: err.Error(),
 					})
@@ -675,7 +675,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 				Offset:  (int32(page) - 1) * int32(pageSize),
 			})
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
 					Message: err.Error(),
 				})
@@ -683,7 +683,7 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 			}
 			count, err := s.repo.CountArchives(ctx)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
 					Message: err.Error(),
 				})
@@ -705,13 +705,13 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 	arch, err := s.repo.GetArchiveByID(ctx, id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
+			c.JSON(http.StatusNotFound, &models.Response{
 				Status:  "error",
 				Message: config.ErrArchiveNotFound.Error(),
 			})
 			return
 		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -721,13 +721,13 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 	tags, err := s.repo.GetArchiveTags(ctx, id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
+			c.JSON(http.StatusNotFound, &models.Response{
 				Status:  "error",
 				Message: config.ErrArchiveNotFound.Error(),
 			})
 			return
 		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -737,13 +737,13 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 	characters, err := s.repo.GetArchiveCharacters(ctx, id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
+			c.JSON(http.StatusNotFound, &models.Response{
 				Status:  "error",
 				Message: config.ErrArchiveNotFound.Error(),
 			})
 			return
 		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -753,13 +753,13 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 	parodies, err := s.repo.GetArchiveParodies(ctx, id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
+			c.JSON(http.StatusNotFound, &models.Response{
 				Status:  "error",
 				Message: config.ErrArchiveNotFound.Error(),
 			})
 			return
 		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -769,13 +769,13 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 	urls, err := s.repo.GetArchiveURLs(ctx, id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
+			c.JSON(http.StatusNotFound, &models.Response{
 				Status:  "error",
 				Message: config.ErrArchiveNotFound.Error(),
 			})
 			return
 		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -785,13 +785,13 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 	artists, err := s.repo.GetArchiveArtists(ctx, id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
+			c.JSON(http.StatusNotFound, &models.Response{
 				Status:  "error",
 				Message: config.ErrArchiveNotFound.Error(),
 			})
 			return
 		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -817,7 +817,7 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 		token := util.GetAuthTokenFromHeader(header)
 		user, err := s.repo.GetUserByToken(ctx, token)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, &models.ResponseError{
+			c.JSON(http.StatusUnauthorized, &models.Response{
 				Status:  "error",
 				Message: "Unauthorized",
 			})
@@ -833,7 +833,7 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 			ArchiveID: arch.ID,
 		})
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -854,7 +854,7 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 				read.Progress = 0
 				read.LastRead = nil
 			} else {
-				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
 					Message: err.Error(),
 				})
@@ -942,7 +942,7 @@ func (s *Server) searchArchiveHandler(c *gin.Context) {
 	})
 	if err != nil {
 		fmt.Println(err)
-		c.JSON(http.StatusNotFound, &models.ResponseError{
+		c.JSON(http.StatusNotFound, &models.Response{
 			Status:  "error",
 			Message: config.ErrArchiveNotFound.Error(),
 		})
@@ -950,7 +950,7 @@ func (s *Server) searchArchiveHandler(c *gin.Context) {
 	}
 	count, err := s.repo.CountSearchArchives(ctx, query)
 	if err != nil {
-		c.JSON(http.StatusNotFound, &models.ResponseError{
+		c.JSON(http.StatusNotFound, &models.Response{
 			Status:  "error",
 			Message: config.ErrArchiveNotFound.Error(),
 		})
@@ -994,7 +994,7 @@ func (s *Server) shuffleArchiveHandler(c *gin.Context) {
 		token := util.GetAuthTokenFromHeader(header)
 		user, err := s.repo.GetUserByToken(ctx, token)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, &models.ResponseError{
+			c.JSON(http.StatusUnauthorized, &models.Response{
 				Status:  "error",
 				Message: "Unauthorized",
 			})
@@ -1008,7 +1008,7 @@ func (s *Server) shuffleArchiveHandler(c *gin.Context) {
 	if countQuery != "" {
 		cnt, err := strconv.Atoi(countQuery)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, &models.ResponseError{
+			c.JSON(http.StatusBadRequest, &models.Response{
 				Status:  "error",
 				Message: "invalid c value, must be an integer.",
 			})
@@ -1020,7 +1020,7 @@ func (s *Server) shuffleArchiveHandler(c *gin.Context) {
 		if favorite {
 			tot, err := s.repo.CountUserFavoriteArchives(ctx, userid)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
 					Message: err.Error(),
 				})
@@ -1030,7 +1030,7 @@ func (s *Server) shuffleArchiveHandler(c *gin.Context) {
 		} else {
 			tot, err := s.repo.CountArchives(ctx)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
 					Message: err.Error(),
 				})
@@ -1051,7 +1051,7 @@ func (s *Server) shuffleArchiveHandler(c *gin.Context) {
 	}, payload) {
 		archive, err := filter.MatchAndGetShuffle(payload, s.repo, count, userid, favorite)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -1066,7 +1066,7 @@ func (s *Server) shuffleArchiveHandler(c *gin.Context) {
 				Offset: int32(count),
 			})
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
 					Message: err.Error(),
 				})
@@ -1079,7 +1079,7 @@ func (s *Server) shuffleArchiveHandler(c *gin.Context) {
 				Offset: int32(count),
 			})
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
 					Message: err.Error(),
 				})
@@ -1120,7 +1120,7 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 	}
 
 	if exists.RowsAffected() == 0 {
-		c.JSON(http.StatusNotFound, &models.ResponseError{
+		c.JSON(http.StatusNotFound, &models.Response{
 			Status:  "error",
 			Message: config.ErrArchiveNotFound.Error(),
 		})
@@ -1136,7 +1136,7 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 	ab := archive.GetBuilder(s.app)
 	archive := ab.UpdateArchive(id, &meta)
 	if err := archive.Update(ctx, s.app); err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -1144,7 +1144,7 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 	}
 	res, err := archive.Get(ctx, s.app)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})

@@ -42,14 +42,14 @@ func (s *Server) createArtistHandler(c *gin.Context) {
 	// Check if artist already exists
 	result, err := s.repo.ArtistExists(c, strings.ToLower(payload.Name))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
 		return
 	}
 	if result.RowsAffected() != 0 {
-		c.JSON(http.StatusConflict, &models.ResponseError{
+		c.JSON(http.StatusConflict, &models.Response{
 			Status:  "error",
 			Message: config.ErrArchiveNoDuplicates.Error(),
 		})
@@ -61,7 +61,7 @@ func (s *Server) createArtistHandler(c *gin.Context) {
 	ctx := context.Background()
 	res, err := artist.CreateTransaction(ctx, s.db, s.repo, &payload, s.log)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -79,7 +79,7 @@ func (s *Server) getAllArtistHandler(c *gin.Context) {
 	ctx := context.Background()
 	artists, err := artist.GetAll(ctx, s.repo, s.log)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -87,7 +87,7 @@ func (s *Server) getAllArtistHandler(c *gin.Context) {
 	}
 
 	if len(*artists) == 0 {
-		c.JSON(http.StatusNotFound, &models.ResponseError{
+		c.JSON(http.StatusNotFound, &models.Response{
 			Status:  "error",
 			Message: config.ErrNoArtist.Error(),
 		})
@@ -103,13 +103,13 @@ func (s *Server) getArtistHandler(c *gin.Context) {
 	artist, err := artist.Get(ctx, s.repo, c.Param("name"), s.log)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
+			c.JSON(http.StatusNotFound, &models.Response{
 				Status:  "error",
 				Message: config.ErrArtistNotFound.Error(),
 			})
 			return
 		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -146,14 +146,14 @@ func (s *Server) updateArtistHandler(c *gin.Context) {
 	ctx := context.Background()
 	exists, err := s.repo.ArtistExists(ctx, name)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
 	}
 
 	if exists.RowsAffected() == 0 {
-		c.JSON(http.StatusNotFound, &models.ResponseError{
+		c.JSON(http.StatusNotFound, &models.Response{
 			Status:  "error",
 			Message: config.ErrArtistNotFound.Error(),
 		})
@@ -168,7 +168,7 @@ func (s *Server) updateArtistHandler(c *gin.Context) {
 		s.log,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -184,13 +184,13 @@ func (s *Server) deleteArtistHandler(c *gin.Context) {
 	ctx := context.Background()
 	if err := artist.DeleteTransaction(ctx, s.db, s.repo, name, s.log); err != nil {
 		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
+			c.JSON(http.StatusNotFound, &models.Response{
 				Status:  "error",
 				Message: config.ErrArtistNotFound.Error(),
 			})
 			return
 		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})

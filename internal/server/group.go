@@ -52,7 +52,7 @@ func (s *Server) createGroupHandler(c *gin.Context) {
 	// Checks if group exists
 	result, err := s.repo.GroupExists(ctx, name)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -61,7 +61,7 @@ func (s *Server) createGroupHandler(c *gin.Context) {
 
 	// If group does not exist respond with 404 GroupNotFound error
 	if result.RowsAffected() != 0 {
-		c.JSON(http.StatusConflict, &models.ResponseError{
+		c.JSON(http.StatusConflict, &models.Response{
 			Status:  "error",
 			Message: config.ErrGroupNoDuplicates.Error(),
 		})
@@ -71,7 +71,7 @@ func (s *Server) createGroupHandler(c *gin.Context) {
 	// Create group
 	group, err := group.CreateTransaction(ctx, s.db, s.repo, &payload, s.log)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -95,14 +95,14 @@ func (s *Server) getGroupHandler(c *gin.Context) {
 	if err != nil {
 		// If group not found respond with 404 ErrGroupNotFound
 		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
+			c.JSON(http.StatusNotFound, &models.Response{
 				Status:  "error",
 				Message: config.ErrGroupNotFound.Error(),
 			})
 			return
 			// Otherwise respond with 500 and the error
 		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -121,7 +121,7 @@ func (s *Server) getAllGroupHandler(c *gin.Context) {
 	// Gets all groups
 	groups, err := group.GetAll(ctx, s.repo, s.log)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -130,7 +130,7 @@ func (s *Server) getAllGroupHandler(c *gin.Context) {
 
 	// If no groups found respond with 404 ErrNoGroup
 	if len(*groups) == 0 {
-		c.JSON(http.StatusNotFound, &models.ResponseError{
+		c.JSON(http.StatusNotFound, &models.Response{
 			Status:  "error",
 			Message: config.ErrNoGroup.Error(),
 		})
@@ -182,7 +182,7 @@ func (s *Server) updateGroupHandler(c *gin.Context) {
 
 	// If group does not exist respond with 404 GroupNotFound error
 	if exists.RowsAffected() == 0 {
-		c.JSON(http.StatusNotFound, &models.ResponseError{
+		c.JSON(http.StatusNotFound, &models.Response{
 			Status:  "error",
 			Message: config.ErrGroupNotFound.Error(),
 		})
@@ -198,7 +198,7 @@ func (s *Server) updateGroupHandler(c *gin.Context) {
 		s.log,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -220,7 +220,7 @@ func (s *Server) deleteGroupHandler(c *gin.Context) {
 	// Check if group exists
 	exists, err := s.repo.GroupExists(ctx, name)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -229,7 +229,7 @@ func (s *Server) deleteGroupHandler(c *gin.Context) {
 
 	// If group does not exist respond with 404 GroupNotFound error
 	if exists.RowsAffected() == 0 {
-		c.JSON(http.StatusNotFound, &models.ResponseError{
+		c.JSON(http.StatusNotFound, &models.Response{
 			Status:  "error",
 			Message: config.ErrGroupNotFound.Error(),
 		})
@@ -242,14 +242,14 @@ func (s *Server) deleteGroupHandler(c *gin.Context) {
 		if errors.As(err, &pgErr) {
 			// If err is foreign key constraint respond with 500 GroupHasMembers error
 			if pgErr.Code == "23503" {
-				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
 					Message: config.ErrGroupHasMembers.Error(),
 				})
 				return
 				// Otherwise respond with 500 and the error
 			} else {
-				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
 					Message: err.Error(),
 				})

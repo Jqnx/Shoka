@@ -50,7 +50,7 @@ func (s *Server) getRecentlyReadHandler(c *gin.Context) {
 
 	arch, err := s.repo.GetRecentlyReadArchives(ctx, user_id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -72,7 +72,7 @@ func (s *Server) updateReadingProgressHandler(c *gin.Context) {
 
 	arch, err := s.repo.GetArchiveByID(ctx, archive_id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -82,7 +82,7 @@ func (s *Server) updateReadingProgressHandler(c *gin.Context) {
 	page, _ := strconv.Atoi(p)
 	page64 := int64(page)
 	if page64 == 0 || page64 > arch.PageCount {
-		c.JSON(http.StatusBadRequest, &models.ResponseError{
+		c.JSON(http.StatusBadRequest, &models.Response{
 			Status:  "error",
 			Message: "Invalid page value",
 		})
@@ -94,7 +94,7 @@ func (s *Server) updateReadingProgressHandler(c *gin.Context) {
 		UserID:    user_id,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -110,7 +110,7 @@ func (s *Server) updateReadingProgressHandler(c *gin.Context) {
 			State:     read.ReadingState,
 			LastRead:  *read.LastRead,
 		}); err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -124,7 +124,7 @@ func (s *Server) updateReadingProgressHandler(c *gin.Context) {
 			State:     &read.ReadingState,
 			LastRead:  *read.LastRead,
 		}); err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -149,7 +149,7 @@ func (s *Server) deleteReadingProgressHandler(c *gin.Context) {
 
 	arch, err := s.repo.GetArchiveByID(ctx, archive_id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -160,7 +160,7 @@ func (s *Server) deleteReadingProgressHandler(c *gin.Context) {
 		ArchiveID: arch.ID,
 		UserID:    user_id,
 	}); err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})

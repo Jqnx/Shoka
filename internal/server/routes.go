@@ -128,6 +128,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 			download.POST("", s.addDownloadHandler)
 			download.GET("", s.getAllDownloadsHandler)
 			download.GET("/:id", s.getDownloadHandler)
+			download.GET("/active", s.getActiveDownloadHandler)
+			download.POST("/:id/pause", s.pauseDownloadHandler)
+			download.POST("/:id/resume", s.resumeDownloadHandler)
 			download.DELETE("/:id", s.deleteDownloadHandler)
 		}
 	}

@@ -16,7 +16,7 @@ func Auth(repo *repository.Queries) gin.HandlerFunc {
 		ctx := context.Background()
 		header := c.Request.Header.Get("Authorization")
 		if header == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, &models.ResponseError{
+			c.AbortWithStatusJSON(http.StatusUnauthorized, &models.Response{
 				Status:  "error",
 				Message: "No authorization header set.",
 			})
@@ -26,7 +26,7 @@ func Auth(repo *repository.Queries) gin.HandlerFunc {
 
 		user, err := repo.GetUserByToken(ctx, token)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, &models.ResponseError{
+			c.AbortWithStatusJSON(http.StatusUnauthorized, &models.Response{
 				Status:  "error",
 				Message: "Unauthorized",
 			})
@@ -35,7 +35,7 @@ func Auth(repo *repository.Queries) gin.HandlerFunc {
 
 		check := user.ExpiresAt.Compare(time.Now())
 		if check < 1 {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, &models.ResponseError{
+			c.AbortWithStatusJSON(http.StatusUnauthorized, &models.Response{
 				Status:  "error",
 				Message: "Unauthorized",
 			})

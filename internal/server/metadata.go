@@ -19,13 +19,13 @@ func (s *Server) scanMetadataHandler(c *gin.Context) {
 	archive, err := s.repo.GetArchiveByID(ctx, id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
+			c.JSON(http.StatusNotFound, &models.Response{
 				Status:  "error",
 				Message: config.ErrArchiveNotFound.Error(),
 			})
 			return
 		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})

@@ -25,7 +25,7 @@ func (s *Server) generateThumbHandler(c *gin.Context) {
 	if f != "" {
 		b, err := strconv.ParseBool(f)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, &models.ResponseError{
+			c.JSON(http.StatusBadRequest, &models.Response{
 				Status:  "error",
 				Message: "force has invalid boolean value",
 			})
@@ -37,7 +37,7 @@ func (s *Server) generateThumbHandler(c *gin.Context) {
 
 	arch, err := s.repo.GetArchiveByID(ctx, id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -59,7 +59,7 @@ func (s *Server) generateThumbHandler(c *gin.Context) {
 			})
 			return
 		} else {
-			c.JSON(http.StatusOK, &models.ResponseError{
+			c.JSON(http.StatusOK, &models.Response{
 				Status:  "success",
 				Message: "set thumbs_path in database, thumbnails already existed on disk but archive's thumbs_path was missing from db",
 			})
@@ -103,7 +103,7 @@ func (s *Server) generateThumbHandler(c *gin.Context) {
 				"location": loc,
 			})
 		} else {
-			c.JSON(http.StatusBadRequest, &models.ResponseError{
+			c.JSON(http.StatusBadRequest, &models.Response{
 				Status:  "failed",
 				Message: "thumbnails already exist, try using force=true to force generate new ones",
 			})
@@ -119,7 +119,7 @@ func (s *Server) getThumbHandler(c *gin.Context) {
 
 	arch, err := s.repo.GetArchiveByID(ctx, id)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err,
 		})
@@ -127,7 +127,7 @@ func (s *Server) getThumbHandler(c *gin.Context) {
 	}
 
 	if arch.ThumbsPath == nil || *arch.ThumbsPath == "" {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: "archive has no thumbspath",
 		})
@@ -138,13 +138,13 @@ func (s *Server) getThumbHandler(c *gin.Context) {
 	_, err = os.Stat(pageDir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: "archives page directory does not exist",
 			})
 			return
 		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})

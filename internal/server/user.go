@@ -43,7 +43,7 @@ func (s *Server) registerUser(c *gin.Context) {
 	if err != nil {
 		passHash, err := bcrypt.GenerateFromPassword([]byte(payload.Password), 10)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -58,7 +58,7 @@ func (s *Server) registerUser(c *gin.Context) {
 			UpdatedAt: time.Now(),
 		})
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -70,7 +70,7 @@ func (s *Server) registerUser(c *gin.Context) {
 			"status": "User registered successfully!",
 		})
 	} else {
-		c.JSON(http.StatusConflict, &models.ResponseError{
+		c.JSON(http.StatusConflict, &models.Response{
 			Status:  "error",
 			Message: "Username already exists.",
 		})
@@ -101,7 +101,7 @@ func (s *Server) signInUser(c *gin.Context) {
 
 	user, err := s.repo.GetUserByName(ctx, payload.Name)
 	if err != nil {
-		c.JSON(http.StatusNotFound, &models.ResponseError{
+		c.JSON(http.StatusNotFound, &models.Response{
 			Status:  "error",
 			Message: "User not found.",
 		})
@@ -109,7 +109,7 @@ func (s *Server) signInUser(c *gin.Context) {
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(payload.Password)); err != nil {
-		c.JSON(http.StatusUnauthorized, &models.ResponseError{
+		c.JSON(http.StatusUnauthorized, &models.Response{
 			Status:  "error",
 			Message: "Invalid password.",
 		})
@@ -118,7 +118,7 @@ func (s *Server) signInUser(c *gin.Context) {
 
 	token, err := util.GenerateToken(32)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: "Failed to generate token.",
 		})
@@ -139,7 +139,7 @@ func (s *Server) signInUser(c *gin.Context) {
 		IpAddress: ip,
 		UserAgent: &useragent,
 	}); err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -158,7 +158,7 @@ func (s *Server) getUserSession(c *gin.Context) {
 
 	user, err := s.repo.GetUserByName(ctx, username)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -177,7 +177,7 @@ func (s *Server) signOutUser(c *gin.Context) {
 	token := c.GetString("token")
 
 	if err := s.repo.DeleteSession(ctx, token); err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -213,7 +213,7 @@ func (s *Server) updateUserHandler(c *gin.Context) {
 
 	user, err := s.repo.GetUserByName(ctx, username)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -223,7 +223,7 @@ func (s *Server) updateUserHandler(c *gin.Context) {
 	if payload.Password != nil {
 		passHash, err := bcrypt.GenerateFromPassword([]byte(*payload.Password), 10)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -238,7 +238,7 @@ func (s *Server) updateUserHandler(c *gin.Context) {
 			Password: &pass,
 		})
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -250,7 +250,7 @@ func (s *Server) updateUserHandler(c *gin.Context) {
 			Name: payload.Name,
 		})
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -265,7 +265,7 @@ func (s *Server) deleteUserHandler(c *gin.Context) {
 
 	user, err := s.repo.GetUserByName(ctx, username)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
@@ -273,7 +273,7 @@ func (s *Server) deleteUserHandler(c *gin.Context) {
 	}
 
 	if err := s.repo.DeleteUser(ctx, user.ID); err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})

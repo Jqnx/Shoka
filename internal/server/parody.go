@@ -21,13 +21,13 @@ func (s *Server) getAllParodyHandler(c *gin.Context) {
 	parodies, err := s.repo.GetAllParodies(ctx)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.ResponseError{
+			c.JSON(http.StatusNotFound, &models.Response{
 				Status:  "error",
 				Message: config.ErrNoParody.Error(),
 			})
 			return
 		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -55,7 +55,7 @@ func (s *Server) getArchiveByParodyHandler(c *gin.Context) {
 	}
 	// If tag does not exists respond with 404 ErrTagNotFound
 	if exists.RowsAffected() == 0 {
-		c.JSON(http.StatusNotFound, &models.ResponseError{
+		c.JSON(http.StatusNotFound, &models.Response{
 			Status:  "error",
 			Message: config.ErrParodyNotFound.Error(),
 		})
@@ -68,7 +68,7 @@ func (s *Server) getArchiveByParodyHandler(c *gin.Context) {
 		token := util.GetAuthTokenFromHeader(header)
 		user, err := s.repo.GetUserByToken(ctx, token)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, &models.ResponseError{
+			c.JSON(http.StatusUnauthorized, &models.Response{
 				Status:  "error",
 				Message: "Unauthorized",
 			})
@@ -86,14 +86,14 @@ func (s *Server) getArchiveByParodyHandler(c *gin.Context) {
 		if err != nil {
 			// If no archives found respond with 404 ErrNoArchive
 			if err == pgx.ErrNoRows {
-				c.JSON(http.StatusNotFound, &models.ResponseError{
+				c.JSON(http.StatusNotFound, &models.Response{
 					Status:  "error",
 					Message: config.ErrNoArchive.Error(),
 				})
 				return
 				// Otherwise respond with 500 and error
 			} else {
-				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
 					Message: err.Error(),
 				})
@@ -102,7 +102,7 @@ func (s *Server) getArchiveByParodyHandler(c *gin.Context) {
 		}
 		total, err := s.repo.TotalArchivesWithParody(ctx, parody)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -133,14 +133,14 @@ func (s *Server) getArchiveByParodyHandler(c *gin.Context) {
 		if err != nil {
 			// If no archives found respond with 404 ErrNoArchive
 			if err == pgx.ErrNoRows {
-				c.JSON(http.StatusNotFound, &models.ResponseError{
+				c.JSON(http.StatusNotFound, &models.Response{
 					Status:  "error",
 					Message: config.ErrNoArchive.Error(),
 				})
 				return
 				// Otherwise respond with 500 and error
 			} else {
-				c.JSON(http.StatusInternalServerError, &models.ResponseError{
+				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
 					Message: err.Error(),
 				})
@@ -149,7 +149,7 @@ func (s *Server) getArchiveByParodyHandler(c *gin.Context) {
 		}
 		total, err := s.repo.TotalArchivesWithParody(ctx, parody)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
