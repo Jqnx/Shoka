@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cavaliergopher/grab/v3"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -19,6 +20,7 @@ const (
 	StatusCompleted   = "completed"
 	StatusFailed      = "failed"
 	StatusCancelled   = "cancelled"
+	StatusPaused      = "paused"
 )
 
 type Manager struct {
@@ -30,6 +32,7 @@ type Manager struct {
 	pool            *pgxpool.Pool
 	log             logger.Logger
 	cfg             *config.Config
+	grab            *grab.Client
 }
 
 type ActiveDownload struct {
@@ -40,10 +43,14 @@ type ActiveDownload struct {
 	Cancelled          bool
 	FilePath           string
 	BytesDownloaded    int64
+	TotalSize          int64
 	LastSpeedUpdate    time.Time
 	LastBytesCount     int64
 	DownloadSpeed      int64
 	StartTime          time.Time
+	Response           *grab.Response
+	CanResume          bool
+	ResumeSupported    bool
 }
 
 func NewDownloadManager(app *config.App) *Manager {
@@ -55,6 +62,7 @@ func NewDownloadManager(app *config.App) *Manager {
 		queries:         app.Repo,
 		pool:            app.DB,
 		cfg:             app.Cfg,
+		grab:            app.Grab,
 	}
 
 	// Load existing downloads from database

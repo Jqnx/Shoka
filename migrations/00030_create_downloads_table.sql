@@ -10,8 +10,11 @@ CREATE TABLE IF NOT EXISTS downloads (
   created_at timestamptz NOT NULL,
   updated_at timestamptz NOT NULL,
   speed bigint,
+  total_size bigint,
   downloaded bigint,
-  started_at timestamptz
+  started_at timestamptz,
+  can_resume boolean,
+  resume_supported boolean
 );
 
 CREATE INDEX IF NOT EXISTS idx_downloads_status ON downloads (status);

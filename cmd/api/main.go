@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cavaliergopher/grab/v3"
 	"github.com/hibiken/asynq"
 )
 
@@ -103,8 +104,11 @@ func main() {
 	hub := websocket.NewHub(log)
 	log.Info("Initialized new WebSocket Hub.")
 
+	grab := grab.NewClient()
+	log.Info("Initialized new Grab client.")
+
 	// Initializing new App
-	app := config.NewApp(repo, log, db, cfg, noti, client, hub)
+	app := config.NewApp(repo, log, db, cfg, noti, client, hub, grab)
 	defer app.Close()
 
 	dm := downloader.NewDownloadManager(&app)

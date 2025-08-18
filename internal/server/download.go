@@ -2,6 +2,7 @@ package server
 
 import (
 	"Shoka/internal/config"
+	"Shoka/internal/downloader"
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
 	"context"
@@ -9,6 +10,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -46,13 +49,14 @@ func (s *Server) addDownloadHandler(c *gin.Context) {
 
 	download, err := s.dm.AddDownload(req.URL)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err,
 		})
 		return
 	}
 
+	s.dm.BroadcastUpdate(download)
 	c.JSON(http.StatusCreated, download)
 }
 
@@ -61,7 +65,7 @@ func (s *Server) getAllDownloadsHandler(c *gin.Context) {
 
 	downloads, err := s.repo.GetAllDownloads(ctx)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err,
 		})
@@ -77,7 +81,7 @@ func (s *Server) getDownloadHandler(c *gin.Context) {
 	id := c.Param("id")
 	downloadID, err := uuid.Parse(id)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, &models.ResponseError{
+		c.JSON(http.StatusBadRequest, &models.Response{
 			Status:  "error",
 			Message: "Invalid download ID",
 		})
@@ -87,7 +91,7 @@ func (s *Server) getDownloadHandler(c *gin.Context) {
 	ctx := context.Background()
 	download, err := s.repo.GetDownload(ctx, downloadID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err,
 		})
@@ -101,12 +105,110 @@ func (s *Server) getDownloadHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, downloads[0])
 }
 
-func (s *Server) deleteDownloadHandler(c *gin.Context) {
+func (s *Server) getActiveDownloadHandler(c *gin.Context) {
+	s.dm.ActiveMutex.RLock()
+	defer s.dm.ActiveMutex.RUnlock()
+
+	type Info struct {
+		ID              string    `json:"id"`
+		Progress        int32     `json:"progress"`
+		Speed           int64     `json:"speed"`
+		Downloaded      int64     `json:"downloaded"`
+		TotalSize       int64     `json:"total_size"`
+		StartTime       time.Time `json:"start_time"`
+		CanResume       bool      `json:"can_resume"`
+		ResumeSupported bool      `json:"resume_supported"`
+	}
+
+	activeInfo := make(map[string]Info)
+	for id, activeDownload := range s.dm.ActiveDownloads {
+		activeInfo[id] = Info{
+			ID:              activeDownload.ID,
+			Progress:        activeDownload.Progress,
+			Speed:           activeDownload.DownloadSpeed,
+			Downloaded:      activeDownload.BytesDownloaded,
+			TotalSize:       activeDownload.TotalSize,
+			StartTime:       activeDownload.StartTime,
+			CanResume:       activeDownload.CanResume,
+			ResumeSupported: activeDownload.ResumeSupported,
+		}
+	}
+
+	c.JSON(http.StatusOK, activeInfo)
+}
+
+func (s *Server) pauseDownloadHandler(c *gin.Context) {
+	id := c.Param("id")
+
+	if err := s.dm.PauseDownload(id); err != nil {
+		c.JSON(http.StatusInternalServerError, &models.Response{
+			Status:  "error",
+			Message: err,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, &models.Response{
+		Status:  "success",
+		Message: "Download paused.",
+	})
+}
+
+func (s *Server) resumeDownloadHandler(c *gin.Context) {
+	ctx := context.Background()
 	id := c.Param("id")
 
 	downloadID, err := uuid.Parse(id)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, &models.ResponseError{
+		c.JSON(http.StatusBadRequest, &models.Response{
+			Status:  "error",
+			Message: "Invalid download id",
+		})
+		return
+	}
+
+	download, err := s.repo.GetDownload(ctx, downloadID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, err)
+		return
+	}
+
+	if download.Status != downloader.StatusPaused && download.Status != downloader.StatusFailed {
+		c.JSON(http.StatusBadRequest, &models.Response{
+			Status:  "error",
+			Message: "Download can not be resumed from current state",
+		})
+		return
+	}
+
+	if err := s.dm.ResumeDownload(ctx, &download); err != nil {
+		c.JSON(http.StatusInternalServerError, &models.Response{
+			Status:  "error",
+			Message: err,
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, &models.Response{
+		Status:  "success",
+		Message: "Download resumed",
+	})
+}
+
+func (s *Server) deleteDownloadHandler(c *gin.Context) {
+	id := c.Param("id")
+	delFile, err := strconv.ParseBool(c.Query("file"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, &models.Response{
+			Status:  "error",
+			Message: "invalid bool value, must be true/false",
+		})
+		return
+	}
+
+	downloadID, err := uuid.Parse(id)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, &models.Response{
 			Status:  "error",
 			Message: "Invalid download ID",
 		})
@@ -117,13 +219,13 @@ func (s *Server) deleteDownloadHandler(c *gin.Context) {
 	download, err := s.repo.GetDownload(ctx, downloadID)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: fmt.Sprintf("No download found with id: %v", downloadID),
 			})
 			return
 		} else {
-			c.JSON(http.StatusInternalServerError, &models.ResponseError{
+			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
 				Message: err.Error(),
 			})
@@ -131,8 +233,8 @@ func (s *Server) deleteDownloadHandler(c *gin.Context) {
 		}
 	}
 
-	if err := s.dm.DeleteDownload(ctx, &download); err != nil {
-		c.JSON(http.StatusInternalServerError, &models.ResponseError{
+	if err := s.dm.DeleteDownload(ctx, &download, delFile); err != nil {
+		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
