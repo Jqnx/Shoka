@@ -1,17 +1,17 @@
 <script lang="ts" setup>
-  import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-  } from "@/components/ui/dialog";
-  import { Button } from "@/components/ui/button";
-  import { Settings } from "lucide-vue-next";
-  import { VisuallyHidden } from "reka-ui";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Settings } from "lucide-vue-next";
+import { VisuallyHidden } from "reka-ui";
 
-  const { preload, fit } = storeToRefs(useReaderSettingsStore());
+const { preload, fit } = storeToRefs(useReaderSettingsStore());
 </script>
 
 <template>
@@ -19,8 +19,9 @@
     <DialogTrigger as-child>
       <Button
         title="Settings"
-        class="h-full px-3 rounded-l-none flex items-center justify-center bg-secondary hover:bg-muted-foreground/20 cursor-pointer">
-        <Settings class="size-5" />
+        class="h-full px-3 rounded-l-none bg-secondary flex items-center justify-center hover:bg-muted-foreground/20 cursor-pointer"
+      >
+        <Settings class="size-5 stroke-foreground" />
       </Button>
     </DialogTrigger>
     <DialogContent>
@@ -36,14 +37,16 @@
           <Button
             v-if="fit === ''"
             variant="default"
-            class="cursor-pointer font-normal text-md">
+            class="cursor-pointer font-normal text-md"
+          >
             Natural
           </Button>
           <Button
             v-else
             variant="secondary"
             class="cursor-pointer font-normal text-md"
-            @click="fit = ''">
+            @click="fit = ''"
+          >
             Natural
           </Button>
           <div class="flex grow items-center justify-between">
@@ -52,27 +55,31 @@
               <Button
                 v-if="fit === 'max-h-screen'"
                 class="flex-1 rounded-r-none font-normal text-md cursor-pointer"
-                variant="default">
+                variant="default"
+              >
                 Fit to screen
               </Button>
               <Button
                 v-else
                 class="flex-1 rounded-r-none font-normal text-md cursor-pointer"
                 variant="secondary"
-                @click="fit = 'max-h-screen'">
+                @click="fit = 'max-h-screen'"
+              >
                 Fit to screen
               </Button>
               <Button
                 v-if="fit === 'w-full'"
                 class="flex-1 rounded-l-none font-normal text-md cursor-pointer"
-                variant="default">
+                variant="default"
+              >
                 Stretch
               </Button>
               <Button
                 v-else
                 class="flex-1 rounded-l-none font-normal text-md cursor-pointer"
                 variant="secondary"
-                @click="fit = 'w-full'">
+                @click="fit = 'w-full'"
+              >
                 Stretch
               </Button>
             </div>
@@ -89,8 +96,8 @@
                   n === 1
                     ? 'rounded-r-none'
                     : n === 6
-                    ? 'rounded-l-none'
-                    : 'rounded-none'
+                      ? 'rounded-l-none'
+                      : 'rounded-none'
                 "
                 :variant="preload === n ? 'default' : 'secondary'"
                 @click="preload = n"

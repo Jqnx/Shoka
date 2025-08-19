@@ -13,7 +13,7 @@
 
 <template>
   <div
-    class="bg-muted flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
+    class="bg-background flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
     <div class="flex w-full max-w-sm flex-col gap-6">
       <a href="#" class="flex items-center gap-2 self-center font-medium">
         <div
@@ -24,7 +24,7 @@
       </a>
 
       <Tabs default-value="login">
-        <TabsList class="bg-background grid w-full grid-cols-2">
+        <TabsList class="bg-card grid w-full grid-cols-2">
           <TabsTrigger
             class="dark:data-[state=active]:bg-input h-[calc(100%-2px)] cursor-pointer"
             value="login"

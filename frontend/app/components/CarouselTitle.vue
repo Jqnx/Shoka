@@ -1,21 +1,18 @@
 <script lang="ts" setup>
-  defineProps<{
-    title: string;
-    to: string;
-  }>();
+import { ArrowRight } from "lucide-vue-next";
+defineProps<{
+  title: string;
+  to: string;
+}>();
 </script>
 
 <template>
   <div class="flex flex-1 justify-between px-2">
-    <NuxtLink
-      :to="to"
-      class="font-semibold text-xl tracking-tight">
+    <NuxtLink :to="to" class="font-semibold text-xl tracking-tight">
       {{ title }}
     </NuxtLink>
     <NuxtLink :to="to">
-      <Icon
-        name="lucide:arrow-right"
-        size="1.25em" />
+      <ArrowRight class="size-5" />
     </NuxtLink>
   </div>
 </template>

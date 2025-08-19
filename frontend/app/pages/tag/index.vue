@@ -1,34 +1,35 @@
 <script setup lang="ts">
-  import Button from "~/components/ui/button/Button.vue";
-  import Separator from "~/components/ui/separator/Separator.vue";
+import Button from "~/components/ui/button/Button.vue";
+import Separator from "~/components/ui/separator/Separator.vue";
 
-  useHead({
-    title: "Tags",
-  });
+useHead({
+  title: "Tags",
+});
 
-  const { data: tags } = await useFetch("/api/tag", {
-    key: "tags",
-  });
+const { data: tags } = await useFetch("/api/tag", {
+  key: "tags",
+});
 </script>
 
 <template>
   <div>
-    <h1
-      class="flex justify-center py-4 text-text font-semibold text-2xl tracking-tight">
+    <h1 class="flex justify-center py-4 font-semibold text-2xl tracking-tight">
       Tags
     </h1>
     <div
-      class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-1.5 px-8 py-4">
+      class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-1.5 px-8 py-4"
+    >
       <NuxtLink
         v-for="(tag, index) in tags"
         :key="index"
-        :to="{ name: 'tag-tag', params: { tag: tag.name } }">
-        <Button size="sm" class="w-full rounded-sm bg-stone-700 cursor-pointer">
+        :to="{ name: 'tag-tag', params: { tag: tag.name } }"
+      >
+        <Button size="sm" class="w-full rounded-sm bg-accent cursor-pointer">
           <div class="flex flex-1 justify-between">
-            <p>{{ tag.name }}</p>
+            <p class="text-foreground">{{ tag.name }}</p>
             <div class="flex gap-2">
               <Separator orientation="vertical" />
-              <p class="font-light text-stone-400">{{ tag.count }}</p>
+              <p class="font-light text-foreground">{{ tag.count }}</p>
             </div>
           </div>
         </Button>

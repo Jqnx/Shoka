@@ -1,11 +1,11 @@
 import tailwindcss from "@tailwindcss/vite";
 
-const baseApi = 'http://localhost:8081/api'
-const baseWs = 'ws://localhost:8081/ws'
+const baseApi = "http://localhost:8081/api";
+const baseWs = "ws://localhost:8081/ws";
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  compatibilityDate: '2024-11-01',
+  compatibilityDate: "2024-11-01",
   devtools: {
     enabled: true,
 
@@ -17,78 +17,73 @@ export default defineNuxtConfig({
     baseApi: baseApi,
     public: {
       ws: baseWs,
-    }
+    },
   },
   devServer: {
     port: 8080,
   },
   modules: [
-    '@nuxt/ui',
-    '@vueuse/nuxt',
-    '@nuxt/eslint',
-    '@nuxt/fonts',
-    '@nuxtjs/color-mode',
-    'shadcn-nuxt',
-    '@nuxt/image',
-    '@pinia/nuxt',
-    'pinia-plugin-persistedstate/nuxt',
-    '@vee-validate/nuxt',
-    'vue-sonner/nuxt',
-    '@sidebase/nuxt-auth',
+    "@vueuse/nuxt",
+    "@nuxt/eslint",
+    "@nuxt/fonts",
+    "@nuxtjs/color-mode",
+    "shadcn-nuxt",
+    "@nuxt/image",
+    "@pinia/nuxt",
+    "pinia-plugin-persistedstate/nuxt",
+    "@vee-validate/nuxt",
+    "vue-sonner/nuxt",
+    "@sidebase/nuxt-auth",
+    "motion-v/nuxt",
   ],
-  css: ['./app/assets/css/tailwind.css'],
+  css: ["./app/assets/css/tailwind.css"],
   vite: {
-    plugins: [
-      tailwindcss(),
-    ],
-  },
-  ui: {
-    theme: {
-      colors: ['primary', 'secondary', 'tertiary', 'info', 'success', 'warning', 'error']
-    }
+    plugins: [tailwindcss()],
   },
   colorMode: {
-    preference: 'dark',
+    preference: "system",
+    fallback: "dark",
+    classSuffix: "",
   },
   shadcn: {
-    prefix: '',
-    componentDir: './app/components/ui'
+    prefix: "",
+    componentDir: "./app/components/ui",
   },
   image: {
-    domains: ['localhost'],
+    domains: ["localhost"],
     alias: {
       archive: `${baseApi}/a`,
-    }
+    },
   },
   auth: {
     isEnabled: true,
     provider: {
-      type: 'local',
+      type: "local",
       endpoints: {
-        signIn: { path: '/login', method: 'post'},
-        signUp: { path: '/register', method: 'post'},
-        signOut: { path: '/logout', method: 'post'},
-        getSession: { path: '/session', method: 'get'}
+        signIn: { path: "/login", method: "post" },
+        signUp: { path: "/register", method: "post" },
+        signOut: { path: "/logout", method: "post" },
+        getSession: { path: "/session", method: "get" },
       },
       token: {
-        signInResponseTokenPointer: '/token',
-        type: 'Bearer',
-        cookieName: 'auth.token',
-        headerName: 'Authorization',
+        signInResponseTokenPointer: "/token",
+        type: "Bearer",
+        cookieName: "auth.token",
+        headerName: "Authorization",
         maxAgeInSeconds: 259200,
-        sameSiteAttribute: 'lax',
-        cookieDomain: '',
+        sameSiteAttribute: "lax",
+        cookieDomain: "",
         secureCookieAttribute: false,
         httpOnlyCookieAttribute: false,
       },
       session: {
         dataType: {
-          id: 'number',
-          username: 'string',
-          created_at: 'string,'
-        }
-      }
+          id: "number",
+          username: "string",
+          created_at: "string,",
+        },
+      },
     },
     globalAppMiddleware: true,
-  }
-})
+  },
+});

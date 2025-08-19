@@ -1,57 +1,57 @@
 <script lang="ts" setup>
-  const params = computed(() => {
-    return useRoute().params;
-  });
-  const pageInt = computed(() => {
-    return Number(params.value.page);
-  });
+const params = computed(() => {
+  return useRoute().params;
+});
+const pageInt = computed(() => {
+  return Number(params.value.page);
+});
 
-  const clamp = (num: number, min: number, max: number) => {
-    return Math.min(Math.max(num, min), max);
-  };
+const clamp = (num: number, min: number, max: number) => {
+  return Math.min(Math.max(num, min), max);
+};
 
-  const { data } = await useFetch(`/api/a/${params.value.id}`, {
-    key: "archive_reader",
-    pick: ["title", "page_count"] as any,
+const { data } = await useFetch(`/api/a/${params.value.id}`, {
+  key: "archive_reader",
+  pick: ["title", "page_count"] as any,
+});
+
+const goBack = () => {
+  navigateTo({
+    name: "a-id-page",
+    params: {
+      id: params.value.id,
+      page: clamp(pageInt.value - 1, 1, data.value.page_count),
+    },
   });
+};
 
-  const goBack = () => {
+const goNext = () => {
+  if (pageInt.value === data.value.page_count) {
+    navigateTo({
+      name: "a-id",
+      params: {
+        id: params.value.id,
+      },
+    });
+  } else {
     navigateTo({
       name: "a-id-page",
       params: {
         id: params.value.id,
-        page: clamp(pageInt.value - 1, 1, data.value.page_count),
+        page: clamp(pageInt.value + 1, 1, data.value.page_count),
       },
     });
-  };
+  }
+};
 
-  const goNext = () => {
-    if (pageInt.value === data.value.page_count) {
-      navigateTo({
-        name: "a-id",
-        params: {
-          id: params.value.id,
-        },
-      });
-    } else {
-      navigateTo({
-        name: "a-id-page",
-        params: {
-          id: params.value.id,
-          page: clamp(pageInt.value + 1, 1, data.value.page_count),
-        },
-      });
-    }
-  };
-
-  const clickPage = (event: MouseEvent) => {
-    const loc = event?.clientX <= window.innerWidth / 2;
-    if (loc) {
-      goBack();
-    } else {
-      goNext();
-    }
-  };
+const clickPage = (event: MouseEvent) => {
+  const loc = event?.clientX <= window.innerWidth / 2;
+  if (loc) {
+    goBack();
+  } else {
+    goNext();
+  }
+};
 </script>
 
 <template>

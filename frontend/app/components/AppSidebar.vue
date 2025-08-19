@@ -1,106 +1,106 @@
 <script setup lang="ts">
-  import NavMain from "@/components/NavMain.vue";
+import NavMain from "@/components/NavMain.vue";
 
-  import NavUser from "@/components/NavUser.vue";
-  import {
-    Sidebar,
-    SidebarContent,
-    SidebarFooter,
-    SidebarHeader,
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-    type SidebarProps,
-  } from "@/components/ui/sidebar";
-  import {
-    Library,
-    Image,
-    Images,
-    Album,
-    BookImage,
-    BookUser,
-    Users,
-    User,
-    Tag,
-    PersonStanding,
-    LibrarySquare,
-    Download,
-  } from "lucide-vue-next";
+import NavUser from "@/components/NavUser.vue";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  type SidebarProps,
+} from "@/components/ui/sidebar";
+import {
+  Library,
+  Image,
+  Images,
+  Album,
+  BookImage,
+  BookUser,
+  Users,
+  User,
+  Tag,
+  PersonStanding,
+  LibrarySquare,
+  Download,
+} from "lucide-vue-next";
 
-  const props = withDefaults(defineProps<SidebarProps>(), {
-    variant: "inset",
-  });
+const props = withDefaults(defineProps<SidebarProps>(), {
+  variant: "inset",
+});
 
-  const { data: user } = useAuthState();
+const { data: user } = useAuthState();
 
-  const data = {
-    user: {
-      name: user.value?.username,
-      avatar: "",
+const data = {
+  user: {
+    name: user.value?.username,
+    avatar: "",
+  },
+  Media: [
+    {
+      title: "Archives",
+      url: "/a",
+      icon: BookImage,
+      isActive: true,
     },
-    Media: [
-      {
-        title: "Archives",
-        url: "/a",
-        icon: BookImage,
-        isActive: true,
-      },
-      {
-        title: "Covers",
-        url: "#",
-        icon: Image,
-      },
-      {
-        title: "Illustrations",
-        url: "#",
-        icon: Images,
-      },
-      {
-        title: "Spreads",
-        url: "#",
-        icon: Album,
-      },
-      {
-        title: "Tankoubons",
-        url: "#",
-        icon: LibrarySquare,
-      },
-    ],
-    Metadata: [
-      {
-        title: "Artists",
-        url: "/artist",
-        icon: User,
-      },
-      {
-        title: "Groups",
-        url: "/group",
-        icon: Users,
-      },
-      {
-        title: "Tags",
-        url: "/tag",
-        icon: Tag,
-      },
-      {
-        title: "Characters",
-        url: "/character",
-        icon: PersonStanding,
-      },
-      {
-        title: "Parodies",
-        url: "/parody",
-        icon: BookUser,
-      },
-    ],
-    Misc: [
-      {
-        title: "Downloads",
-        url: "/downloads",
-        icon: Download,
-      },
-    ],
-  };
+    {
+      title: "Covers",
+      url: "#",
+      icon: Image,
+    },
+    {
+      title: "Illustrations",
+      url: "#",
+      icon: Images,
+    },
+    {
+      title: "Spreads",
+      url: "#",
+      icon: Album,
+    },
+    {
+      title: "Tankoubons",
+      url: "#",
+      icon: LibrarySquare,
+    },
+  ],
+  Metadata: [
+    {
+      title: "Artists",
+      url: "/artist",
+      icon: User,
+    },
+    {
+      title: "Groups",
+      url: "/group",
+      icon: Users,
+    },
+    {
+      title: "Tags",
+      url: "/tag",
+      icon: Tag,
+    },
+    {
+      title: "Characters",
+      url: "/character",
+      icon: PersonStanding,
+    },
+    {
+      title: "Parodies",
+      url: "/parody",
+      icon: BookUser,
+    },
+  ],
+  Misc: [
+    {
+      title: "Downloads",
+      url: "/downloads",
+      icon: Download,
+    },
+  ],
+};
 </script>
 
 <template>
@@ -111,8 +111,9 @@
           <SidebarMenuButton size="lg" as-child>
             <NuxtLink to="/">
               <div
-                class="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-sidebar-primary-foreground">
-                <Library class="size-4" />
+                class="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-sidebar-primary-foreground"
+              >
+                <Library class="size-4 stroke-primary-foreground" />
               </div>
               <div class="grid flex-1 text-left text-sm leading-tight">
                 <span class="truncate font-medium">Shoka</span>

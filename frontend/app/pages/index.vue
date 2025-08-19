@@ -1,27 +1,27 @@
 <script setup lang="ts">
-  const { token } = useAuth();
-  const { data: recentlyReleased } = await useFetch("/api/a/", {
-    query: { page: 1, size: 14, sortby: "release_date" },
-    key: "recentlyReleased",
-    onRequest({ options }) {
-      options.headers.set("Authorization", `${token.value}`);
-    },
-  });
+const { token } = useAuth();
+const { data: recentlyReleased } = await useFetch("/api/a/", {
+  query: { page: 1, size: 14, sortby: "release_date" },
+  key: "recentlyReleased",
+  onRequest({ options }) {
+    options.headers.set("Authorization", `${token.value}`);
+  },
+});
 
-  const { data: recentlyAdded } = await useFetch("/api/a/", {
-    query: { page: 1, size: 14, sortby: "created_at", sortdir: "desc" },
-    key: "recentlyAdded",
-    onRequest({ options }) {
-      options.headers.set("Authorization", `${token.value}`);
-    },
-  });
+const { data: recentlyAdded } = await useFetch("/api/a/", {
+  query: { page: 1, size: 14, sortby: "created_at", sortdir: "desc" },
+  key: "recentlyAdded",
+  onRequest({ options }) {
+    options.headers.set("Authorization", `${token.value}`);
+  },
+});
 
-  const { data: recentlyRead } = await useFetch("/api/a/recent", {
-    key: "recentlyRead",
-    onRequest({ options }) {
-      options.headers.set("Authorization", `${token.value}`);
-    },
-  });
+const { data: recentlyRead } = await useFetch("/api/a/recent", {
+  key: "recentlyRead",
+  onRequest({ options }) {
+    options.headers.set("Authorization", `${token.value}`);
+  },
+});
 </script>
 
 <template>
@@ -30,28 +30,37 @@
       <CarouselTitle
         class="px-4 md:px-14 lg:px-16 xl:px-18"
         title="Recently read"
-        to="a" />
+        to="a"
+      />
       <ArchiveCarousel
         :archives="recentlyRead"
-        class="overflow-x-hidden md:px-10 xl:px-8 2xl:px-6" />
+        :auto-play="false"
+        class="overflow-x-hidden md:px-10 xl:px-8 2xl:px-6"
+      />
     </div>
     <div v-if="recentlyReleased.total > 0" class="flex flex-col gap-2">
       <CarouselTitle
         class="px-4 md:px-14 lg:px-16 xl:px-18"
         title="Recent Releases"
-        to="a" />
+        to="a"
+      />
       <ArchiveCarousel
         :archives="recentlyReleased"
-        class="overflow-x-hidden md:px-10 xl:px-8 2xl:px-6" />
+        :auto-play="true"
+        class="overflow-x-hidden md:px-10 xl:px-8 2xl:px-6"
+      />
     </div>
     <div v-if="recentlyAdded.total > 0" class="flex flex-col gap-2">
       <CarouselTitle
         class="px-4 md:px-14 lg:px-16 xl:px-18"
         title="Recently Added"
-        to="a" />
+        to="a"
+      />
       <ArchiveCarousel
         :archives="recentlyAdded"
-        class="overflow-x-hidden md:px-10 xl:px-8 2xl:px-6" />
+        :auto-play="true"
+        class="overflow-x-hidden md:px-10 xl:px-8 2xl:px-6"
+      />
     </div>
   </div>
 </template>
