@@ -1,11 +1,12 @@
 package metadata
 
 import (
-	"time"
+	"Shoka/internal/config"
+	"Shoka/internal/models"
 )
 
 type IMetadata interface {
-	Unmarshal(data any)
+	Unmarshal(data any) error
 	// setTitle(title string)
 	// setSummary()
 	// setPageCount()
@@ -16,48 +17,19 @@ type IMetadata interface {
 	// setTags()
 	// setWriter()
 	// setLanguage()
-	getMetadata() Metadata
-}
-
-type Metadata struct {
-	Title       string
-	Summary     string
-	URL         []URL
-	Category    string
-	Parody      []Parody
-	Character   []Character
-	Tags        []Tag
-	Artist      []Artist
-	Language    string
-	ReleaseDate *time.Time
-}
-
-type URL struct {
-	URL string
-}
-
-type Parody struct {
-	Parody string
-}
-
-type Character struct {
-	Character string
-}
-
-type Tag struct {
-	Tag string
-}
-
-type Artist struct {
-	Artist string
+	GetMetadata() []models.Metadata
 }
 
 func GetBuilder(builderType string) IMetadata {
-	if builderType == "comicinfo" {
+	switch builderType {
+	case config.SourceComicInfo:
 		return newComicInfo()
-	}
-	if builderType == "form" {
+	case "form":
 		return newFormMetadata()
+	case config.SourceNhentai:
+		return newNHMetadata()
+	case config.SourceNhentaiSearch:
+		return newNHSearchMetadata()
 	}
 	return nil
 }
