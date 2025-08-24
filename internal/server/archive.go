@@ -1130,11 +1130,18 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 	// Fetch Metadata
 	mb := metadata.GetBuilder("form")
 	d := metadata.NewDirector(mb)
-	meta := d.FetchMetadata(payload)
+	meta, err := d.FetchMetadata(payload)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.Response{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
 
 	// Update Archive
 	ab := archive.GetBuilder(s.app)
-	archive := ab.UpdateArchive(id, &meta)
+	archive := ab.UpdateArchive(id, &meta[0])
 	if err := archive.Update(ctx, s.app); err != nil {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",

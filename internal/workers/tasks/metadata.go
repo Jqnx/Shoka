@@ -61,9 +61,12 @@ func (w *MetadataProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 
 					mb := metadata.GetBuilder("comicinfo")
 					d := metadata.NewDirector(mb)
-					meta := d.FetchMetadata(content)
+					meta, err := d.FetchMetadata(content)
+					if err != nil {
+						return err
+					}
 					ab := archive.GetBuilder(w.app)
-					archive := ab.UpdateArchive(payload.Archive.ArchiveID, &meta)
+					archive := ab.UpdateArchive(payload.Archive.ArchiveID, &meta[0])
 					if err := archive.Update(ctx, w.app); err != nil {
 						return err
 					}
@@ -88,9 +91,12 @@ func (w *MetadataProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 
 					b := metadata.GetBuilder("comicinfo")
 					d := metadata.NewDirector(b)
-					meta := d.FetchMetadata(content)
+					meta, err := d.FetchMetadata(content)
+					if err != nil {
+						return err
+					}
 					ab := archive.GetBuilder(w.app)
-					archive := ab.UpdateArchive(payload.Archive.ArchiveID, &meta)
+					archive := ab.UpdateArchive(payload.Archive.ArchiveID, &meta[0])
 					if err := archive.Update(ctx, w.app); err != nil {
 						return err
 					}
