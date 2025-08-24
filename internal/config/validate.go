@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/mileusna/useragent"
 )
 
 func Validate(verr validator.ValidationErrors) map[string]string {
@@ -22,9 +23,20 @@ func Validate(verr validator.ValidationErrors) map[string]string {
 			err := fmt.Sprintf("%s is required.", field)
 			errs[field] = err
 			return errs
+		case "useragent":
+			field := strings.ToLower(f.Field())
+			err := "invalid useragent"
+			errs[field] = err
+			return errs
 		}
 	}
 	return errs
+}
+
+// ValidateUserAgent checks if input string is a known/valid UserAgent
+func ValidateUserAgent(fl validator.FieldLevel) bool {
+	s := useragent.Parse(fl.Field().String())
+	return !s.IsUnknown()
 }
 
 // ValidateGroupArtists checks for empty string in slice and filters it out, returns a new slice
