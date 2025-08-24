@@ -12,11 +12,20 @@ var (
 	ConfigFile        = "config.yaml"
 	ImageExtensions   = []string{"png", "jpg", "jpeg", "gif", "webp"}
 	ArchiveExtensions = []string{"zip", "cbz"}
-	ComicInfoFile     = "ComicInfo.xml"
+	SourcesList       = []string{SourceNhentai, SourceNhentaiSearch, SourceComicInfo}
 )
 
 type Server struct {
-	Port int `mapstructure:"port"`
+	Port int
+}
+
+type Sources struct {
+	NHentai NHentai `mapstructure:"nhentai"`
+}
+
+type NHentai struct {
+	CSRFToken string `mapstructure:"csrftoken"`
+	UserAgent string `mapstructure:"useragent"`
 }
 
 type Database struct {
@@ -35,15 +44,17 @@ type Workers struct {
 }
 
 type Config struct {
-	TimeZone    string   `mapstructure:"tz"`
-	ContentDir  string   `mapstructure:"content_dir"`
-	ThumbDir    string   `mapstructure:"thumb_dir"`
-	DownloadDir string   `mapstructure:"download_dir"`
-	Server      Server   `mapstructure:"server"`
+	TimeZone    string `mapstructure:"tz"`
+	ContentDir  string `mapstructure:"content_dir"`
+	ThumbDir    string `mapstructure:"thumb_dir"`
+	DownloadDir string `mapstructure:"download_dir"`
+	Server      Server
 	Database    Database `mapstructure:"db"`
 	Workers     Workers  `mapstructure:"workers"`
+	Sources     Sources  `mapstructure:"sources"`
 }
 
+// TODO: Fix that config/settings set through ENV variables don't get written to file!
 func LoadConfig(log logger.Logger) (*Config, error) {
 	viper.AutomaticEnv()
 
@@ -67,7 +78,7 @@ func LoadConfig(log logger.Logger) (*Config, error) {
 	setDefaults()
 	viper.WriteConfig()
 
-	viper.Set("server.port", 8081)
+	c.Server.Port = 8081
 	viper.SetDefault("db.schema", "public")
 
 	getEnv()
