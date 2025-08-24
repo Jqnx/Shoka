@@ -1,15 +1,22 @@
 package server
 
 import (
+	"Shoka/internal/config"
 	"Shoka/internal/server/middleware"
 	"net/http"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
 )
 
 func (s *Server) RegisterRoutes() http.Handler {
 	r := gin.New()
+
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		v.RegisterValidation("useragent", config.ValidateUserAgent)
+	}
 
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
@@ -31,6 +38,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	// Archive API
 	api := r.Group("/api")
 	{
+		api.POST("/test", s.testHandler)
 		api.GET("/search", s.searchArchiveHandler)
 		archive := api.Group("/a")
 		{
@@ -42,6 +50,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 			archive.GET("/:id/cover", s.getCoverHandler)
 			archive.GET("/:id/:page", s.getThumbHandler)
 			archive.GET("/:id/scanmeta", s.scanMetadataHandler)
+			archive.POST("/:id/search", s.searchMetadataHandler)
 			archive.POST("/shuffle", s.shuffleArchiveHandler)
 			archive.POST("", s.createArchiveHandler)
 			archive.POST("/:id/cover", s.generateCoverHandler)
@@ -132,6 +141,10 @@ func (s *Server) RegisterRoutes() http.Handler {
 			download.POST("/:id/pause", s.pauseDownloadHandler)
 			download.POST("/:id/resume", s.resumeDownloadHandler)
 			download.DELETE("/:id", s.deleteDownloadHandler)
+		}
+		config := api.Group("/config")
+		{
+			config.POST("/nh", s.setNHCredentialsHandler)
 		}
 	}
 
