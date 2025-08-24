@@ -24,7 +24,7 @@ func newFormMetadata() *Form {
 	return &Form{}
 }
 
-func (m *Form) Unmarshal(data any) {
+func (m *Form) Unmarshal(data any) error {
 	d := data.(models.ArchivePayload)
 	m.Title = d.Title
 	m.Summary = d.Summary
@@ -36,6 +36,7 @@ func (m *Form) Unmarshal(data any) {
 	m.Artist = d.Artist
 	m.Language = d.Language
 	m.ReleaseDate = d.ReleaseDate
+	return nil
 }
 
 func (m *Form) getURL() *[]models.URL {
@@ -136,13 +137,14 @@ func (m *Form) getReleaseDate(year, month, day int) *time.Time {
 	}
 }
 
-func (m *Form) GetMetadata() models.Metadata {
+func (m *Form) GetMetadata() []models.Metadata {
+	var metaSlice []models.Metadata
 	urls := m.getURL()
 	parodies := m.getParody()
 	characters := m.getCharacters()
 	tags := m.getTags()
 	artists := m.getArtist()
-	return models.Metadata{
+	meta := &models.Metadata{
 		Title:       m.Title,
 		Summary:     m.Summary,
 		URL:         *urls,
@@ -154,4 +156,6 @@ func (m *Form) GetMetadata() models.Metadata {
 		Language:    m.Language,
 		ReleaseDate: m.ReleaseDate,
 	}
+	metaSlice = append(metaSlice, *meta)
+	return metaSlice
 }

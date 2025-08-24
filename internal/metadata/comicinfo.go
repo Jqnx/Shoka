@@ -4,7 +4,6 @@ import (
 	"Shoka/internal/models"
 	"encoding/xml"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 )
@@ -22,24 +21,26 @@ type ComicInfo struct {
 	Year       int    `xml:"Year"`
 	Month      int    `xml:"Month"`
 	Day        int    `xml:"Day"`
+	PageCount  int    `xml:"PageCount"`
 }
 
 func newComicInfo() *ComicInfo {
 	return &ComicInfo{}
 }
 
-func (m *ComicInfo) Unmarshal(data any) {
+func (m *ComicInfo) Unmarshal(data any) error {
 	err := xml.Unmarshal([]byte(data.(string)), &m)
 	if err != nil {
-		log.Println(err)
+		return err
 	}
+	return nil
 }
 
 func (m *ComicInfo) getURL() *[]models.URL {
 	var urls []models.URL
-	list := strings.Split(m.URL, ",")
+	list := strings.SplitSeq(m.URL, ",")
 
-	for _, item := range list {
+	for item := range list {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
 		url := models.URL{URL: b}
@@ -50,9 +51,9 @@ func (m *ComicInfo) getURL() *[]models.URL {
 
 func (m *ComicInfo) getSeries() *[]models.Parody {
 	var series []models.Parody
-	list := strings.Split(m.Series, ",")
+	list := strings.SplitSeq(m.Series, ",")
 
-	for _, item := range list {
+	for item := range list {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
 		se := models.Parody{Parody: b}
@@ -63,9 +64,9 @@ func (m *ComicInfo) getSeries() *[]models.Parody {
 
 func (m *ComicInfo) getCharacters() *[]models.Character {
 	var characters []models.Character
-	list := strings.Split(m.Characters, ",")
+	list := strings.SplitSeq(m.Characters, ",")
 
-	for _, item := range list {
+	for item := range list {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
 		character := models.Character{Character: b}
@@ -76,9 +77,9 @@ func (m *ComicInfo) getCharacters() *[]models.Character {
 
 func (m *ComicInfo) getTags() *[]models.Tag {
 	var tags []models.Tag
-	list := strings.Split(m.Tags, ",")
+	list := strings.SplitSeq(m.Tags, ",")
 
-	for _, item := range list {
+	for item := range list {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
 		tag := models.Tag{Tag: b}
@@ -89,9 +90,9 @@ func (m *ComicInfo) getTags() *[]models.Tag {
 
 func (m *ComicInfo) getWriter() *[]models.Artist {
 	var writers []models.Artist
-	list := strings.Split(m.Writer, ",")
+	list := strings.SplitSeq(m.Writer, ",")
 
-	for _, item := range list {
+	for item := range list {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
 		writer := models.Artist{Artist: b}
@@ -137,14 +138,15 @@ func (m *ComicInfo) getReleaseDate(year, month, day int) *time.Time {
 	}
 }
 
-func (m *ComicInfo) GetMetadata() models.Metadata {
+func (m *ComicInfo) GetMetadata() []models.Metadata {
+	var metaSlice []models.Metadata
 	urls := m.getURL()
 	series := m.getSeries()
 	characters := m.getCharacters()
 	tags := m.getTags()
 	writers := m.getWriter()
 	releaseDate := m.getReleaseDate(m.Year, m.Month, m.Day)
-	return models.Metadata{
+	meta := &models.Metadata{
 		Title:       m.Title,
 		Summary:     m.Summary,
 		URL:         *urls,
@@ -155,5 +157,8 @@ func (m *ComicInfo) GetMetadata() models.Metadata {
 		Artist:      *writers,
 		Language:    strings.ToLower(m.Language),
 		ReleaseDate: releaseDate,
+		PageCount:   m.PageCount,
 	}
+	metaSlice = append(metaSlice, *meta)
+	return metaSlice
 }
