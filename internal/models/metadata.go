@@ -15,6 +15,7 @@ type Metadata struct {
 	Artist      []Artist
 	Language    string
 	ReleaseDate *time.Time
+	PageCount   int
 }
 
 type URL struct {
