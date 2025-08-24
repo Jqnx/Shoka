@@ -1,22 +1,22 @@
 package metadata
 
-import "Shoka/internal/models"
+import (
+	"Shoka/internal/models"
+)
 
 type Director struct {
 	source IMetadata
 }
 
-func NewDirector(s IMetadata) *Director {
+func NewDirector(source IMetadata) *Director {
 	return &Director{
-		source: s,
+		source: source,
 	}
 }
 
-func (d *Director) setSource(s IMetadata) {
-	d.source = s
-}
-
-func (d *Director) FetchMetadata(data any) models.Metadata {
-	d.source.Unmarshal(data)
-	return d.source.GetMetadata()
+func (d *Director) FetchMetadata(data any) ([]models.Metadata, error) {
+	if err := d.source.Unmarshal(data); err != nil {
+		return nil, err
+	}
+	return d.source.GetMetadata(), nil
 }
