@@ -1,6 +1,6 @@
 module Shoka
 
-go 1.23.1
+go 1.24.6
 
 require (
 	github.com/a-h/templ v0.3.833
@@ -18,6 +18,7 @@ require (
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/joho/godotenv v1.5.1
 	github.com/lmittmann/tint v1.0.7
+	github.com/mileusna/useragent v1.3.5
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/viper v1.20.1
 	github.com/stretchr/testify v1.10.0
