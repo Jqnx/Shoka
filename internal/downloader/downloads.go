@@ -1,13 +1,14 @@
 package downloader
 
 import (
+	"Shoka/internal/config"
+	"Shoka/internal/fsutil"
 	"Shoka/internal/repository"
-	"Shoka/internal/util"
+	"Shoka/internal/sources"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -37,7 +38,7 @@ func (dm *Manager) reQueueInterruptedDownloads() error {
 			continue
 		}
 
-		task, err := NewDownloadTask(download.ID.String(), download.Url)
+		task, err := NewDownloadTask(download.ID.String(), download.Url, download.Source, nil)
 		if err != nil {
 			return err
 		}
@@ -54,16 +55,30 @@ func (dm *Manager) reQueueInterruptedDownloads() error {
 	return nil
 }
 
-func (dm *Manager) AddDownload(url string) (*repository.Download, error) {
+func (dm *Manager) AddDownload(url *url.URL, source string) (*repository.Download, error) {
 	downloadID := uuid.New()
 	now := time.Now()
 	progress := int32(0)
 
+	src, err := sources.NewSource(source, dm.cfg)
+	if err != nil {
+		return nil, err
+	}
+	src.SetURL(url)
+	meta, err := src.GetMetadata(config.MethodID)
+	if err != nil {
+		return nil, err
+	}
+	metadata := meta[0]
+
+	filename := fmt.Sprintf("%s.%s", metadata.Title, dm.cfg.Downloader.SaveFileExt)
+
 	ctx := context.Background()
 	download, err := dm.queries.CreateDownload(ctx, repository.CreateDownloadParams{
 		ID:        downloadID,
-		Url:       url,
-		Filename:  util.GetFilenameFromURL(url),
+		Url:       url.String(),
+		Source:    source,
+		Filename:  filename,
 		Status:    StatusPending,
 		Progress:  &progress,
 		Error:     nil,
@@ -76,7 +91,7 @@ func (dm *Manager) AddDownload(url string) (*repository.Download, error) {
 
 	dm.log.Info("added download", "id", download.ID, "file", download.Filename, "status", download.Status)
 
-	task, err := NewDownloadTask(download.ID.String(), download.Url)
+	task, err := NewDownloadTask(download.ID.String(), download.Url, download.Source, &metadata)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +150,7 @@ func (dm *Manager) ResumeDownload(ctx context.Context, download *repository.Down
 
 	dm.log.Info("download resumed", "id", download.ID, "file", download.Filename, "status", download.Status)
 
-	task, err := NewDownloadTask(download.ID.String(), download.Url)
+	task, err := NewDownloadTask(download.ID.String(), download.Url, download.Source, nil)
 	if err != nil {
 		return err
 	}
@@ -161,16 +176,17 @@ func (dm *Manager) DeleteDownload(ctx context.Context, download *repository.Down
 	if filePathToClean != "" {
 		go func() {
 			time.Sleep(100 * time.Millisecond)
-			if err := os.Remove(filePathToClean); err != nil && !os.IsNotExist(err) {
+			if err := fsutil.Remove(filePathToClean); err != nil && !os.IsNotExist(err) {
 				dm.log.Error("Failed to remove partial file", "path", filePathToClean, "error", err)
 			}
 		}()
 	}
 
-	// TODO: Add choice to delete file when deleting download or not
-	if delFile {
-		filePath := filepath.Join(dm.cfg.DownloadDir, download.Filename)
-		os.Remove(filePath)
+	if download.Status == StatusCompleted && delFile {
+		filePath := filepath.Join(dm.cfg.Downloader.DownloadDir, download.Source, download.Filename)
+		if err := fsutil.Remove(filePath); err != nil {
+			return err
+		}
 	}
 
 	if err := dm.queries.DeleteDownload(ctx, download.ID); err != nil {
@@ -178,89 +194,6 @@ func (dm *Manager) DeleteDownload(ctx context.Context, download *repository.Down
 	}
 
 	dm.BroadcastDeletion(id)
-
-	return nil
-}
-
-// TODO: redo to handle the sites i want, probably use an interface so multiple sites can plug into that.
-// TODO: Check if requested link is valid file (image file, zip file, cbz file, w/e file just not pure html)
-func (dm *Manager) DownloadFileWithCancel(ctx context.Context, id, url string, activeDownload *ActiveDownload) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return err
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad status: %s", resp.Status)
-	}
-
-	// Get filename and create file
-	filename := util.GetFilenameFromURL(url)
-	filePath := filepath.Join(dm.cfg.DownloadDir, filename)
-
-	dm.ActiveMutex.Lock()
-	activeDownload.FilePath = filePath
-	dm.ActiveMutex.Unlock()
-
-	file, err := os.Create(filePath)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		file.Close()
-		if ctx.Err() == context.Canceled {
-			if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
-				dm.log.Error("Failed to remove partial file on cancellation", "path", filePath, "error", err)
-			} else {
-				dm.log.Info("Removed partial file 3", "path", filePath)
-			}
-		}
-	}()
-
-	// Download with context cancellation and progress tracking
-	contentLength := resp.ContentLength
-	var downloaded int64
-	buffer := make([]byte, 32*1024) // 32KB buffer
-
-	dm.log.Info("starting download", "id", activeDownload.ID, "file", activeDownload.FilePath, "status", StatusDownloading)
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
-		n, err := resp.Body.Read(buffer)
-		if n > 0 {
-			if _, writeErr := file.Write(buffer[:n]); writeErr != nil {
-				return writeErr
-			}
-			downloaded += int64(n)
-
-			// Update Download Speed
-			// dm.updateActiveDownloadBytes(downloaded, activeDownload)
-
-			// Update progress
-			if contentLength > 0 {
-				// progress := int32((downloaded * 100) / contentLength)
-				// dm.UpdateActiveDownloadProgress(id, progress, activeDownload)
-			}
-		}
-
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-	}
 
 	return nil
 }

@@ -13,14 +13,15 @@ import (
 )
 
 const createDownload = `-- name: CreateDownload :one
-INSERT INTO downloads (id, url, filename, status, progress, error, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, url, filename, status, progress, error, created_at, updated_at, speed, total_size, downloaded, started_at, can_resume, resume_supported
+INSERT INTO downloads (id, url, source, filename, status, progress, error, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, url, source, filename, status, progress, error, created_at, updated_at, speed, total_size, downloaded, started_at, can_resume, resume_supported
 `
 
 type CreateDownloadParams struct {
 	ID        uuid.UUID `json:"id"`
 	Url       string    `json:"url"`
+	Source    string    `json:"source"`
 	Filename  string    `json:"filename"`
 	Status    string    `json:"status"`
 	Progress  *int32    `json:"progress"`
@@ -33,6 +34,7 @@ func (q *Queries) CreateDownload(ctx context.Context, arg CreateDownloadParams) 
 	row := q.db.QueryRow(ctx, createDownload,
 		arg.ID,
 		arg.Url,
+		arg.Source,
 		arg.Filename,
 		arg.Status,
 		arg.Progress,
@@ -44,6 +46,7 @@ func (q *Queries) CreateDownload(ctx context.Context, arg CreateDownloadParams) 
 	err := row.Scan(
 		&i.ID,
 		&i.Url,
+		&i.Source,
 		&i.Filename,
 		&i.Status,
 		&i.Progress,
@@ -71,7 +74,7 @@ func (q *Queries) DeleteDownload(ctx context.Context, id uuid.UUID) error {
 }
 
 const getAllDownloads = `-- name: GetAllDownloads :many
-select id, url, filename, status, progress, error, created_at, updated_at, speed, total_size, downloaded, started_at, can_resume, resume_supported
+select id, url, source, filename, status, progress, error, created_at, updated_at, speed, total_size, downloaded, started_at, can_resume, resume_supported
 from downloads
 order by created_at desc
 `
@@ -88,6 +91,7 @@ func (q *Queries) GetAllDownloads(ctx context.Context) ([]Download, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.Url,
+			&i.Source,
 			&i.Filename,
 			&i.Status,
 			&i.Progress,
@@ -112,7 +116,7 @@ func (q *Queries) GetAllDownloads(ctx context.Context) ([]Download, error) {
 }
 
 const getDownload = `-- name: GetDownload :one
-select id, url, filename, status, progress, error, created_at, updated_at, speed, total_size, downloaded, started_at, can_resume, resume_supported
+select id, url, source, filename, status, progress, error, created_at, updated_at, speed, total_size, downloaded, started_at, can_resume, resume_supported
 from downloads
 where id = $1
 `
@@ -123,6 +127,7 @@ func (q *Queries) GetDownload(ctx context.Context, id uuid.UUID) (Download, erro
 	err := row.Scan(
 		&i.ID,
 		&i.Url,
+		&i.Source,
 		&i.Filename,
 		&i.Status,
 		&i.Progress,
@@ -140,7 +145,7 @@ func (q *Queries) GetDownload(ctx context.Context, id uuid.UUID) (Download, erro
 }
 
 const getDownloadsByStatus = `-- name: GetDownloadsByStatus :many
-select id, url, filename, status, progress, error, created_at, updated_at, speed, total_size, downloaded, started_at, can_resume, resume_supported
+select id, url, source, filename, status, progress, error, created_at, updated_at, speed, total_size, downloaded, started_at, can_resume, resume_supported
 from downloads
 where status = any($1::text[])
 order by created_at desc
@@ -158,6 +163,7 @@ func (q *Queries) GetDownloadsByStatus(ctx context.Context, dollar_1 []string) (
 		if err := rows.Scan(
 			&i.ID,
 			&i.Url,
+			&i.Source,
 			&i.Filename,
 			&i.Status,
 			&i.Progress,
@@ -182,7 +188,7 @@ func (q *Queries) GetDownloadsByStatus(ctx context.Context, dollar_1 []string) (
 }
 
 const getPendingDownloads = `-- name: GetPendingDownloads :many
-select id, url, filename, status, progress, error, created_at, updated_at, speed, total_size, downloaded, started_at, can_resume, resume_supported
+select id, url, source, filename, status, progress, error, created_at, updated_at, speed, total_size, downloaded, started_at, can_resume, resume_supported
 from downloads
 where status in ('pending', 'downloading')
 order by created_at asc
@@ -200,6 +206,7 @@ func (q *Queries) GetPendingDownloads(ctx context.Context) ([]Download, error) {
 		if err := rows.Scan(
 			&i.ID,
 			&i.Url,
+			&i.Source,
 			&i.Filename,
 			&i.Status,
 			&i.Progress,
@@ -227,7 +234,7 @@ const updateDownloadProgress = `-- name: UpdateDownloadProgress :one
 UPDATE downloads 
 SET progress = $2, updated_at = $3
 WHERE id = $1
-RETURNING id, url, filename, status, progress, error, created_at, updated_at, speed, total_size, downloaded, started_at, can_resume, resume_supported
+RETURNING id, url, source, filename, status, progress, error, created_at, updated_at, speed, total_size, downloaded, started_at, can_resume, resume_supported
 `
 
 type UpdateDownloadProgressParams struct {
@@ -242,6 +249,7 @@ func (q *Queries) UpdateDownloadProgress(ctx context.Context, arg UpdateDownload
 	err := row.Scan(
 		&i.ID,
 		&i.Url,
+		&i.Source,
 		&i.Filename,
 		&i.Status,
 		&i.Progress,
@@ -262,7 +270,7 @@ const updateDownloadStatus = `-- name: UpdateDownloadStatus :one
 UPDATE downloads 
 SET status = $2, progress = $3, error = $4, updated_at = $5
 WHERE id = $1
-RETURNING id, url, filename, status, progress, error, created_at, updated_at, speed, total_size, downloaded, started_at, can_resume, resume_supported
+RETURNING id, url, source, filename, status, progress, error, created_at, updated_at, speed, total_size, downloaded, started_at, can_resume, resume_supported
 `
 
 type UpdateDownloadStatusParams struct {
@@ -285,6 +293,7 @@ func (q *Queries) UpdateDownloadStatus(ctx context.Context, arg UpdateDownloadSt
 	err := row.Scan(
 		&i.ID,
 		&i.Url,
+		&i.Source,
 		&i.Filename,
 		&i.Status,
 		&i.Progress,

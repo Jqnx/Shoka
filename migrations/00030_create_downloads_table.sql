@@ -3,6 +3,7 @@
 CREATE TABLE IF NOT EXISTS downloads (
   id uuid PRIMARY KEY,
   url text NOT NULL,
+  source text NOT NULL,
   filename text NOT NULL,
   status text NOT NULL,
   progress integer DEFAULT 0,

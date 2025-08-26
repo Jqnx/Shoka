@@ -1,7 +1,9 @@
 package downloader
 
 import (
-	"Shoka/internal/util"
+	"Shoka/internal/config"
+	"Shoka/internal/fsutil"
+	"Shoka/internal/models"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -16,14 +18,18 @@ import (
 const TypeDownload = "file:download"
 
 type DownloadPayload struct {
-	ID  string `json:"id"`
-	URL string `json:"url"`
+	ID       string           `json:"id"`
+	URL      string           `json:"url"`
+	Source   string           `json:"source"`
+	Metadata *models.Metadata `json:"metadata"`
 }
 
-func NewDownloadTask(id, url string) (*asynq.Task, error) {
+func NewDownloadTask(id, url, source string, metadata *models.Metadata) (*asynq.Task, error) {
 	payload := DownloadPayload{
-		ID:  id,
-		URL: url,
+		ID:       id,
+		URL:      url,
+		Source:   source,
+		Metadata: metadata,
 	}
 	bytes, err := json.Marshal(payload)
 	if err != nil {
@@ -42,17 +48,23 @@ func (d *DownloadProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
 	}
 
-	filename := util.GetFilenameFromURL(payload.URL)
-	filepath := filepath.Join(d.dm.cfg.DownloadDir, filename)
-
-	req, err := grab.NewRequest(filepath, payload.URL)
-	if err != nil {
+	path := filepath.Join(d.dm.cfg.TempDir, payload.Metadata.Title)
+	if err := os.MkdirAll(path, 0755); err != nil {
 		return err
 	}
 
 	downloadCtx, cancel := context.WithCancel(ctx)
-	req = req.WithContext(downloadCtx)
-	req.NoResume = false
+	defer cancel()
+
+	reqs := make([]*grab.Request, 0)
+	for i := range payload.Metadata.PageCount {
+		url := fmt.Sprintf("%s/galleries/%s/%d%s", config.NHImages, payload.Metadata.NHMediaID, i+1, payload.Metadata.NHImageType)
+		req, err := grab.NewRequest(path, url)
+		if err != nil {
+			return err
+		}
+		reqs = append(reqs, req)
+	}
 
 	now := time.Now()
 	activeDownload := &ActiveDownload{
@@ -61,7 +73,7 @@ func (d *DownloadProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 		Progress:           0,
 		LastProgressUpdate: now,
 		Cancelled:          false,
-		FilePath:           filepath,
+		FilePath:           path,
 		BytesDownloaded:    0,
 		TotalSize:          0,
 		LastSpeedUpdate:    now,
@@ -81,7 +93,7 @@ func (d *DownloadProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 		activeDownload, exists := d.dm.ActiveDownloads[payload.ID]
 		if exists {
 			if activeDownload.Cancelled && activeDownload.FilePath != "" && !activeDownload.CanResume {
-				if err := os.Remove(activeDownload.FilePath); err != nil && !os.IsNotExist(err) {
+				if err := fsutil.Remove(activeDownload.FilePath); err != nil && !os.IsNotExist(err) {
 					d.dm.log.Error("Failed to remove partial file", "path", activeDownload.FilePath, "error", err)
 				} else {
 					d.dm.log.Info("Removed partial file 2", "path", activeDownload.FilePath)
@@ -96,40 +108,61 @@ func (d *DownloadProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 		d.dm.log.Error("Failed to update download status to downloading", "error", err)
 	}
 
-	resp := d.dm.grab.Do(req)
+	// resp := d.dm.grab.Do(req)
+	response, err := d.dm.downloadBatch(payload.ID, downloadCtx, reqs, activeDownload)
+	if err != nil {
+		return err
+	}
 
-	d.dm.ActiveMutex.Lock()
-	activeDownload.Response = resp
-	activeDownload.TotalSize = resp.Size()
-	activeDownload.ResumeSupported = resp.CanResume
-	activeDownload.CanResume = resp.CanResume
-	d.dm.ActiveMutex.Unlock()
+	// d.dm.ActiveMutex.Lock()
+	// activeDownload.Response = resp
+	// activeDownload.TotalSize = resp.Size()
+	// activeDownload.ResumeSupported = resp.CanResume
+	// activeDownload.CanResume = resp.CanResume
+	// d.dm.ActiveMutex.Unlock()
 
-	go d.dm.MonitorGrabProgress(payload.ID, resp, activeDownload)
+	// go d.dm.MonitorGrabProgress(payload.ID, resp, activeDownload)
 
-	if err := resp.Err(); err != nil {
-		d.dm.ActiveMutex.RLock()
-		wasCancelled := activeDownload.Cancelled
-		d.dm.ActiveMutex.RUnlock()
+	for _, resp := range response {
+		if err := resp.Err(); err != nil {
+			d.dm.ActiveMutex.RLock()
+			wasCancelled := activeDownload.Cancelled
+			d.dm.ActiveMutex.RUnlock()
 
-		if downloadCtx.Err() == context.Canceled && wasCancelled {
-			d.dm.UpdateDownloadStatusInDB(payload.ID, StatusCancelled, activeDownload.Progress, "Download cancelled by user")
-			return nil
-		} else if downloadCtx.Err() == context.Canceled {
-			if activeDownload.ResumeSupported {
-				d.dm.UpdateDownloadStatusInDB(payload.ID, StatusPaused, activeDownload.Progress, "Download interrupted")
+			if downloadCtx.Err() == context.Canceled && wasCancelled {
+				d.dm.UpdateDownloadStatusInDB(payload.ID, StatusCancelled, activeDownload.Progress, "Download cancelled by user")
+				return nil
+			} else if downloadCtx.Err() == context.Canceled {
+				if activeDownload.ResumeSupported {
+					d.dm.UpdateDownloadStatusInDB(payload.ID, StatusPaused, activeDownload.Progress, "Download interrupted")
+				} else {
+					d.dm.UpdateDownloadStatusInDB(payload.ID, StatusFailed, activeDownload.Progress, "Download interrupted")
+				}
+				return err
 			} else {
-				d.dm.UpdateDownloadStatusInDB(payload.ID, StatusFailed, activeDownload.Progress, "Download interrupted")
+				if activeDownload.ResumeSupported {
+					d.dm.UpdateDownloadStatusInDB(payload.ID, StatusPaused, activeDownload.Progress, err.Error())
+				} else {
+					d.dm.UpdateDownloadStatusInDB(payload.ID, StatusFailed, activeDownload.Progress, err.Error())
+				}
+				return err
 			}
-			return err
-		} else {
-			if activeDownload.ResumeSupported {
-				d.dm.UpdateDownloadStatusInDB(payload.ID, StatusPaused, activeDownload.Progress, err.Error())
-			} else {
-				d.dm.UpdateDownloadStatusInDB(payload.ID, StatusFailed, activeDownload.Progress, err.Error())
-			}
-			return err
 		}
+	}
+
+	sourceDir := filepath.Join(d.dm.cfg.Downloader.DownloadDir, payload.Source)
+	if err := os.MkdirAll(sourceDir, 0755); err != nil {
+		return err
+	}
+
+	filename := fmt.Sprintf("%s.%s", payload.Metadata.Title, d.dm.cfg.Downloader.SaveFileExt)
+	dst := filepath.Join(sourceDir, filename)
+	if err := fsutil.Zip(path, dst); err != nil {
+		return err
+	}
+
+	if err := fsutil.Remove(path); err != nil {
+		return err
 	}
 
 	d.dm.UpdateDownloadStatusInDB(payload.ID, StatusCompleted, 100, "")

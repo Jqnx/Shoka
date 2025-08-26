@@ -84,6 +84,7 @@ type Character struct {
 type Download struct {
 	ID              uuid.UUID  `json:"id"`
 	Url             string     `json:"url"`
+	Source          string     `json:"source"`
 	Filename        string     `json:"filename"`
 	Status          string     `json:"status"`
 	Progress        *int32     `json:"progress"`

@@ -1,6 +1,6 @@
 -- name: CreateDownload :one
-INSERT INTO downloads (id, url, filename, status, progress, error, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO downloads (id, url, source, filename, status, progress, error, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: GetDownload :one
