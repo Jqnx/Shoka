@@ -16,6 +16,15 @@ type NHLoginPayload struct {
 	Useragent string `json:"useragent" binding:"useragent,required"`
 }
 
+func (s *Server) getNHCredentialsHandler(c *gin.Context) {
+	creds := NHLoginPayload{
+		Csrftoken: s.app.Cfg.Sources.NHentai.CSRFToken,
+		Useragent: s.app.Cfg.Sources.NHentai.UserAgent,
+	}
+
+	c.JSON(http.StatusOK, creds)
+}
+
 func (s *Server) setNHCredentialsHandler(c *gin.Context) {
 	var req NHLoginPayload
 	if errPost := c.ShouldBind(&req); errPost != nil {

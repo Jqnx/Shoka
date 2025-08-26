@@ -144,6 +144,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		}
 		config := api.Group("/config")
 		{
+			config.GET("/nh", s.getNHCredentialsHandler)
 			config.POST("/nh", s.setNHCredentialsHandler)
 		}
 	}
