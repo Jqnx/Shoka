@@ -14,7 +14,7 @@ import (
 )
 
 type Server struct {
-	port int
+	port int64
 	repo *repository.Queries
 	db   *pgxpool.Pool
 	log  logger.Logger

@@ -20,11 +20,11 @@ func NewServer(cfg *config.Config) (*asynq.Server, error) {
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: url},
 		asynq.Config{
-			Concurrency: cfg.Workers.Max,
+			Concurrency: int(cfg.Workers.Max),
 			Queues: map[string]int{
-				"critical": cfg.Workers.Max,
-				"default":  cfg.Workers.Max,
-				"low":      cfg.Workers.Max,
+				"critical": int(cfg.Workers.Max),
+				"default":  int(cfg.Workers.Max),
+				"low":      int(cfg.Workers.Max),
 			},
 			StrictPriority: true,
 			RetryDelayFunc: func(n int, e error, t *asynq.Task) time.Duration {

@@ -16,7 +16,7 @@ var (
 )
 
 type Server struct {
-	Port int
+	Port int64
 }
 
 type Sources struct {
@@ -40,18 +40,25 @@ type Database struct {
 type Workers struct {
 	RedisHost string ` mapstructure:"redis_host"`
 	RedisPort string ` mapstructure:"redis_port"`
-	Max       int    `mapstructure:"max"`
+	Max       int64  `mapstructure:"max"`
+}
+
+type Downloader struct {
+	DownloadDir string `mapstructure:"download_dir"`
+	RateLimit   int64  `mapstructure:"rate_limit"`
+	SaveFileExt string `mapstructure:"save_file_ext"`
 }
 
 type Config struct {
-	TimeZone    string `mapstructure:"tz"`
-	ContentDir  string `mapstructure:"content_dir"`
-	ThumbDir    string `mapstructure:"thumb_dir"`
-	DownloadDir string `mapstructure:"download_dir"`
-	Server      Server
-	Database    Database `mapstructure:"db"`
-	Workers     Workers  `mapstructure:"workers"`
-	Sources     Sources  `mapstructure:"sources"`
+	TimeZone   string `mapstructure:"tz"`
+	ContentDir string `mapstructure:"content_dir"`
+	ThumbDir   string `mapstructure:"thumb_dir"`
+	TempDir    string `mapstructure:"temp_dir"`
+	Server     Server
+	Database   Database   `mapstructure:"db"`
+	Workers    Workers    `mapstructure:"workers"`
+	Sources    Sources    `mapstructure:"sources"`
+	Downloader Downloader `mapstructure:"downloader"`
 }
 
 // TODO: Fix that config/settings set through ENV variables don't get written to file!
@@ -93,7 +100,10 @@ func LoadConfig(log logger.Logger) (*Config, error) {
 func setDefaults() {
 	viper.SetDefault("content_dir", "content")
 	viper.SetDefault("thumb_dir", "thumb")
-	viper.SetDefault("download_dir", "downloads")
+	viper.SetDefault("temp_dir", "tmp")
+	viper.SetDefault("downloader.download_dir", "downloads")
+	viper.SetDefault("downloader.rate_limit", 500)
+	viper.SetDefault("downloader.save_file_ext", "cbz")
 	viper.SetDefault("workers.max", 5)
 	viper.SetDefault("tz", "Etc/UTC")
 }
