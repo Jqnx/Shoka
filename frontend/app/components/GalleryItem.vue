@@ -51,10 +51,10 @@ const progressValue = computed(() => {
           <div class="grow" />
           <div
             layout
-            class="relative flex h-20 p-4 bg-background rounded-t-2xl shadow-[0px_-3px_5px_0px_rgba(25,23,36,0.5)] group-hover:bg-background/65 group-hover:h-full group-hover:rounded-none transition-all ease-in-out duration-250"
+            class="relative flex h-16 p-3 bg-background rounded-t-2xl shadow-[0px_-3px_5px_0px_rgba(25,23,36,0.5)] group-hover:bg-background/65 group-hover:h-full group-hover:rounded-none transition-all ease-in-out duration-250"
           >
             <h4
-              class="font-normal text-shadow-sm text-shadow-primary-foreground/75 text-balance break-words tracking-tight transition-all group-hover:my-auto line-clamp-2 group-hover:line-clamp-none"
+              class="font-medium text-sm text-wrap tracking-normal transition-all group-hover:my-auto line-clamp-2 group-hover:line-clamp-none"
             >
               {{ title }}
             </h4>
