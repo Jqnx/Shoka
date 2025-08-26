@@ -1,6 +1,7 @@
 import tailwindcss from "@tailwindcss/vite";
 
 const baseApi = "http://localhost:8081/api";
+const baseAssets = "http://localhost:8081/assets";
 const baseWs = "ws://localhost:8081/ws";
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
@@ -15,6 +16,7 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     baseApi: baseApi,
+    baseAssets: baseAssets,
     public: {
       ws: baseWs,
     },
@@ -53,6 +55,7 @@ export default defineNuxtConfig({
     domains: ["localhost"],
     alias: {
       archive: `${baseApi}/a`,
+      assets: baseAssets,
     },
   },
   auth: {
