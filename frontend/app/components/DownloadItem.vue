@@ -88,17 +88,26 @@ const formatDate = (dateString: string) => {
 
           <!-- Progress Bar -->
           <div
-            v-if="download.progress > 0 && download.downloaded > 0"
+            v-if="download.progress > 0"
             class="flex items-center gap-4 lg:flex-1 lg:grow-5"
           >
             <Progress
+              v-if="download.downloaded"
               class="lg:flex-1"
               :model-value="download.progress"
               :title="`${download.progress}% - ${formatBytes(
                 download.downloaded,
               )}`"
             />
-            <span class="text-foreground/70 text-sm">
+
+            <Progress
+              v-else
+              class="lg:flex-1"
+              :model-value="download.progress"
+              :title="`${download.progress}%`"
+            />
+
+            <span v-if="download.speed" class="text-foreground/70 text-sm">
               {{ formatBytes(download.speed) }}/s
             </span>
           </div>
