@@ -29,6 +29,7 @@ func (m *NHSearch) GetMetadata() []models.Metadata {
 		artists, characters, parodies, tags, category, language := i.splitTags()
 		releaseDate, _ := i.getReleaseDate()
 		url := i.getUrl()
+		imageType := i.getImageType()
 		meta := &models.Metadata{
 			Title:       i.Title.English,
 			Summary:     i.Title.Japanese,
@@ -41,6 +42,9 @@ func (m *NHSearch) GetMetadata() []models.Metadata {
 			ReleaseDate: releaseDate,
 			URL:         *url,
 			PageCount:   i.PageCount,
+			NHID:        i.ID,
+			NHMediaID:   i.MediaID,
+			NHImageType: imageType,
 		}
 		metaSlice = append(metaSlice, *meta)
 	}

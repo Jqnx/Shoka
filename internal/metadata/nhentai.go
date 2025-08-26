@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"Shoka/internal/config"
 	"Shoka/internal/models"
 	"encoding/json"
 	"fmt"
@@ -128,11 +129,17 @@ func (m *NHMetadata) getReleaseDate() (*time.Time, error) {
 	return &tm, nil
 }
 
+func (m *NHMetadata) getImageType() string {
+	return config.NHFileTypes[m.Images.Cover.Type]
+}
+
 func (m *NHMetadata) GetMetadata() []models.Metadata {
 	var metaSlice []models.Metadata
 	artists, characters, parodies, tags, category, language := m.splitTags()
 	releaseDate, _ := m.getReleaseDate()
 	url := m.getUrl()
+	imageType := m.getImageType()
+
 	meta := &models.Metadata{
 		Title:       m.Title.English,
 		Summary:     m.Title.Japanese,
@@ -145,6 +152,9 @@ func (m *NHMetadata) GetMetadata() []models.Metadata {
 		ReleaseDate: releaseDate,
 		URL:         *url,
 		PageCount:   m.PageCount,
+		NHID:        m.ID,
+		NHMediaID:   m.MediaID,
+		NHImageType: imageType,
 	}
 	metaSlice = append(metaSlice, *meta)
 	return metaSlice

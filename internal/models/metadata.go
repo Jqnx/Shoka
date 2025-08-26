@@ -16,6 +16,9 @@ type Metadata struct {
 	Language    string
 	ReleaseDate *time.Time
 	PageCount   int
+	NHID        int
+	NHMediaID   string
+	NHImageType string
 }
 
 type URL struct {
