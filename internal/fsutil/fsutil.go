@@ -415,6 +415,66 @@ func Unzip(src, dest string) error {
 	return nil
 }
 
+func Zip(src, dst string) error {
+	zipFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer zipFile.Close()
+
+	zipWriter := zip.NewWriter(zipFile)
+	defer zipWriter.Close()
+
+	err = filepath.Walk(src, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		relPath, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+
+		relPath = strings.ReplaceAll(relPath, string(filepath.Separator), "/")
+
+		fileHeader, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return err
+		}
+
+		fileHeader.Name = relPath
+		fileHeader.Method = zip.Deflate
+
+		writer, err := zipWriter.CreateHeader(fileHeader)
+		if err != nil {
+			return err
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		_, err = io.Copy(writer, file)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Added: %s\n", relPath)
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // CreateDir takes in a relative path
 // converts it to an absolute path
 // and creates all necessary folders
@@ -428,6 +488,23 @@ func CreateDir(dir string) error {
 	// Use absolute path to create all necessary folders
 	if err := os.MkdirAll(fp, 0777); err != nil {
 		return err
+	}
+	return nil
+}
+
+func Remove(src string) error {
+	info, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		if err := os.RemoveAll(src); err != nil {
+			return err
+		}
+	} else {
+		if err := os.Remove(src); err != nil {
+			return err
+		}
 	}
 	return nil
 }
