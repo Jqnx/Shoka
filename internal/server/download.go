@@ -5,11 +5,12 @@ import (
 	"Shoka/internal/downloader"
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
+	"Shoka/internal/util"
 	"context"
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
+	"slices"
 	"strconv"
 	"time"
 
@@ -20,7 +21,7 @@ import (
 )
 
 type DownloadRequest struct {
-	URL string `json:"url" binding:"required"`
+	URL string `json:"url" binding:"required,url"`
 }
 
 func (s *Server) addDownloadHandler(c *gin.Context) {
@@ -42,12 +43,24 @@ func (s *Server) addDownloadHandler(c *gin.Context) {
 		return
 	}
 
-	if _, err := url.ParseRequestURI(req.URL); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid URL"})
+	domain, url, err := util.ExtractDomainFromURL(req.URL)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, &models.ResponseFail{
+			Status: "fail",
+			Data:   err.Error(),
+		})
 		return
 	}
 
-	download, err := s.dm.AddDownload(req.URL)
+	if !slices.Contains(config.SourcesList, domain) {
+		c.JSON(http.StatusBadRequest, &models.ResponseFail{
+			Status: "fail",
+			Data:   "url is not from a supported source",
+		})
+		return
+	}
+
+	download, err := s.dm.AddDownload(url, domain)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
