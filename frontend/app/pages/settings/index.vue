@@ -17,8 +17,8 @@ useHead({
         <AccordionTrigger class="text-md items-center"
           >Source Settings</AccordionTrigger
         >
-        <AccordionContent>
-          <NHCredentialsForm />
+        <AccordionContent class="grid grid-cols-3">
+          <FlaresolverrForm />
         </AccordionContent>
       </AccordionItem>
     </Accordion>
