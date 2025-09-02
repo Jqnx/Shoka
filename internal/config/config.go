@@ -20,12 +20,17 @@ type Server struct {
 }
 
 type Sources struct {
-	NHentai NHentai `mapstructure:"nhentai"`
+	NHentai      NHentai      `mapstructure:"nhentai"`
+	Flaresolverr Flaresolverr `mapstructure:"flaresolverr"`
 }
 
 type NHentai struct {
 	CSRFToken string `mapstructure:"csrftoken"`
 	UserAgent string `mapstructure:"useragent"`
+}
+
+type Flaresolverr struct {
+	URL string `mapstructure:"url"`
 }
 
 type Database struct {
