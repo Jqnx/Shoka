@@ -9,6 +9,8 @@ build:
 # Run the application
 run:
 	@go run cmd/api/main.go
+
+dr: docker-run
 # Create DB container
 docker-run:
 	@if docker compose up --build 2>/dev/null; then \
@@ -18,6 +20,7 @@ docker-run:
 		docker-compose up --build; \
 	fi
 
+dd: docker-down
 # Shutdown DB container
 docker-down:
 	@if docker compose down 2>/dev/null; then \
@@ -41,10 +44,12 @@ clean:
 	@echo "Cleaning..."
 	@rm -f main
 
+rd: resetdb
 resetdb:
 	@echo "Resetting DB"
 	@goose reset
 
+md: migratedb
 migratedb:
 	@echo "Applying Migrations"
 	@goose up
@@ -53,10 +58,6 @@ redodb:
 	@echo "Re-Applying Migrations"
 	@goose reset
 	@goose up
-
-worker:
-	@echo "Starting asynq server"
-	@go run ./cmd/worker/main.go
 
 # Live Reload
 watch:
@@ -75,4 +76,4 @@ watch:
             fi; \
         fi
 
-.PHONY: all build run test clean watch docker-run docker-down itest resetdb migratedb redodb
+.PHONY: all build run test clean watch dr docker-run dd docker-down itest rd resetdb md migratedb redodb
