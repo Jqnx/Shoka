@@ -21,6 +21,16 @@ services:
     ports:
       - "${REDIS_PORT}:6379"
 
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    restart: unless-stopped
+    networks:
+      - shoka
+    ports:
+      - "8191:8191"
+    environment:
+      - LOG_LEVEL=info
+
 volumes:
   psql_volume:
 
