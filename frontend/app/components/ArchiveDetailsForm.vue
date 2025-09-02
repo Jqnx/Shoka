@@ -1,246 +1,265 @@
 <script setup lang="ts">
-  import { z } from "zod";
-  import {
-    DateFormatter,
-    getLocalTimeZone,
-    parseAbsolute,
-    parseZonedDateTime,
-    today,
-    ZonedDateTime,
-  } from "@internationalized/date";
-  import { toDate } from "reka-ui/date";
-  import { cn } from "~/lib/utils";
-  import {
-    FormControl,
-    FormDescription,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-  } from "@/components/ui/form";
-  import {
-    TagsInput,
-    TagsInputInput,
-    TagsInputItem,
-    TagsInputItemDelete,
-    TagsInputItemText,
-  } from "@/components/ui/tags-input";
-  import {
-    Combobox,
-    ComboboxAnchor,
-    ComboboxEmpty,
-    ComboboxGroup,
-    ComboboxInput,
-    ComboboxItem,
-    ComboboxList,
-  } from "@/components/ui/combobox";
-  import { Textarea } from "@/components/ui/textarea";
-  import { Calendar } from "@/components/ui/calendar";
-  import { CalendarIcon } from "lucide-vue-next";
-  import { useFilter } from "reka-ui";
-  import ComboboxViewport from "./ui/combobox/ComboboxViewport.vue";
-  import { toast } from "vue-sonner";
-  import Button from "./ui/button/Button.vue";
-  import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-  } from "@/components/ui/popover";
-  import Input from "./ui/input/Input.vue";
+import { z } from "zod";
+import {
+  DateFormatter,
+  getLocalTimeZone,
+  parseAbsolute,
+  parseZonedDateTime,
+  today,
+  ZonedDateTime,
+} from "@internationalized/date";
+import { toDate } from "reka-ui/date";
+import { cn } from "~/lib/utils";
+import {
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  TagsInput,
+  TagsInputInput,
+  TagsInputItem,
+  TagsInputItemDelete,
+  TagsInputItemText,
+} from "@/components/ui/tags-input";
+import {
+  Combobox,
+  ComboboxAnchor,
+  ComboboxEmpty,
+  ComboboxGroup,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import { CalendarIcon } from "lucide-vue-next";
+import { useFilter } from "reka-ui";
+import ComboboxViewport from "./ui/combobox/ComboboxViewport.vue";
+import { toast } from "vue-sonner";
+import Button from "./ui/button/Button.vue";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import Input from "./ui/input/Input.vue";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-  const { data: archive } = useNuxtData("archive");
+const sources = ref([
+  { id: 1, value: "nhsearch", label: "NHentai" },
+  { id: 2, value: "hentag", label: "Hentag" },
+]);
 
-  const df = new DateFormatter("en-GB", {
-    dateStyle: "long",
-  });
+const { data: archive } = useNuxtData("archive");
 
-  const tags: string[] = [];
-  if (archive.value.tags) {
-    for (const tag of archive.value.tags) {
-      tags.push(tag.name);
-    }
+const df = new DateFormatter("en-GB", {
+  dateStyle: "long",
+});
+
+const tags: string[] = [];
+if (archive.value.tags) {
+  for (const tag of archive.value.tags) {
+    tags.push(tag.name);
   }
+}
 
-  const artists: string[] = [];
-  if (archive.value.artist) {
-    for (const artist of archive.value.artist) {
-      artists.push(artist.name);
-    }
+const artists: string[] = [];
+if (archive.value.artist) {
+  for (const artist of archive.value.artist) {
+    artists.push(artist.name);
   }
+}
 
-  const parodies: string[] = [];
-  if (archive.value.parody) {
-    for (const parody of archive.value.parody) {
-      parodies.push(parody.name);
-    }
+const parodies: string[] = [];
+if (archive.value.parody) {
+  for (const parody of archive.value.parody) {
+    parodies.push(parody.name);
   }
+}
 
-  const characters: string[] = [];
-  if (archive.value.character) {
-    for (const character of archive.value.character) {
-      characters.push(character.name);
-    }
+const characters: string[] = [];
+if (archive.value.character) {
+  for (const character of archive.value.character) {
+    characters.push(character.name);
   }
+}
 
-  const urls: string[] = [];
-  if (archive.value.url) {
-    for (const url of archive.value.url) {
-      urls.push(url.url);
-    }
+const urls: string[] = [];
+if (archive.value.url) {
+  for (const url of archive.value.url) {
+    urls.push(url.url);
   }
+}
 
-  const release_date = archive.value.release_date
-    ? archive.value.release_date
-    : undefined;
+const release_date = archive.value.release_date
+  ? archive.value.release_date
+  : undefined;
 
-  const formSchema = toTypedSchema(
-    z.object({
-      title: z.string().optional(),
-      summary: z.string().optional().nullable(),
-      tags: z.array(z.string()).optional(),
-      artist: z.array(z.string()).optional(),
-      parody: z.array(z.string()).optional(),
-      character: z.array(z.string()).optional(),
-      language: z.string().optional().nullable(),
-      category: z.string().optional().nullable(),
-      url: z.array(z.string().url()).optional(),
-      release_date: z.string().optional(),
-    })
+const formSchema = toTypedSchema(
+  z.object({
+    title: z.string().optional(),
+    summary: z.string().optional().nullable(),
+    tags: z.array(z.string()).optional(),
+    artist: z.array(z.string()).optional(),
+    parody: z.array(z.string()).optional(),
+    character: z.array(z.string()).optional(),
+    language: z.string().optional().nullable(),
+    category: z.string().optional().nullable(),
+    url: z.array(z.string().url()).optional(),
+    release_date: z.string().optional(),
+  }),
+);
+
+const { handleSubmit, setFieldValue, values } = useForm({
+  validationSchema: formSchema,
+  initialValues: {
+    title: archive.value.title,
+    summary: archive.value.summary,
+    tags: tags,
+    artist: artists,
+    parody: parodies,
+    character: characters,
+    language: archive.value.language,
+    category: archive.value.category,
+    url: urls,
+    release_date: release_date,
+  },
+});
+
+const value = computed({
+  get: () =>
+    values.release_date ? parseAbsolute(values.release_date, "UTC") : undefined,
+  set: (val) => val,
+});
+
+const placeholder = ref();
+const { contains } = useFilter({ sensitivity: "base" });
+
+const { data: allArtists } = await useLazyFetch("/api/artist");
+const openArtist = ref(false);
+const searchArtist = ref("");
+const filteredArtists = computed(() => {
+  const options = allArtists.value.filter(
+    (i: { name: string }) => !values.artist?.includes(i.name),
   );
+  return searchArtist.value
+    ? options.filter((option: { name: string }) =>
+        contains(option.name, searchArtist.value),
+      )
+    : options;
+});
 
-  const { handleSubmit, setFieldValue, values } = useForm({
-    validationSchema: formSchema,
-    initialValues: {
-      title: archive.value.title,
-      summary: archive.value.summary,
-      tags: tags,
-      artist: artists,
-      parody: parodies,
-      character: characters,
-      language: archive.value.language,
-      category: archive.value.category,
-      url: urls,
-      release_date: release_date,
+const { data: allTags } = await useLazyFetch("/api/tag");
+const openTag = ref(false);
+const searchTag = ref("");
+const filteredTags = computed(() => {
+  const options = allTags.value.filter(
+    (i: { name: string }) => !values.tags?.includes(i.name),
+  );
+  return searchTag.value
+    ? options.filter((option: { name: string }) =>
+        contains(option.name, searchTag.value),
+      )
+    : options;
+});
+
+const { data: allParodies } = await useLazyFetch("/api/parody");
+const openParody = ref(false);
+const searchParody = ref("");
+const filteredParodies = computed(() => {
+  const options = allParodies.value.filter(
+    (i: { name: string }) => !values.parody?.includes(i.name),
+  );
+  return searchParody.value
+    ? options.filter((option: { name: string }) =>
+        contains(option.name, searchParody.value),
+      )
+    : options;
+});
+
+const { data: allCharacters } = await useLazyFetch("/api/character");
+const openCharacter = ref(false);
+const searchCharacter = ref("");
+const filteredCharacters = computed(() => {
+  const options = allCharacters.value.filter(
+    (i: { name: string }) => !values.character?.includes(i.name),
+  );
+  return searchCharacter.value
+    ? options.filter((option: { name: string }) =>
+        contains(option.name, searchCharacter.value),
+      )
+    : options;
+});
+
+const { data: allLanguages } = await useLazyFetch("/api/lang");
+const openLanguage = ref(false);
+const searchLanguage = ref("");
+const filteredLanguages = computed(() => {
+  const options = allLanguages.value.filter(
+    (i: string) => !values.language?.includes(i),
+  );
+  return searchLanguage.value
+    ? options.filter((option: string) => contains(option, searchLanguage.value))
+    : options;
+});
+
+const { data: allCategories } = await useLazyFetch("/api/category");
+const openCategory = ref(false);
+const searchCategory = ref("");
+const filteredCategories = computed(() => {
+  const options = allCategories.value.filter(
+    (i: string) => !values.category?.includes(i),
+  );
+  return searchCategory.value
+    ? options.filter((option: string) => contains(option, searchCategory.value))
+    : options;
+});
+
+function updateData(values) {
+  // For some values want to overwrite for some not
+  // URLs want to append
+  setFieldValue("title", values.title);
+  setFieldValue("summary", values.summary);
+  setFieldValue("artist", values.artist);
+  setFieldValue("tags", values.tags);
+  setFieldValue("parody", values.parody);
+  setFieldValue("character", values.character);
+  setFieldValue("language", values.language);
+  setFieldValue("category", values.category);
+  setFieldValue("release_date", values.release_date);
+  setFieldValue("url", values.url);
+}
+
+const id = useRoute().params.id;
+const onSubmit = handleSubmit((values) => {
+  $fetch(`/api/a/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(values, null, 2),
+    onResponseError({ response }) {
+      const err = JSON.stringify(response._data.data, null, 2);
+      const test = JSON.parse(err);
+      if (test.language) {
+        toast.error(h("pre", test.language));
+      } else if (test.title) {
+        toast.error(h("pre", test.title));
+      }
+    },
+    onResponse({ response }) {
+      if (response.ok) {
+        refreshNuxtData("archive");
+        toast.success("Successfully updated archive.");
+      }
     },
   });
-
-  const value = computed({
-    get: () =>
-      values.release_date
-        ? parseAbsolute(values.release_date, "UTC")
-        : undefined,
-    set: (val) => val,
-  });
-
-  const placeholder = ref();
-  const { contains } = useFilter({ sensitivity: "base" });
-
-  const { data: allArtists } = await useLazyFetch("/api/artist");
-  const openArtist = ref(false);
-  const searchArtist = ref("");
-  const filteredArtists = computed(() => {
-    const options = allArtists.value.filter(
-      (i: { name: string }) => !values.artist?.includes(i.name)
-    );
-    return searchArtist.value
-      ? options.filter((option: { name: string }) =>
-          contains(option.name, searchArtist.value)
-        )
-      : options;
-  });
-
-  const { data: allTags } = await useLazyFetch("/api/tag");
-  const openTag = ref(false);
-  const searchTag = ref("");
-  const filteredTags = computed(() => {
-    const options = allTags.value.filter(
-      (i: { name: string }) => !values.tags?.includes(i.name)
-    );
-    return searchTag.value
-      ? options.filter((option: { name: string }) =>
-          contains(option.name, searchTag.value)
-        )
-      : options;
-  });
-
-  const { data: allParodies } = await useLazyFetch("/api/parody");
-  const openParody = ref(false);
-  const searchParody = ref("");
-  const filteredParodies = computed(() => {
-    const options = allParodies.value.filter(
-      (i: { name: string }) => !values.parody?.includes(i.name)
-    );
-    return searchParody.value
-      ? options.filter((option: { name: string }) =>
-          contains(option.name, searchParody.value)
-        )
-      : options;
-  });
-
-  const { data: allCharacters } = await useLazyFetch("/api/character");
-  const openCharacter = ref(false);
-  const searchCharacter = ref("");
-  const filteredCharacters = computed(() => {
-    const options = allCharacters.value.filter(
-      (i: { name: string }) => !values.character?.includes(i.name)
-    );
-    return searchCharacter.value
-      ? options.filter((option: { name: string }) =>
-          contains(option.name, searchCharacter.value)
-        )
-      : options;
-  });
-
-  const { data: allLanguages } = await useLazyFetch("/api/lang");
-  const openLanguage = ref(false);
-  const searchLanguage = ref("");
-  const filteredLanguages = computed(() => {
-    const options = allLanguages.value.filter(
-      (i: string) => !values.language?.includes(i)
-    );
-    return searchLanguage.value
-      ? options.filter((option: string) =>
-          contains(option, searchLanguage.value)
-        )
-      : options;
-  });
-
-  const { data: allCategories } = await useLazyFetch("/api/category");
-  const openCategory = ref(false);
-  const searchCategory = ref("");
-  const filteredCategories = computed(() => {
-    const options = allCategories.value.filter(
-      (i: string) => !values.category?.includes(i)
-    );
-    return searchCategory.value
-      ? options.filter((option: string) =>
-          contains(option, searchCategory.value)
-        )
-      : options;
-  });
-
-  const id = useRoute().params.id;
-  const onSubmit = handleSubmit((values) => {
-    $fetch(`/api/a/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(values, null, 2),
-      onResponseError({ response }) {
-        const err = JSON.stringify(response._data.data, null, 2);
-        const test = JSON.parse(err);
-        if (test.language) {
-          toast.error(h("pre", test.language));
-        } else if (test.title) {
-          toast.error(h("pre", test.title));
-        }
-      },
-      onResponse({ response }) {
-        if (response.ok) {
-          refreshNuxtData("archive");
-          toast.success("Successfully updated archive.");
-        }
-      },
-    });
-  });
+});
 </script>
 
 <template>
@@ -278,17 +297,20 @@
           <Combobox
             v-model="componentField.modelValue"
             v-model:open="openArtist"
-            :ignore-filter="true">
+            :ignore-filter="true"
+          >
             <FormControl>
               <ComboboxAnchor as-child>
                 <TagsInput
                   :model-value="componentField.modelValue"
                   class="bg-input/30 w-full"
-                  @update:model-value="componentField['onUpdate:modelValue']">
+                  @update:model-value="componentField['onUpdate:modelValue']"
+                >
                   <TagsInputItem
                     v-for="item in componentField.modelValue"
                     :key="item"
-                    :value="item">
+                    :value="item"
+                  >
                     <TagsInputItemText />
                     <TagsInputItemDelete />
                   </TagsInputItem>
@@ -301,7 +323,8 @@
                 <ComboboxList
                   :collision-padding="4"
                   :avoid-collisions="false"
-                  class="max-h-(--reka-combobox-content-available-height) w-(--reka-combobox-trigger-width)">
+                  class="max-h-(--reka-combobox-content-available-height) w-(--reka-combobox-trigger-width)"
+                >
                   <ComboboxViewport class="max-h-[40vh]">
                     <ComboboxEmpty />
                     <ComboboxGroup>
@@ -320,7 +343,8 @@
                               openArtist = false;
                             }
                           }
-                        ">
+                        "
+                      >
                         {{ artist.name }}
                       </ComboboxItem>
                     </ComboboxGroup>
@@ -342,17 +366,20 @@
           <Combobox
             v-model="componentField.modelValue"
             v-model:open="openTag"
-            :ignore-filter="true">
+            :ignore-filter="true"
+          >
             <FormControl>
               <ComboboxAnchor as-child>
                 <TagsInput
                   :model-value="componentField.modelValue"
                   class="bg-input/30 w-full"
-                  @update:model-value="componentField['onUpdate:modelValue']">
+                  @update:model-value="componentField['onUpdate:modelValue']"
+                >
                   <TagsInputItem
                     v-for="item in componentField.modelValue"
                     :key="item"
-                    :value="item">
+                    :value="item"
+                  >
                     <TagsInputItemText />
                     <TagsInputItemDelete />
                   </TagsInputItem>
@@ -365,7 +392,8 @@
                 <ComboboxList
                   :collision-padding="4"
                   :avoid-collisions="false"
-                  class="max-h-(--reka-combobox-content-available-height) w-(--reka-combobox-trigger-width)">
+                  class="max-h-(--reka-combobox-content-available-height) w-(--reka-combobox-trigger-width)"
+                >
                   <ComboboxViewport class="max-h-[40vh]">
                     <ComboboxEmpty />
                     <ComboboxGroup>
@@ -384,7 +412,8 @@
                               openTag = false;
                             }
                           }
-                        ">
+                        "
+                      >
                         {{ tag.name }}
                       </ComboboxItem>
                     </ComboboxGroup>
@@ -408,17 +437,20 @@
             <Combobox
               v-model="componentField.modelValue"
               v-model:open="openParody"
-              :ignore-filter="true">
+              :ignore-filter="true"
+            >
               <FormControl>
                 <ComboboxAnchor as-child>
                   <TagsInput
                     :model-value="componentField.modelValue"
                     class="bg-input/30 w-full"
-                    @update:model-value="componentField['onUpdate:modelValue']">
+                    @update:model-value="componentField['onUpdate:modelValue']"
+                  >
                     <TagsInputItem
                       v-for="item in componentField.modelValue"
                       :key="item"
-                      :value="item">
+                      :value="item"
+                    >
                       <TagsInputItemText />
                       <TagsInputItemDelete />
                     </TagsInputItem>
@@ -431,7 +463,8 @@
                   <ComboboxList
                     :collision-padding="4"
                     :avoid-collisions="false"
-                    class="max-h-(--reka-combobox-content-available-height) w-(--reka-combobox-trigger-width)">
+                    class="max-h-(--reka-combobox-content-available-height) w-(--reka-combobox-trigger-width)"
+                  >
                     <ComboboxViewport class="max-h-[40vh]">
                       <ComboboxEmpty />
                       <ComboboxGroup>
@@ -450,7 +483,8 @@
                                 openParody = false;
                               }
                             }
-                          ">
+                          "
+                        >
                           {{ parody.name }}
                         </ComboboxItem>
                       </ComboboxGroup>
@@ -471,17 +505,20 @@
             <Combobox
               v-model="componentField.modelValue"
               v-model:open="openCharacter"
-              :ignore-filter="true">
+              :ignore-filter="true"
+            >
               <FormControl>
                 <ComboboxAnchor as-child>
                   <TagsInput
                     :model-value="componentField.modelValue"
                     class="bg-input/30 w-full"
-                    @update:model-value="componentField['onUpdate:modelValue']">
+                    @update:model-value="componentField['onUpdate:modelValue']"
+                  >
                     <TagsInputItem
                       v-for="item in componentField.modelValue"
                       :key="item"
-                      :value="item">
+                      :value="item"
+                    >
                       <TagsInputItemText />
                       <TagsInputItemDelete />
                     </TagsInputItem>
@@ -494,7 +531,8 @@
                   <ComboboxList
                     :collision-padding="4"
                     :avoid-collisions="false"
-                    class="max-h-(--reka-combobox-content-available-height) w-(--reka-combobox-trigger-width)">
+                    class="max-h-(--reka-combobox-content-available-height) w-(--reka-combobox-trigger-width)"
+                  >
                     <ComboboxViewport class="max-h-[40vh]">
                       <ComboboxEmpty />
                       <ComboboxGroup>
@@ -513,7 +551,8 @@
                                 openCharacter = false;
                               }
                             }
-                          ">
+                          "
+                        >
                           {{ character.name }}
                         </ComboboxItem>
                       </ComboboxGroup>
@@ -537,7 +576,8 @@
             <Combobox
               v-model:model-value="componentField.modelValue"
               v-model:open="openLanguage"
-              :ignore-filter="true">
+              :ignore-filter="true"
+            >
               <FormControl>
                 <ComboboxAnchor as-child>
                   <ComboboxInput v-model="searchLanguage" as-child>
@@ -549,7 +589,8 @@
               <ComboboxList
                 :collision-padding="4"
                 :avoid-collisions="false"
-                class="max-h-(--reka-combobox-content-available-height) w-(--reka-combobox-trigger-width)">
+                class="max-h-(--reka-combobox-content-available-height) w-(--reka-combobox-trigger-width)"
+              >
                 <ComboboxEmpty />
 
                 <ComboboxGroup>
@@ -561,7 +602,8 @@
                       () => {
                         setFieldValue('language', language);
                       }
-                    ">
+                    "
+                  >
                     {{ language }}
                   </ComboboxItem>
                 </ComboboxGroup>
@@ -579,7 +621,8 @@
             <Combobox
               v-model:model-value="componentField.modelValue"
               v-model:open="openCategory"
-              :ignore-filter="true">
+              :ignore-filter="true"
+            >
               <FormControl>
                 <ComboboxAnchor as-child>
                   <ComboboxInput v-model="searchCategory" as-child>
@@ -591,7 +634,8 @@
               <ComboboxList
                 :collision-padding="4"
                 :avoid-collisions="false"
-                class="max-h-(--reka-combobox-content-available-height) w-(--reka-combobox-trigger-width)">
+                class="max-h-(--reka-combobox-content-available-height) w-(--reka-combobox-trigger-width)"
+              >
                 <ComboboxEmpty />
 
                 <ComboboxGroup>
@@ -603,7 +647,8 @@
                       () => {
                         setFieldValue('category', category);
                       }
-                    ">
+                    "
+                  >
                     {{ category }}
                   </ComboboxItem>
                 </ComboboxGroup>
@@ -626,9 +671,10 @@
                     :class="
                       cn(
                         'w-full ps-3 text-start font-normal',
-                        !value && 'text-muted-foreground'
+                        !value && 'text-muted-foreground',
                       )
-                    ">
+                    "
+                  >
                     <span>{{
                       value ? df.format(toDate(value)) : "Pick a date"
                     }}</span>
@@ -650,13 +696,14 @@
                       if (v) {
                         setFieldValue(
                           'release_date',
-                          parseZonedDateTime(v.toString()).toAbsoluteString()
+                          parseZonedDateTime(v.toString()).toAbsoluteString(),
                         );
                       } else {
                         setFieldValue('release_date', undefined);
                       }
                     }
-                  " />
+                  "
+                />
               </PopoverContent>
             </Popover>
             <FormDescription />
@@ -673,11 +720,13 @@
             <TagsInput
               :model-value="componentField.modelValue"
               class="bg-input/30"
-              @update:model-value="componentField['onUpdate:modelValue']">
+              @update:model-value="componentField['onUpdate:modelValue']"
+            >
               <TagsInputItem
                 v-for="item in componentField.modelValue"
                 :key="item"
-                :value="item">
+                :value="item"
+              >
                 <TagsInputItemText />
                 <TagsInputItemDelete />
               </TagsInputItem>
@@ -689,6 +738,21 @@
         </FormItem>
       </FormField>
       <div class="flex gap-2 flex-1">
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button variant="secondary" class="flex-1 bg-muted"
+              >Fetch with...</Button
+            >
+          </DropdownMenuTrigger>
+          <DropdownMenuContent class="w-(--reka-dropdown-menu-trigger-width)">
+            <UpdateMetadataDialog
+              v-for="source in sources"
+              :key="source.id"
+              :source="source"
+              @save="updateData"
+            />
+          </DropdownMenuContent>
+        </DropdownMenu>
         <Button class="w-full flex-1" type="submit">Save</Button>
       </div>
     </form>
