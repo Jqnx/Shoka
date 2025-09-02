@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"Shoka/internal/language"
 	"Shoka/internal/models"
 	"encoding/xml"
 	"fmt"
@@ -56,8 +57,10 @@ func (m *ComicInfo) getSeries() *[]models.Parody {
 	for item := range list {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
-		se := models.Parody{Parody: b}
-		series = append(series, se)
+		if b != "unknown" {
+			se := models.Parody{Parody: b}
+			series = append(series, se)
+		}
 	}
 	return &series
 }
@@ -69,8 +72,10 @@ func (m *ComicInfo) getCharacters() *[]models.Character {
 	for item := range list {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
-		character := models.Character{Character: b}
-		characters = append(characters, character)
+		if b != "unknown" {
+			character := models.Character{Character: b}
+			characters = append(characters, character)
+		}
 	}
 	return &characters
 }
@@ -99,6 +104,12 @@ func (m *ComicInfo) getWriter() *[]models.Artist {
 		writers = append(writers, writer)
 	}
 	return &writers
+}
+
+func (m *ComicInfo) getLanguage() string {
+	conv := language.NewLanguageConverter()
+	lang, _ := conv.ToISO(m.Language)
+	return lang
 }
 
 func (m *ComicInfo) getReleaseDate(year, month, day int) *time.Time {
@@ -145,6 +156,7 @@ func (m *ComicInfo) GetMetadata() []models.Metadata {
 	characters := m.getCharacters()
 	tags := m.getTags()
 	writers := m.getWriter()
+	lang := m.getLanguage()
 	releaseDate := m.getReleaseDate(m.Year, m.Month, m.Day)
 	meta := &models.Metadata{
 		Title:       m.Title,
@@ -155,7 +167,7 @@ func (m *ComicInfo) GetMetadata() []models.Metadata {
 		Character:   *characters,
 		Tags:        *tags,
 		Artist:      *writers,
-		Language:    strings.ToLower(m.Language),
+		Language:    lang,
 		ReleaseDate: releaseDate,
 		PageCount:   m.PageCount,
 	}

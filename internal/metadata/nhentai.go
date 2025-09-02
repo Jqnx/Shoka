@@ -2,6 +2,7 @@ package metadata
 
 import (
 	"Shoka/internal/config"
+	"Shoka/internal/language"
 	"Shoka/internal/models"
 	"encoding/json"
 	"fmt"
@@ -64,7 +65,7 @@ func (m *NHMetadata) splitTags() (*[]models.Artist, *[]models.Character, *[]mode
 	var characters []models.Character
 	var parodies []models.Parody
 	var tags []models.Tag
-	var language string
+	var lang string
 	var category string
 	for _, item := range m.Tags {
 		switch item.Type {
@@ -94,7 +95,9 @@ func (m *NHMetadata) splitTags() (*[]models.Artist, *[]models.Character, *[]mode
 			}
 		case "language":
 			if item.Name != "translated" {
-				language = item.Name
+				conv := language.NewLanguageConverter()
+				tempLang, _ := conv.ToISO(item.Name)
+				lang = tempLang
 			}
 		case "parody":
 			if strings.Contains(item.Name, "|") {
@@ -112,7 +115,7 @@ func (m *NHMetadata) splitTags() (*[]models.Artist, *[]models.Character, *[]mode
 			tags = append(tags, tag)
 		}
 	}
-	return &artists, &characters, &parodies, &tags, &category, &language
+	return &artists, &characters, &parodies, &tags, &category, &lang
 }
 
 func (m *NHMetadata) getUrl() *[]models.URL {
