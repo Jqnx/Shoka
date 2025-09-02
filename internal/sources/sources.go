@@ -20,12 +20,9 @@ type Sources interface {
 func NewSource(source string, cfg *config.Config) (Sources, error) {
 	switch source {
 	case config.SourceNhentai, config.SourceNhentaiSearch:
-		switch {
-		case cfg.Sources.NHentai.CSRFToken == "":
-			return nil, fmt.Errorf("missing CSRFToken")
-		case cfg.Sources.NHentai.UserAgent == "":
-			return nil, fmt.Errorf("missing UserAgent")
-		default:
+		if cfg.Sources.Flaresolverr.URL == "" {
+			return nil, fmt.Errorf("this source requires flaresolverr")
+		} else {
 			return nhentai.NewNhentaiSource(cfg, source), nil
 		}
 	}

@@ -4,6 +4,7 @@ import (
 	"Shoka/internal/config"
 	"Shoka/internal/metadata"
 	"Shoka/internal/models"
+	"Shoka/internal/sources/flaresolverr"
 	"fmt"
 )
 
@@ -43,7 +44,7 @@ func (s *Nhentai) GetMetadataByID() ([]byte, error) {
 
 	gallery := fmt.Sprintf("%v/gallery/%s", config.NHApi, s.GalleryID)
 
-	byte, err := s.Request(gallery)
+	byte, err := flaresolverr.Request(s.cfg, gallery)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +55,7 @@ func (s *Nhentai) GetMetadataByID() ([]byte, error) {
 func (s *Nhentai) GetMetadataByTitle(title string) ([]byte, error) {
 	gallery := fmt.Sprintf("%v/galleries/search?query=%s", config.NHApi, title)
 
-	byte, err := s.Request(gallery)
+	byte, err := flaresolverr.Request(s.cfg, gallery)
 	if err != nil {
 		return nil, err
 	}
