@@ -3,6 +3,7 @@ module Shoka
 go 1.24.6
 
 require (
+	github.com/PuerkitoBio/goquery v1.10.3
 	github.com/a-h/templ v0.3.833
 	github.com/bodgit/sevenzip v1.6.0
 	github.com/cavaliergopher/grab/v3 v3.0.1
@@ -11,6 +12,7 @@ require (
 	github.com/gin-contrib/cors v1.7.5
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-playground/validator/v10 v10.26.0
+	github.com/google/brotli/go/cbrotli v1.1.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/h2non/bimg v1.1.9
@@ -34,6 +36,7 @@ require (
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
+	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/bodgit/plumbing v1.3.0 // indirect
 	github.com/bodgit/windows v1.0.1 // indirect
 	github.com/bytedance/sonic v1.13.2 // indirect
