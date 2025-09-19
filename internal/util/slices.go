@@ -1,7 +1,9 @@
 package util
 
 import (
+	"Shoka/internal/repository"
 	"slices"
+	"strings"
 )
 
 func RemoveDuplicatesStrPointer(in []*string) []string {
@@ -27,4 +29,36 @@ func MatchStringsInSlices(in1 []string, in2 []string) []string {
 		}
 	}
 	return list
+}
+
+func ToString(in any) string {
+	var slice []string
+
+	switch in := in.(type) {
+	case []repository.Artist:
+		for _, i := range in {
+			slice = append(slice, i.Name)
+		}
+	case []repository.Tag:
+		for _, i := range in {
+			slice = append(slice, i.Name)
+		}
+	case []repository.Character:
+		for _, i := range in {
+			slice = append(slice, i.Name)
+		}
+	case []repository.Parody:
+		for _, i := range in {
+			slice = append(slice, i.Name)
+		}
+	case []repository.GetArchiveURLsRow:
+		for _, i := range in {
+			slice = append(slice, i.Url)
+		}
+	default:
+		return ""
+	}
+
+	out := strings.Join(slice, ", ")
+	return out
 }
