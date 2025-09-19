@@ -1,13 +1,7 @@
 <script lang="ts" setup>
 import { toast } from "vue-sonner";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-} from "@/components/ui/form";
+import { FormControl, FormField, FormItem } from "@/components/ui/form";
 import z from "zod";
 import { Plus } from "lucide-vue-next";
 import type { Download } from "~/types/types";
@@ -45,7 +39,6 @@ watch(data, async (newData) => {
 
   const message = JSON.parse(newData);
   if (message.type === "download_update") {
-    console.log(message)
     const updatedDownload = message.data;
     const index = downloads.value.findIndex((d) => d.id === updatedDownload.id);
 
@@ -73,7 +66,7 @@ useHead({
 
 const formSchema = toTypedSchema(
   z.object({
-    url: z.string().url().nonempty(),
+    url: z.string().nonempty(),
   }),
 );
 
@@ -83,16 +76,20 @@ const { handleSubmit, errors } = useForm({
 
 // TODO: Update to support failed downloads (url not supported)
 const addDownload = handleSubmit((values) => {
+  const list = values.url.split("\n");
   $fetch("/api/download", {
     method: "post",
-    body: JSON.stringify(values, null, 2),
+    body: {
+      url: list,
+    },
     onResponseError({ response }) {
       const err = JSON.stringify(response._data.data, null, 2);
-      const test = JSON.parse(err);
-      toast.error(h("pre", test.url));
+      toast.error(h("pre", JSON.parse(err)));
     },
-    onResponse() {
-      toast.success(h("pre", "Added download."));
+    onResponse({ response }) {
+      if (response.ok) {
+        toast.success(h("pre", "Added download."));
+      }
     },
   });
 });
@@ -131,24 +128,22 @@ onMounted(() => {
       <FormField v-slot="{ componentField }" name="url">
         <FormItem class="w-full">
           <FormControl>
-            <Input
+            <Textarea
               class="rounded-r-none w-full"
-              type="url"
               placeholder="Add download url"
               v-bind="componentField"
             />
           </FormControl>
-          <FormLabel v-if="errors.url">
-            <p class="text-destructive">
-              {{ errors.url }}
-            </p>
-          </FormLabel>
         </FormItem>
       </FormField>
-      <Button class="rounded-l-none stroke-primary-foreground" type="submit">
+      <Button
+        class="rounded-l-none stroke-primary-foreground h-auto"
+        type="submit"
+      >
         <Plus />
       </Button>
     </form>
+    <Label v-if="errors.url" class="text-destructive">{{ errors.url }}</Label>
     <div class="flex flex-col items-center w-full gap-2">
       <h1 class="text-2xl font-semibold py-4">Downloads Queue</h1>
 
@@ -159,10 +154,7 @@ onMounted(() => {
         No downloads yet.
       </div>
 
-      <div
-        v-else-if="!pending"
-        class="flex flex-col items-center w-full gap-2 divide-y divide-gray-200"
-      >
+      <div v-else-if="!pending" class="flex flex-col items-center w-full gap-2">
         <DownloadItem
           v-for="download in downloads"
           :key="download.id"
