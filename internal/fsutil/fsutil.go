@@ -1,7 +1,7 @@
+// Package fsutil implements utility pertaining to interacting with the filesystem
 package fsutil
 
 import (
-	"Shoka/internal/config"
 	"archive/zip"
 	"bytes"
 	"crypto/sha256"
@@ -14,6 +14,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"Shoka/internal/config"
 
 	"github.com/bodgit/sevenzip"
 	"github.com/gabriel-vasile/mimetype"
@@ -415,6 +417,7 @@ func Unzip(src, dest string) error {
 	return nil
 }
 
+// Zip creates a new zip archive at the destination containing all content from a given source directory
 func Zip(src, dst string) error {
 	zipFile, err := os.Create(dst)
 	if err != nil {
@@ -486,7 +489,7 @@ func CreateDir(dir string) error {
 		return err
 	}
 	// Use absolute path to create all necessary folders
-	if err := os.MkdirAll(fp, 0777); err != nil {
+	if err := os.MkdirAll(fp, 0o777); err != nil {
 		return err
 	}
 	return nil
@@ -503,7 +506,7 @@ func Remove(src string) error {
 		}
 	} else {
 		if err := os.Remove(src); err != nil {
-			return err
+			return fmt.Errorf("error removing file: %v", err)
 		}
 	}
 	return nil
