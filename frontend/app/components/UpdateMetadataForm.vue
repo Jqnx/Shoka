@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/combobox";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon } from "lucide-vue-next";
+import { CalendarIcon, XIcon, CheckIcon } from "lucide-vue-next";
 import { useFilter } from "reka-ui";
 import ComboboxViewport from "./ui/combobox/ComboboxViewport.vue";
 import Button from "./ui/button/Button.vue";
@@ -53,6 +53,10 @@ const meta = props.new[0];
 const emit = defineEmits(["save", "close"]);
 
 const { data: archive } = useNuxtData("archive");
+
+const df = new DateFormatter("en-GB", {
+  dateStyle: "long",
+});
 
 function checkString(a: string) {
   if (!a) {
@@ -96,10 +100,6 @@ const newTags = toArray(meta.tags);
 const newParodies = toArray(meta.parodies);
 const newCharacters = toArray(meta.characters);
 const newUrls = toArray(meta.urls);
-
-const df = new DateFormatter("en-GB", {
-  dateStyle: "long",
-});
 
 const formSchema = toTypedSchema(
   z.object({
@@ -219,6 +219,19 @@ const filteredCategories = computed(() => {
     : options;
 });
 
+const activeTitle = ref(false);
+const activeSummary = ref(false);
+const activeArtists = ref(false);
+const activeTags = ref(false);
+const activeParodies = ref(false);
+const activeCharacters = ref(false);
+const activeLanguage = ref(false);
+const activeCategory = ref(false);
+const activeReleaseDate = ref(false);
+const activeURLs = ref(false);
+
+console.log(oldArtists);
+
 //const id = useRoute().params.id;
 const onSubmit = handleSubmit((values) => {
   emit("save", values);
@@ -237,7 +250,24 @@ const onSubmit = handleSubmit((values) => {
       >
         <Label>Title</Label>
         <div class="flex items-center justify-center gap-2 col-span-6">
-          <div class="flex-1 pb-2">
+          <div class="flex flex-1 pb-2">
+            <Button
+              variant="outline"
+              class="rounded-r-none h-auto"
+              :disabled="checkString(archive.title) === ''"
+              type="button"
+              @click="
+                () => {
+                  if (!activeTitle) {
+                    activeTitle = true;
+                    setFieldValue('title', checkString(archive.title));
+                  }
+                }
+              "
+            >
+              <CheckIcon v-if="activeTitle" class="stroke-success" />
+              <XIcon v-else class="stroke-destructive" />
+            </Button>
             <Input
               type="text"
               :model-value="checkString(archive.title)"
@@ -248,6 +278,22 @@ const onSubmit = handleSubmit((values) => {
           <FormField v-slot="{ componentField }" name="title">
             <FormItem class="flex-1">
               <FormControl>
+                <Button
+                  variant="outline"
+                  class="rounded-r-none h-auto"
+                  type="button"
+                  @click="
+                    () => {
+                      if (activeTitle) {
+                        activeTitle = false;
+                        setFieldValue('title', componentField.modelValue);
+                      }
+                    }
+                  "
+                >
+                  <CheckIcon v-if="!activeTitle" class="stroke-success" />
+                  <XIcon v-else class="stroke-destructive" />
+                </Button>
                 <Input type="text" v-bind="componentField" />
               </FormControl>
               <FormDescription />
@@ -264,20 +310,53 @@ const onSubmit = handleSubmit((values) => {
       >
         <Label>Summary</Label>
         <div class="flex items-center justify-center gap-2 col-span-6">
-          <div class="flex-1 pb-2">
+          <div class="flex flex-1 pb-2">
+            <Button
+              variant="outline"
+              class="rounded-r-none h-auto"
+              :disabled="checkString(archive.summary) === ''"
+              type="button"
+              @click="
+                () => {
+                  if (!activeSummary) {
+                    activeSummary = true;
+                    setFieldValue('summary', checkString(archive.summary));
+                  }
+                }
+              "
+            >
+              <CheckIcon v-if="activeSummary" class="stroke-success" />
+              <XIcon v-else class="stroke-destructive" />
+            </Button>
             <Textarea
               type="text"
-              class="resize-none disabled:opacity-80 text-muted-foreground"
+              class="resize-none disabled:opacity-80 text-muted-foreground rounded-l-none"
               :model-value="checkString(archive.summary)"
               disabled
             />
           </div>
           <FormField v-slot="{ componentField }" name="summary">
-            <FormItem class="flex-1">
+            <FormItem class="flex flex-1 gap-0 pb-2">
               <FormControl>
+                <Button
+                  variant="outline"
+                  class="rounded-r-none h-auto"
+                  type="button"
+                  @click="
+                    () => {
+                      if (activeSummary) {
+                        activeSummary = false;
+                        setFieldValue('summary', componentField.modelValue);
+                      }
+                    }
+                  "
+                >
+                  <CheckIcon v-if="!activeSummary" class="stroke-success" />
+                  <XIcon v-else class="stroke-destructive" />
+                </Button>
                 <Textarea
                   type="text"
-                  class="resize-none"
+                  class="rounded-l-none"
                   v-bind="componentField"
                 />
               </FormControl>
@@ -295,10 +374,27 @@ const onSubmit = handleSubmit((values) => {
       >
         <Label>Artist</Label>
         <div class="flex items-center justify-center gap-2 col-span-6">
-          <div class="flex-1 pb-2">
+          <div class="flex flex-1 pb-2">
+            <Button
+              variant="outline"
+              class="rounded-r-none h-auto"
+              :disabled="oldArtists === undefined"
+              type="button"
+              @click="
+                () => {
+                  if (!activeArtists) {
+                    activeArtists = true;
+                    setFieldValue('artist', oldArtists);
+                  }
+                }
+              "
+            >
+              <CheckIcon v-if="activeArtists" class="stroke-success" />
+              <XIcon v-else class="stroke-destructive" />
+            </Button>
             <TagsInput
               :model-value="oldArtists"
-              class="w-full bg-input/30 opacity-80 min-h-10 text-muted-foreground"
+              class="w-full bg-input/30 opacity-80 min-h-10 text-muted-foreground rounded-l-none"
               disabled
             >
               <TagsInputItem
@@ -313,7 +409,23 @@ const onSubmit = handleSubmit((values) => {
           </div>
 
           <FormField v-slot="{ componentField }" name="artist">
-            <FormItem class="flex-1">
+            <FormItem class="flex flex-1 gap-0 pb-2">
+              <Button
+                variant="outline"
+                class="rounded-r-none h-auto"
+                type="button"
+                @click="
+                  () => {
+                    if (activeArtists) {
+                      activeArtists = false;
+                      setFieldValue('artist', componentField.modelValue);
+                    }
+                  }
+                "
+              >
+                <CheckIcon v-if="!activeArtists" class="stroke-success" />
+                <XIcon v-else class="stroke-destructive" />
+              </Button>
               <Combobox
                 v-model="componentField.modelValue"
                 v-model:open="openArtist"
@@ -323,7 +435,7 @@ const onSubmit = handleSubmit((values) => {
                   <ComboboxAnchor as-child>
                     <TagsInput
                       :model-value="componentField.modelValue"
-                      class="bg-input/30 w-full"
+                      class="bg-input/30 w-full rounded-l-none"
                       @update:model-value="
                         componentField['onUpdate:modelValue']
                       "
@@ -391,10 +503,27 @@ const onSubmit = handleSubmit((values) => {
       >
         <Label>Tags</Label>
         <div class="flex items-center justify-center gap-2 col-span-6">
-          <div class="flex-1 pb-2">
+          <div class="flex flex-1 pb-2">
+            <Button
+              variant="outline"
+              class="rounded-r-none h-auto"
+              :disabled="oldTags === undefined"
+              type="button"
+              @click="
+                () => {
+                  if (!activeTags) {
+                    activeTags = true;
+                    setFieldValue('tags', oldTags);
+                  }
+                }
+              "
+            >
+              <CheckIcon v-if="activeTags" class="stroke-success" />
+              <XIcon v-else class="stroke-destructive" />
+            </Button>
             <TagsInput
               :model-value="oldTags"
-              class="w-full bg-input/30 opacity-80 min-h-10"
+              class="w-full bg-input/30 opacity-80 min-h-10 rounded-l-none"
               disabled
             >
               <TagsInputItem
@@ -410,7 +539,23 @@ const onSubmit = handleSubmit((values) => {
           </div>
 
           <FormField v-slot="{ componentField }" name="tags">
-            <FormItem class="flex-1">
+            <FormItem class="flex flex-1 pb-2 gap-0">
+              <Button
+                variant="outline"
+                class="rounded-r-none h-auto"
+                type="button"
+                @click="
+                  () => {
+                    if (activeTags) {
+                      activeTags = false;
+                      setFieldValue('tags', componentField.modelValue);
+                    }
+                  }
+                "
+              >
+                <CheckIcon v-if="!activeTags" class="stroke-success" />
+                <XIcon v-else class="stroke-destructive" />
+              </Button>
               <Combobox
                 v-model="componentField.modelValue"
                 v-model:open="openTag"
@@ -420,7 +565,7 @@ const onSubmit = handleSubmit((values) => {
                   <ComboboxAnchor as-child>
                     <TagsInput
                       :model-value="componentField.modelValue"
-                      class="bg-input/30 w-full"
+                      class="bg-input/30 w-full rounded-l-none"
                       @update:model-value="
                         componentField['onUpdate:modelValue']
                       "
@@ -488,10 +633,27 @@ const onSubmit = handleSubmit((values) => {
       >
         <Label>Parodies</Label>
         <div class="flex items-center justify-center gap-2 col-span-6">
-          <div class="flex-1 pb-2">
+          <div class="flex flex-1 pb-2">
+            <Button
+              variant="outline"
+              class="rounded-r-none h-auto"
+              :disabled="oldParodies === undefined"
+              type="button"
+              @click="
+                () => {
+                  if (!activeParodies) {
+                    activeParodies = true;
+                    setFieldValue('parody', oldParodies);
+                  }
+                }
+              "
+            >
+              <CheckIcon v-if="activeParodies" class="stroke-success" />
+              <XIcon v-else class="stroke-destructive" />
+            </Button>
             <TagsInput
               :model-value="oldParodies"
-              class="w-full bg-input/30 opacity-80 min-h-10"
+              class="w-full bg-input/30 opacity-80 min-h-10 rounded-l-none"
             >
               <TagsInputItem
                 v-for="item in oldParodies"
@@ -506,7 +668,23 @@ const onSubmit = handleSubmit((values) => {
           </div>
 
           <FormField v-slot="{ componentField }" name="parody">
-            <FormItem class="flex-1">
+            <FormItem class="flex flex-1 gap-0 pb-2">
+              <Button
+                variant="outline"
+                class="rounded-r-none h-auto"
+                type="button"
+                @click="
+                  () => {
+                    if (activeParodies) {
+                      activeParodies = false;
+                      setFieldValue('parody', componentField.modelValue);
+                    }
+                  }
+                "
+              >
+                <CheckIcon v-if="!activeParodies" class="stroke-success" />
+                <XIcon v-else class="stroke-destructive" />
+              </Button>
               <Combobox
                 v-model="componentField.modelValue"
                 v-model:open="openParody"
@@ -516,7 +694,7 @@ const onSubmit = handleSubmit((values) => {
                   <ComboboxAnchor as-child>
                     <TagsInput
                       :model-value="componentField.modelValue"
-                      class="bg-input/30 w-full"
+                      class="bg-input/30 w-full rounded-l-none"
                       @update:model-value="
                         componentField['onUpdate:modelValue']
                       "
@@ -584,10 +762,27 @@ const onSubmit = handleSubmit((values) => {
       >
         <Label>Characters</Label>
         <div class="flex items-center justify-center gap-2 col-span-6">
-          <div class="flex-1 pb-2">
+          <div class="flex flex-1 pb-2">
+            <Button
+              variant="outline"
+              class="rounded-r-none h-auto"
+              :disabled="oldCharacters === undefined"
+              type="button"
+              @click="
+                () => {
+                  if (!activeCharacters) {
+                    activeCharacters = true;
+                    setFieldValue('character', oldCharacters);
+                  }
+                }
+              "
+            >
+              <CheckIcon v-if="activeCharacters" class="stroke-success" />
+              <XIcon v-else class="stroke-destructive" />
+            </Button>
             <TagsInput
               :model-value="oldCharacters"
-              class="w-full bg-input/30 opacity-80 min-h-10"
+              class="w-full bg-input/30 opacity-80 min-h-10 rounded-l-none"
             >
               <TagsInputItem
                 v-for="item in oldCharacters"
@@ -602,7 +797,23 @@ const onSubmit = handleSubmit((values) => {
           </div>
 
           <FormField v-slot="{ componentField }" name="character">
-            <FormItem class="flex-1">
+            <FormItem class="flex flex-1 gap-0 pb-2">
+              <Button
+                variant="outline"
+                class="rounded-r-none h-auto"
+                type="button"
+                @click="
+                  () => {
+                    if (activeCharacters) {
+                      activeCharacters = false;
+                      setFieldValue('character', componentField.modelValue);
+                    }
+                  }
+                "
+              >
+                <CheckIcon v-if="!activeCharacters" class="stroke-success" />
+                <XIcon v-else class="stroke-destructive" />
+              </Button>
               <Combobox
                 v-model="componentField.modelValue"
                 v-model:open="openCharacter"
@@ -612,7 +823,7 @@ const onSubmit = handleSubmit((values) => {
                   <ComboboxAnchor as-child>
                     <TagsInput
                       :model-value="componentField.modelValue"
-                      class="bg-input/30 w-full"
+                      class="bg-input/30 w-full rounded-l-none"
                       @update:model-value="
                         componentField['onUpdate:modelValue']
                       "
@@ -680,16 +891,49 @@ const onSubmit = handleSubmit((values) => {
       >
         <Label>Language</Label>
         <div class="flex items-center justify-center gap-2 col-span-6">
-          <div class="flex-1 pb-2">
+          <div class="flex flex-1 pb-2">
+            <Button
+              variant="outline"
+              class="rounded-r-none h-auto"
+              :disabled="checkString(archive.language) === ''"
+              type="button"
+              @click="
+                () => {
+                  if (!activeLanguage) {
+                    activeLanguage = true;
+                    setFieldValue('language', checkString(archive.language));
+                  }
+                }
+              "
+            >
+              <CheckIcon v-if="activeLanguage" class="stroke-success" />
+              <XIcon v-else class="stroke-destructive" />
+            </Button>
             <Input
-              class="w-full text-muted-foreground disabled:opacity-80 h-10"
+              class="w-full text-muted-foreground disabled:opacity-80 h-10 rounded-l-none"
               type="text"
               :model-value="checkString(archive.language)"
               disabled
             />
           </div>
           <FormField v-slot="{ componentField }" name="language">
-            <FormItem class="flex-1">
+            <FormItem class="flex flex-1 gap-0 pb-2 items-center">
+              <Button
+                variant="outline"
+                class="rounded-r-none min-h-10 h-auto"
+                type="button"
+                @click="
+                  () => {
+                    if (activeLanguage) {
+                      activeLanguage = false;
+                      setFieldValue('language', componentField.modelValue);
+                    }
+                  }
+                "
+              >
+                <CheckIcon v-if="!activeLanguage" class="stroke-success" />
+                <XIcon v-else class="stroke-destructive" />
+              </Button>
               <Combobox
                 v-model:model-value="componentField.modelValue"
                 v-model:open="openLanguage"
@@ -699,7 +943,7 @@ const onSubmit = handleSubmit((values) => {
                   <ComboboxAnchor as-child>
                     <ComboboxInput v-model="searchLanguage" as-child>
                       <Input
-                        class="w-full"
+                        class="w-full rounded-l-none"
                         type="text"
                         v-bind="componentField"
                       />
@@ -744,16 +988,49 @@ const onSubmit = handleSubmit((values) => {
       >
         <Label>Category</Label>
         <div class="flex items-center justify-center gap-2 col-span-6">
-          <div class="flex-1 pb-2">
+          <div class="flex flex-1 pb-2">
+            <Button
+              variant="outline"
+              class="rounded-r-none h-auto"
+              :disabled="checkString(archive.category) === ''"
+              type="button"
+              @click="
+                () => {
+                  if (!activeCategory) {
+                    activeCategory = true;
+                    setFieldValue('category', checkString(archive.category));
+                  }
+                }
+              "
+            >
+              <CheckIcon v-if="activeCategory" class="stroke-success" />
+              <XIcon v-else class="stroke-destructive" />
+            </Button>
             <Input
-              class="w-full text-muted-foreground disabled:opacity-80 h-10"
+              class="w-full text-muted-foreground disabled:opacity-80 h-10 rounded-l-none"
               type="text"
               :model-value="checkString(archive.category)"
               disabled
             />
           </div>
           <FormField v-slot="{ componentField }" name="category">
-            <FormItem class="flex-1">
+            <FormItem class="flex flex-1 gap-0 pb-2 items-center">
+              <Button
+                variant="outline"
+                class="rounded-r-none min-h-10 h-auto"
+                type="button"
+                @click="
+                  () => {
+                    if (activeCategory) {
+                      activeCategory = false;
+                      setFieldValue('category', componentField.modelValue);
+                    }
+                  }
+                "
+              >
+                <CheckIcon v-if="!activeCategory" class="stroke-success" />
+                <XIcon v-else class="stroke-destructive" />
+              </Button>
               <Combobox
                 v-model:model-value="componentField.modelValue"
                 v-model:open="openCategory"
@@ -763,7 +1040,7 @@ const onSubmit = handleSubmit((values) => {
                   <ComboboxAnchor as-child>
                     <ComboboxInput v-model="searchCategory" as-child>
                       <Input
-                        class="w-full"
+                        class="w-full rounded-l-none"
                         type="text"
                         v-bind="componentField"
                       />
@@ -808,12 +1085,32 @@ const onSubmit = handleSubmit((values) => {
       >
         <Label>Release Date</Label>
         <div class="flex items-center justify-center gap-2 col-span-6">
-          <div class="flex-1 pb-2">
+          <div class="flex flex-1 pb-2">
+            <Button
+              variant="outline"
+              class="rounded-r-none h-auto"
+              :disabled="oldReleaseDate === undefined"
+              type="button"
+              @click="
+                () => {
+                  if (!activeReleaseDate) {
+                    activeReleaseDate = true;
+                    setFieldValue(
+                      'release_date',
+                      oldReleaseDate?.toAbsoluteString(),
+                    );
+                  }
+                }
+              "
+            >
+              <CheckIcon v-if="activeReleaseDate" class="stroke-success" />
+              <XIcon v-else class="stroke-destructive" />
+            </Button>
             <Button
               variant="outline"
               :class="
                 cn(
-                  'w-full ps-3 text-start font-normal',
+                  'w-[86%] ps-3 text-start font-normal rounded-l-none min-h-10',
                   !value && 'text-muted-foreground disabled:opacity-80 ',
                 )
               "
@@ -828,50 +1125,70 @@ const onSubmit = handleSubmit((values) => {
             </Button>
           </div>
           <FormField name="release_date">
-            <FormItem class="flex flex-col flex-1">
-              <Popover>
-                <PopoverTrigger as-child>
-                  <FormControl>
-                    <Button
-                      variant="outline"
-                      :class="
-                        cn(
-                          'w-full ps-3 text-start font-normal',
-                          !value && 'text-muted-foreground',
-                        )
-                      "
-                    >
-                      <span>{{
-                        value ? df.format(toDate(value)) : "Pick a date"
-                      }}</span>
-                      <CalendarIcon class="ms-auto h-4 w-4 opacity-50" />
-                    </Button>
-                    <input hidden />
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent class="w-auto p-0">
-                  <Calendar
-                    v-model:placeholder="placeholder"
-                    :model-value="value"
-                    calendar-label="Release Date"
-                    initial-focus
-                    :min-value="new ZonedDateTime(1900, 1, 1, 'UTC', 0)"
-                    :max-value="today(getLocalTimeZone())"
-                    @update:model-value="
-                      (v) => {
-                        if (v) {
-                          setFieldValue(
-                            'release_date',
-                            parseZonedDateTime(v.toString()).toAbsoluteString(),
-                          );
-                        } else {
-                          setFieldValue('release_date', undefined);
+            <FormItem class="flex flex-1 gap-0 pb-2">
+              <Button
+                variant="outline"
+                class="rounded-r-none h-auto"
+                type="button"
+                @click="
+                  () => {
+                    if (activeReleaseDate) {
+                      activeReleaseDate = false;
+                      setFieldValue('release_date', value.toAbsoluteString());
+                    }
+                  }
+                "
+              >
+                <CheckIcon v-if="!activeReleaseDate" class="stroke-success" />
+                <XIcon v-else class="stroke-destructive" />
+              </Button>
+              <div class="flex flex-col flex-1">
+                <Popover>
+                  <PopoverTrigger as-child>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        :class="
+                          cn(
+                            'w-full ps-3 text-start font-normal rounded-l-none min-h-10',
+                            !value && 'text-muted-foreground',
+                          )
+                        "
+                      >
+                        <span>{{
+                          value ? df.format(toDate(value)) : "Pick a date"
+                        }}</span>
+                        <CalendarIcon class="ms-auto h-4 w-4 opacity-50" />
+                      </Button>
+                      <input hidden />
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent class="w-auto p-0">
+                    <Calendar
+                      v-model:placeholder="placeholder"
+                      :model-value="value"
+                      calendar-label="Release Date"
+                      initial-focus
+                      :min-value="new ZonedDateTime(1900, 1, 1, 'UTC', 0)"
+                      :max-value="today(getLocalTimeZone())"
+                      @update:model-value="
+                        (v) => {
+                          if (v) {
+                            setFieldValue(
+                              'release_date',
+                              parseZonedDateTime(
+                                v.toString(),
+                              ).toAbsoluteString(),
+                            );
+                          } else {
+                            setFieldValue('release_date', undefined);
+                          }
                         }
-                      }
-                    "
-                  />
-                </PopoverContent>
-              </Popover>
+                      "
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
               <FormDescription />
               <FormMessage />
             </FormItem>
@@ -886,9 +1203,26 @@ const onSubmit = handleSubmit((values) => {
       >
         <Label>URLs</Label>
         <div class="flex items-center justify-center gap-2 col-span-6">
-          <div class="flex-1 pb-2">
+          <div class="flex flex-1 pb-2">
+            <Button
+              variant="outline"
+              class="rounded-r-none h-auto"
+              :disabled="oldUrls === undefined"
+              type="button"
+              @click="
+                () => {
+                  if (!activeURLs) {
+                    activeURLs = true;
+                    setFieldValue('url', oldUrls);
+                  }
+                }
+              "
+            >
+              <CheckIcon v-if="activeURLs" class="stroke-success" />
+              <XIcon v-else class="stroke-destructive" />
+            </Button>
             <TagsInput
-              class="bg-input/30 opacity-80 w-full min-h-10"
+              class="bg-input/30 opacity-80 w-full min-h-10 rounded-l-none"
               disabled
               :model-value="oldUrls"
             >
@@ -904,11 +1238,27 @@ const onSubmit = handleSubmit((values) => {
             </TagsInput>
           </div>
           <FormField v-slot="{ componentField }" name="url">
-            <FormItem class="flex-1">
+            <FormItem class="flex flex-1 gap-0 pb-2">
+              <Button
+                variant="outline"
+                class="rounded-r-none h-auto"
+                type="button"
+                @click="
+                  () => {
+                    if (activeURLs) {
+                      activeURLs = false;
+                      setFieldValue('url', componentField.modelValue);
+                    }
+                  }
+                "
+              >
+                <CheckIcon v-if="!activeURLs" class="stroke-success" />
+                <XIcon v-else class="stroke-destructive" />
+              </Button>
               <FormControl>
                 <TagsInput
                   :model-value="componentField.modelValue"
-                  class="h-10 bg-input/30"
+                  class="h-10 bg-input/30 rounded-l-none"
                   @update:model-value="componentField['onUpdate:modelValue']"
                 >
                   <TagsInputItem
