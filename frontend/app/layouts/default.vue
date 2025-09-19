@@ -128,6 +128,11 @@ const { data: result } = await useFetch("/api/search", {
                       }
                     "
                   >
+                    <NuxtImg
+                      :src="`/archive/${item.archive_id}/cover`"
+                      width="48px"
+                      class="rounded-sm"
+                    />
                     {{ item.title }}
                   </ComboboxItem>
                 </ComboboxGroup>
