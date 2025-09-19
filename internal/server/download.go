@@ -21,7 +21,7 @@ import (
 )
 
 type DownloadRequest struct {
-	URL string `json:"url" binding:"required,url"`
+	URL []string `json:"url" binding:"required"`
 }
 
 func (s *Server) addDownloadHandler(c *gin.Context) {
@@ -43,34 +43,39 @@ func (s *Server) addDownloadHandler(c *gin.Context) {
 		return
 	}
 
-	domain, url, err := util.ExtractDomainFromURL(req.URL)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, &models.ResponseFail{
-			Status: "fail",
-			Data:   err.Error(),
-		})
-		return
-	}
+	var downloads []*repository.Download
 
-	if !slices.Contains(config.SourcesList, domain) {
-		c.JSON(http.StatusBadRequest, &models.ResponseFail{
-			Status: "fail",
-			Data:   "url is not from a supported source",
-		})
-		return
-	}
+	for _, url := range req.URL {
+		domain, url, err := util.ExtractDomainFromURL(url)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, &models.ResponseFail{
+				Status: "fail",
+				Data:   err.Error(),
+			})
+			return
+		}
 
-	download, err := s.dm.AddDownload(url, domain)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, &models.Response{
-			Status:  "error",
-			Message: err,
-		})
-		return
-	}
+		if !slices.Contains(config.SourcesList, domain) {
+			c.JSON(http.StatusBadRequest, &models.ResponseFail{
+				Status: "fail",
+				Data:   "url is not from a supported source",
+			})
+			return
+		}
 
-	s.dm.BroadcastUpdate(download)
-	c.JSON(http.StatusCreated, download)
+		download, err := s.dm.AddDownload(url, domain)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, &models.Response{
+				Status:  "error",
+				Message: err,
+			})
+			return
+		}
+
+		s.dm.BroadcastUpdate(download)
+		downloads = append(downloads, download)
+	}
+	c.JSON(http.StatusCreated, downloads)
 }
 
 func (s *Server) getAllDownloadsHandler(c *gin.Context) {
