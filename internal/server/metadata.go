@@ -1,14 +1,16 @@
 package server
 
 import (
-	"Shoka/internal/config"
-	"Shoka/internal/models"
-	"Shoka/internal/sources"
-	"Shoka/internal/workers"
 	"context"
 	"errors"
 	"net/http"
 	"slices"
+
+	"Shoka/internal/comicinfo"
+	"Shoka/internal/config"
+	"Shoka/internal/models"
+	"Shoka/internal/sources"
+	"Shoka/internal/workers"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -94,4 +96,129 @@ func (s *Server) searchMetadataHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, meta)
+}
+
+func (s *Server) metadataToFileHandler(c *gin.Context) {
+	ctx := context.Background()
+	id := c.Param("id")
+
+	// Get Metadata from Database
+	arch, err := s.repo.GetArchiveByID(ctx, id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			c.JSON(http.StatusNotFound, &models.Response{
+				Status:  "error",
+				Message: config.ErrArchiveNotFound.Error(),
+			})
+			return
+		} else {
+			c.JSON(http.StatusInternalServerError, &models.Response{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+	}
+	tags, err := s.repo.GetArchiveTags(ctx, id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			c.JSON(http.StatusNotFound, &models.Response{
+				Status:  "error",
+				Message: config.ErrArchiveNotFound.Error(),
+			})
+			return
+		} else {
+			c.JSON(http.StatusInternalServerError, &models.Response{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+	}
+	characters, err := s.repo.GetArchiveCharacters(ctx, id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			c.JSON(http.StatusNotFound, &models.Response{
+				Status:  "error",
+				Message: config.ErrArchiveNotFound.Error(),
+			})
+			return
+		} else {
+			c.JSON(http.StatusInternalServerError, &models.Response{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+	}
+	parodies, err := s.repo.GetArchiveParodies(ctx, id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			c.JSON(http.StatusNotFound, &models.Response{
+				Status:  "error",
+				Message: config.ErrArchiveNotFound.Error(),
+			})
+			return
+		} else {
+			c.JSON(http.StatusInternalServerError, &models.Response{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+	}
+	urls, err := s.repo.GetArchiveURLs(ctx, id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			c.JSON(http.StatusNotFound, &models.Response{
+				Status:  "error",
+				Message: config.ErrArchiveNotFound.Error(),
+			})
+			return
+		} else {
+			c.JSON(http.StatusInternalServerError, &models.Response{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+	}
+	artists, err := s.repo.GetArchiveArtists(ctx, id)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			c.JSON(http.StatusNotFound, &models.Response{
+				Status:  "error",
+				Message: config.ErrArchiveNotFound.Error(),
+			})
+			return
+		} else {
+			c.JSON(http.StatusInternalServerError, &models.Response{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+	}
+
+	ci := comicinfo.NewComicInfo(comicinfo.ComicInfoParams{
+		Archive:   arch,
+		Artists:   artists,
+		Tags:      tags,
+		Parody:    parodies,
+		Character: characters,
+		URLs:      urls,
+	})
+
+	if err := ci.Write(*arch.FilePath, s.app.Cfg.TempDir); err != nil {
+		c.JSON(http.StatusInternalServerError, &models.Response{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, &models.Response{
+		Status:  "success",
+		Message: "comicinfo file created",
+	})
 }

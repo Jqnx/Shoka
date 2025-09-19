@@ -61,6 +61,10 @@ func (s *Server) RegisterRoutes() http.Handler {
 			archive.DELETE("/:id/rp", middleware.Auth(s.repo), s.deleteReadingProgressHandler)
 			// archive.DELETE("/:id", s.deleteArchiveHandler)
 			// archive.GET("/lastid", s.getLastIDHandler)
+			meta := archive.Group("/:id/meta")
+			{
+				meta.GET("/tofile", s.metadataToFileHandler)
+			}
 		}
 
 		// Artist API
