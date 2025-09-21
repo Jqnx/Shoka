@@ -1,5 +1,10 @@
 <script lang="ts" setup>
-import { CalendarArrowUp, Files, Heart } from "lucide-vue-next";
+import {
+  CalendarArrowUp,
+  Files,
+  Heart,
+  EllipsisVertical,
+} from "lucide-vue-next";
 import { toast } from "vue-sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -67,6 +72,20 @@ async function favorite() {
   });
 }
 
+const toFile = () => {
+  $fetch(`/api/a/${id}/meta/tofile`, {
+    method: "post",
+    onResponseError() {
+      toast.error("Failed to save ComicInfo.xml file to archive.");
+    },
+    onResponse({ response }) {
+      if (response.ok) {
+        toast.success("Successfully saved ComicInfo.xml file to archive.");
+      }
+    },
+  });
+};
+
 const toggle = ref(true);
 const progressValue = computed(() => {
   return (archive.value.progress / archive.value.page_count) * 100;
@@ -119,65 +138,83 @@ const progressValue = computed(() => {
                 {{ archive.summary }}
               </p>
 
-              <div class="flex flex-wrap gap-4">
-                <!-- ID -->
-                <p
-                  class="text-md font-medium cursor-pointer p-0.5 w-max hover:bg-accent hover:rounded-md"
-                  title="Click to copy!"
-                  @click="copyArchiveId"
-                >
-                  <span class="text-foreground/40">#</span>
-                  <span class="text-foreground/70">
-                    {{ archive.archive_id }}
-                  </span>
-                </p>
-
-                <!-- Page Count -->
-                <div class="flex items-center gap-1.5">
-                  <Files class="size-4 stroke-foreground/70 stroke-2" />
-                  <p class="text-foreground/70 font-medium">
-                    {{ archive.page_count }}
-                    <span v-if="largerMobile">Pages</span>
+              <div class="flex flex-wrap justify-between gap-2">
+                <div class="flex gap-2 xl:gap-4">
+                  <!-- ID -->
+                  <p
+                    class="text-md font-medium cursor-pointer p-0.5 w-max hover:bg-accent hover:rounded-md"
+                    title="Click to copy!"
+                    @click="copyArchiveId"
+                  >
+                    <span class="text-foreground/40">#</span>
+                    <span class="text-foreground/70">
+                      {{ archive.archive_id }}
+                    </span>
                   </p>
-                </div>
 
-                <!-- Release Date -->
-                <div
-                  v-if="archive.release_date"
-                  class="flex items-center gap-1.5"
-                >
-                  <CalendarArrowUp
-                    class="size-4 stroke-foreground/70 stroke-2"
-                  />
-                  <p class="text-foreground/70 font-medium">
-                    <NuxtTime
-                      :datetime="archive.release_date"
-                      locale="en-GB"
-                      :title="
-                        df.format(
-                          toDate(
-                            parseAbsolute(
-                              archive.release_date,
-                              getLocalTimeZone(),
-                            ),
-                          ),
-                        )
-                      "
-                    />
-                  </p>
-                </div>
-                <div v-if="toggle" class="flex items-center">
-                  <div v-if="archive.is_favorite" title="Unfavorite Archive">
-                    <Heart
-                      class="size-5 fill-destructive stroke-destructive cursor-pointer"
-                      @click="favorite"
-                    />
+                  <!-- Page Count -->
+                  <div class="flex items-center gap-1.5">
+                    <Files class="size-4 stroke-foreground/70 stroke-2" />
+                    <p class="text-foreground/70 font-medium">
+                      {{ archive.page_count }}
+                      <span v-if="largerMobile">Pages</span>
+                    </p>
                   </div>
-                  <div v-else class="flex gap-1" title="Favorite Archive">
-                    <Heart
-                      class="size-5 cursor-pointer stroke-foreground/70"
-                      @click="favorite"
+
+                  <!-- Release Date -->
+                  <div
+                    v-if="archive.release_date"
+                    class="flex items-center gap-1.5"
+                  >
+                    <CalendarArrowUp
+                      class="size-4 stroke-foreground/70 stroke-2"
                     />
+                    <p class="text-foreground/70 font-medium">
+                      <NuxtTime
+                        :datetime="archive.release_date"
+                        locale="en-GB"
+                        :title="
+                          df.format(
+                            toDate(
+                              parseAbsolute(
+                                archive.release_date,
+                                getLocalTimeZone(),
+                              ),
+                            ),
+                          )
+                        "
+                      />
+                    </p>
+                  </div>
+                </div>
+                <div class="flex gap-2">
+                  <div v-if="toggle" class="flex items-center">
+                    <div v-if="archive.is_favorite" title="Unfavorite Archive">
+                      <Heart
+                        class="size-5 fill-destructive stroke-destructive cursor-pointer"
+                        @click="favorite"
+                      />
+                    </div>
+                    <div v-else class="flex gap-1" title="Favorite Archive">
+                      <Heart
+                        class="size-5 cursor-pointer stroke-foreground/70"
+                        @click="favorite"
+                      />
+                    </div>
+                  </div>
+                  <div class="flex items-center justify-center">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger>
+                        <EllipsisVertical
+                          class="size-5 stroke-foreground/70 cursor-pointer"
+                        />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem @click="toFile">
+                          Export metadata to ComicInfo
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               </div>
