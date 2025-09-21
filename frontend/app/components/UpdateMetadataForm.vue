@@ -1283,6 +1283,7 @@ const onSubmit = handleSubmit((values) => {
         <Button
           variant="secondary"
           class="w-full flex-1"
+          type="button"
           @click="$emit('close')"
           >Close</Button
         >
