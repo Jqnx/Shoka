@@ -1,9 +1,10 @@
 package server
 
 import (
+	"net/http"
+
 	"Shoka/internal/config"
 	"Shoka/internal/server/middleware"
-	"net/http"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -63,7 +64,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 			// archive.GET("/lastid", s.getLastIDHandler)
 			meta := archive.Group("/:id/meta")
 			{
-				meta.GET("/tofile", s.metadataToFileHandler)
+				meta.POST("/tofile", s.metadataToFileHandler)
 			}
 		}
 
