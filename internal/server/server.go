@@ -1,13 +1,16 @@
+// Package server implements all logic concerning the HTTP server
+// e.g. routes, handlers, middleware
 package server
 
 import (
+	"fmt"
+	"net/http"
+	"time"
+
 	"Shoka/internal/config"
 	"Shoka/internal/downloader"
 	"Shoka/internal/logger"
 	"Shoka/internal/repository"
-	"fmt"
-	"net/http"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/joho/godotenv/autoload"

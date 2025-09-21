@@ -1,10 +1,12 @@
+// Package database implements all logic/utility concerning the database layer
 package database
 
 import (
-	"Shoka/internal/config"
-	"Shoka/internal/logger"
 	"context"
 	"fmt"
+
+	"Shoka/internal/config"
+	"Shoka/internal/logger"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"

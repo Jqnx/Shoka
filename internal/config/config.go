@@ -1,8 +1,11 @@
+// Package config implements all utility concerning the configuration
+// of the application.
 package config
 
 import (
-	"Shoka/internal/logger"
 	"os"
+
+	"Shoka/internal/logger"
 
 	"github.com/spf13/viper"
 )
@@ -67,6 +70,7 @@ type Config struct {
 }
 
 // TODO: Fix that config/settings set through ENV variables don't get written to file!
+
 func LoadConfig(log logger.Logger) (*Config, error) {
 	viper.AutomaticEnv()
 

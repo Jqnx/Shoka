@@ -1,3 +1,5 @@
+// Package language contains logic/utility used for converting between
+// full-length language names and their respective ISO-639-1 codes
 package language
 
 import (

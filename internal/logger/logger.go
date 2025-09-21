@@ -1,3 +1,5 @@
+// Package logger is an interface layer above the logger packages.
+// makes swapping between logger package easier.
 package logger
 
 import (

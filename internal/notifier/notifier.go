@@ -1,16 +1,17 @@
-// By @brojonat
+// Package notifier contains logic/utility used when getting
+// listening for database messages. By @brojonat
 // https://github.com/brojonat/notifier
-
 package notifier
 
 import (
-	"Shoka/internal/logger"
 	"context"
 	"errors"
 	"fmt"
 	"slices"
 	"sync"
 	"time"
+
+	"Shoka/internal/logger"
 )
 
 // Notifier interface wraps a Listener. It holds a single Postgres connection
