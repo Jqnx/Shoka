@@ -1,11 +1,12 @@
 -- +goose Up
-CREATE TABLE IF NOT EXISTS archives_tags (
-    archive_id bigint,
+create table if not exists archives_tags (
+    archive_id char(8),
     tag_id bigint,
-    PRIMARY KEY (archive_id, tag_id),
-    FOREIGN KEY (archive_id) REFERENCES archives (id),
-    FOREIGN KEY (tag_id) REFERENCES tags (id)
+    primary key (archive_id, tag_id),
+    foreign key (archive_id) references archives (id),
+    foreign key (tag_id) references tags (id)
 );
 
 -- +goose Down
-DROP TABLE IF EXISTS archives_tags;
+drop table if exists archives_tags;
+

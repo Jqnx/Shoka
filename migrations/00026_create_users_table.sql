@@ -1,16 +1,16 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE IF NOT EXISTS users (
-  id uuid PRIMARY KEY,
-  name text NOT NULL UNIQUE,
-  password text NOT NULL,
-  created_at timestamptz NOT NULL,
-  updated_at timestamptz NOT NULL
+create table if not exists users (
+    id uuid primary key,
+    name text not null unique,
+    password text not null,
+    created_at timestamptz not null,
+    updated_at timestamptz not null
 );
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE IF EXISTS users;
+drop table if exists users;
 -- +goose StatementEnd
 
 

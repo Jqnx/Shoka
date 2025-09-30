@@ -1,12 +1,12 @@
 -- +goose Up
-CREATE TABLE IF NOT EXISTS characters (
-    id bigserial PRIMARY KEY,
-    name text NOT NULL,
-    count bigint NOT NULL
+create table if not exists characters (
+    id bigserial primary key,
+    name text not null,
+    count bigint not null
 );
 
-create unique index idx_character on characters(name);
+create unique index idx_character on characters (name);
 
 -- +goose Down
-DROP TABLE IF EXISTS characters;
+drop table if exists characters;
 

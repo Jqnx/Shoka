@@ -1,19 +1,19 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE IF NOT EXISTS reading_progress (
-  archive_id bigint,
-  user_id uuid,
-  page bigint NOT NULL,
-  state text NOT NULL,
-  last_read timestamptz NOT NULL,
-  PRIMARY KEY (archive_id, user_id),
-  FOREIGN KEY (archive_id) REFERENCES archives(id),
-  FOREIGN KEY (user_id) REFERENCES users(id)
+create table if not exists reading_progress (
+    archive_id char(8),
+    user_id uuid,
+    page smallint not null,
+    state text not null,
+    last_read timestamptz not null,
+    primary key (archive_id, user_id),
+    foreign key (archive_id) references archives (id),
+    foreign key (user_id) references users (id)
 );
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE IF EXISTS reading_progress;
+drop table if exists reading_progress;
 -- +goose StatementEnd
 
 

@@ -3,17 +3,17 @@
 create function notify_archives()
 returns trigger
 as $$
-DECLARE
-BEGIN
-  PERFORM pg_notify('notifyarchives', to_jsonb(NEW)::text);
-  RETURN NEW;
-END;
+declare
+begin
+  perform pg_notify('notifyarchives', to_jsonb(new)::text);
+  return new;
+end;
 $$
 language plpgsql
 ;
 
-CREATE TRIGGER archive_insert
-AFTER INSERT ON archives FOR EACH ROW EXECUTE PROCEDURE notify_archives();
+create trigger archive_insert
+after insert on archives for each row execute procedure notify_archives();
 
 -- +goose StatementEnd
 -- +goose Down

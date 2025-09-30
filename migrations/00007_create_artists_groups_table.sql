@@ -1,11 +1,12 @@
 -- +goose Up
-CREATE TABLE IF NOT EXISTS artists_groups (
+create table if not exists artists_groups (
     artist_id bigint,
     group_id bigint,
-    PRIMARY KEY (artist_id, group_id),
-    FOREIGN KEY (artist_id) REFERENCES artists (id),
-    FOREIGN KEY (group_id) REFERENCES groups (id)
+    primary key (artist_id, group_id),
+    foreign key (artist_id) references artists (id),
+    foreign key (group_id) references groups (id)
 );
 
 -- +goose Down
-DROP TABLE IF EXISTS artists_groups;
+drop table if exists artists_groups;
+

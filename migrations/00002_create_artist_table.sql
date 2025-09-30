@@ -1,14 +1,14 @@
 -- +goose Up
-CREATE TABLE IF NOT EXISTS artists (
-    id bigserial PRIMARY KEY,
-    name text NOT NULL,
-    count bigint NOT NULL,
-    created_at timestamptz NOT NULL,
-    updated_at timestamptz NOT NULL
+create table if not exists artists (
+    id bigserial primary key,
+    name text not null,
+    count int not null,
+    created_at timestamptz not null,
+    updated_at timestamptz not null
 );
 
-create unique index idx_artist_name on artists(name);
+create unique index idx_artist_name on artists (name);
 
 -- +goose Down
-DROP TABLE IF EXISTS artists;
+drop table if exists artists;
 

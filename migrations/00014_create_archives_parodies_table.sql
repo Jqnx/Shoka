@@ -1,11 +1,12 @@
 -- +goose Up
-CREATE TABLE IF NOT EXISTS archives_parodies (
-    archive_id bigint,
+create table if not exists archives_parodies (
+    archive_id char(8),
     parody_id bigint,
-    PRIMARY KEY (archive_id, parody_id),
-    FOREIGN KEY (archive_id) REFERENCES archives (id),
-    FOREIGN KEY (parody_id) REFERENCES parodies (id)
+    primary key (archive_id, parody_id),
+    foreign key (archive_id) references archives (id),
+    foreign key (parody_id) references parodies (id)
 );
 
 -- +goose Down
-DROP TABLE IF EXISTS archives_parodies;
+drop table if exists archives_parodies;
+

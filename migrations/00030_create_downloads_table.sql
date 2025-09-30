@@ -1,28 +1,28 @@
 -- +goose Up
 -- +goose StatementBegin
-CREATE TABLE IF NOT EXISTS downloads (
-  id uuid PRIMARY KEY,
-  url text NOT NULL,
-  source text NOT NULL,
-  filename text NOT NULL,
-  status text NOT NULL,
-  progress integer DEFAULT 0,
-  error text,
-  created_at timestamptz NOT NULL,
-  updated_at timestamptz NOT NULL,
-  speed bigint,
-  total_size bigint,
-  downloaded bigint,
-  started_at timestamptz,
-  can_resume boolean,
-  resume_supported boolean
+create table if not exists downloads (
+    id uuid primary key,
+    url text not null,
+    source text not null,
+    filename text not null,
+    status text not null,
+    progress int default 0,
+    error text,
+    created_at timestamptz not null,
+    updated_at timestamptz not null,
+    speed bigint,
+    total_size bigint,
+    downloaded bigint,
+    started_at timestamptz,
+    can_resume boolean,
+    resume_supported boolean
 );
 
-CREATE INDEX IF NOT EXISTS idx_downloads_status ON downloads (status);
+create index if not exists idx_downloads_status on downloads (status);
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE IF EXISTS downloads;
+drop table if exists downloads;
 -- +goose StatementEnd
 
 

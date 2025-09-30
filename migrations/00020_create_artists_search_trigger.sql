@@ -3,23 +3,23 @@
 create or replace function artists_ts_update_trigger_func()
 returns trigger
 as $$
-DECLARE
-    r RECORD;
-BEGIN
-    IF OLD.name IS DISTINCT FROM NEW.name THEN
-        FOR r IN SELECT archive_id FROM archives_artists WHERE artist_id = NEW.id LOOP
-            PERFORM update_archive_search_vector(r.archive_id);
-        END LOOP;
-    END IF;
-    RETURN NEW;
-END;
+declare
+    r record;
+begin
+    if old.name is distinct from new.name then
+        for r in select archive_id from archives_artists where artist_id = new.id loop
+            perform update_archive_search_vector(r.archive_id);
+        end loop;
+    end if;
+    return new;
+end;
 $$
 language plpgsql
 ;
 
-CREATE TRIGGER artists_ts_update_trigger
-AFTER UPDATE OF name ON artists
-FOR EACH ROW EXECUTE FUNCTION artists_ts_update_trigger_func();
+create trigger artists_ts_update_trigger
+after update of name on artists
+for each row execute function artists_ts_update_trigger_func();
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin

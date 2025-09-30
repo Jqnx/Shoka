@@ -1,13 +1,13 @@
 -- +goose Up
-CREATE TABLE IF NOT EXISTS groups (
-    id bigserial PRIMARY KEY,
-    name text NOT NULL,
-    created_at timestamptz NOT NULL,
-    updated_at timestamptz NOT NULL
+create table if not exists groups (
+    id bigserial primary key,
+    name text not null,
+    created_at timestamptz not null,
+    updated_at timestamptz not null
 );
 
-create unique index idx_group_name on groups(name);
+create unique index idx_group_name on groups (name);
 
 -- +goose Down
-DROP TABLE IF EXISTS groups;
+drop table if exists groups;
 
