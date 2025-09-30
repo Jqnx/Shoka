@@ -3,23 +3,23 @@
 create or replace function parodies_ts_update_trigger_func()
 returns trigger
 as $$
-declare
-    r record;
-begin
-    if old.name is distinct from new.name then
-        for r in select archive_id from archives_parodies where parody_id = new.id loop
-            perform update_archive_search_vector(r.archive_id);
-        end loop;
-    end if;
-    return new;
-end;
+DECLARE
+    r RECORD;
+BEGIN
+    IF OLD.name IS DISTINCT FROM NEW.name THEN
+        FOR r IN SELECT archive_id FROM archives_parodies WHERE parody_id = NEW.id LOOP
+            PERFORM update_archive_search_vector(r.archive_id);
+        END LOOP;
+    END IF;
+    RETURN NEW;
+END;
 $$
 language plpgsql
 ;
 
-create trigger parodies_ts_update_trigger
-after update of name on parodies
-for each row execute function parodies_ts_update_trigger_func();
+CREATE TRIGGER parodies_ts_update_trigger
+AFTER UPDATE OF name ON parodies
+FOR EACH ROW EXECUTE FUNCTION parodies_ts_update_trigger_func();
 -- +goose StatementEnd
 -- +goose Down
 -- +goose StatementBegin
