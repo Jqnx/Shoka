@@ -1,12 +1,13 @@
 package metadata
 
 import (
-	"Shoka/internal/language"
-	"Shoka/internal/models"
 	"encoding/xml"
 	"fmt"
 	"strings"
 	"time"
+
+	"Shoka/internal/language"
+	"Shoka/internal/models"
 )
 
 type ComicInfo struct {

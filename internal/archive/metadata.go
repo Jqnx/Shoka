@@ -38,6 +38,10 @@ func (m *Metadata) Tag(c context.Context) error {
 	}
 
 	for _, item := range *m.Archive.Tags {
+		if len(item.Tag) == 0 {
+			return nil
+		}
+
 		i := strings.ToLower(item.Tag)
 		tag, _ := m.Qtx.GetTag(c, i)
 
@@ -86,7 +90,12 @@ func (m *Metadata) Character(c context.Context) error {
 			return err
 		}
 	}
+
 	for _, item := range *m.Archive.Character {
+		if len(item.Character) == 0 {
+			return nil
+		}
+
 		i := strings.ToLower(item.Character)
 		char, _ := m.Qtx.GetCharacter(c, i)
 
@@ -137,6 +146,10 @@ func (m *Metadata) Parody(c context.Context) error {
 		}
 	}
 	for _, item := range *m.Archive.Parody {
+		if len(item.Parody) == 0 {
+			return nil
+		}
+
 		i := strings.ToLower(item.Parody)
 		parody, _ := m.Qtx.GetParody(c, i)
 
@@ -187,6 +200,10 @@ func (m *Metadata) Artist(c context.Context) error {
 		}
 	}
 	for _, item := range *m.Archive.Artist {
+		if len(item.Artist) == 0 {
+			return nil
+		}
+
 		i := strings.ToLower(item.Artist)
 		artist, _ := m.Qtx.GetArtistByName(c, i)
 

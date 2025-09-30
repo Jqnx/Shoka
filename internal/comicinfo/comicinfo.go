@@ -14,20 +14,20 @@ type ComicInfo struct {
 	XMLName       xml.Name `xml:"ComicInfo"`
 	Schema        string   `xml:"xmlns:xs,attr"`
 	Title         string   `xml:"Title"`
-	Series        string   `xml:"Series"`
-	Summary       string   `xml:"Summary"`
-	Year          int      `xml:"Year"`
-	Month         int      `xml:"Month"`
-	Day           int      `xml:"Day"`
-	Writer        string   `xml:"Writer"` // Comma seperated
-	Genre         string   `xml:"Genre"`  // Comma seperated
-	Tags          string   `xml:"Tags"`   // Comma seperated
-	Web           string   `xml:"Web"`    // Space seperated, TODO: Spaces in url need to be hex encoded (%20 for space)
+	Series        string   `xml:"Series,omitempty"`
+	Summary       string   `xml:"Summary,omitempty"`
+	Year          int      `xml:"Year,omitempty"`
+	Month         int      `xml:"Month,omitempty"`
+	Day           int      `xml:"Day,omitempty"`
+	Writer        string   `xml:"Writer,omitempty"` // Comma seperated
+	Genre         string   `xml:"Genre,omitempty"`  // Comma seperated
+	Tags          string   `xml:"Tags,omitempty"`   // Comma seperated
+	Web           string   `xml:"Web,omitempty"`    // Space seperated, TODO: Spaces in url need to be hex encoded (%20 for space)
 	PageCount     int      `xml:"PageCount"`
 	Language      string   `xml:"LanguageISO"`
-	Characters    string   `xml:"Characters"` // Comma seperated
-	BlackAndWhite bool     `xml:"BlackAndWhite"`
-	Manga         bool     `xml:"Manga"`
+	Characters    string   `xml:"Characters,omitempty"` // Comma seperated
+	BlackAndWhite bool     `xml:"BlackAndWhite,omitempty"`
+	Manga         bool     `xml:"Manga,omitempty"`
 }
 
 type ComicInfoParams struct {
