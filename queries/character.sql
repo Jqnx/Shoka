@@ -44,7 +44,7 @@ select characters.id, characters.name, characters.count
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
-where archives.archive_id = $1
+where archives.id = $1
 ;
 
 -- name: GetArchivesByCharacter :many
@@ -56,7 +56,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -76,7 +77,7 @@ where characters.name = $1
 ;
 
 -- name: GetArchiveIDsByCharacter :many
-select archives.archive_id
+select archives.id
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id
@@ -92,7 +93,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -114,7 +116,7 @@ offset $3
 ;
 
 -- name: TotalArchivesWithCharacter :one
-select count(archives.archive_id)
+select count(archives.id)
 from archives
 join archives_characters on archives.id = archives_characters.archive_id
 join characters on archives_characters.character_id = characters.id

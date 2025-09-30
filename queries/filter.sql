@@ -7,7 +7,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -23,7 +24,7 @@ left join
     reading_progress
     on archives.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg('uid')
-where archives.archive_id = any(sqlc.arg('ids')::text[])
+where archives.id = any(sqlc.arg('ids')::text[])
 order by
     case when @order_by::text = 'title_asc' then archives.title end asc,
     case when @order_by = 'title_desc' then archives.title end desc nulls last,
@@ -52,9 +53,9 @@ offset $2
 ;
 
 -- name: GetArchivesFilter :one
-select archives.archive_id
+select archives.id
 from archives
-where archives.archive_id = any(sqlc.arg('ids')::text[])
+where archives.id = any(sqlc.arg('ids')::text[])
 limit $1
 offset $2
 ;
@@ -68,7 +69,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -112,7 +114,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -146,8 +149,8 @@ order by
 ;
 
 -- name: CountFilteredArchives :one
-select count(archives.archive_id)
+select count(archives.id)
 from archives
-where archives.archive_id = any(sqlc.arg('ids')::text[])
+where archives.id = any(sqlc.arg('ids')::text[])
 ;
 

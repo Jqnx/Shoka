@@ -12,7 +12,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -33,7 +34,7 @@ offset $3
 ;
 
 -- name: GetUserFavoriteArchivesShuffle :one
-select archives.archive_id
+select archives.id
 from archives
 join favorite_archives on archives.id = favorite_archives.archive_id
 join users on favorite_archives.user_id = users.id
@@ -51,7 +52,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -79,7 +81,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -95,9 +98,9 @@ left join
     on archives.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg(user_id)::uuid
 where
-    archives.archive_id = any(sqlc.arg('ids')::text[])
-    and archives.archive_id in (
-        select archives.archive_id
+    archives.id = any(sqlc.arg('ids')::text[])
+    and archives.id in (
+        select archives.id
         from archives
         join favorite_archives on archives.id = favorite_archives.archive_id
         join users on favorite_archives.user_id = users.id
@@ -133,13 +136,13 @@ offset $2
 ;
 
 -- name: GetFavoriteArchivesFilter :one
-select archives.archive_id
+select archives.id
 from archives
 join favorite_archives on archives.id = favorite_archives.archive_id
 where
-    archives.archive_id = any(sqlc.arg('ids')::text[])
-    and archives.archive_id in (
-        select archives.archive_id
+    archives.id = any(sqlc.arg('ids')::text[])
+    and archives.id in (
+        select archives.id
         from archives
         join favorite_archives on archives.id = favorite_archives.archive_id
         join users on favorite_archives.user_id = users.id
@@ -150,12 +153,12 @@ offset $2
 ;
 
 -- name: CountFavoriteFilteredArchives :one
-select count(archives.archive_id)
+select count(archives.id)
 from archives
 where
-    archives.archive_id = any(sqlc.arg('ids')::text[])
-    and archives.archive_id in (
-        select archives.archive_id
+    archives.id = any(sqlc.arg('ids')::text[])
+    and archives.id in (
+        select archives.id
         from archives
         join favorite_archives on archives.id = favorite_archives.archive_id
         join users on favorite_archives.user_id = users.id
@@ -172,7 +175,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,

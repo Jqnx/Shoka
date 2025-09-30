@@ -1,12 +1,14 @@
 -- name: CreateArchive :one
 insert into archives (
+    id,
     title,
     summary,
     language,
     category,
     page_count,
     file_path,
-    archive_id,
+    file_name,
+-- archive_id,
     hash,
     thumbs_path,
     cover_path,
@@ -15,7 +17,7 @@ insert into archives (
     updated_at,
     release_date
     )
-values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 returning
     id,
     title,
@@ -24,7 +26,8 @@ returning
     category,
     page_count,
     file_path,
-    archive_id,
+    file_name,
+-- archive_id,
     hash,
     thumbs_path,
     cover_path,
@@ -32,13 +35,6 @@ returning
     created_at,
     updated_at,
     release_date
-;
-
--- name: GetLastArchiveID :one
-select archive_id
-from archives
-order by archive_id desc
-limit 1
 ;
 
 -- name: GetArchiveByID :one
@@ -50,7 +46,8 @@ select
     category,
     page_count,
     file_path,
-    archive_id,
+    file_name,
+    -- archive_id,
     hash,
     thumbs_path,
     cover_path,
@@ -59,7 +56,7 @@ select
     updated_at,
     release_date
 from archives
-where archive_id = $1
+where id = $1
 ;
 
 -- name: GetArchiveByFilePath :one
@@ -71,7 +68,8 @@ select
     category,
     page_count,
     file_path,
-    archive_id,
+    file_name,
+    -- archive_id,
     hash,
     thumbs_path,
     cover_path,
@@ -83,6 +81,28 @@ from archives
 where file_path = $1
 ;
 
+-- name: GetArchiveByHash :one
+select
+    id,
+    title,
+    summary,
+    language,
+    category,
+    page_count,
+    file_path,
+    file_name,
+    -- archive_id,
+    hash,
+    thumbs_path,
+    cover_path,
+    type,
+    created_at,
+    updated_at,
+    release_date
+from archives
+where hash = $1
+;
+
 -- name: GetAllArchives :many
 select
     archives.id,
@@ -92,7 +112,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -108,7 +129,7 @@ left join
     reading_progress
     on archives.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg('uid')
-order by archives.archive_id
+order by archives.id
 ;
 
 -- name: GetRecentlyReadArchives :many
@@ -120,7 +141,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -149,7 +171,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -170,11 +193,12 @@ offset $2
 ;
 
 -- name: GetArchiveShuffle :one
-select archive_id
+select id
 from archives
 limit $1
 offset $2
 ;
+
 
 -- name: SearchArchives :many
 select
@@ -185,7 +209,8 @@ select
     category,
     page_count,
     file_path,
-    archive_id,
+    file_name,
+    -- archive_id,
     hash,
     thumbs_path,
     cover_path,
@@ -214,7 +239,8 @@ select
     category,
     page_count,
     file_path,
-    archive_id,
+    file_name,
+    -- archive_id,
     hash,
     thumbs_path,
     cover_path,
@@ -243,9 +269,9 @@ where file_path = $1
 ;
 
 -- name: ArchiveIDExists :execresult
-select archive_id
+select id
 from archives
-where archive_id = $1
+where id = $1
 ;
 
 -- name: ThumbsPathExistsForFilePath :execresult
@@ -267,7 +293,7 @@ set title = coalesce(sqlc.narg('title'), title),
     category = coalesce(sqlc.narg('category'), category),
     updated_at = coalesce($1, updated_at),
     release_date = coalesce(sqlc.narg('release_date'), release_date)
-where archive_id = $2
+where id = $2
 returning
     id,
     title,
@@ -276,7 +302,8 @@ returning
     category,
     page_count,
     file_path,
-    archive_id,
+    file_name,
+-- archive_id,
     hash,
     thumbs_path,
     cover_path,
@@ -289,17 +316,29 @@ returning
 -- name: UpdateThumbPath :exec
 update archives
 set thumbs_path = $1
-where archive_id = $2
+where id = $2
 ;
 
 -- name: UpdateCoverPath :exec
 update archives
 set cover_path = $1
-where archive_id = $2
+where id = $2
+;
+
+-- name: UpdateFilePath :exec
+update archives
+set file_path = $1
+where id = $2
+;
+
+-- name: UpdateFileName :exec
+update archives
+set file_name = $1
+where id = $2
 ;
 
 -- name: DeleteArchive :exec
 delete from archives
-where archive_id = $1
+where id = $1
 ;
 

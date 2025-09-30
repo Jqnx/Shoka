@@ -18,6 +18,6 @@ where url = $1
 select urls.id, urls.url
 from archives
 join urls on archives.id = urls.archive_id
-where archives.archive_id = $1
+where archives.id = $1
 ;
 

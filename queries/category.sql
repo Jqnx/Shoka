@@ -13,7 +13,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -31,7 +32,7 @@ where category = $1
 ;
 
 -- name: GetArchiveIDsByCategory :many
-select archives.archive_id
+select archives.id
 from archives
 where category = $1
 ;
@@ -45,7 +46,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -65,7 +67,7 @@ offset $3
 ;
 
 -- name: TotalArchivesWithCategory :one
-select count(archive_id)
+select count(id)
 from archives
 where category = $1
 ;

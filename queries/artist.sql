@@ -136,7 +136,7 @@ select artists.*
 from archives
 join archives_artists on archives.id = archives_artists.archive_id
 join artists on archives_artists.artist_id = artists.id
-where archives.archive_id = $1
+where archives.id = $1
 ;
 
 -- name: GetArchivesByArtist :many
@@ -148,7 +148,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -171,7 +172,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -188,7 +190,7 @@ offset $3
 ;
 
 -- name: GetArchiveIDsByArtist :many
-select archives.archive_id
+select archives.id
 from archives
 join archives_artists on archives.id = archives_artists.archive_id
 join artists on archives_artists.artist_id = artists.id

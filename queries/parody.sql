@@ -44,7 +44,7 @@ select parodies.id, parodies.name, parodies.count
 from archives
 join archives_parodies on archives.id = archives_parodies.archive_id
 join parodies on archives_parodies.parody_id = parodies.id
-where archives.archive_id = $1
+where archives.id = $1
 ;
 
 -- name: GetArchivesByParody :many
@@ -56,7 +56,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -76,7 +77,7 @@ where parodies.name = $1
 ;
 
 -- name: GetArchiveIDsByParody :many
-select archives.archive_id
+select archives.id
 from archives
 join archives_parodies on archives.id = archives_parodies.archive_id
 join parodies on archives_parodies.parody_id = parodies.id
@@ -92,7 +93,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -114,7 +116,7 @@ offset $3
 ;
 
 -- name: TotalArchivesWithParody :one
-select count(archives.archive_id)
+select count(archives.id)
 from archives
 join archives_parodies on archives.id = archives_parodies.archive_id
 join parodies on archives_parodies.parody_id = parodies.id

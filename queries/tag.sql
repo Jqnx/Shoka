@@ -38,7 +38,7 @@ select tags.id, tags.name, tags.count
 from archives
 join archives_tags on archives.id = archives_tags.archive_id
 join tags on archives_tags.tag_id = tags.id
-where archives.archive_id = $1
+where archives.id = $1
 ;
 
 -- name: GetArchivesByTag :many
@@ -50,7 +50,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -71,7 +72,7 @@ where tags.name = $1
 
 
 -- name: GetArchiveIDsByTag :many
-select archives.archive_id
+select archives.id
 from archives
 join archives_tags on archives.id = archives_tags.archive_id
 join tags on archives_tags.tag_id = tags.id
@@ -87,7 +88,8 @@ select
     archives.category,
     archives.page_count,
     archives.file_path,
-    archives.archive_id,
+    archives.file_name,
+    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
     archives.cover_path,
@@ -110,7 +112,7 @@ offset $3
 
 
 -- name: TotalArchivesWithTag :one
-select count(archives.archive_id)
+select count(archives.id)
 from archives
 join archives_tags on archives.id = archives_tags.archive_id
 join tags on archives_tags.tag_id = tags.id
