@@ -64,7 +64,7 @@ router.beforeResolve((_) => {
     >
       <div v-for="archive in archives.archives" :key="archive.id">
         <GalleryItem
-          :id="archive.archive_id"
+          :id="archive.id"
           :title="archive.title"
           :progress="archive.page"
           :page-count="archive.page_count"

@@ -1,13 +1,14 @@
 package thumb
 
 import (
-	"Shoka/internal/config"
-	"Shoka/internal/fsutil"
-	"Shoka/internal/repository"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
+
+	"Shoka/internal/config"
+	"Shoka/internal/fsutil"
+	"Shoka/internal/repository"
 
 	"github.com/h2non/bimg"
 )
@@ -57,7 +58,7 @@ func (t *Thumb) GetThumbDir() {
 
 func (t *Thumb) Generate() error {
 	// Create temporary directory
-	tempDir, err := os.MkdirTemp("", t.Archive.ArchiveID)
+	tempDir, err := os.MkdirTemp("", t.Archive.ID)
 	if err != nil {
 		return err
 	}

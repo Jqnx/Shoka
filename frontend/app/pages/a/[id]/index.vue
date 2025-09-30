@@ -34,8 +34,8 @@ const df = new DateFormatter("en-GB", {
 });
 
 const copyArchiveId = () => {
-  copy(archive.value.archive_id);
-  toast.success(`Copied ${archive.value.archive_id} to clipboard.`);
+  copy(archive.value.id);
+  toast.success(`Copied ${archive.value.id} to clipboard.`);
 };
 
 const { data: archive } = await useFetch(`/api/a/${id}`, {
@@ -148,7 +148,7 @@ const progressValue = computed(() => {
                   >
                     <span class="text-foreground/40">#</span>
                     <span class="text-foreground/70">
-                      {{ archive.archive_id }}
+                      {{ archive.id }}
                     </span>
                   </p>
 

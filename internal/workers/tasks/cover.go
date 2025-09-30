@@ -1,13 +1,14 @@
 package tasks
 
 import (
-	"Shoka/internal/config"
-	"Shoka/internal/repository"
-	"Shoka/internal/thumb"
 	"context"
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"Shoka/internal/config"
+	"Shoka/internal/repository"
+	"Shoka/internal/thumb"
 
 	"github.com/hibiken/asynq"
 )
@@ -56,7 +57,7 @@ func (w *CoverProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error {
 	if payload.Archive.CoverPath != &cover {
 		if err := w.app.Repo.UpdateCoverPath(c, repository.UpdateCoverPathParams{
 			CoverPath: &cover,
-			ArchiveID: payload.Archive.ArchiveID,
+			ID:        payload.Archive.ID,
 		}); err != nil {
 			return err
 		}

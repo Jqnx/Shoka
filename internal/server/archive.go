@@ -1,14 +1,6 @@
 package server
 
 import (
-	"Shoka/internal/archive"
-	"Shoka/internal/config"
-	"Shoka/internal/filter"
-	"Shoka/internal/fsutil"
-	"Shoka/internal/metadata"
-	"Shoka/internal/models"
-	"Shoka/internal/repository"
-	"Shoka/internal/util"
 	"context"
 	"errors"
 	"fmt"
@@ -19,6 +11,15 @@ import (
 	"path/filepath"
 	"reflect"
 	"strconv"
+
+	"Shoka/internal/archive"
+	"Shoka/internal/config"
+	"Shoka/internal/filter"
+	"Shoka/internal/fsutil"
+	"Shoka/internal/metadata"
+	"Shoka/internal/models"
+	"Shoka/internal/repository"
+	"Shoka/internal/util"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -868,7 +869,6 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 
 		result := &models.ArchiveResponseFavorite{
 			ID:           arch.ID,
-			ArchiveID:    arch.ArchiveID,
 			Title:        arch.Title,
 			Summary:      arch.Summary,
 			Tags:         tags,
@@ -895,7 +895,6 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 	} else {
 		result := &models.ArchiveResponse{
 			ID:          arch.ID,
-			ArchiveID:   arch.ArchiveID,
 			Title:       arch.Title,
 			Summary:     arch.Summary,
 			Tags:        tags,

@@ -1,8 +1,11 @@
+// Package archive contains logic/utility for creating, updating, getting,
+// converting archives
 package archive
 
 import (
-	"Shoka/internal/models"
 	"time"
+
+	"Shoka/internal/models"
 )
 
 // Archive interface that implements builder functions
@@ -14,6 +17,7 @@ type IArchive interface {
 	setCategory(category string)
 	setPageCount()
 	setFilePath(path string) // NOTE: SHOULD BE SET FIRST IN DIRECTOR CLASS, OTHER "set" FUNCTIONS USE IT e.g. setTitle, setPageCount, setHash, setThumbsPath, setCoverPath
+	setFileName()
 	setHash()
 	setThumbsPath()
 	setCoverPath()
@@ -33,8 +37,8 @@ type IArchive interface {
 
 // Archive struct that represents an archive
 type Archive struct {
+	ID          string
 	Type        string
-	ArchiveID   string
 	Title       *string
 	Summary     *string
 	Language    *string
@@ -45,8 +49,9 @@ type Archive struct {
 	Character   *[]models.Character
 	Artist      *[]models.Artist
 	ReleaseDate *time.Time
-	PageCount   int64
+	PageCount   int16
 	FilePath    *string
+	FileName    *string
 	Hash        string
 	ThumbsPath  *string
 	CoverPath   *string

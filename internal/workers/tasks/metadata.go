@@ -1,16 +1,17 @@
 package tasks
 
 import (
-	"Shoka/internal/archive"
-	"Shoka/internal/config"
-	"Shoka/internal/fsutil"
-	"Shoka/internal/metadata"
-	"Shoka/internal/repository"
 	"archive/zip"
 	"context"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+
+	"Shoka/internal/archive"
+	"Shoka/internal/config"
+	"Shoka/internal/fsutil"
+	"Shoka/internal/metadata"
+	"Shoka/internal/repository"
 
 	"github.com/bodgit/sevenzip"
 	"github.com/hibiken/asynq"
@@ -66,7 +67,7 @@ func (w *MetadataProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 						return err
 					}
 					ab := archive.GetBuilder(w.app)
-					archive := ab.UpdateArchive(payload.Archive.ArchiveID, &meta[0])
+					archive := ab.UpdateArchive(payload.Archive.ID, &meta[0])
 					if err := archive.Update(ctx, w.app); err != nil {
 						return err
 					}
@@ -96,7 +97,7 @@ func (w *MetadataProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 						return err
 					}
 					ab := archive.GetBuilder(w.app)
-					archive := ab.UpdateArchive(payload.Archive.ArchiveID, &meta[0])
+					archive := ab.UpdateArchive(payload.Archive.ID, &meta[0])
 					if err := archive.Update(ctx, w.app); err != nil {
 						return err
 					}

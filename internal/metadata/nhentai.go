@@ -1,13 +1,14 @@
 package metadata
 
 import (
-	"Shoka/internal/config"
-	"Shoka/internal/language"
-	"Shoka/internal/models"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
+
+	"Shoka/internal/config"
+	"Shoka/internal/language"
+	"Shoka/internal/models"
 )
 
 type NHMetadata struct {
@@ -60,6 +61,7 @@ func (m *NHMetadata) Unmarshal(data any) error {
 }
 
 // TODO: Implement groups
+
 func (m *NHMetadata) splitTags() (*[]models.Artist, *[]models.Character, *[]models.Parody, *[]models.Tag, *string, *string) {
 	var artists []models.Artist
 	var characters []models.Character

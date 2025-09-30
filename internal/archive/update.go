@@ -1,9 +1,10 @@
 package archive
 
 import (
+	"context"
+
 	"Shoka/internal/config"
 	"Shoka/internal/repository"
-	"context"
 )
 
 // TODO: ArchivePayload to Archive converter
@@ -88,7 +89,7 @@ func (a *Archive) Update(ctx context.Context, app *config.App) error {
 		Category:    a.Category,
 		UpdatedAt:   a.UpdatedAt,
 		ReleaseDate: a.ReleaseDate,
-		ArchiveID:   a.ArchiveID,
+		ID:          a.ID,
 	})
 	if err != nil {
 		return err

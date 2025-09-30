@@ -1,13 +1,14 @@
 package workers
 
 import (
-	"Shoka/internal/repository"
-	"Shoka/internal/thumb"
-	"Shoka/internal/workers/tasks"
 	"context"
 	"errors"
 	"os"
 	"path/filepath"
+
+	"Shoka/internal/repository"
+	"Shoka/internal/thumb"
+	"Shoka/internal/workers/tasks"
 
 	"github.com/hibiken/asynq"
 )
@@ -16,6 +17,7 @@ func (w *Workers) Thumbs(ch chan *asynq.TaskInfo, arch *repository.GetArchiveByI
 	ac := w.NewAsynqClient()
 	defer ac.Close()
 
+	// TODO: Use global client
 	c := NewClient(ac, w.app, arch)
 	i := c.NewThumb(w.force)
 	ch <- i
@@ -75,7 +77,7 @@ func (c *Client) NewThumb(force bool) *asynq.TaskInfo {
 			return cover
 		} else {
 			if err := c.app.Repo.UpdateThumbPath(ctx, repository.UpdateThumbPathParams{
-				ArchiveID:  c.arch.ArchiveID,
+				ID:         c.arch.ID,
 				ThumbsPath: &thumb.ThumbDir,
 			}); err != nil {
 				c.app.Log.Error("could not update thumbs_path in db:", "error", err.Error())

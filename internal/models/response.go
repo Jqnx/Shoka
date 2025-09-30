@@ -1,8 +1,9 @@
 package models
 
 import (
-	"Shoka/internal/repository"
 	"time"
+
+	"Shoka/internal/repository"
 
 	"github.com/google/uuid"
 )
@@ -18,8 +19,7 @@ type Response struct {
 }
 
 type ArchiveResponse struct {
-	ID          int64                          `json:"id"`
-	ArchiveID   string                         `json:"archive_id"`
+	ID          string                         `json:"id"`
 	Title       string                         `json:"title"`
 	Summary     *string                        `json:"summary"`
 	Tags        []repository.Tag               `json:"tags"`
@@ -28,7 +28,7 @@ type ArchiveResponse struct {
 	Character   []repository.Character         `json:"character"`
 	Language    *string                        `json:"language"`
 	Category    *string                        `json:"category"`
-	PageCount   int64                          `json:"page_count"`
+	PageCount   int16                          `json:"page_count"`
 	Url         []repository.GetArchiveURLsRow `json:"url"`
 	Hash        string                         `json:"hash"`
 	Pages       int                            `json:"pages"`
@@ -39,8 +39,7 @@ type ArchiveResponse struct {
 }
 
 type ArchiveResponseFavorite struct {
-	ID           int64                          `json:"id"`
-	ArchiveID    string                         `json:"archive_id"`
+	ID           string                         `json:"id"`
 	Title        string                         `json:"title"`
 	Summary      *string                        `json:"summary"`
 	Tags         []repository.Tag               `json:"tags"`
@@ -49,13 +48,13 @@ type ArchiveResponseFavorite struct {
 	Character    []repository.Character         `json:"character"`
 	Language     *string                        `json:"language"`
 	Category     *string                        `json:"category"`
-	PageCount    int64                          `json:"page_count"`
+	PageCount    int16                          `json:"page_count"`
 	Url          []repository.GetArchiveURLsRow `json:"url"`
 	Hash         string                         `json:"hash"`
 	Pages        int                            `json:"pages"`
 	Type         string                         `json:"type"`
 	ReadingState string                         `json:"read_state"`
-	Progress     int64                          `json:"progress"`
+	Progress     int16                          `json:"progress"`
 	LastRead     *time.Time                     `json:"last_read"`
 	CreatedAt    time.Time                      `json:"created_at"`
 	UpdatedAt    time.Time                      `json:"updated_at"`

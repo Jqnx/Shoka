@@ -1,14 +1,15 @@
 package archive
 
 import (
-	"Shoka/internal/config"
-	"Shoka/internal/fsutil"
-	"Shoka/internal/models"
-	"Shoka/internal/repository"
 	"context"
 	"log/slog"
 	"os"
 	"path/filepath"
+
+	"Shoka/internal/config"
+	"Shoka/internal/fsutil"
+	"Shoka/internal/models"
+	"Shoka/internal/repository"
 
 	"github.com/google/uuid"
 )
@@ -24,27 +25,27 @@ func (a *Archive) Get(ctx context.Context, app *config.App) (*models.ArchiveResp
 
 	qtx := app.Repo.WithTx(tx)
 
-	archive, err := qtx.GetArchiveByID(ctx, a.ArchiveID)
+	archive, err := qtx.GetArchiveByID(ctx, a.ID)
 	if err != nil {
 		return nil, err
 	}
-	tags, err := qtx.GetArchiveTags(ctx, a.ArchiveID)
+	tags, err := qtx.GetArchiveTags(ctx, a.ID)
 	if err != nil {
 		return nil, err
 	}
-	characters, err := qtx.GetArchiveCharacters(ctx, a.ArchiveID)
+	characters, err := qtx.GetArchiveCharacters(ctx, a.ID)
 	if err != nil {
 		return nil, err
 	}
-	parodies, err := qtx.GetArchiveParodies(ctx, a.ArchiveID)
+	parodies, err := qtx.GetArchiveParodies(ctx, a.ID)
 	if err != nil {
 		return nil, err
 	}
-	urls, err := qtx.GetArchiveURLs(ctx, a.ArchiveID)
+	urls, err := qtx.GetArchiveURLs(ctx, a.ID)
 	if err != nil {
 		return nil, err
 	}
-	artists, err := qtx.GetArchiveArtists(ctx, a.ArchiveID)
+	artists, err := qtx.GetArchiveArtists(ctx, a.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +63,7 @@ func (a *Archive) Get(ctx context.Context, app *config.App) (*models.ArchiveResp
 	}
 
 	result := &models.ArchiveResponse{
-		ArchiveID:   archive.ArchiveID,
+		ID:          archive.ID,
 		Title:       archive.Title,
 		Summary:     archive.Summary,
 		Tags:        tags,
@@ -93,33 +94,33 @@ func GetAll(c context.Context, q *repository.Queries, log *slog.Logger, uid uuid
 	result := []models.ArchiveResponse{}
 
 	for _, item := range archives {
-		tags, err := q.GetArchiveTags(c, item.ArchiveID)
+		tags, err := q.GetArchiveTags(c, item.ID)
 		if err != nil {
 			log.Error(err.Error())
 			return nil, err
 		}
-		characters, err := q.GetArchiveCharacters(c, item.ArchiveID)
+		characters, err := q.GetArchiveCharacters(c, item.ID)
 		if err != nil {
 			log.Error(err.Error())
 			return nil, err
 		}
-		parodies, err := q.GetArchiveParodies(c, item.ArchiveID)
+		parodies, err := q.GetArchiveParodies(c, item.ID)
 		if err != nil {
 			log.Error(err.Error())
 			return nil, err
 		}
-		urls, err := q.GetArchiveURLs(c, item.ArchiveID)
+		urls, err := q.GetArchiveURLs(c, item.ID)
 		if err != nil {
 			log.Error(err.Error())
 			return nil, err
 		}
-		artists, err := q.GetArchiveArtists(c, item.ArchiveID)
+		artists, err := q.GetArchiveArtists(c, item.ID)
 		if err != nil {
 			log.Error(err.Error())
 			return nil, err
 		}
 		archive := models.ArchiveResponse{
-			ArchiveID: item.ArchiveID,
+			ID:        item.ID,
 			Title:     item.Title,
 			Summary:   item.Summary,
 			Tags:      tags,

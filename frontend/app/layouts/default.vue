@@ -123,13 +123,13 @@ const { data: result } = await useFetch("/api/search", {
                       () => {
                         navigateTo({
                           name: 'a-id',
-                          params: { id: item.archive_id },
+                          params: { id: item.id },
                         });
                       }
                     "
                   >
                     <NuxtImg
-                      :src="`/archive/${item.archive_id}/cover`"
+                      :src="`/archive/${item.id}/cover`"
                       width="48px"
                       class="rounded-sm"
                     />

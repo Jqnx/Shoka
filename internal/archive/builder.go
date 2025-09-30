@@ -1,13 +1,14 @@
 package archive
 
 import (
+	"time"
+
 	"Shoka/internal/config"
 	"Shoka/internal/fsutil"
 	"Shoka/internal/models"
-	"time"
 )
 
-// getBuilder creates a new ArchiveBuilder and passes app config
+// GetBuilder creates a new ArchiveBuilder and passes app config
 // returns the Archive interface
 func GetBuilder(app *config.App) *ArchiveBuilder {
 	return newArchiveBuilder(app)
@@ -16,8 +17,8 @@ func GetBuilder(app *config.App) *ArchiveBuilder {
 // The ArchiveBuilder struct containing data about an archive
 // that can be set using the built-on functions
 type ArchiveBuilder struct {
+	ID          string
 	Type        string
-	ArchiveID   string
 	Title       *string
 	Summary     *string
 	Language    *string
@@ -28,8 +29,9 @@ type ArchiveBuilder struct {
 	Character   *[]models.Character
 	Artist      *[]models.Artist
 	ReleaseDate *time.Time
-	PageCount   int64
+	PageCount   int16
 	FilePath    *string
+	FileName    *string
 	Hash        string
 	ThumbsPath  *string
 	CoverPath   *string
@@ -51,10 +53,10 @@ func newArchiveBuilder(app *config.App) *ArchiveBuilder {
 func (a *ArchiveBuilder) setArchiveID(id string) {
 	if id == "" {
 		// newId := util.GenShortenedUUID()
-		newID := a.Hash[0:8]
-		a.ArchiveID = newID
+		newID := NewArchiveID()
+		a.ID = newID
 	} else {
-		a.ArchiveID = id
+		a.ID = id
 	}
 }
 
@@ -108,6 +110,12 @@ func (a *ArchiveBuilder) setPageCount() {
 // setFilePath sets archive's FilePath
 func (a *ArchiveBuilder) setFilePath(path string) {
 	a.FilePath = &path
+}
+
+// setFileName sets archive's FileName
+func (a *ArchiveBuilder) setFileName() {
+	name := fsutil.GetNameFromPath(*a.FilePath, false)
+	a.FileName = &name
 }
 
 // setHash sets archive's FileHash
@@ -167,7 +175,7 @@ func (a *ArchiveBuilder) setUpdatedAt() {
 func (a *ArchiveBuilder) getArchive() Archive {
 	return Archive{
 		Type:        a.Type,
-		ArchiveID:   a.ArchiveID,
+		ID:          a.ID,
 		Title:       a.Title,
 		Summary:     a.Summary,
 		Language:    a.Language,
@@ -180,6 +188,7 @@ func (a *ArchiveBuilder) getArchive() Archive {
 		ReleaseDate: a.ReleaseDate,
 		PageCount:   a.PageCount,
 		FilePath:    a.FilePath,
+		FileName:    a.FileName,
 		Hash:        a.Hash,
 		ThumbsPath:  a.ThumbsPath,
 		CoverPath:   a.CoverPath,
@@ -191,6 +200,7 @@ func (a *ArchiveBuilder) getArchive() Archive {
 
 func (a *ArchiveBuilder) NewArchive(path string) Archive {
 	a.setFilePath(path)
+	a.setFileName()
 	a.setHash()
 	a.setArchiveID("")
 	a.setTitle("")

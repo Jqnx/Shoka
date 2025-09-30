@@ -1,12 +1,13 @@
 package server
 
 import (
-	"Shoka/internal/models"
-	"Shoka/internal/repository"
 	"context"
 	"net/http"
 	"strconv"
 	"time"
+
+	"Shoka/internal/models"
+	"Shoka/internal/repository"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -14,11 +15,11 @@ import (
 
 type ReadingProgress struct {
 	ReadingState string
-	Progress     int64
+	Progress     int16
 	LastRead     *time.Time
 }
 
-func GetReadingProgress(page, max int64) *ReadingProgress {
+func GetReadingProgress(page, max int16) *ReadingProgress {
 	now := time.Now()
 	switch {
 	case page == 0:
@@ -80,8 +81,8 @@ func (s *Server) updateReadingProgressHandler(c *gin.Context) {
 	}
 
 	page, _ := strconv.Atoi(p)
-	page64 := int64(page)
-	if page64 == 0 || page64 > arch.PageCount {
+	page16 := int16(page)
+	if page16 == 0 || page16 > arch.PageCount {
 		c.JSON(http.StatusBadRequest, &models.Response{
 			Status:  "error",
 			Message: "Invalid page value",
@@ -101,7 +102,7 @@ func (s *Server) updateReadingProgressHandler(c *gin.Context) {
 		return
 	}
 
-	read := GetReadingProgress(page64, arch.PageCount)
+	read := GetReadingProgress(page16, arch.PageCount)
 	if ok.RowsAffected() == 0 {
 		if err := s.repo.InsertReadingProgress(ctx, repository.InsertReadingProgressParams{
 			ArchiveID: arch.ID,

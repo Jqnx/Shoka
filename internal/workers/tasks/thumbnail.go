@@ -1,13 +1,14 @@
 package tasks
 
 import (
-	"Shoka/internal/config"
-	"Shoka/internal/repository"
-	"Shoka/internal/thumb"
 	"context"
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"Shoka/internal/config"
+	"Shoka/internal/repository"
+	"Shoka/internal/thumb"
 
 	"github.com/hibiken/asynq"
 )
@@ -56,7 +57,7 @@ func (w *ThumbnailProcessor) ProcessTask(ctx context.Context, t *asynq.Task) err
 	if payload.Archive.ThumbsPath != &thumb.ThumbDir {
 		if err := w.app.Repo.UpdateThumbPath(c, repository.UpdateThumbPathParams{
 			ThumbsPath: &thumb.ThumbDir,
-			ArchiveID:  payload.Archive.ArchiveID,
+			ID:         payload.Archive.ID,
 		}); err != nil {
 			return err
 		}

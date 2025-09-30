@@ -106,8 +106,8 @@ func StripExtension(file string) string {
 }
 
 // GetPageCount returns the amount of image files in an archive
-func GetPageCount(path string, extensions []string) int64 {
-	var count int64
+func GetPageCount(path string, extensions []string) int16 {
+	var count int16
 
 	if Is7z(path) {
 		archive, err := sevenzip.OpenReader(path)

@@ -6,7 +6,7 @@ import (
 
 func RepoToArchive(a *repository.Archive) *Archive {
 	return &Archive{
-		ArchiveID:  a.ArchiveID,
+		ID:         a.ID,
 		Title:      &a.Title,
 		Summary:    a.Summary,
 		Language:   a.Language,

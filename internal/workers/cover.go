@@ -1,13 +1,14 @@
 package workers
 
 import (
-	"Shoka/internal/repository"
-	"Shoka/internal/workers/tasks"
 	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"Shoka/internal/repository"
+	"Shoka/internal/workers/tasks"
 
 	"github.com/hibiken/asynq"
 )
@@ -16,6 +17,7 @@ func (w *Workers) Covers(ch chan *asynq.TaskInfo, arch *repository.GetArchiveByI
 	ac := w.NewAsynqClient()
 	defer ac.Close()
 
+	// TODO: Use global client
 	c := NewClient(ac, w.app, arch)
 	i := c.NewCover(w.force)
 	ch <- i
@@ -74,7 +76,7 @@ func (c *Client) NewCover(force bool) *asynq.TaskInfo {
 		}
 		if err := c.app.Repo.UpdateCoverPath(ctx, repository.UpdateCoverPathParams{
 			CoverPath: &joined,
-			ArchiveID: c.arch.ArchiveID,
+			ID:        c.arch.ID,
 		}); err != nil {
 			c.app.Log.Error("could not update cover_path in db:", "error", err.Error())
 		}

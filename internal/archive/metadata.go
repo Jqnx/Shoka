@@ -1,22 +1,23 @@
 package archive
 
 import (
-	"Shoka/internal/repository"
 	"context"
-	"encoding/hex"
 	"strings"
 	"time"
 
+	"Shoka/internal/repository"
+
 	"github.com/google/uuid"
+	"github.com/jxskiss/base62"
 )
 
 type Metadata struct {
 	Qtx     *repository.Queries
 	Archive *Archive
-	ID      int64
+	ID      string
 }
 
-func NewMetadata(qtx *repository.Queries, archive *Archive, id int64) *Metadata {
+func NewMetadata(qtx *repository.Queries, archive *Archive, id string) *Metadata {
 	return &Metadata{
 		Qtx:     qtx,
 		Archive: archive,
@@ -245,7 +246,8 @@ func (m *Metadata) URL(c context.Context) error {
 }
 
 func NewArchiveID() string {
-	newUuid := uuid.New()
-	buf := newUuid[0:4]
-	return hex.EncodeToString(buf)
+	newUUID := uuid.New()
+	test := base62.EncodeToString(newUUID[:])
+	out := test[0:8]
+	return out
 }
