@@ -14,6 +14,7 @@ type ComicInfo struct {
 	Title      string `xml:"Title"`
 	Summary    string `xml:"Summary"`
 	URL        string `xml:"URL"`
+	Web        string `xml:"Web"`
 	Genre      string `xml:"Genre"`
 	Series     string `xml:"Series"`
 	Characters string `xml:"Characters"`
@@ -40,9 +41,23 @@ func (m *ComicInfo) Unmarshal(data any) error {
 
 func (m *ComicInfo) getURL() *[]models.URL {
 	var urls []models.URL
-	list := strings.SplitSeq(m.URL, ",")
+	var list []string
 
-	for item := range list {
+	l1 := strings.SplitSeq(m.URL, ",")
+	for item := range l1 {
+		if len(item) != 0 {
+			list = append(list, item)
+		}
+	}
+
+	l2 := strings.SplitSeq(m.Web, ",")
+	for item := range l2 {
+		if len(item) != 0 {
+			list = append(list, item)
+		}
+	}
+
+	for _, item := range list {
 		a := strings.TrimSpace(item)
 		b := strings.ToLower(a)
 		url := models.URL{URL: b}

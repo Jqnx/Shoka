@@ -246,6 +246,10 @@ func (m *Metadata) URL(c context.Context) error {
 		return err
 	}
 	for _, i := range *m.Archive.URL {
+		if len(i.URL) == 0 {
+			return nil
+		}
+
 		exists, err := m.Qtx.ArchiveUrlExists(c, i.URL)
 		if err != nil {
 			return err
