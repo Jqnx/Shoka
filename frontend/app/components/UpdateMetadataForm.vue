@@ -271,12 +271,12 @@ const onSubmit = handleSubmit((values) => {
             <Input
               type="text"
               :model-value="checkString(archive.title)"
-              class="disabled:opacity-80 text-muted-foreground"
+              class="disabled:opacity-80 text-muted-foreground rounded-l-none"
               disabled
             />
           </div>
           <FormField v-slot="{ componentField }" name="title">
-            <FormItem class="flex-1">
+            <FormItem class="flex flex-1 pb-2 gap-0">
               <FormControl>
                 <Button
                   variant="outline"
@@ -294,7 +294,11 @@ const onSubmit = handleSubmit((values) => {
                   <CheckIcon v-if="!activeTitle" class="stroke-success" />
                   <XIcon v-else class="stroke-destructive" />
                 </Button>
-                <Input type="text" v-bind="componentField" />
+                <Input
+                  type="text"
+                  class="rounded-l-none"
+                  v-bind="componentField"
+                />
               </FormControl>
               <FormDescription />
               <FormMessage />
@@ -1040,7 +1044,7 @@ const onSubmit = handleSubmit((values) => {
                   <ComboboxAnchor as-child>
                     <ComboboxInput v-model="searchCategory" as-child>
                       <Input
-                        class="w-full rounded-l-none"
+                        class="rounded-l-none"
                         type="text"
                         v-bind="componentField"
                       />
