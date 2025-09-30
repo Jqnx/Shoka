@@ -19,6 +19,7 @@ require (
 	github.com/hibiken/asynq v0.25.1
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/joho/godotenv v1.5.1
+	github.com/jxskiss/base62 v1.1.0
 	github.com/lmittmann/tint v1.0.7
 	github.com/mileusna/useragent v1.3.5
 	github.com/rs/zerolog v1.34.0
