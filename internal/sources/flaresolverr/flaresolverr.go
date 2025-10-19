@@ -1,12 +1,13 @@
 package flaresolverr
 
 import (
-	"Shoka/internal/config"
 	"bytes"
 	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
+
+	"Shoka/internal/config"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -21,7 +22,7 @@ type FlaresolverrRequest struct {
 }
 
 type Solution struct {
-	Url       string      `json:"url"`
+	URL       string      `json:"url"`
 	Status    int64       `json:"status"`
 	Headers   http.Header `json:"headers"`
 	Response  string      `json:"response"`
@@ -36,7 +37,7 @@ type Cookie struct {
 	Path     string  `json:"path"`
 	Expires  float64 `json:"expires"`
 	Size     int     `json:"size"`
-	HttpOnly bool    `json:"httpOnly"`
+	HTTPOnly bool    `json:"httpOnly"`
 	Secure   bool    `json:"secure"`
 	Session  bool    `json:"session"`
 	SameSite string  `json:"sameSite"`
@@ -44,7 +45,7 @@ type Cookie struct {
 
 type FlaresolverrBody struct {
 	Cmd string `json:"cmd"`
-	Url string `json:"url"`
+	URL string `json:"url"`
 }
 
 func Request(cfg *config.Config, url string) ([]byte, error) {
@@ -52,7 +53,7 @@ func Request(cfg *config.Config, url string) ([]byte, error) {
 
 	body := FlaresolverrBody{
 		Cmd: "request.get",
-		Url: url,
+		URL: url,
 	}
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {

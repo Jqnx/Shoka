@@ -1,10 +1,11 @@
 package server
 
 import (
-	"Shoka/internal/config"
-	"Shoka/internal/models"
 	"errors"
 	"net/http"
+
+	"Shoka/internal/config"
+	"Shoka/internal/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -17,7 +18,7 @@ type NHLoginPayload struct {
 }
 
 type FlaresolverrPayload struct {
-	Url string `json:"url" binding:"url,required"`
+	URL string `json:"url" binding:"url,required"`
 }
 
 func (s *Server) getNHCredentialsHandler(c *gin.Context) {
@@ -63,7 +64,7 @@ func (s *Server) setNHCredentialsHandler(c *gin.Context) {
 
 func (s *Server) getFlaresolverrHandler(c *gin.Context) {
 	conf := FlaresolverrPayload{
-		Url: s.app.Cfg.Sources.Flaresolverr.URL,
+		URL: s.app.Cfg.Sources.Flaresolverr.URL,
 	}
 
 	c.JSON(http.StatusOK, conf)
@@ -88,9 +89,9 @@ func (s *Server) setFlaresolverrHandler(c *gin.Context) {
 		return
 	}
 
-	s.app.Cfg.Sources.Flaresolverr.URL = req.Url
+	s.app.Cfg.Sources.Flaresolverr.URL = req.URL
 
-	viper.Set("sources.flaresolverr.url", req.Url)
+	viper.Set("sources.flaresolverr.url", req.URL)
 	viper.WriteConfig()
 
 	c.JSON(http.StatusOK, &models.Response{
