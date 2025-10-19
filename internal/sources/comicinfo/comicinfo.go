@@ -3,6 +3,8 @@ package comicinfo
 
 import (
 	"encoding/xml"
+	"fmt"
+	"net/url"
 
 	"Shoka/internal/repository"
 	"Shoka/internal/util"
@@ -23,6 +25,7 @@ type ComicInfo struct {
 	Genre         string   `xml:"Genre,omitempty"`  // Comma seperated
 	Tags          string   `xml:"Tags,omitempty"`   // Comma seperated
 	Web           string   `xml:"Web,omitempty"`    // Space seperated, TODO: Spaces in url need to be hex encoded (%20 for space)
+	URL           string   `xml:"URL,omitempty"`    // Space seperated, TODO: Spaces in url need to be hex encoded (%20 for space)
 	PageCount     int      `xml:"PageCount"`
 	Language      string   `xml:"LanguageISO"`
 	Characters    string   `xml:"Characters,omitempty"` // Comma seperated
@@ -41,33 +44,50 @@ type ComicInfoParams struct {
 
 // NewComicInfo creates a pointer to a new ComicInfo struct
 // which gets filled metadata from the given ComicInfoParams
-func NewComicInfo(p ComicInfoParams) *ComicInfo {
-	artists := util.ToString(p.Artists)
-	tags := util.ToString(p.Tags)
-	parodies := util.ToString(p.Parody)
-	characters := util.ToString(p.Character)
-	urls := util.ToString(p.URLs)
-
-	bw := getBlackWhite(p.Tags)
-	manga := getManga(p.Tags)
-	year, month, day := p.Archive.ReleaseDate.Date()
-
+func NewComicInfo() *ComicInfo {
 	return &ComicInfo{
-		Schema:        schema,
-		Title:         p.Archive.Title,
-		Series:        parodies,
-		Summary:       *p.Archive.Summary,
-		Year:          year,
-		Month:         int(month),
-		Day:           day,
-		Writer:        artists,
-		Genre:         *p.Archive.Category,
-		Tags:          tags,
-		Web:           urls,
-		PageCount:     int(p.Archive.PageCount),
-		Language:      *p.Archive.Language,
-		Characters:    characters,
-		BlackAndWhite: bw,
-		Manga:         manga,
+		Schema: schema,
 	}
 }
+
+func (c *ComicInfo) Unmarshal(data any) error {
+	err := xml.Unmarshal([]byte(data.(string)), &c)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *ComicInfo) SetMetadata(data any) error {
+	switch data := data.(type) {
+	case ComicInfoParams:
+		ci := data
+
+		c.Title = data.Archive.Title
+		c.Summary = *data.Archive.Summary
+		c.Genre = *data.Archive.Category
+		c.PageCount = int(data.Archive.PageCount)
+		c.Language = *data.Archive.Language
+		c.Writer = util.ToString(ci.Artists)
+		c.Tags = util.ToString(ci.Tags)
+		c.Series = util.ToString(ci.Parody)
+		c.Characters = util.ToString(ci.Character)
+		c.Web = util.ToString(ci.URLs)
+		c.BlackAndWhite = getBlackWhite(ci.Tags)
+		c.Manga = getManga(ci.Tags)
+		year, month, day := ci.Archive.ReleaseDate.Date()
+		c.Year = year
+		c.Month = int(month)
+		c.Day = day
+	default:
+		return fmt.Errorf("data is of incorrect type, needs to be of type ComicInfoParams")
+	}
+
+	return nil
+}
+
+func (c *ComicInfo) Download() {}
+
+func (c *ComicInfo) SetURL(u *url.URL) {}
+
+func (c *ComicInfo) SetTitle(title string) {}

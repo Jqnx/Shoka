@@ -1,26 +1,40 @@
+// Package nhentai is a source package that contains utility
+// for interacting with the nhentai API to fetch metadata
 package nhentai
 
 import (
-	"Shoka/internal/config"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
+
+	"Shoka/internal/config"
 )
 
 type Nhentai struct {
-	cfg       *config.Config
-	URL       *url.URL
-	Source    string
-	GalleryID string
-	Title     string
+	cfg            *config.Config
+	URL            *url.URL
+	Method         string
+	GalleryID      string
+	Title          string
+	Metadata       Metadata
+	SearchMetadata NHSearch
 }
 
-func NewNhentaiSource(cfg *config.Config, source string) *Nhentai {
+func NewNhentaiSource(cfg *config.Config, method *string) (*Nhentai, error) {
+	if method == nil || *method == "" {
+		return nil, fmt.Errorf("no method given")
+	}
+
 	return &Nhentai{
 		cfg:    cfg,
-		Source: source,
-	}
+		Method: *method,
+	}, nil
+}
+
+func (s *Nhentai) SetMetadata(data any) error {
+	return fmt.Errorf("SetMetadata is not supported on this source")
 }
 
 func (s *Nhentai) SetURL(u *url.URL) {
@@ -41,5 +55,24 @@ func (s *Nhentai) GetGalleryID() error {
 	}
 
 	s.GalleryID = id[2]
+	return nil
+}
+
+func (s *Nhentai) Unmarshal(data any) error {
+	switch s.Method {
+	case config.MethodID:
+		if err := json.Unmarshal(data.([]byte), &s.Metadata); err != nil {
+			return err
+		}
+
+		fmt.Println(s.Metadata)
+	case config.MethodTitle:
+		if err := json.Unmarshal(data.([]byte), &s.SearchMetadata); err != nil {
+			return err
+		}
+
+		fmt.Println(s.SearchMetadata)
+	}
+
 	return nil
 }

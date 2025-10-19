@@ -1,7 +1,6 @@
 package metadata
 
 import (
-	"Shoka/internal/config"
 	"Shoka/internal/models"
 )
 
@@ -22,14 +21,9 @@ type IMetadata interface {
 
 func GetBuilder(builderType string) IMetadata {
 	switch builderType {
-	case config.SourceComicInfo:
-		return newComicInfo()
 	case "form":
+		// TODO: Move to a "form" source package
 		return newFormMetadata()
-	case config.SourceNhentai:
-		return newNHMetadata()
-	case config.SourceNhentaiSearch:
-		return newNHSearchMetadata()
 	}
 	return nil
 }

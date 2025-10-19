@@ -54,7 +54,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const sources = ref([
-  { id: 1, value: "nhsearch", label: "NHentai" },
+  { id: 1, value: "nhentai", label: "NHentai" },
   { id: 2, value: "hentag", label: "Hentag" },
 ]);
 

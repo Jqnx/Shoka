@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"slices"
 
-	"Shoka/internal/comicinfo"
 	"Shoka/internal/config"
 	"Shoka/internal/models"
 	"Shoka/internal/sources"
+	"Shoka/internal/sources/comicinfo"
 	"Shoka/internal/workers"
 
 	"github.com/gin-gonic/gin"
@@ -76,7 +76,7 @@ func (s *Server) searchMetadataHandler(c *gin.Context) {
 		return
 	}
 
-	source, err := sources.NewSource(req.Source, s.app.Cfg)
+	source, err := sources.NewSource(s.app.Cfg, req.Source, &config.MethodTitle)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
@@ -86,7 +86,7 @@ func (s *Server) searchMetadataHandler(c *gin.Context) {
 	}
 	source.SetTitle(req.Title)
 
-	meta, err := source.GetMetadata(config.MethodTitle)
+	meta, err := source.GetMetadata()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
@@ -103,6 +103,7 @@ func (s *Server) metadataToFileHandler(c *gin.Context) {
 	id := c.Param("id")
 
 	// Get Metadata from Database
+	// TODO: Create function for getting archive + all metadata
 	arch, err := s.repo.GetArchiveByID(ctx, id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -200,7 +201,8 @@ func (s *Server) metadataToFileHandler(c *gin.Context) {
 		}
 	}
 
-	ci := comicinfo.NewComicInfo(comicinfo.ComicInfoParams{
+	ci := comicinfo.NewComicInfo()
+	ci.SetMetadata(comicinfo.ComicInfoParams{
 		Archive:   arch,
 		Artists:   artists,
 		Tags:      tags,

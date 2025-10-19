@@ -1,4 +1,4 @@
-package metadata
+package comicinfo
 
 import (
 	"fmt"
@@ -7,37 +7,45 @@ import (
 
 	"Shoka/internal/language"
 	"Shoka/internal/models"
+	"Shoka/internal/repository"
 )
 
-type ComicInfo struct {
-	Title      string `xml:"Title"`
-	Summary    string `xml:"Summary"`
-	URL        string `xml:"URL"`
-	Web        string `xml:"Web"`
-	Genre      string `xml:"Genre"`
-	Series     string `xml:"Series"`
-	Characters string `xml:"Characters"`
-	Tags       string `xml:"Tags"`
-	Writer     string `xml:"Writer"`
-	Language   string `xml:"LanguageISO"`
-	Year       int    `xml:"Year"`
-	Month      int    `xml:"Month"`
-	Day        int    `xml:"Day"`
-	PageCount  int    `xml:"PageCount"`
+// getBlackWhite checks if a slice of tags contains the "full color" tag
+// if it does, returns false
+// if it does not, returns true
+func getBlackWhite(tags []repository.Tag) bool {
+	for _, i := range tags {
+		if strings.Contains(i.Name, "full color") {
+			return false
+		}
+	}
+	return true
 }
 
-func (m *ComicInfo) getURL() *[]models.URL {
+// getManga checks if a slice of tags contains the "webtoon" tag
+// if it does, returns false
+// if it does not, returns true
+func getManga(tags []repository.Tag) bool {
+	for _, i := range tags {
+		if strings.Contains(i.Name, "webtoon") {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *ComicInfo) getURL() *[]models.URL {
 	var urls []models.URL
 	var list []string
 
-	l1 := strings.SplitSeq(m.URL, ",")
+	l1 := strings.SplitSeq(c.URL, ",")
 	for item := range l1 {
 		if len(item) != 0 {
 			list = append(list, item)
 		}
 	}
 
-	l2 := strings.SplitSeq(m.Web, ",")
+	l2 := strings.SplitSeq(c.Web, ",")
 	for item := range l2 {
 		if len(item) != 0 {
 			list = append(list, item)
@@ -53,9 +61,9 @@ func (m *ComicInfo) getURL() *[]models.URL {
 	return &urls
 }
 
-func (m *ComicInfo) getSeries() *[]models.Parody {
+func (c *ComicInfo) getSeries() *[]models.Parody {
 	var series []models.Parody
-	list := strings.SplitSeq(m.Series, ",")
+	list := strings.SplitSeq(c.Series, ",")
 
 	for item := range list {
 		a := strings.TrimSpace(item)
@@ -68,9 +76,9 @@ func (m *ComicInfo) getSeries() *[]models.Parody {
 	return &series
 }
 
-func (m *ComicInfo) getCharacters() *[]models.Character {
+func (c *ComicInfo) getCharacters() *[]models.Character {
 	var characters []models.Character
-	list := strings.SplitSeq(m.Characters, ",")
+	list := strings.SplitSeq(c.Characters, ",")
 
 	for item := range list {
 		a := strings.TrimSpace(item)
@@ -83,9 +91,9 @@ func (m *ComicInfo) getCharacters() *[]models.Character {
 	return &characters
 }
 
-func (m *ComicInfo) getTags() *[]models.Tag {
+func (c *ComicInfo) getTags() *[]models.Tag {
 	var tags []models.Tag
-	list := strings.SplitSeq(m.Tags, ",")
+	list := strings.SplitSeq(c.Tags, ",")
 
 	for item := range list {
 		a := strings.TrimSpace(item)
@@ -96,9 +104,9 @@ func (m *ComicInfo) getTags() *[]models.Tag {
 	return &tags
 }
 
-func (m *ComicInfo) getWriter() *[]models.Artist {
+func (c *ComicInfo) getWriter() *[]models.Artist {
 	var writers []models.Artist
-	list := strings.SplitSeq(m.Writer, ",")
+	list := strings.SplitSeq(c.Writer, ",")
 
 	for item := range list {
 		a := strings.TrimSpace(item)
@@ -109,13 +117,13 @@ func (m *ComicInfo) getWriter() *[]models.Artist {
 	return &writers
 }
 
-func (m *ComicInfo) getLanguage() string {
+func (c *ComicInfo) getLanguage() string {
 	conv := language.NewLanguageConverter()
-	lang, _ := conv.ToISO(m.Language)
+	lang, _ := conv.ToISO(c.Language)
 	return lang
 }
 
-func (m *ComicInfo) getReleaseDate(year, month, day int) *time.Time {
+func (c *ComicInfo) getReleaseDate(year, month, day int) *time.Time {
 	switch {
 	case day < 10 && month < 10:
 		dayString := fmt.Sprintf("0%d", day)
@@ -152,28 +160,28 @@ func (m *ComicInfo) getReleaseDate(year, month, day int) *time.Time {
 	}
 }
 
-func (m *ComicInfo) GetMetadata() []models.Metadata {
+func (c *ComicInfo) GetMetadata() ([]models.Metadata, error) {
 	var metaSlice []models.Metadata
-	urls := m.getURL()
-	series := m.getSeries()
-	characters := m.getCharacters()
-	tags := m.getTags()
-	writers := m.getWriter()
-	lang := m.getLanguage()
-	releaseDate := m.getReleaseDate(m.Year, m.Month, m.Day)
+	urls := c.getURL()
+	series := c.getSeries()
+	characters := c.getCharacters()
+	tags := c.getTags()
+	writers := c.getWriter()
+	lang := c.getLanguage()
+	releaseDate := c.getReleaseDate(c.Year, c.Month, c.Day)
 	meta := &models.Metadata{
-		Title:       m.Title,
-		Summary:     m.Summary,
+		Title:       c.Title,
+		Summary:     c.Summary,
 		URL:         *urls,
-		Category:    strings.ToLower(m.Genre),
+		Category:    strings.ToLower(c.Genre),
 		Parody:      *series,
 		Character:   *characters,
 		Tags:        *tags,
 		Artist:      *writers,
 		Language:    lang,
 		ReleaseDate: releaseDate,
-		PageCount:   m.PageCount,
+		PageCount:   c.PageCount,
 	}
 	metaSlice = append(metaSlice, *meta)
-	return metaSlice
+	return metaSlice, nil
 }

@@ -15,7 +15,7 @@ var (
 	ConfigFile        = "config.yaml"
 	ImageExtensions   = []string{"png", "jpg", "jpeg", "gif", "webp"}
 	ArchiveExtensions = []string{"zip", "cbz"}
-	SourcesList       = []string{SourceNhentai, SourceNhentaiSearch, SourceComicInfo}
+	SourcesList       = []string{SourceNhentai, SourceComicInfo}
 )
 
 type Server struct {

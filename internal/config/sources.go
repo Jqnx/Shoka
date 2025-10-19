@@ -1,10 +1,12 @@
 package config
 
-var (
+const (
 	// Sources
-	SourceNhentai       = "nhentai"
-	SourceNhentaiSearch = "nhsearch"
-	SourceComicInfo     = "comicinfo"
+	SourceNhentai   = "nhentai"
+	SourceComicInfo = "comicinfo"
+)
+
+var (
 
 	// Methods
 	MethodID    = "id"

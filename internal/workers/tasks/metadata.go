@@ -10,8 +10,8 @@ import (
 	"Shoka/internal/archive"
 	"Shoka/internal/config"
 	"Shoka/internal/fsutil"
-	"Shoka/internal/metadata"
 	"Shoka/internal/repository"
+	"Shoka/internal/sources"
 
 	"github.com/bodgit/sevenzip"
 	"github.com/hibiken/asynq"
@@ -59,10 +59,12 @@ func (w *MetadataProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 					if err != nil {
 						return err
 					}
-
-					mb := metadata.GetBuilder("comicinfo")
-					d := metadata.NewDirector(mb)
-					meta, err := d.FetchMetadata(content)
+					ci, err := sources.NewSource(w.app.Cfg, config.SourceComicInfo, nil)
+					if err != nil {
+						return err
+					}
+					ci.Unmarshal(content)
+					meta, err := ci.GetMetadata()
 					if err != nil {
 						return err
 					}
@@ -90,9 +92,12 @@ func (w *MetadataProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 						return err
 					}
 
-					b := metadata.GetBuilder("comicinfo")
-					d := metadata.NewDirector(b)
-					meta, err := d.FetchMetadata(content)
+					ci, err := sources.NewSource(w.app.Cfg, config.SourceComicInfo, nil)
+					if err != nil {
+						return err
+					}
+					ci.Unmarshal(content)
+					meta, err := ci.GetMetadata()
 					if err != nil {
 						return err
 					}

@@ -1,10 +1,6 @@
 package downloader
 
 import (
-	"Shoka/internal/config"
-	"Shoka/internal/fsutil"
-	"Shoka/internal/repository"
-	"Shoka/internal/sources"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,6 +8,11 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"Shoka/internal/config"
+	"Shoka/internal/fsutil"
+	"Shoka/internal/repository"
+	"Shoka/internal/sources"
 
 	"github.com/cavaliergopher/grab/v3"
 	"github.com/google/uuid"
@@ -60,12 +61,12 @@ func (dm *Manager) AddDownload(url *url.URL, source string) (*repository.Downloa
 	now := time.Now()
 	progress := int32(0)
 
-	src, err := sources.NewSource(source, dm.cfg)
+	src, err := sources.NewSource(dm.cfg, source, &config.MethodID)
 	if err != nil {
 		return nil, err
 	}
 	src.SetURL(url)
-	meta, err := src.GetMetadata(config.MethodID)
+	meta, err := src.GetMetadata()
 	if err != nil {
 		return nil, err
 	}
