@@ -8,10 +8,9 @@ import (
 	"Shoka/internal/config"
 	"Shoka/internal/models"
 	"Shoka/internal/sources/comicinfo"
+	"Shoka/internal/sources/form"
 	"Shoka/internal/sources/nhentai"
 )
-
-// TODO: custom types to use for declaring source
 
 type Sources interface {
 	Download() // NOTE: Probably doable with gocron instead of asynq
@@ -36,6 +35,8 @@ func NewSource(cfg *config.Config, source string, method *string) (Sources, erro
 		}
 	case config.SourceComicInfo:
 		return comicinfo.NewComicInfo(), nil
+	case config.SourceForm:
+		return form.NewForm(), nil
 	}
 	return nil, nil
 }

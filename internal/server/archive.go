@@ -16,9 +16,9 @@ import (
 	"Shoka/internal/config"
 	"Shoka/internal/filter"
 	"Shoka/internal/fsutil"
-	"Shoka/internal/metadata"
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
+	"Shoka/internal/sources"
 	"Shoka/internal/util"
 
 	"github.com/gin-gonic/gin"
@@ -1127,9 +1127,16 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 	}
 
 	// Fetch Metadata
-	mb := metadata.GetBuilder("form")
-	d := metadata.NewDirector(mb)
-	meta, err := d.FetchMetadata(payload)
+	form, err := sources.NewSource(s.app.Cfg, config.SourceForm, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.Response{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+	form.Unmarshal(payload)
+	meta, err := form.GetMetadata()
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",

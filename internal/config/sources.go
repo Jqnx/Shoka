@@ -4,6 +4,7 @@ const (
 	// Sources
 	SourceNhentai   = "nhentai"
 	SourceComicInfo = "comicinfo"
+	SourceForm      = "form"
 )
 
 var (
