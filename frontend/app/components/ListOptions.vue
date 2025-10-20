@@ -39,7 +39,7 @@ const isFav = computed(() => {
 const sortList = [
   { value: "title", label: "Title" },
   { value: "page_count", label: "Page Count" },
-  { value: "created_at", label: "Created At" },
+  { value: "created_at", label: "Date Added" },
   { value: "updated_at", label: "Updated At" },
   { value: "release_date", label: "Release Date" },
 ];
