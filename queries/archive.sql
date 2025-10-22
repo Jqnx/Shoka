@@ -303,26 +303,30 @@ returning
 
 -- name: UpdateThumbPath :exec
 update archives
-set thumbs_path = $1
-where id = $2
+set thumbs_path = $1,
+    updated_at = $2
+where id = $3
 ;
 
 -- name: UpdateFilePath :exec
 update archives
-set file_path = $1
-where id = $2
+set file_path = $1,
+    updated_at = $2
+where id = $3
 ;
 
 -- name: UpdateFileName :exec
 update archives
-set file_name = $1
-where id = $2
+set file_name = $1,
+    updated_at = $2
+where id = $3
 ;
 
 -- name: UpdateHash :exec
 update archives
-set hash = sqlc.arg('newhash')
-where hash = sqlc.arg('oldhash')
+set hash = $1,
+    updated_at = $2
+where id = $3
 ;
 
 -- name: DeleteArchive :exec

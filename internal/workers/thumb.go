@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"time"
 
 	"Shoka/internal/repository"
 	"Shoka/internal/thumb"
@@ -79,6 +80,7 @@ func (c *Client) NewThumb(force bool) *asynq.TaskInfo {
 			if err := c.app.Repo.UpdateThumbPath(ctx, repository.UpdateThumbPathParams{
 				ID:         c.arch.ID,
 				ThumbsPath: &thumb.ThumbDir,
+				UpdatedAt:  time.Now(),
 			}); err != nil {
 				c.app.Log.Error("could not update thumbs_path in db:", "error", err.Error())
 			}

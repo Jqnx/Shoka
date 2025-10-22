@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"slices"
 
+	"Shoka/internal/archive"
 	"Shoka/internal/config"
 	"Shoka/internal/models"
 	"Shoka/internal/sources"
@@ -202,14 +203,20 @@ func (s *Server) metadataToFileHandler(c *gin.Context) {
 	}
 
 	ci := comicinfo.NewComicInfo()
-	ci.SetMetadata(comicinfo.ComicInfoParams{
+	if err := ci.SetMetadata(comicinfo.ComicInfoParams{
 		Archive:   arch,
 		Artists:   artists,
 		Tags:      tags,
 		Parody:    parodies,
 		Character: characters,
 		URLs:      urls,
-	})
+	}); err != nil {
+		c.JSON(http.StatusInternalServerError, &models.Response{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
 
 	if err := ci.Write(arch.FilePath, s.app.Cfg.TempDir); err != nil {
 		c.JSON(http.StatusInternalServerError, &models.Response{
@@ -219,8 +226,14 @@ func (s *Server) metadataToFileHandler(c *gin.Context) {
 		return
 	}
 
-	// TODO: Update file hash on ci.Write, make it a function in the archive package that also moves thumbs, cover and pages to new folder for correct hash
-	// TODO: Probably run this as a job or in a goroutine (asyncronous)
+	a := archive.RepoToArchive(arch, s.app)
+	if err := a.MoveOnFileUpdate(); err != nil {
+		c.JSON(http.StatusInternalServerError, &models.Response{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
 
 	c.JSON(http.StatusCreated, &models.Response{
 		Status:  "success",

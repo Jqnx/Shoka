@@ -58,6 +58,7 @@ func (w *ThumbnailProcessor) ProcessTask(ctx context.Context, t *asynq.Task) err
 		if err := w.app.Repo.UpdateThumbPath(c, repository.UpdateThumbPathParams{
 			ThumbsPath: &thumb.ThumbDir,
 			ID:         payload.Archive.ID,
+			UpdatedAt:  time.Now(),
 		}); err != nil {
 			return err
 		}

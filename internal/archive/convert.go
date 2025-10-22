@@ -1,10 +1,11 @@
 package archive
 
 import (
+	"Shoka/internal/config"
 	"Shoka/internal/repository"
 )
 
-func RepoToArchive(a any) *Archive {
+func RepoToArchive(a any, app *config.App) *Archive {
 	switch a := a.(type) {
 	case repository.GetArchiveByIDRow:
 		return &Archive{
@@ -20,6 +21,7 @@ func RepoToArchive(a any) *Archive {
 			Type:       a.Type,
 			CreatedAt:  a.CreatedAt,
 			UpdatedAt:  a.UpdatedAt,
+			app:        app,
 		}
 	default:
 		return nil

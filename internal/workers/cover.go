@@ -41,7 +41,7 @@ func (c *Client) NewCover(force bool) *asynq.TaskInfo {
 		// create new one and create new cover
 
 		// 1. Create new directory
-		ar := archive.RepoToArchive(c.arch)
+		ar := archive.RepoToArchive(c.arch, c.app)
 		err := ar.CreateCoverDir()
 		if err != nil {
 			c.app.Log.Error("could not create task:", "error", err.Error())

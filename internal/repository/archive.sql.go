@@ -922,64 +922,72 @@ func (q *Queries) UpdateArchive(ctx context.Context, arg UpdateArchiveParams) (U
 
 const updateFileName = `-- name: UpdateFileName :exec
 update archives
-set file_name = $1
-where id = $2
+set file_name = $1,
+    updated_at = $2
+where id = $3
 `
 
 type UpdateFileNameParams struct {
-	FileName string `json:"file_name"`
-	ID       string `json:"id"`
+	FileName  string    `json:"file_name"`
+	UpdatedAt time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
 }
 
 func (q *Queries) UpdateFileName(ctx context.Context, arg UpdateFileNameParams) error {
-	_, err := q.db.Exec(ctx, updateFileName, arg.FileName, arg.ID)
+	_, err := q.db.Exec(ctx, updateFileName, arg.FileName, arg.UpdatedAt, arg.ID)
 	return err
 }
 
 const updateFilePath = `-- name: UpdateFilePath :exec
 update archives
-set file_path = $1
-where id = $2
+set file_path = $1,
+    updated_at = $2
+where id = $3
 `
 
 type UpdateFilePathParams struct {
-	FilePath string `json:"file_path"`
-	ID       string `json:"id"`
+	FilePath  string    `json:"file_path"`
+	UpdatedAt time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
 }
 
 func (q *Queries) UpdateFilePath(ctx context.Context, arg UpdateFilePathParams) error {
-	_, err := q.db.Exec(ctx, updateFilePath, arg.FilePath, arg.ID)
+	_, err := q.db.Exec(ctx, updateFilePath, arg.FilePath, arg.UpdatedAt, arg.ID)
 	return err
 }
 
 const updateHash = `-- name: UpdateHash :exec
 update archives
-set hash = $1
-where hash = $2
+set hash = $1,
+    updated_at = $2
+where id = $3
 `
 
 type UpdateHashParams struct {
-	Newhash string `json:"newhash"`
-	Oldhash string `json:"oldhash"`
+	Hash      string    `json:"hash"`
+	UpdatedAt time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
 }
 
 func (q *Queries) UpdateHash(ctx context.Context, arg UpdateHashParams) error {
-	_, err := q.db.Exec(ctx, updateHash, arg.Newhash, arg.Oldhash)
+	_, err := q.db.Exec(ctx, updateHash, arg.Hash, arg.UpdatedAt, arg.ID)
 	return err
 }
 
 const updateThumbPath = `-- name: UpdateThumbPath :exec
 update archives
-set thumbs_path = $1
-where id = $2
+set thumbs_path = $1,
+    updated_at = $2
+where id = $3
 `
 
 type UpdateThumbPathParams struct {
-	ThumbsPath *string `json:"thumbs_path"`
-	ID         string  `json:"id"`
+	ThumbsPath *string   `json:"thumbs_path"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	ID         string    `json:"id"`
 }
 
 func (q *Queries) UpdateThumbPath(ctx context.Context, arg UpdateThumbPathParams) error {
-	_, err := q.db.Exec(ctx, updateThumbPath, arg.ThumbsPath, arg.ID)
+	_, err := q.db.Exec(ctx, updateThumbPath, arg.ThumbsPath, arg.UpdatedAt, arg.ID)
 	return err
 }
