@@ -29,7 +29,7 @@ type ArchiveResponse struct {
 	Language    *string                        `json:"language"`
 	Category    *string                        `json:"category"`
 	PageCount   int16                          `json:"page_count"`
-	Url         []repository.GetArchiveURLsRow `json:"url"`
+	URL         []repository.GetArchiveURLsRow `json:"url"`
 	Hash        string                         `json:"hash"`
 	Pages       int                            `json:"pages"`
 	Type        string                         `json:"type"`
@@ -49,7 +49,7 @@ type ArchiveResponseFavorite struct {
 	Language     *string                        `json:"language"`
 	Category     *string                        `json:"category"`
 	PageCount    int16                          `json:"page_count"`
-	Url          []repository.GetArchiveURLsRow `json:"url"`
+	URL          []repository.GetArchiveURLsRow `json:"url"`
 	Hash         string                         `json:"hash"`
 	Pages        int                            `json:"pages"`
 	Type         string                         `json:"type"`

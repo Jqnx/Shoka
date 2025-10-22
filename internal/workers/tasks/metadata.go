@@ -45,8 +45,8 @@ func (w *MetadataProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 	switch payload.Source {
 	case "file":
 		// Scan zip file for metadata files
-		if fsutil.Is7z(*payload.Archive.FilePath) {
-			zip, err := sevenzip.OpenReader(*payload.Archive.FilePath)
+		if fsutil.Is7z(payload.Archive.FilePath) {
+			zip, err := sevenzip.OpenReader(payload.Archive.FilePath)
 			if err != nil {
 				return err
 			}
@@ -63,14 +63,17 @@ func (w *MetadataProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 					if err != nil {
 						return err
 					}
-					ci.Unmarshal(content)
+					if err := ci.Unmarshal(content); err != nil {
+						w.app.Log.Error("error unmarshalling comicinfo:", "err", err.Error())
+						return err
+					}
 					meta, err := ci.GetMetadata()
 					if err != nil {
 						return err
 					}
-					ab := archive.GetBuilder(w.app)
-					archive := ab.UpdateArchive(payload.Archive.ID, &meta[0])
-					if err := archive.Update(ctx, w.app); err != nil {
+					arch := archive.NewArchive(w.app)
+					arch.Update(payload.Archive.ID, &meta[0])
+					if err := arch.UpdateInDB(ctx, w.app); err != nil {
 						return err
 					}
 					return nil
@@ -78,7 +81,7 @@ func (w *MetadataProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 				}
 			}
 		} else {
-			zip, err := zip.OpenReader(*payload.Archive.FilePath)
+			zip, err := zip.OpenReader(payload.Archive.FilePath)
 			if err != nil {
 				return err
 			}
@@ -96,14 +99,17 @@ func (w *MetadataProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 					if err != nil {
 						return err
 					}
-					ci.Unmarshal(content)
+					if err := ci.Unmarshal(content); err != nil {
+						w.app.Log.Error("error unmarshalling comicinfo:", "err", err.Error())
+						return err
+					}
 					meta, err := ci.GetMetadata()
 					if err != nil {
 						return err
 					}
-					ab := archive.GetBuilder(w.app)
-					archive := ab.UpdateArchive(payload.Archive.ID, &meta[0])
-					if err := archive.Update(ctx, w.app); err != nil {
+					arch := archive.NewArchive(w.app)
+					arch.Update(payload.Archive.ID, &meta[0])
+					if err := arch.UpdateInDB(ctx, w.app); err != nil {
 						return err
 					}
 					return nil

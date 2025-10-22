@@ -29,8 +29,8 @@ type ComicInfo struct {
 	PageCount     int      `xml:"PageCount"`
 	Language      string   `xml:"LanguageISO"`
 	Characters    string   `xml:"Characters,omitempty"` // Comma seperated
-	BlackAndWhite bool     `xml:"BlackAndWhite,omitempty"`
-	Manga         bool     `xml:"Manga,omitempty"`
+	BlackAndWhite string   `xml:"BlackAndWhite,omitempty"`
+	Manga         string   `xml:"Manga,omitempty"`
 }
 
 type ComicInfoParams struct {

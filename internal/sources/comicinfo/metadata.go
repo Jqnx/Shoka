@@ -1,37 +1,37 @@
 package comicinfo
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
 	"Shoka/internal/language"
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
+	"Shoka/internal/util"
 )
 
 // getBlackWhite checks if a slice of tags contains the "full color" tag
 // if it does, returns false
 // if it does not, returns true
-func getBlackWhite(tags []repository.Tag) bool {
+func getBlackWhite(tags []repository.Tag) string {
 	for _, i := range tags {
 		if strings.Contains(i.Name, "full color") {
-			return false
+			return "No"
 		}
 	}
-	return true
+	return "Yes"
 }
 
 // getManga checks if a slice of tags contains the "webtoon" tag
 // if it does, returns false
 // if it does not, returns true
-func getManga(tags []repository.Tag) bool {
+func getManga(tags []repository.Tag) string {
 	for _, i := range tags {
 		if strings.Contains(i.Name, "webtoon") {
-			return false
+			return "No"
 		}
 	}
-	return true
+	return "Yes"
 }
 
 func (c *ComicInfo) getURL() *[]models.URL {
@@ -123,41 +123,44 @@ func (c *ComicInfo) getLanguage() string {
 	return lang
 }
 
-func (c *ComicInfo) getReleaseDate(year, month, day int) *time.Time {
-	switch {
-	case day < 10 && month < 10:
-		dayString := fmt.Sprintf("0%d", day)
-		monthString := fmt.Sprintf("0%d", month)
-		dateString := fmt.Sprintf("%d-%s-%s", year, monthString, dayString)
-		date, err := time.Parse(time.DateOnly, dateString)
-		if err != nil {
-			fmt.Println(err)
-		}
-		return &date
-	case day < 10:
-		dayString := fmt.Sprintf("0%d", day)
-		dateString := fmt.Sprintf("%d-%d-%s", year, month, dayString)
-		date, err := time.Parse(time.DateOnly, dateString)
-		if err != nil {
-			fmt.Println(err)
-		}
-		return &date
-	case month < 10:
-		monthString := fmt.Sprintf("0%d", month)
-		dateString := fmt.Sprintf("%d-%s-%d", year, monthString, day)
-		date, err := time.Parse(time.DateOnly, dateString)
-		if err != nil {
-			fmt.Println(err)
-		}
-		return &date
-	default:
-		d := fmt.Sprintf("%d-%d-%d", year, month, day)
-		date, err := time.Parse(time.DateOnly, d)
-		if err != nil {
-			fmt.Println(err)
-		}
-		return &date
-	}
+// TODO: Fix Release date issues
+func (c *ComicInfo) getReleaseDate(day, month, year int) *time.Time {
+	//switch {
+	//case day < 10 && month < 10:
+	//	dayString := fmt.Sprintf("0%d", day)
+	//	monthString := fmt.Sprintf("0%d", month)
+	//	dateString := fmt.Sprintf("%d-%s-%s", year, monthString, dayString)
+	//	date, err := time.Parse(time.DateOnly, dateString)
+	//	if err != nil {
+	//		fmt.Println(err)
+	//	}
+	//	return &date
+	//case day < 10:
+	//	dayString := fmt.Sprintf("0%d", day)
+	//	dateString := fmt.Sprintf("%d-%d-%s", year, month, dayString)
+	//	date, err := time.Parse(time.DateOnly, dateString)
+	//	if err != nil {
+	//		fmt.Println(err)
+	//	}
+	//	return &date
+	//case month < 10:
+	//	monthString := fmt.Sprintf("0%d", month)
+	//	dateString := fmt.Sprintf("%d-%s-%d", year, monthString, day)
+	//	date, err := time.Parse(time.DateOnly, dateString)
+	//	if err != nil {
+	//		fmt.Println(err)
+	//	}
+	//	return &date
+	//default:
+	//	d := fmt.Sprintf("%d-%d-%d", year, month, day)
+	//	date, err := time.Parse(time.DateOnly, d)
+	//	if err != nil {
+	//		fmt.Println(err)
+	//	}
+	//	return &date
+	//}
+	date := util.DateToTime(day, month, year)
+	return &date
 }
 
 func (c *ComicInfo) GetMetadata() ([]models.Metadata, error) {
@@ -168,7 +171,7 @@ func (c *ComicInfo) GetMetadata() ([]models.Metadata, error) {
 	tags := c.getTags()
 	writers := c.getWriter()
 	lang := c.getLanguage()
-	releaseDate := c.getReleaseDate(c.Year, c.Month, c.Day)
+	releaseDate := c.getReleaseDate(c.Day, c.Month, c.Year)
 	meta := &models.Metadata{
 		Title:       c.Title,
 		Summary:     c.Summary,
