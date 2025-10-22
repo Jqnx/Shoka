@@ -11,13 +11,12 @@ insert into archives (
 -- archive_id,
     hash,
     thumbs_path,
-    cover_path,
     type,
     created_at,
     updated_at,
     release_date
     )
-values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 returning
     id,
     title,
@@ -30,7 +29,6 @@ returning
 -- archive_id,
     hash,
     thumbs_path,
-    cover_path,
     type,
     created_at,
     updated_at,
@@ -50,7 +48,6 @@ select
     -- archive_id,
     hash,
     thumbs_path,
-    cover_path,
     type,
     created_at,
     updated_at,
@@ -72,7 +69,6 @@ select
     -- archive_id,
     hash,
     thumbs_path,
-    cover_path,
     type,
     created_at,
     updated_at,
@@ -94,7 +90,6 @@ select
     -- archive_id,
     hash,
     thumbs_path,
-    cover_path,
     type,
     created_at,
     updated_at,
@@ -116,7 +111,6 @@ select
     -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
-    archives.cover_path,
     archives.type,
     archives.created_at,
     archives.updated_at,
@@ -145,7 +139,6 @@ select
     -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
-    archives.cover_path,
     archives.type,
     archives.created_at,
     archives.updated_at,
@@ -175,7 +168,6 @@ select
     -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
-    archives.cover_path,
     archives.type,
     archives.created_at,
     archives.updated_at,
@@ -199,7 +191,6 @@ limit $1
 offset $2
 ;
 
-
 -- name: SearchArchives :many
 select
     id,
@@ -213,7 +204,6 @@ select
     -- archive_id,
     hash,
     thumbs_path,
-    cover_path,
     type,
     created_at,
     updated_at,
@@ -243,7 +233,6 @@ select
     -- archive_id,
     hash,
     thumbs_path,
-    cover_path,
     type,
     created_at,
     updated_at,
@@ -306,7 +295,6 @@ returning
 -- archive_id,
     hash,
     thumbs_path,
-    cover_path,
     type,
     created_at,
     updated_at,
@@ -316,12 +304,6 @@ returning
 -- name: UpdateThumbPath :exec
 update archives
 set thumbs_path = $1
-where id = $2
-;
-
--- name: UpdateCoverPath :exec
-update archives
-set cover_path = $1
 where id = $2
 ;
 
@@ -335,6 +317,12 @@ where id = $2
 update archives
 set file_name = $1
 where id = $2
+;
+
+-- name: UpdateHash :exec
+update archives
+set hash = sqlc.arg('newhash')
+where hash = sqlc.arg('oldhash')
 ;
 
 -- name: DeleteArchive :exec

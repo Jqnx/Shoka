@@ -1,9 +1,6 @@
 package server
 
 import (
-	"Shoka/internal/fsutil"
-	"Shoka/internal/models"
-	"Shoka/internal/workers"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +9,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+
+	"Shoka/internal/fsutil"
+	"Shoka/internal/models"
+	"Shoka/internal/workers"
 
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
@@ -154,7 +155,7 @@ func (s *Server) getThumbHandler(c *gin.Context) {
 
 	var file string
 
-	cont := fsutil.ArchiveContents(*arch.FilePath)
+	cont := fsutil.ArchiveContents(arch.FilePath)
 	pageToIndex := page - 1
 	for i, f := range cont {
 		if i == pageToIndex {

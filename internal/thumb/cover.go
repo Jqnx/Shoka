@@ -1,12 +1,13 @@
 package thumb
 
 import (
-	"Shoka/internal/config"
-	"Shoka/internal/fsutil"
-	"Shoka/internal/repository"
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"Shoka/internal/config"
+	"Shoka/internal/fsutil"
+	"Shoka/internal/repository"
 
 	"github.com/h2non/bimg"
 )
@@ -35,15 +36,6 @@ func NewCover(a *repository.GetArchiveByIDRow, app *config.App, coverdir string)
 	}
 }
 
-func (c *Cover) CreateDir(thumbdir string) {
-	cd := filepath.Join(thumbdir, "cover")
-	err := fsutil.CreateDir(cd)
-	if err != nil {
-		return
-	}
-	c.Dir = cd
-}
-
 func (c *Cover) Generate() (string, error) {
 	// Create temporary file
 	temp, err := os.CreateTemp("", "tempCover-*")
@@ -57,7 +49,7 @@ func (c *Cover) Generate() (string, error) {
 	// TODO: Other types of media
 	switch c.Archive.Type {
 	case "archive":
-		fsutil.ExtractFirstPage(*c.Archive.FilePath, temp)
+		fsutil.ExtractFirstPage(c.Archive.FilePath, temp)
 	}
 
 	// Convert temp file to WEBP image
@@ -67,7 +59,7 @@ func (c *Cover) Generate() (string, error) {
 	}
 
 	// Save new image
-	name := fmt.Sprintf("%v.webp", c.Archive.Hash)
+	name := fmt.Sprintf("%s.webp", c.Archive.Hash)
 	fp := filepath.Join(c.Dir, name)
 	full, err := filepath.Abs(fp)
 	if err != nil {
@@ -85,41 +77,3 @@ func (c *Cover) Generate() (string, error) {
 
 	return fp, nil
 }
-
-//func GenerateBigCover(a *archive.Archive, thumbdir string, app *config.App) (string, error) {
-//	// Create temporary file
-//	temp, err := os.CreateTemp("", "tempCover-*")
-//	if err != nil {
-//		return "", err
-//	}
-//	// Defer removal of temp file
-//	defer os.Remove(temp.Name())
-//
-//	// Bind first image in Archive to temp file
-//	// TODO: Other types of media
-//	switch a.Type {
-//	case "archive":
-//		fsutil.ExtractFirstPage(*a.FilePath, temp)
-//	}
-//
-//	// Convert temp file to WEBP image
-//	img, err := ToWEBP(temp.Name())
-//	if err != nil {
-//		return "", err
-//	}
-//
-//	// Save new image
-//	name := fmt.Sprintf("%v.webp", *a.Hash)
-//	fp := filepath.Join(thumbdir, name)
-//	err = bimg.Write(fp, img)
-//	if err != nil {
-//		return "", err
-//	}
-//
-//	// Close temp file
-//	if err := temp.Close(); err != nil {
-//		return "", err
-//	}
-//
-//	return name, nil
-//}

@@ -67,7 +67,7 @@ func (t *Thumb) Generate() error {
 	defer os.RemoveAll(tempDir)
 
 	// Unzip archive
-	if err := fsutil.Unzip(*t.Archive.FilePath, tempDir); err != nil {
+	if err := fsutil.Unzip(t.Archive.FilePath, tempDir); err != nil {
 		return err
 	}
 

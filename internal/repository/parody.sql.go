@@ -141,7 +141,6 @@ select
     -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
-    archives.cover_path,
     archives.type,
     archives.created_at,
     archives.updated_at,
@@ -169,11 +168,10 @@ type GetArchivesByParodyRow struct {
 	Language    *string    `json:"language"`
 	Category    *string    `json:"category"`
 	PageCount   int16      `json:"page_count"`
-	FilePath    *string    `json:"file_path"`
-	FileName    *string    `json:"file_name"`
+	FilePath    string     `json:"file_path"`
+	FileName    string     `json:"file_name"`
 	Hash        string     `json:"hash"`
 	ThumbsPath  *string    `json:"thumbs_path"`
-	CoverPath   *string    `json:"cover_path"`
 	Type        string     `json:"type"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -201,7 +199,6 @@ func (q *Queries) GetArchivesByParody(ctx context.Context, arg GetArchivesByParo
 			&i.FileName,
 			&i.Hash,
 			&i.ThumbsPath,
-			&i.CoverPath,
 			&i.Type,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -231,7 +228,6 @@ select
     -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
-    archives.cover_path,
     archives.type,
     archives.created_at,
     archives.updated_at,
@@ -263,11 +259,10 @@ type GetArchivesByParodyListRow struct {
 	Language    *string    `json:"language"`
 	Category    *string    `json:"category"`
 	PageCount   int16      `json:"page_count"`
-	FilePath    *string    `json:"file_path"`
-	FileName    *string    `json:"file_name"`
+	FilePath    string     `json:"file_path"`
+	FileName    string     `json:"file_name"`
 	Hash        string     `json:"hash"`
 	ThumbsPath  *string    `json:"thumbs_path"`
-	CoverPath   *string    `json:"cover_path"`
 	Type        string     `json:"type"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -300,7 +295,6 @@ func (q *Queries) GetArchivesByParodyList(ctx context.Context, arg GetArchivesBy
 			&i.FileName,
 			&i.Hash,
 			&i.ThumbsPath,
-			&i.CoverPath,
 			&i.Type,
 			&i.CreatedAt,
 			&i.UpdatedAt,

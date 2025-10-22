@@ -14,11 +14,12 @@ import (
 )
 
 type CreateCoverPayload struct {
-	Archive *repository.GetArchiveByIDRow
+	Archive  *repository.GetArchiveByIDRow
+	CoverDir string
 }
 
-func NewCreateCoverTask(arch *repository.GetArchiveByIDRow) (*asynq.Task, error) {
-	payload, err := json.Marshal(CreateCoverPayload{Archive: arch})
+func NewCreateCoverTask(arch *repository.GetArchiveByIDRow, coverdir string) (*asynq.Task, error) {
+	payload, err := json.Marshal(CreateCoverPayload{Archive: arch, CoverDir: coverdir})
 	if err != nil {
 		return nil, err
 	}
@@ -39,28 +40,12 @@ func (w *CoverProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error {
 
 	now := time.Now()
 
-	// Create context
-	c := context.Background()
-
 	// Create new Cover
-	co := thumb.NewCover(payload.Archive, w.app, "")
-	// Create new Cover directory
-	co.CreateDir(*payload.Archive.ThumbsPath)
+	co := thumb.NewCover(payload.Archive, w.app, payload.CoverDir)
 	// Generate cover
 	cover, err := co.Generate()
 	if err != nil {
 		return err
-	}
-
-	// Checks if ThumbsPath in DB is the same as generated thumbpath
-	// If not then update db with new thumbdir
-	if payload.Archive.CoverPath != &cover {
-		if err := w.app.Repo.UpdateCoverPath(c, repository.UpdateCoverPathParams{
-			CoverPath: &cover,
-			ID:        payload.Archive.ID,
-		}); err != nil {
-			return err
-		}
 	}
 
 	since := time.Since(now)

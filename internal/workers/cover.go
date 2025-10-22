@@ -1,12 +1,13 @@
 package workers
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"Shoka/internal/archive"
+	"Shoka/internal/fsutil"
 	"Shoka/internal/repository"
 	"Shoka/internal/workers/tasks"
 
@@ -27,64 +28,58 @@ func (w *Workers) Covers(ch chan *asynq.TaskInfo, arch *repository.GetArchiveByI
 // TODO: LastRead column in db, gets updated when user GETs archive pages
 
 func (c *Client) NewCover(force bool) *asynq.TaskInfo {
-	ctx := context.Background()
+	// Check if cover directory exists on filesystem for a single archive
+	path := filepath.Join(*c.arch.ThumbsPath, "cover")
+	exists, err := fsutil.DirExists(path)
+	if err != nil {
+		c.app.Log.Error("could not create task:", "error", err.Error())
+		return nil
+	}
 
-	// If cover_path is in db, check if covers exist on file system.
-	// If they do not, create covers.
-	if c.arch.CoverPath != nil {
-		// Get absolute cover path
-		path, _ := filepath.Abs(filepath.Join(*c.arch.ThumbsPath, "cover"))
+	if !exists {
+		// If cover directory does not exist
+		// create new one and create new cover
 
-		// Checks if file exists on filesystem
-		_, err := os.Stat(filepath.Join(path, *c.arch.CoverPath))
+		// 1. Create new directory
+		ar := archive.RepoToArchive(c.arch)
+		err := ar.CreateCoverDir()
 		if err != nil {
-			// If cover does not exists, create new one
-			// Else log error
-			if errors.Is(err, os.ErrNotExist) {
-				cover, err := newCoverTask(c.arch, c.client)
-				if err != nil {
-					c.app.Log.Error("could not create task:", "error", err.Error())
-				}
-				c.app.Log.Info("queued task cover not on fs:", "id", cover.ID, "queue", cover.Queue, "state", cover.State)
-				return cover
-			} else {
-				c.app.Log.Error("could not check if file exists:", "error", err.Error())
-			}
+			c.app.Log.Error("could not create task:", "error", err.Error())
+			return nil
 		}
+
+		// 2. Queue new cover task
+		cover, err := newCoverTask(c.arch, c.client, path)
+		if err != nil {
+			c.app.Log.Error("could not create task:", "error", err.Error())
+			return nil
+		}
+		c.app.Log.Info("queued task: cover did not exist:", "id", cover.ID, "queue", cover.Queue, "state", cover.State)
+		return cover
 	} else {
-		// If cover_path is not in db create covers
-		// Default behavior
+		// If cover directory exists,
+		// check if cover exists,
+		// if not create a new cover.
 
-		// Checks if file exists on filesystem first
-		// TODO: Change coverpath to a full path
-		path := filepath.Join(*c.arch.ThumbsPath, "cover")
-		name := fmt.Sprintf("%v.webp", c.arch.Hash)
-		joined := filepath.Join(path, name)
-		full, _ := filepath.Abs(joined)
-		_, err := os.Stat(full)
+		// 1. Checks if file exists on filesystem
+		_, err := os.Stat(filepath.Join(path, fmt.Sprintf("%s.webp", c.arch.Hash)))
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
-				cover, err := newCoverTask(c.arch, c.client)
+				cover, err := newCoverTask(c.arch, c.client, path)
 				if err != nil {
 					c.app.Log.Error("could not create task:", "error", err.Error())
 				}
-				c.app.Log.Info("queued task cover not on fs:", "id", cover.ID, "queue", cover.Queue, "state", cover.State)
+				c.app.Log.Info("queued task: cover not found on filesystem:", "id", cover.ID, "queue", cover.Queue, "state", cover.State)
 				return cover
 			} else {
 				c.app.Log.Error("could not check if file exists:", "error", err.Error())
 			}
-		}
-		if err := c.app.Repo.UpdateCoverPath(ctx, repository.UpdateCoverPathParams{
-			CoverPath: &joined,
-			ID:        c.arch.ID,
-		}); err != nil {
-			c.app.Log.Error("could not update cover_path in db:", "error", err.Error())
 		}
 	}
 
 	// Option to force the creation of new covers.
-	if force {
-		cover, err := newCoverTask(c.arch, c.client)
+	if exists && force {
+		cover, err := newCoverTask(c.arch, c.client, path)
 		if err != nil {
 			c.app.Log.Error("could not create task:", "error", err.Error())
 		}
@@ -92,14 +87,13 @@ func (c *Client) NewCover(force bool) *asynq.TaskInfo {
 		return cover
 	}
 
-	//}
 	return nil
 }
 
 // newCoverTask creates and queues a NewCreateCoverTask
 // returns the TaskInfo and an error
-func newCoverTask(arch *repository.GetArchiveByIDRow, client *asynq.Client) (*asynq.TaskInfo, error) {
-	newCovers, err := tasks.NewCreateCoverTask(arch)
+func newCoverTask(arch *repository.GetArchiveByIDRow, client *asynq.Client, coverdir string) (*asynq.TaskInfo, error) {
+	newCovers, err := tasks.NewCreateCoverTask(arch, coverdir)
 	if err != nil {
 		return nil, err
 	}

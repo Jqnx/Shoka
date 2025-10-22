@@ -1,11 +1,13 @@
 package server
 
 import (
-	"Shoka/internal/models"
-	"Shoka/internal/workers"
 	"context"
 	"fmt"
 	"net/http"
+	"path/filepath"
+
+	"Shoka/internal/models"
+	"Shoka/internal/workers"
 
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
@@ -57,7 +59,7 @@ func (s *Server) getCoverHandler(c *gin.Context) {
 		return
 	}
 
-	if arch.ThumbsPath == nil {
+	if arch.ThumbsPath == nil || *arch.ThumbsPath == "" {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: "no cover found",
@@ -65,13 +67,7 @@ func (s *Server) getCoverHandler(c *gin.Context) {
 		return
 	}
 
-	if *arch.ThumbsPath == "" {
-		c.JSON(http.StatusInternalServerError, &models.Response{
-			Status:  "error",
-			Message: "no cover found",
-		})
-		return
-	}
-
-	c.File(*arch.CoverPath)
+	fn := fmt.Sprintf("%v.webp", arch.Hash)
+	cover := filepath.Join(*arch.ThumbsPath, "cover", fn)
+	c.File(cover)
 }

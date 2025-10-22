@@ -6,13 +6,10 @@ create table if not exists archives (
     language char(2),
     category text,
     page_count smallint not null default 0,
-    file_path text unique,
-    file_name text unique,
--- archive_id text not null,
+    file_path text unique not null,
+    file_name text unique not null,
     hash text not null,
     thumbs_path text,
-    cover_path text,
--- pages_path text,
     type text not null,
     created_at timestamptz not null,
     updated_at timestamptz not null,
@@ -22,7 +19,6 @@ create table if not exists archives (
 
 -- create unique index idx_archive_id on archives(archive_id);
 create unique index idx_thumbs_path on archives (thumbs_path);
-create unique index idx_cover_path on archives (cover_path);
 create unique index idx_hash on archives (hash);
 create index idx_title on archives (title);
 create index idx_search_vector on archives using gin (search_vector);

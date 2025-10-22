@@ -211,13 +211,16 @@ func (s *Server) metadataToFileHandler(c *gin.Context) {
 		URLs:      urls,
 	})
 
-	if err := ci.Write(*arch.FilePath, s.app.Cfg.TempDir); err != nil {
+	if err := ci.Write(arch.FilePath, s.app.Cfg.TempDir); err != nil {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
 		return
 	}
+
+	// TODO: Update file hash on ci.Write, make it a function in the archive package that also moves thumbs, cover and pages to new folder for correct hash
+	// TODO: Probably run this as a job or in a goroutine (asyncronous)
 
 	c.JSON(http.StatusCreated, &models.Response{
 		Status:  "success",

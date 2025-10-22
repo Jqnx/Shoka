@@ -1,5 +1,7 @@
 package archive
 
+// TODO: Fix delete for archives
+
 //func DeleteTransaction(c context.Context,
 //	db *pgxpool.Pool,
 //	q *repository.Queries,

@@ -14,9 +14,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// TODO:
-
-func (a *Archive) Get(ctx context.Context, app *config.App) (*models.ArchiveResponse, error) {
+func (a *Archive) GetResponse(ctx context.Context, app *config.App) (*models.ArchiveResponse, error) {
 	tx, err := app.DB.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -73,7 +71,7 @@ func (a *Archive) Get(ctx context.Context, app *config.App) (*models.ArchiveResp
 		Language:    archive.Language,
 		Category:    archive.Category,
 		PageCount:   archive.PageCount,
-		Url:         urls,
+		URL:         urls,
 		Hash:        archive.Hash,
 		Pages:       pages,
 		Type:        archive.Type,
@@ -120,52 +118,25 @@ func GetAll(c context.Context, q *repository.Queries, log *slog.Logger, uid uuid
 			return nil, err
 		}
 		archive := models.ArchiveResponse{
-			ID:        item.ID,
-			Title:     item.Title,
-			Summary:   item.Summary,
-			Tags:      tags,
-			Artist:    artists,
-			Parody:    parodies,
-			Character: characters,
-			Language:  item.Language,
-			Category:  item.Category,
-			PageCount: item.PageCount,
-			Url:       urls,
-			Hash:      item.Hash,
-			// ThumbsPath: item.ThumbsPath,
-			Type:      item.Type,
-			CreatedAt: item.CreatedAt,
-			UpdatedAt: item.UpdatedAt,
+			ID:          item.ID,
+			Title:       item.Title,
+			Summary:     item.Summary,
+			Tags:        tags,
+			Artist:      artists,
+			Parody:      parodies,
+			Character:   characters,
+			Language:    item.Language,
+			Category:    item.Category,
+			PageCount:   item.PageCount,
+			URL:         urls,
+			Hash:        item.Hash,
+			Type:        item.Type,
+			CreatedAt:   item.CreatedAt,
+			UpdatedAt:   item.UpdatedAt,
+			ReleaseDate: item.ReleaseDate,
 		}
 
 		result = append(result, archive)
 	}
 	return &result, nil
 }
-
-//func GetByTag(c context.Context, q *repository.Queries, tag string, log *slog.Logger) ([]string, error) {
-//	archives, err := q.GetArchivesByTag(c, tag)
-//	if err != nil {
-//		log.Error(err.Error())
-//		return nil, err
-//	}
-//	return archives, nil
-//}
-//
-//func GetByCharacter(c context.Context, q *repository.Queries, character string, log *slog.Logger) ([]string, error) {
-//	archives, err := q.GetArchivesByCharacter(c, character)
-//	if err != nil {
-//		log.Error(err.Error())
-//		return nil, err
-//	}
-//	return archives, nil
-//}
-//
-//func GetByParody(c context.Context, q *repository.Queries, parody string, log *slog.Logger) ([]string, error) {
-//	archives, err := q.GetArchivesByParody(c, parody)
-//	if err != nil {
-//		log.Error(err.Error())
-//		return nil, err
-//	}
-//	return archives, nil
-//}

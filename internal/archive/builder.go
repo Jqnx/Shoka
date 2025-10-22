@@ -1,6 +1,7 @@
 package archive
 
 import (
+	"fmt"
 	"time"
 
 	"Shoka/internal/config"
@@ -8,51 +9,10 @@ import (
 	"Shoka/internal/models"
 )
 
-// GetBuilder creates a new ArchiveBuilder and passes app config
-// returns the Archive interface
-func GetBuilder(app *config.App) *ArchiveBuilder {
-	return newArchiveBuilder(app)
-}
-
-// The ArchiveBuilder struct containing data about an archive
-// that can be set using the built-on functions
-type ArchiveBuilder struct {
-	ID          string
-	Type        string
-	Title       *string
-	Summary     *string
-	Language    *string
-	Category    *string
-	Tags        *[]models.Tag
-	URL         *[]models.URL
-	Parody      *[]models.Parody
-	Character   *[]models.Character
-	Artist      *[]models.Artist
-	ReleaseDate *time.Time
-	PageCount   int16
-	FilePath    *string
-	FileName    *string
-	Hash        string
-	ThumbsPath  *string
-	CoverPath   *string
-	PagesPath   *string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-	app         *config.App
-	td          *fsutil.ThumbDir
-}
-
-// newArchiveBuilder creates a new empty ArchiveBuilder
-// returns a pointer to that ArchiveBuilder
-func newArchiveBuilder(app *config.App) *ArchiveBuilder {
-	return &ArchiveBuilder{app: app}
-}
-
 // setArchiveID creates an archive's unique ID
 // which is the first 4 bytes of a random UUID
-func (a *ArchiveBuilder) setArchiveID(id string) {
+func (a *Archive) setArchiveID(id string) {
 	if id == "" {
-		// newId := util.GenShortenedUUID()
 		newID := NewArchiveID()
 		a.ID = newID
 	} else {
@@ -62,18 +22,18 @@ func (a *ArchiveBuilder) setArchiveID(id string) {
 
 // setTitle sets archive's title
 // if title is empty uses fileName
-func (a *ArchiveBuilder) setTitle(title string) {
+func (a *Archive) setTitle(title string) {
 	if title == "" {
-		name := fsutil.GetNameFromPath(*a.FilePath, true)
-		a.Title = &name
+		name := fsutil.GetNameFromPath(a.FilePath, true)
+		a.Title = name
 	} else {
-		a.Title = &title
+		a.Title = title
 	}
 }
 
 // setSummary sets archive's summary
 // if passed summary is empty sets to nil
-func (a *ArchiveBuilder) setSummary(summary string) {
+func (a *Archive) setSummary(summary string) {
 	if summary != "" {
 		a.Summary = &summary
 	} else {
@@ -83,7 +43,7 @@ func (a *ArchiveBuilder) setSummary(summary string) {
 
 // setLanguage sets archive's language
 // if passed language is empty sets to nil
-func (a *ArchiveBuilder) setLanguage(language string) {
+func (a *Archive) setLanguage(language string) {
 	if language != "" {
 		a.Language = &language
 	} else {
@@ -93,7 +53,7 @@ func (a *ArchiveBuilder) setLanguage(language string) {
 
 // setCategory sets archive's category
 // if passed category is empty sets to nil
-func (a *ArchiveBuilder) setCategory(category string) {
+func (a *Archive) setCategory(category string) {
 	if category != "" {
 		a.Category = &category
 	} else {
@@ -102,103 +62,86 @@ func (a *ArchiveBuilder) setCategory(category string) {
 }
 
 // setPageCount sets archive's PageCount
-func (a *ArchiveBuilder) setPageCount() {
-	count := fsutil.GetPageCount(*a.FilePath, config.ImageExtensions)
+func (a *Archive) setPageCount() {
+	count := fsutil.GetPageCount(a.FilePath, config.ImageExtensions)
 	a.PageCount = count
 }
 
 // setFilePath sets archive's FilePath
-func (a *ArchiveBuilder) setFilePath(path string) {
-	a.FilePath = &path
+func (a *Archive) setFilePath(path string) {
+	a.FilePath = path
 }
 
 // setFileName sets archive's FileName
-func (a *ArchiveBuilder) setFileName() {
-	name := fsutil.GetNameFromPath(*a.FilePath, false)
-	a.FileName = &name
+func (a *Archive) setFileName() {
+	name := fsutil.GetNameFromPath(a.FilePath, false)
+	a.FileName = name
 }
 
 // setHash sets archive's FileHash
-func (a *ArchiveBuilder) setHash() {
-	hash := fsutil.GenHash(*a.FilePath)
+func (a *Archive) setHash() {
+	hash := fsutil.GenHash(a.FilePath)
 	a.Hash = hash
 }
 
 // setThumbsPath sets archive's ThumbsPath
 // creates if necessary
-func (a *ArchiveBuilder) setThumbsPath() {
-	d := fsutil.NewThumbDir(a.app.Cfg.ThumbDir, a.Type, a.Hash)
-	p, err := d.CreateThumbDir()
+func (a *Archive) setThumbsPath() {
+	d := fsutil.NewArchiveDir(a.app.Cfg.ThumbDir, a.Type, a.Hash)
+	archiveDir, err := d.CreateDirs()
 	if err != nil {
+		a.app.Log.Error("error creating archive directories:", "err", err.Error(), "archive", a.ID)
 		return
 	}
-	a.td = d
-	a.ThumbsPath = &p
+	a.ThumbsPath = &archiveDir
+	a.archiveDir = d
 }
 
-// setCoverPath sets archive's CoverPath
-// creates if necessary
-func (a *ArchiveBuilder) setCoverPath() {
-	p, err := a.td.CreateCoverDir(*a.ThumbsPath)
-	if err != nil {
-		return
+// CreateCoverDir is a helper function for
+// creating the cover directory if it does
+// not exist. This should almost never be
+// necessary as it should already get created
+// during setThumbsPath.
+func (a *Archive) CreateCoverDir() error {
+	if err := a.archiveDir.CreateCoverDir(*a.ThumbsPath); err != nil {
+		return fmt.Errorf("failed to create cover directory for %v: %v", a.Type, a.ID)
 	}
-	a.CoverPath = &p
+	return nil
 }
 
-// setPagesPath sets archive's PagesPath
-// creates if necessary
-func (a *ArchiveBuilder) createPagesPath() {
-	p, err := a.td.CreatePageDir(*a.ThumbsPath)
-	if err != nil {
-		return
+// CreatePagesDir is a helper function for
+// creating the cover directory if it does
+// not exist. This should almost never be
+// necessary as it should already get created
+// during setThumbsPath.
+func (a *Archive) CreatePagesDir() error {
+	if err := a.archiveDir.CreatePagesDir(*a.ThumbsPath); err != nil {
+		return fmt.Errorf("failed to create pages directory for %v: %v", a.Type, a.ID)
 	}
-	a.PagesPath = &p
+	return nil
 }
 
 // setType sets archive's media type
-func (a *ArchiveBuilder) setType() {
+func (a *Archive) setType() {
 	a.Type = "archive"
 }
 
 // setCreatedAt sets time at which archive is created and put in db
-func (a *ArchiveBuilder) setCreatedAt() {
+func (a *Archive) setCreatedAt() {
 	a.CreatedAt = time.Now()
 }
 
 // setUpdatedAt sets time at which archive is updated
-func (a *ArchiveBuilder) setUpdatedAt() {
+func (a *Archive) setUpdatedAt() {
 	a.UpdatedAt = time.Now()
 }
 
-// getArchive returns a filled in repository.Archive struct
-func (a *ArchiveBuilder) getArchive() Archive {
-	return Archive{
-		Type:        a.Type,
-		ID:          a.ID,
-		Title:       a.Title,
-		Summary:     a.Summary,
-		Language:    a.Language,
-		Category:    a.Category,
-		Tags:        a.Tags,
-		URL:         a.URL,
-		Parody:      a.Parody,
-		Character:   a.Character,
-		Artist:      a.Artist,
-		ReleaseDate: a.ReleaseDate,
-		PageCount:   a.PageCount,
-		FilePath:    a.FilePath,
-		FileName:    a.FileName,
-		Hash:        a.Hash,
-		ThumbsPath:  a.ThumbsPath,
-		CoverPath:   a.CoverPath,
-		PagesPath:   a.PagesPath,
-		CreatedAt:   a.CreatedAt,
-		UpdatedAt:   a.UpdatedAt,
-	}
+// Get returns a filled in repository.Archive struct
+func (a *Archive) Get() Archive {
+	return *a
 }
 
-func (a *ArchiveBuilder) NewArchive(path string) Archive {
+func (a *Archive) New(path string) {
 	a.setFilePath(path)
 	a.setFileName()
 	a.setHash()
@@ -210,14 +153,11 @@ func (a *ArchiveBuilder) NewArchive(path string) Archive {
 	a.setPageCount()
 	a.setType()
 	a.setThumbsPath()
-	a.setCoverPath()
-	a.createPagesPath()
 	a.setCreatedAt()
 	a.setUpdatedAt()
-	return a.getArchive()
 }
 
-func (a *ArchiveBuilder) UpdateArchive(id string, meta *models.Metadata) Archive {
+func (a *Archive) Update(id string, meta *models.Metadata) {
 	a.setArchiveID(id)
 	a.setTitle(meta.Title)
 	a.setSummary(meta.Summary)
@@ -230,29 +170,28 @@ func (a *ArchiveBuilder) UpdateArchive(id string, meta *models.Metadata) Archive
 	a.setArtist(&meta.Artist)
 	a.setReleaseDate(meta.ReleaseDate)
 	a.setUpdatedAt()
-	return a.getArchive()
 }
 
-func (a *ArchiveBuilder) setTags(t *[]models.Tag) {
+func (a *Archive) setTags(t *[]models.Tag) {
 	a.Tags = t
 }
 
-func (a *ArchiveBuilder) setURL(u *[]models.URL) {
+func (a *Archive) setURL(u *[]models.URL) {
 	a.URL = u
 }
 
-func (a *ArchiveBuilder) setParody(p *[]models.Parody) {
+func (a *Archive) setParody(p *[]models.Parody) {
 	a.Parody = p
 }
 
-func (a *ArchiveBuilder) setCharacter(c *[]models.Character) {
+func (a *Archive) setCharacter(c *[]models.Character) {
 	a.Character = c
 }
 
-func (a *ArchiveBuilder) setArtist(b *[]models.Artist) {
+func (a *Archive) setArtist(b *[]models.Artist) {
 	a.Artist = b
 }
 
-func (a *ArchiveBuilder) setReleaseDate(t *time.Time) {
+func (a *Archive) setReleaseDate(t *time.Time) {
 	a.ReleaseDate = t
 }

@@ -1,11 +1,12 @@
 package tasks
 
 import (
-	"Shoka/internal/archive"
-	"Shoka/internal/config"
 	"context"
 	"encoding/json"
 	"fmt"
+
+	"Shoka/internal/archive"
+	"Shoka/internal/config"
 
 	"github.com/hibiken/asynq"
 )
@@ -35,12 +36,12 @@ func (a *ArchiveProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error
 
 	c := context.Background()
 
-	builder := archive.GetBuilder(a.app)
-	archive := builder.NewArchive(payload.ArchivePath)
-	if err := archive.Insert(c, a.app); err != nil {
+	arch := archive.NewArchive(a.app)
+	arch.New(payload.ArchivePath)
+	if err := arch.Insert(c, a.app); err != nil {
 		return err
 	}
-	a.app.Log.Info("archive created", "title:", *archive.Title)
+	a.app.Log.Info("archive created", "title:", arch.Title)
 
 	return nil
 }

@@ -1,11 +1,12 @@
 package workers
 
 import (
+	"context"
+	"fmt"
+
 	"Shoka/internal/config"
 	"Shoka/internal/fsutil"
 	"Shoka/internal/workers/tasks"
-	"context"
-	"fmt"
 
 	"github.com/hibiken/asynq"
 )
@@ -32,7 +33,7 @@ func (w *Workers) NewScanClient() {
 
 			ctx := context.Background()
 
-			exists, err := w.app.Repo.FilePathExists(ctx, &item)
+			exists, err := w.app.Repo.FilePathExists(ctx, item)
 			if err != nil {
 				w.app.Log.Error("error checking if file path in db:", "error", err.Error())
 			}

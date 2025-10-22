@@ -878,7 +878,7 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 			Language:     arch.Language,
 			Category:     arch.Category,
 			PageCount:    arch.PageCount,
-			Url:          urls,
+			URL:          urls,
 			Hash:         arch.Hash,
 			Pages:        pages,
 			Type:         arch.Type,
@@ -904,7 +904,7 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 			Language:    arch.Language,
 			Category:    arch.Category,
 			PageCount:   arch.PageCount,
-			Url:         urls,
+			URL:         urls,
 			Hash:        arch.Hash,
 			Pages:       pages,
 			Type:        arch.Type,
@@ -1146,16 +1146,16 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 	}
 
 	// Update Archive
-	ab := archive.GetBuilder(s.app)
-	archive := ab.UpdateArchive(id, &meta[0])
-	if err := archive.Update(ctx, s.app); err != nil {
+	arch := archive.NewArchive(s.app)
+	arch.Update(id, &meta[0])
+	if err := arch.UpdateInDB(ctx, s.app); err != nil {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
 		})
 		return
 	}
-	res, err := archive.Get(ctx, s.app)
+	res, err := arch.GetResponse(ctx, s.app)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
