@@ -14,7 +14,17 @@ import (
 	"github.com/google/uuid"
 )
 
-func (a *Archive) GetResponse(ctx context.Context, app *config.App) (*models.ArchiveResponse, error) {
+// TODO: Change function to not return an ArchiveResponse but instead just every item from db
+// Archive:   arch,
+// Artists:   artists,
+// Tags:      tags,
+// Parody:    parodies,
+// Character: characters,
+// URLs:      urls,
+//
+// TODO: Also update the metadataToFileHandler and the getArchiveHandler to properly use this
+
+func GetResponse(ctx context.Context, app *config.App, id string) (*models.ArchiveResponse, error) {
 	tx, err := app.DB.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -23,27 +33,27 @@ func (a *Archive) GetResponse(ctx context.Context, app *config.App) (*models.Arc
 
 	qtx := app.Repo.WithTx(tx)
 
-	archive, err := qtx.GetArchiveByID(ctx, a.ID)
+	archive, err := qtx.GetArchiveByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	tags, err := qtx.GetArchiveTags(ctx, a.ID)
+	tags, err := qtx.GetArchiveTags(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	characters, err := qtx.GetArchiveCharacters(ctx, a.ID)
+	characters, err := qtx.GetArchiveCharacters(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	parodies, err := qtx.GetArchiveParodies(ctx, a.ID)
+	parodies, err := qtx.GetArchiveParodies(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	urls, err := qtx.GetArchiveURLs(ctx, a.ID)
+	urls, err := qtx.GetArchiveURLs(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	artists, err := qtx.GetArchiveArtists(ctx, a.ID)
+	artists, err := qtx.GetArchiveArtists(ctx, id)
 	if err != nil {
 		return nil, err
 	}

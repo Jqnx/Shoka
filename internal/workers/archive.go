@@ -45,6 +45,7 @@ func (w *Workers) NewArchives() {
 			return
 		}
 
+		// TODO: Use global client
 		c := NewClient(ac, w.app, &payload)
 		// Create cover client
 		// w.Covers(&payload, item)

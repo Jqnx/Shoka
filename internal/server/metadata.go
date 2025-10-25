@@ -104,7 +104,6 @@ func (s *Server) metadataToFileHandler(c *gin.Context) {
 	id := c.Param("id")
 
 	// Get Metadata from Database
-	// TODO: Create function for getting archive + all metadata
 	arch, err := s.repo.GetArchiveByID(ctx, id)
 	if err != nil {
 		if err == pgx.ErrNoRows {

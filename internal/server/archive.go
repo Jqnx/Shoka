@@ -7,15 +7,12 @@ import (
 	"math"
 	"math/rand/v2"
 	"net/http"
-	"os"
-	"path/filepath"
 	"reflect"
 	"strconv"
 
 	"Shoka/internal/archive"
 	"Shoka/internal/config"
 	"Shoka/internal/filter"
-	"Shoka/internal/fsutil"
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
 	"Shoka/internal/sources"
@@ -703,113 +700,13 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 	ctx := context.Background()
 	id := c.Param("id")
 
-	arch, err := s.repo.GetArchiveByID(ctx, id)
+	res, err := archive.GetResponse(ctx, s.app, id)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.Response{
-				Status:  "error",
-				Message: config.ErrArchiveNotFound.Error(),
-			})
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.Response{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-	}
-	tags, err := s.repo.GetArchiveTags(ctx, id)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.Response{
-				Status:  "error",
-				Message: config.ErrArchiveNotFound.Error(),
-			})
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.Response{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-	}
-	characters, err := s.repo.GetArchiveCharacters(ctx, id)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.Response{
-				Status:  "error",
-				Message: config.ErrArchiveNotFound.Error(),
-			})
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.Response{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-	}
-	parodies, err := s.repo.GetArchiveParodies(ctx, id)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.Response{
-				Status:  "error",
-				Message: config.ErrArchiveNotFound.Error(),
-			})
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.Response{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-	}
-	urls, err := s.repo.GetArchiveURLs(ctx, id)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.Response{
-				Status:  "error",
-				Message: config.ErrArchiveNotFound.Error(),
-			})
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.Response{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-	}
-	artists, err := s.repo.GetArchiveArtists(ctx, id)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.Response{
-				Status:  "error",
-				Message: config.ErrArchiveNotFound.Error(),
-			})
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.Response{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-	}
-
-	var pages int
-	p, _ := filepath.Abs(*arch.ThumbsPath)
-	d, err := os.ReadDir(filepath.Join(p, "pages"))
-	if err != nil {
-		pages = 0
-	}
-	for _, i := range d {
-		if fsutil.MatchExtension(i.Name(), config.ImageExtensions) {
-			pages++
-		}
+		c.JSON(http.StatusInternalServerError, &models.Response{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
 	}
 
 	var userid uuid.UUID
@@ -831,7 +728,7 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 		fav := false
 		check, err := s.repo.ArchiveIsFavorited(ctx, repository.ArchiveIsFavoritedParams{
 			UserID:    userid,
-			ArchiveID: arch.ID,
+			ArchiveID: res.ID,
 		})
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, &models.Response{
@@ -847,7 +744,7 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 		read := &ReadingProgress{}
 		rp, err := s.repo.GetUserReadingProgress(ctx, repository.GetUserReadingProgressParams{
 			UserID:    userid,
-			ArchiveID: arch.ID,
+			ArchiveID: res.ID,
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
@@ -868,52 +765,32 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 		}
 
 		result := &models.ArchiveResponseFavorite{
-			ID:           arch.ID,
-			Title:        arch.Title,
-			Summary:      arch.Summary,
-			Tags:         tags,
-			Artist:       artists,
-			Parody:       parodies,
-			Character:    characters,
-			Language:     arch.Language,
-			Category:     arch.Category,
-			PageCount:    arch.PageCount,
-			URL:          urls,
-			Hash:         arch.Hash,
-			Pages:        pages,
-			Type:         arch.Type,
+			ID:           res.ID,
+			Title:        res.Title,
+			Summary:      res.Summary,
+			Tags:         res.Tags,
+			Artist:       res.Artist,
+			Parody:       res.Parody,
+			Character:    res.Character,
+			Language:     res.Language,
+			Category:     res.Category,
+			PageCount:    res.PageCount,
+			URL:          res.URL,
+			Hash:         res.Hash,
+			Pages:        res.Pages,
+			Type:         res.Type,
 			Progress:     read.Progress,
 			ReadingState: read.ReadingState,
 			LastRead:     read.LastRead,
-			CreatedAt:    arch.CreatedAt,
-			UpdatedAt:    arch.UpdatedAt,
-			ReleaseDate:  arch.ReleaseDate,
+			CreatedAt:    res.CreatedAt,
+			UpdatedAt:    res.UpdatedAt,
+			ReleaseDate:  res.ReleaseDate,
 			IsFavorite:   fav,
 		}
 
 		c.JSON(http.StatusOK, result)
 	} else {
-		result := &models.ArchiveResponse{
-			ID:          arch.ID,
-			Title:       arch.Title,
-			Summary:     arch.Summary,
-			Tags:        tags,
-			Artist:      artists,
-			Parody:      parodies,
-			Character:   characters,
-			Language:    arch.Language,
-			Category:    arch.Category,
-			PageCount:   arch.PageCount,
-			URL:         urls,
-			Hash:        arch.Hash,
-			Pages:       pages,
-			Type:        arch.Type,
-			CreatedAt:   arch.CreatedAt,
-			UpdatedAt:   arch.UpdatedAt,
-			ReleaseDate: arch.ReleaseDate,
-		}
-
-		c.JSON(http.StatusOK, result)
+		c.JSON(http.StatusOK, res)
 	}
 }
 
@@ -1155,7 +1032,7 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 		})
 		return
 	}
-	res, err := arch.GetResponse(ctx, s.app)
+	res, err := archive.GetResponse(ctx, s.app, arch.ID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",

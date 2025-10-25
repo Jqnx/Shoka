@@ -11,6 +11,7 @@ func (w *Workers) Metadata(arch *repository.GetArchiveByIDRow, src string) {
 	ac := w.NewAsynqClient()
 	defer ac.Close()
 
+	// TODO: Use global client
 	c := NewClient(ac, w.app, arch)
 	c.NewMetadata(src)
 }
