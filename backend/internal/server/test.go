@@ -28,7 +28,8 @@ func (s *Server) testHandler(c *gin.Context) {
 		})
 		return
 	}
-	list, err := zip.GetFileNames(false)
+
+	list, err := zip.GetFileNames(true)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": err,
@@ -36,5 +37,5 @@ func (s *Server) testHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, len(list))
+	c.JSON(http.StatusOK, list)
 }
