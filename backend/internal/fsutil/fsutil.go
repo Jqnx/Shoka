@@ -15,10 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"Shoka/internal/config"
-
 	"github.com/bodgit/sevenzip"
-	"github.com/gabriel-vasile/mimetype"
 )
 
 // ListArchives lists all files in the given path
@@ -39,41 +36,6 @@ func ListArchives(path string) []string {
 	}
 
 	return list
-}
-
-// ArchiveContents lists the contents of a zip file
-func ArchiveContents(path string) []string {
-	var files []string
-
-	if Is7z(path) {
-		zipFile, err := sevenzip.OpenReader(path)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer zipFile.Close()
-
-		for _, zip := range zipFile.File {
-			if MatchExtension(zip.FileInfo().Name(), config.ImageExtensions) {
-				files = append(files, zip.FileInfo().Name())
-				// fmt.Println(files)
-			}
-		}
-	} else {
-
-		zipFile, err := zip.OpenReader(path)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer zipFile.Close()
-
-		for _, zip := range zipFile.File {
-			if MatchExtension(zip.FileInfo().Name(), config.ImageExtensions) {
-				files = append(files, zip.FileInfo().Name())
-				// fmt.Println(files)
-			}
-		}
-	}
-	return files
 }
 
 // MatchExtension returns true if the extension of the provided path
@@ -103,55 +65,6 @@ func StripExtension(file string) string {
 	ext := filepath.Ext(file)
 	fn := strings.TrimSuffix(file, ext)
 	return fn
-}
-
-// GetPageCount returns the amount of image files in an archive
-func GetPageCount(path string, extensions []string) int16 {
-	var count int16
-
-	if Is7z(path) {
-		archive, err := sevenzip.OpenReader(path)
-		if err != nil {
-			log.Println(err)
-		}
-
-		defer archive.Close()
-
-		for _, file := range archive.File {
-			if MatchExtension(file.Name, extensions) {
-				count++
-			}
-		}
-
-	} else {
-		archive, err := zip.OpenReader(path)
-		if err != nil {
-			log.Println(err)
-		}
-
-		defer archive.Close()
-
-		for _, file := range archive.File {
-			if MatchExtension(file.Name, extensions) {
-				count++
-			}
-		}
-
-	}
-	return count
-}
-
-// Is7z checks if archive is compressed with 7z or not
-func Is7z(path string) bool {
-	mtype, err := mimetype.DetectFile(path)
-	if err != nil {
-		log.Println(err)
-	}
-
-	if mtype.Is("application/x-7z-compressed") {
-		return true
-	}
-	return false
 }
 
 func Read7z(file sevenzip.File) (string, error) {
@@ -188,54 +101,22 @@ func ReadZip(file zip.File) (string, error) {
 	return content, nil
 }
 
-func ExtractFirstPage(path string, tempFile *os.File) string {
-	if Is7z(path) {
-		file, err := sevenzip.OpenReader(path)
-		if err != nil {
-			return ""
-		}
-
-		defer file.Close()
-
-		for i, f := range file.File {
-			if !f.FileInfo().IsDir() && i < 2 && strings.Contains(f.FileInfo().Name(), "1") {
-				// fmt.Printf("i: %v, name: %v \n", i, f.Name)
-				open, err := f.Open()
-				if err != nil {
-					return ""
-				}
-				_, err = io.Copy(tempFile, open)
-				if err != nil {
-					return ""
-				}
-				open.Close()
-			}
-		}
-
-	} else {
-		file, err := zip.OpenReader(path)
-		if err != nil {
-			return ""
-		}
-
-		defer file.Close()
-
-		for i, f := range file.File {
-			if !f.FileInfo().IsDir() && i < 2 && strings.Contains(f.FileInfo().Name(), "1") {
-				// fmt.Printf("i: %v, name: %v \n", i, f.Name)
-				open, err := f.Open()
-				if err != nil {
-					return ""
-				}
-				_, err = io.Copy(tempFile, open)
-				if err != nil {
-					return ""
-				}
-				open.Close()
-			}
-		}
+func GetFirstPage(path string) ([]byte, error) {
+	arch, err := OpenArchive(path)
+	if err != nil {
+		return nil, err
 	}
-	return ""
+	list, err := arch.GetFileNames(true)
+	if err != nil {
+		return nil, err
+	}
+
+	file, err := arch.ReadFile(list[0])
+	if err != nil {
+		return nil, err
+	}
+
+	return file, nil
 }
 
 // GenHash generates sha256 hash for a file

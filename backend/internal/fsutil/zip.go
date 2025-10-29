@@ -6,7 +6,83 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"Shoka/internal/config"
+	"Shoka/internal/util"
 )
+
+type ZipArchive struct {
+	reader *zip.ReadCloser
+}
+
+// NewZipArchive creates a new ZipArchive struct containing the
+// content of a zip archive
+func NewZipArchive(path string) (*ZipArchive, error) {
+	r, err := zip.OpenReader(path)
+	if err != nil {
+		return nil, err
+	}
+	return &ZipArchive{reader: r}, nil
+}
+
+// GetFileNames gets a list of files contained within a zip archive.
+// Can be naturally sorted by passing true
+func (z *ZipArchive) GetFileNames(onlyImages bool) ([]string, error) {
+	var fileNames []string
+	for _, f := range z.reader.File {
+		if !f.FileInfo().IsDir() {
+			if onlyImages {
+				if MatchExtension(f.Name, config.ImageExtensions) {
+					fileNames = append(fileNames, f.Name)
+				}
+			} else {
+				fileNames = append(fileNames, f.Name)
+			}
+		}
+	}
+
+	if len(fileNames) == 0 {
+		return nil, fmt.Errorf("empty archive")
+	}
+
+	util.NaturalSort(fileNames)
+
+	return fileNames, nil
+}
+
+func (z *ZipArchive) ImagesToMap() (map[int]string, error) {
+	list, err := z.GetFileNames(true)
+	if err != nil {
+		return nil, err
+	}
+
+	m := make(map[int]string)
+
+	for i, file := range list {
+		m[i+1] = file
+	}
+	return m, nil
+}
+
+// ReadFile reads a file from within a zip file into memory
+func (z *ZipArchive) ReadFile(name string) ([]byte, error) {
+	for _, f := range z.reader.File {
+		if f.Name == name {
+			rc, err := f.Open()
+			if err != nil {
+				return nil, err
+			}
+			defer rc.Close()
+			return io.ReadAll(rc)
+		}
+	}
+	return nil, fmt.Errorf("file not found: %s", name)
+}
+
+// Close closes a zip file reader
+func (z *ZipArchive) Close() error {
+	return z.reader.Close()
+}
 
 // AddToExistingZip adds a new file from the filesystem to an existing zip
 // and replaces the original with a new one containing the added file.

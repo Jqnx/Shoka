@@ -2,7 +2,6 @@ package thumb
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"Shoka/internal/config"
@@ -37,24 +36,23 @@ func NewCover(a *repository.GetArchiveByIDRow, app *config.App, coverdir string)
 }
 
 func (c *Cover) Generate() (string, error) {
-	// Create temporary file
-	temp, err := os.CreateTemp("", "tempCover-*")
-	if err != nil {
-		return "", err
-	}
-	// Defer removal of temp file
-	defer os.Remove(temp.Name())
+	var file []byte
 
 	// Bind first image in Archive to temp file
 	// TODO: Other types of media
 	switch c.Archive.Type {
 	case "archive":
-		fsutil.ExtractFirstPage(c.Archive.FilePath, temp)
+		page, err := fsutil.GetFirstPage(c.Archive.FilePath)
+		if err != nil {
+			return "", err
+		}
+		file = page
 	}
 
 	// Convert temp file to WEBP image
-	img, err := ToWEBP(temp.Name())
+	img, err := ToWEBP(file)
 	if err != nil {
+		c.App.Log.Error("error converting to webp image", "err", err.Error())
 		return "", err
 	}
 
@@ -67,11 +65,6 @@ func (c *Cover) Generate() (string, error) {
 	}
 	err = bimg.Write(full, img)
 	if err != nil {
-		return "", err
-	}
-
-	// Close temp file
-	if err := temp.Close(); err != nil {
 		return "", err
 	}
 

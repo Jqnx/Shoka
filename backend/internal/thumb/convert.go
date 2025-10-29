@@ -2,15 +2,9 @@ package thumb
 
 import "github.com/h2non/bimg"
 
-func ToWEBP(src string) ([]byte, error) {
-	// Read image
-	buf, err := bimg.Read(src)
-	if err != nil {
-		return nil, err
-	}
-
+func ToWEBP(src []byte) ([]byte, error) {
 	// Create new image
-	img := bimg.NewImage(buf)
+	img := bimg.NewImage(src)
 
 	// Convert to WEBP
 	newImg, err := img.Convert(bimg.WEBP)

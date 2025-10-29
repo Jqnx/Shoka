@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"Shoka/internal/config"
 	"Shoka/internal/fsutil"
 	"Shoka/internal/models"
 )
@@ -63,8 +62,9 @@ func (a *Archive) setCategory(category string) {
 
 // setPageCount sets archive's PageCount
 func (a *Archive) setPageCount() {
-	count := fsutil.GetPageCount(a.FilePath, config.ImageExtensions)
-	a.PageCount = count
+	arch, _ := fsutil.OpenArchive(a.FilePath)
+	pages, _ := arch.GetFileNames(true)
+	a.PageCount = int16(len(pages))
 }
 
 // setFilePath sets archive's FilePath

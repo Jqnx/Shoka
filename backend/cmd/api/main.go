@@ -1,6 +1,14 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"os/signal"
+	"syscall"
+	"time"
+
 	"Shoka/internal/config"
 	"Shoka/internal/database"
 	"Shoka/internal/downloader"
@@ -12,13 +20,6 @@ import (
 	"Shoka/internal/websocket"
 	"Shoka/internal/workers"
 	"Shoka/internal/workers/tasks"
-	"context"
-	"fmt"
-	"log"
-	"net/http"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"github.com/cavaliergopher/grab/v3"
 	"github.com/hibiken/asynq"

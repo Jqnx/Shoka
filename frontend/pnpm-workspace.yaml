@@ -1,6 +1,8 @@
+overrides:
+  "@vue/devtools-kit": ">=8.0.3"
 onlyBuiltDependencies:
-  - '@parcel/watcher'
-  - '@tailwindcss/oxide'
+  - "@parcel/watcher"
+  - "@tailwindcss/oxide"
   - esbuild
   - sharp
   - unrs-resolver

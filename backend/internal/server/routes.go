@@ -39,7 +39,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	// Archive API
 	api := r.Group("/api")
 	{
-		api.GET("/test", s.testHandler)
+		api.GET("/test/:id", s.testHandler)
 		api.GET("/search", s.searchArchiveHandler)
 		archive := api.Group("/a")
 		{
@@ -149,8 +149,6 @@ func (s *Server) RegisterRoutes() http.Handler {
 		}
 		config := api.Group("/config")
 		{
-			config.GET("/nh", s.getNHCredentialsHandler)
-			config.POST("/nh", s.setNHCredentialsHandler)
 			config.GET("/flaresolverr", s.getFlaresolverrHandler)
 			config.POST("/flaresolverr", s.setFlaresolverrHandler)
 		}

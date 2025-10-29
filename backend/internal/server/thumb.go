@@ -18,6 +18,8 @@ import (
 	"github.com/hibiken/asynq"
 )
 
+// TODO: Rewrite
+
 func (s *Server) generateThumbHandler(c *gin.Context) {
 	id := c.Param("id")
 	f := c.Query("force")
@@ -153,16 +155,25 @@ func (s *Server) getThumbHandler(c *gin.Context) {
 		}
 	}
 
-	var file string
-
-	cont := fsutil.ArchiveContents(arch.FilePath)
-	pageToIndex := page - 1
-	for i, f := range cont {
-		if i == pageToIndex {
-			n := fsutil.StripExtension(f)
-			file = fmt.Sprintf("%s.webp", n)
-		}
+	zip, err := fsutil.OpenArchive(arch.FilePath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.Response{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
 	}
+	images, err := zip.ImagesToMap()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.Response{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	name := fsutil.StripExtension(images[page])
+	file := fmt.Sprintf("%s.webp", name)
 
 	full := filepath.Join(pageDir, file)
 	if !fsutil.FileExists(full) {

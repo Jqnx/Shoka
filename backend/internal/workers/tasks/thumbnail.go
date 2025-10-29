@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"time"
 
+	"Shoka/internal/archive"
 	"Shoka/internal/config"
+	"Shoka/internal/fsutil"
 	"Shoka/internal/repository"
 	"Shoka/internal/thumb"
 
@@ -41,31 +44,26 @@ func (w *ThumbnailProcessor) ProcessTask(ctx context.Context, t *asynq.Task) err
 
 	now := time.Now()
 
-	// Create context
-	c := context.Background()
+	arch := archive.RepoToArchive(payload.Archive, w.app)
 
-	pd := ""
-	td := ""
-	thumb := thumb.NewThumb(payload.Archive, w.app, pd, td)
-	thumb.GetThumbDir()
-	thumb.CreatePageDir(thumb.ThumbDir)
+	thumb := thumb.NewThumb(arch, w.app)
+	pagePath := filepath.Join(*arch.ThumbsPath, "pages")
+	ok, err := fsutil.DirExists(pagePath)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		if err := arch.CreatePagesDir(); err != nil {
+			return err
+		}
+	}
 
 	if err := thumb.Generate(); err != nil {
 		return err
 	}
 
-	if payload.Archive.ThumbsPath != &thumb.ThumbDir {
-		if err := w.app.Repo.UpdateThumbPath(c, repository.UpdateThumbPathParams{
-			ThumbsPath: &thumb.ThumbDir,
-			ID:         payload.Archive.ID,
-			UpdatedAt:  time.Now(),
-		}); err != nil {
-			return err
-		}
-	}
-
 	since := time.Since(now)
-	w.app.Log.Info("new thumbs", "fp:", thumb.PageDir, "elapsed:", since)
+	w.app.Log.Info("new thumbs", "fp", pagePath, "elapsed", since)
 	return nil
 }
 

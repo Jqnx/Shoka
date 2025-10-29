@@ -4,9 +4,11 @@ package config
 
 import (
 	"os"
+	"strconv"
 
 	"Shoka/internal/logger"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 )
 
@@ -23,13 +25,7 @@ type Server struct {
 }
 
 type Sources struct {
-	NHentai      NHentai      `mapstructure:"nhentai"`
 	Flaresolverr Flaresolverr `mapstructure:"flaresolverr"`
-}
-
-type NHentai struct {
-	CSRFToken string `mapstructure:"csrftoken"`
-	UserAgent string `mapstructure:"useragent"`
 }
 
 type Flaresolverr struct {
@@ -37,18 +33,18 @@ type Flaresolverr struct {
 }
 
 type Database struct {
-	DBHost     string `mapstructure:"host"`
-	DBPort     string `mapstructure:"port"`
-	DBDatabase string `mapstructure:"database"`
-	DBUser     string `mapstructure:"user"`
-	DBPassword string `mapstructure:"password"`
-	DBSchema   string `mapstructure:"schema"`
+	DBHost     string
+	DBPort     string
+	DBDatabase string
+	DBUser     string
+	DBPassword string
+	DBSchema   string
 }
 
 type Workers struct {
-	RedisHost string ` mapstructure:"redis_host"`
-	RedisPort string ` mapstructure:"redis_port"`
-	Max       int64  `mapstructure:"max"`
+	RedisHost string
+	RedisPort string
+	Max       int64 `mapstructure:"max"`
 }
 
 type Downloader struct {
@@ -58,12 +54,12 @@ type Downloader struct {
 }
 
 type Config struct {
-	TimeZone   string `mapstructure:"tz"`
+	TimeZone   string
 	ContentDir string `mapstructure:"content_dir"`
 	ThumbDir   string `mapstructure:"thumb_dir"`
 	TempDir    string `mapstructure:"temp_dir"`
 	Server     Server
-	Database   Database   `mapstructure:"db"`
+	Database   Database
 	Workers    Workers    `mapstructure:"workers"`
 	Sources    Sources    `mapstructure:"sources"`
 	Downloader Downloader `mapstructure:"downloader"`
@@ -72,8 +68,6 @@ type Config struct {
 // TODO: Fix that config/settings set through ENV variables don't get written to file!
 
 func LoadConfig(log logger.Logger) (*Config, error) {
-	viper.AutomaticEnv()
-
 	// Set config file
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
@@ -82,9 +76,14 @@ func LoadConfig(log logger.Logger) (*Config, error) {
 	// Read config file, create new one with defaults if one doesn't exist
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			os.Create(ConfigFile)
+			_, err := os.Create(ConfigFile)
+			if err != nil {
+				return nil, err
+			}
 			setDefaults()
-			viper.WriteConfig()
+			if err := viper.WriteConfig(); err != nil {
+				return nil, err
+			}
 		} else {
 			return nil, err
 		}
@@ -92,12 +91,13 @@ func LoadConfig(log logger.Logger) (*Config, error) {
 
 	var c Config
 	setDefaults()
-	viper.WriteConfig()
+	if err := viper.WriteConfig(); err != nil {
+		return nil, err
+	}
 
-	c.Server.Port = 8081
-	viper.SetDefault("db.schema", "public")
-
-	getEnv()
+	if err := getEnv(&c); err != nil {
+		return nil, err
+	}
 
 	if err := viper.Unmarshal(&c); err != nil {
 		return nil, err
@@ -107,29 +107,43 @@ func LoadConfig(log logger.Logger) (*Config, error) {
 }
 
 func setDefaults() {
-	viper.SetDefault("content_dir", "content")
-	viper.SetDefault("thumb_dir", "thumb")
-	viper.SetDefault("temp_dir", "tmp")
-	viper.SetDefault("downloader.download_dir", "downloads")
+	// Directories
+	viper.SetDefault("content_dir", "../content")
+	viper.SetDefault("thumb_dir", "../thumb")
+	viper.SetDefault("temp_dir", "../tmp")
+
+	// Downloads
+	viper.SetDefault("downloader.download_dir", "../downloads")
 	viper.SetDefault("downloader.rate_limit", 500)
 	viper.SetDefault("downloader.save_file_ext", "cbz")
+
+	// Workers
 	viper.SetDefault("workers.max", 5)
-	viper.SetDefault("tz", "Etc/UTC")
 }
 
-func getEnv() {
+func getEnv(c *Config) error {
+	if err := godotenv.Load("../.env"); err != nil {
+		return err
+	}
 	// Config
-	viper.BindEnv("tz", "TZ")
+	c.TimeZone = os.Getenv("TZ")
+	port, err := strconv.Atoi(os.Getenv("PORT"))
+	if err != nil {
+		return err
+	}
+	c.Server.Port = int64(port)
 
 	// Config.Database
-	viper.BindEnv("db.host", "DB_HOST")
-	viper.BindEnv("db.port", "DB_PORT")
-	viper.BindEnv("db.database", "DB_DATABASE")
-	viper.BindEnv("db.user", "DB_USERNAME")
-	viper.BindEnv("db.password", "DB_PASSWORD")
-	viper.BindEnv("db.schema", "DB_SCHEMA")
+	c.Database.DBHost = os.Getenv("DB_HOST")
+	c.Database.DBPort = os.Getenv("DB_PORT")
+	c.Database.DBDatabase = os.Getenv("DB_DATABASE")
+	c.Database.DBUser = os.Getenv("DB_USERNAME")
+	c.Database.DBPassword = os.Getenv("DB_PASSWORD")
+	c.Database.DBSchema = os.Getenv("DB_SCHEMA")
 
 	// Config.Workers
-	viper.BindEnv("workers.redis_host", "REDIS_HOST")
-	viper.BindEnv("workers.redis_port", "REDIS_PORT")
+	c.Workers.RedisHost = os.Getenv("REDIS_HOST")
+	c.Workers.RedisPort = os.Getenv("REDIS_PORT")
+
+	return nil
 }
