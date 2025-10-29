@@ -76,7 +76,7 @@ func (z *ZipArchive) ReadFile(name string) ([]byte, error) {
 			return io.ReadAll(rc)
 		}
 	}
-	return nil, fmt.Errorf("file not found: %s", name)
+	return nil, config.ErrFileNotFound
 }
 
 // Close closes a zip file reader

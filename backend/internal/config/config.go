@@ -26,10 +26,15 @@ type Server struct {
 
 type Sources struct {
 	Flaresolverr Flaresolverr `mapstructure:"flaresolverr"`
+	File         File         `mapstructure:"file"`
 }
 
 type Flaresolverr struct {
 	URL string `mapstructure:"url"`
+}
+
+type File struct {
+	Format string `mapstructure:"format"`
 }
 
 type Database struct {
@@ -119,6 +124,9 @@ func setDefaults() {
 
 	// Workers
 	viper.SetDefault("workers.max", 5)
+
+	// Metadata
+	viper.SetDefault("sources.file.format", SourceComicInfo)
 }
 
 func getEnv(c *Config) error {

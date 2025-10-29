@@ -51,7 +51,7 @@ func NewComicInfo() *ComicInfo {
 }
 
 func (c *ComicInfo) Unmarshal(data any) error {
-	err := xml.Unmarshal([]byte(data.(string)), &c)
+	err := xml.Unmarshal([]byte(data.([]byte)), &c)
 	if err != nil {
 		return err
 	}

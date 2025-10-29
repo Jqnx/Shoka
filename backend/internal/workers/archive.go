@@ -1,11 +1,12 @@
 package workers
 
 import (
+	"context"
+	"encoding/json"
+
 	"Shoka/internal/config"
 	"Shoka/internal/fsutil"
 	"Shoka/internal/repository"
-	"context"
-	"encoding/json"
 )
 
 type Workers struct {
@@ -56,7 +57,7 @@ func (w *Workers) NewArchives() {
 
 		// Metadata Client
 		// TODO: Metadata source should be changeable via configuration in ui/config file
-		c.NewMetadata("file")
+		c.NewMetadata(config.MetadataFormats[w.app.Cfg.Sources.File.Format])
 	}
 
 	s.Unlisten(w.ctx)

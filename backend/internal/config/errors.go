@@ -3,6 +3,9 @@ package config
 import "errors"
 
 var (
+	// Files
+	ErrFileNotFound = errors.New("file not found")
+
 	// Archives
 	ErrArchiveNotFound     = errors.New("archive not found")
 	ErrArchiveNoDuplicates = errors.New("archive already exists")

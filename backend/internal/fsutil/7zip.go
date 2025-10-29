@@ -90,7 +90,7 @@ func (z *SevenZipArchive) ReadFile(name string) ([]byte, error) {
 			return io.ReadAll(rc)
 		}
 	}
-	return nil, fmt.Errorf("file not found: %s", name)
+	return nil, config.ErrFileNotFound
 }
 
 // Close closes a 7zip file reader

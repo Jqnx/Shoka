@@ -1,11 +1,10 @@
 package tasks
 
 import (
-	"archive/zip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"path/filepath"
 
 	"Shoka/internal/archive"
 	"Shoka/internal/config"
@@ -13,7 +12,6 @@ import (
 	"Shoka/internal/repository"
 	"Shoka/internal/sources"
 
-	"github.com/bodgit/sevenzip"
 	"github.com/hibiken/asynq"
 )
 
@@ -42,81 +40,48 @@ func (w *MetadataProcessor) ProcessTask(ctx context.Context, t *asynq.Task) erro
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
 	}
 
+	var src string
+	var content []byte
+
+	zip, err := fsutil.OpenArchive(payload.Archive.FilePath)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Add more metadata file sources (Hentag, NHDownloader)
 	switch payload.Source {
-	case "file":
-		// Scan zip file for metadata files
-		if fsutil.Is7z(payload.Archive.FilePath) {
-			zip, err := sevenzip.OpenReader(payload.Archive.FilePath)
-			if err != nil {
+	case config.ComicInfoFile:
+		fileContent, err := zip.ReadFile(config.ComicInfoFile)
+		if err != nil {
+			if errors.Is(err, config.ErrFileNotFound) {
+				return nil
+			} else {
 				return err
-			}
-			defer zip.Close()
-
-			for _, file := range zip.File {
-				switch filepath.Base(file.Name) {
-				case config.ComicInfoFile:
-					content, err := fsutil.Read7z(*file)
-					if err != nil {
-						return err
-					}
-					ci, err := sources.NewSource(w.app.Cfg, config.SourceComicInfo, nil)
-					if err != nil {
-						return err
-					}
-					if err := ci.Unmarshal(content); err != nil {
-						w.app.Log.Error("error unmarshalling comicinfo:", "err", err.Error())
-						return err
-					}
-					meta, err := ci.GetMetadata()
-					if err != nil {
-						return err
-					}
-					arch := archive.NewArchive(w.app)
-					arch.Update(payload.Archive.ID, &meta[0])
-					if err := arch.UpdateInDB(ctx, w.app); err != nil {
-						return err
-					}
-					return nil
-					// TODO: Extra file-based metadata file support
-				}
-			}
-		} else {
-			zip, err := zip.OpenReader(payload.Archive.FilePath)
-			if err != nil {
-				return err
-			}
-			defer zip.Close()
-
-			for _, file := range zip.File {
-				switch filepath.Base(file.Name) {
-				case config.ComicInfoFile:
-					content, err := fsutil.ReadZip(*file)
-					if err != nil {
-						return err
-					}
-
-					ci, err := sources.NewSource(w.app.Cfg, config.SourceComicInfo, nil)
-					if err != nil {
-						return err
-					}
-					if err := ci.Unmarshal(content); err != nil {
-						w.app.Log.Error("error unmarshalling comicinfo:", "err", err.Error())
-						return err
-					}
-					meta, err := ci.GetMetadata()
-					if err != nil {
-						return err
-					}
-					arch := archive.NewArchive(w.app)
-					arch.Update(payload.Archive.ID, &meta[0])
-					if err := arch.UpdateInDB(ctx, w.app); err != nil {
-						return err
-					}
-					return nil
-					// TODO: Extra file-based metadata file support
-				}
 			}
 		}
+		content = fileContent
+		src = config.SourceComicInfo
+	default:
+		return fmt.Errorf("no valid metadata file used")
+	}
+
+	s, err := sources.NewSource(w.app.Cfg, src, nil)
+	if err != nil {
+		return err
+	}
+	if err := s.Unmarshal(content); err != nil {
+		w.app.Log.Error("error unmarshalling metadata file:", "err", err.Error(), "file", src, "archive", payload.Archive.ID)
+		return err
+	}
+	meta, err := s.GetMetadata()
+	if err != nil {
+		return err
+	}
+
+	arch := archive.NewArchive(w.app)
+	arch.Update(payload.Archive.ID, &meta[0])
+	if err := arch.UpdateInDB(ctx, w.app); err != nil {
+		return err
 	}
 	return nil
 }
