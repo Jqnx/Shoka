@@ -3,7 +3,6 @@ package fsutil
 
 import (
 	"archive/zip"
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -67,40 +66,8 @@ func StripExtension(file string) string {
 	return fn
 }
 
-func Read7z(file sevenzip.File) (string, error) {
-	openFile, err := file.Open()
-	if err != nil {
-		return "", err
-	}
-
-	buf := new(bytes.Buffer)
-
-	_, err = buf.ReadFrom(openFile)
-	if err != nil {
-		return "", err
-	}
-	content := buf.String()
-
-	return content, nil
-}
-
-func ReadZip(file zip.File) (string, error) {
-	openFile, err := file.Open()
-	if err != nil {
-		return "", err
-	}
-
-	buf := new(bytes.Buffer)
-
-	_, err = buf.ReadFrom(openFile)
-	if err != nil {
-		return "", err
-	}
-	content := buf.String()
-
-	return content, nil
-}
-
+// GetFirstPage gets the first image from a zip/7zip archive
+// and returns it as a byte
 func GetFirstPage(path string) ([]byte, error) {
 	arch, err := OpenArchive(path)
 	if err != nil {
