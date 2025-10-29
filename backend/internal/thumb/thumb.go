@@ -40,6 +40,7 @@ func (t *Thumb) Generate() error {
 	if err != nil {
 		return err
 	}
+
 	// Convert every image to WEBP
 	// Create goroutine for every image
 	for _, i := range list {
@@ -52,7 +53,7 @@ func (t *Thumb) Generate() error {
 		// Run conversion of thumbnails in goroutine
 		go func() {
 			defer wg.Done()
-			t.convertThumb(i, file)
+			t.convertThumb(filepath.Base(i), file)
 		}()
 	}
 
@@ -64,18 +65,20 @@ func (t *Thumb) Generate() error {
 	return nil
 }
 
-func (t *Thumb) convertThumb(name string, content []byte) {
+func (t *Thumb) convertThumb(dest string, content []byte) {
 	img, err := ToWEBP(content)
 	if err != nil {
+		t.App.Log.Error("error converting thumbnail", "err", err.Error())
 		return
 	}
 
-	strippedFn := fsutil.StripExtension(name)
+	strippedFn := fsutil.StripExtension(dest)
 	fn := fmt.Sprintf("%s.webp", strippedFn)
 	fp := filepath.Join(filepath.Join(*t.Archive.ThumbsPath, "pages"), fn)
 
 	err = bimg.Write(fp, img)
 	if err != nil {
+		t.App.Log.Error("error writing thumbnail", "err", err.Error())
 		return
 	}
 }

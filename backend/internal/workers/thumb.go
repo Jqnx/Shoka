@@ -31,6 +31,17 @@ func (c *Client) NewThumb(force bool) *asynq.TaskInfo {
 	}
 	pDir := filepath.Join(tDir, "pages")
 
+	if c.arch.ThumbsPath == nil || c.arch.ThumbsPath != &tDir {
+		if err := c.app.Repo.UpdateThumbPath(ctx, repository.UpdateThumbPathParams{
+			ID:         c.arch.ID,
+			ThumbsPath: &tDir,
+			UpdatedAt:  time.Now(),
+		}); err != nil {
+			c.app.Log.Error("could not update thumbs_path in db", "error", err.Error(), "archive", c.arch.ID)
+		}
+		c.arch.ThumbsPath = &tDir
+	}
+
 	pages, err := os.ReadDir(pDir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -50,16 +61,6 @@ func (c *Client) NewThumb(force bool) *asynq.TaskInfo {
 	if len(pages) != int(c.arch.PageCount) {
 		thumbTask := c.newThumbTask()
 		return thumbTask
-	}
-
-	if c.arch.ThumbsPath == nil || c.arch.ThumbsPath != &tDir {
-		if err := c.app.Repo.UpdateThumbPath(ctx, repository.UpdateThumbPathParams{
-			ID:         c.arch.ID,
-			ThumbsPath: &tDir,
-			UpdatedAt:  time.Now(),
-		}); err != nil {
-			c.app.Log.Error("could not update thumbs_path in db", "error", err.Error(), "archive", c.arch.ID)
-		}
 	}
 
 	if force {
