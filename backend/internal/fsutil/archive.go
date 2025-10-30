@@ -2,6 +2,7 @@ package fsutil
 
 type Archive interface {
 	GetFileNames(onlyImages bool) ([]string, error)
+	GetFirstFileName(onlyImages bool) (string, error)
 	ImagesToMap() (map[int]string, error)
 	ReadFile(name string) ([]byte, error)
 	Close() error

@@ -48,8 +48,8 @@ func (w *CoverProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 
-	since := time.Since(now)
-	w.app.Log.Info("new cover", "fp:", cover, "elapsed:", since)
+	since := time.Since(now).Round(time.Millisecond).String()
+	w.app.Log.Info("task completed", "task", "generate cover", "filepath:", cover, "elapsed:", since)
 
 	return nil
 }

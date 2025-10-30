@@ -37,7 +37,7 @@ func (c *Client) NewThumb(force bool) *asynq.TaskInfo {
 			ThumbsPath: &tDir,
 			UpdatedAt:  time.Now(),
 		}); err != nil {
-			c.app.Log.Error("could not update thumbs_path in db", "error", err.Error(), "archive", c.arch.ID)
+			c.app.Log.Error("could not update thumbs_path in db", "err", err.Error(), "archive", c.arch.ID)
 		}
 		c.arch.ThumbsPath = &tDir
 	}
@@ -53,7 +53,7 @@ func (c *Client) NewThumb(force bool) *asynq.TaskInfo {
 			thumbTask := c.newThumbTask()
 			return thumbTask
 		} else {
-			c.app.Log.Error("could not open pages dir", "error", err.Error())
+			c.app.Log.Error("could not open pages dir", "err", err.Error())
 			return nil
 		}
 	}
@@ -73,14 +73,14 @@ func (c *Client) NewThumb(force bool) *asynq.TaskInfo {
 func (c *Client) newThumbTask() *asynq.TaskInfo {
 	newThumbs, err := tasks.NewThumbnailGenerateTask(c.arch)
 	if err != nil {
-		c.app.Log.Error("could not queue thumbnail task", "error", err.Error())
+		c.app.Log.Error("could not queue thumbnail task", "err", err.Error())
 		return nil
 	}
 	thumb, err := c.client.Enqueue(newThumbs)
 	if err != nil {
-		c.app.Log.Error("could not queue thumbnail task", "error", err.Error())
+		c.app.Log.Error("could not queue thumbnail task", "err", err.Error())
 		return nil
 	}
-	c.app.Log.Info("queued task", "task", "generate thumbnails", "id", thumb.ID, "queue", thumb.Queue, "state", thumb.State)
+	c.app.Log.Info("queued task", "task", "generate thumbnails", "archive", c.arch.ID, "id", thumb.ID, "queue", thumb.Queue, "state", thumb.State)
 	return thumb
 }

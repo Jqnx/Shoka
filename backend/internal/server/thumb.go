@@ -138,22 +138,6 @@ func (s *Server) getThumbHandler(c *gin.Context) {
 	}
 
 	pageDir := filepath.Join(*arch.ThumbsPath, "pages")
-	_, err = os.Stat(pageDir)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			c.JSON(http.StatusInternalServerError, &models.Response{
-				Status:  "error",
-				Message: "archives page directory does not exist",
-			})
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.Response{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-	}
 
 	zip, err := fsutil.OpenArchive(arch.FilePath)
 	if err != nil {

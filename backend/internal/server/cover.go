@@ -3,9 +3,11 @@ package server
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"path/filepath"
 
+	"Shoka/internal/fsutil"
 	"Shoka/internal/models"
 	"Shoka/internal/workers"
 
@@ -33,15 +35,15 @@ func (s *Server) generateCoverHandler(c *gin.Context) {
 	if force == "true" {
 		w := workers.NewWorkers(s.app, true, ctx)
 		go w.Covers(ch, &arch)
-		cover := <-ch
+		// cover := <-ch
 
 		// Sets Location header to URI of job status
-		c.Header("Location", fmt.Sprintf("/api/status/%s", cover.ID))
+		// c.Header("Location", fmt.Sprintf("/api/status/%s", cover.ID))
 	} else {
 		w := workers.NewWorkers(s.app, false, ctx)
 		go w.Covers(ch, &arch)
-		cover := <-ch
-		c.Header("Location", fmt.Sprintf("/api/status/%s", cover.ID))
+		// cover := <-ch
+		// c.Header("Location", fmt.Sprintf("/api/status/%s", cover.ID))
 	}
 }
 
@@ -62,12 +64,22 @@ func (s *Server) getCoverHandler(c *gin.Context) {
 	if arch.ThumbsPath == nil || *arch.ThumbsPath == "" {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
-			Message: "no cover found",
+			Message: "archive has no thumbspath",
 		})
 		return
 	}
 
-	fn := fmt.Sprintf("%v.webp", arch.Hash)
-	cover := filepath.Join(*arch.ThumbsPath, "cover", fn)
-	c.File(cover)
+	coverDir := filepath.Join(*arch.ThumbsPath, "cover")
+	fileName := fmt.Sprintf("%s.webp", arch.Hash)
+	cover := filepath.Join(coverDir, fileName)
+
+	if !fsutil.FileExists(cover) {
+		w, err := fsutil.WatchFile(coverDir, cover)
+		if err != nil {
+			log.Println("error:", err)
+		}
+		c.File(w)
+	} else {
+		c.File(cover)
+	}
 }

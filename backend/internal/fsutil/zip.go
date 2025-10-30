@@ -50,6 +50,15 @@ func (z *ZipArchive) GetFileNames(onlyImages bool) ([]string, error) {
 	return fileNames, nil
 }
 
+// GetFirstFileName gets the file name of the first file in a zip file
+func (z *ZipArchive) GetFirstFileName(onlyImages bool) (string, error) {
+	list, err := z.GetFileNames(onlyImages)
+	if err != nil {
+		return "", err
+	}
+	return list[0], nil
+}
+
 func (z *ZipArchive) ImagesToMap() (map[int]string, error) {
 	list, err := z.GetFileNames(true)
 	if err != nil {
