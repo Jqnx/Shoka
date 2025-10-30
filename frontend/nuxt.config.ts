@@ -8,7 +8,7 @@ const baseWs = "ws://localhost:8081/ws";
 export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
   devtools: {
-    enabled: false,
+    enabled: true,
 
     timeline: {
       enabled: true,
