@@ -22,6 +22,8 @@ type Archive struct {
 	FileName     string      `json:"file_name"`
 	Hash         string      `json:"hash"`
 	ThumbsPath   *string     `json:"thumbs_path"`
+	CoverPath    *string     `json:"cover_path"`
+	CoverImg     *string     `json:"cover_img"`
 	Type         string      `json:"type"`
 	CreatedAt    time.Time   `json:"created_at"`
 	UpdatedAt    time.Time   `json:"updated_at"`

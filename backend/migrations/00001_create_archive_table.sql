@@ -10,6 +10,8 @@ create table if not exists archives (
     file_name text unique not null,
     hash text not null,
     thumbs_path text,
+    cover_path text,
+    cover_img text,
     type text not null,
     created_at timestamptz not null,
     updated_at timestamptz not null,

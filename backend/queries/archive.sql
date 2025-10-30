@@ -8,7 +8,6 @@ insert into archives (
     page_count,
     file_path,
     file_name,
--- archive_id,
     hash,
     thumbs_path,
     type,
@@ -26,7 +25,6 @@ returning
     page_count,
     file_path,
     file_name,
--- archive_id,
     hash,
     thumbs_path,
     type,
@@ -45,9 +43,10 @@ select
     page_count,
     file_path,
     file_name,
-    -- archive_id,
     hash,
     thumbs_path,
+    cover_path,
+    cover_img,
     type,
     created_at,
     updated_at,
@@ -66,9 +65,10 @@ select
     page_count,
     file_path,
     file_name,
-    -- archive_id,
     hash,
     thumbs_path,
+    cover_path,
+    cover_img,
     type,
     created_at,
     updated_at,
@@ -87,9 +87,10 @@ select
     page_count,
     file_path,
     file_name,
-    -- archive_id,
     hash,
     thumbs_path,
+    cover_path,
+    cover_img,
     type,
     created_at,
     updated_at,
@@ -108,9 +109,10 @@ select
     archives.page_count,
     archives.file_path,
     archives.file_name,
-    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
+    archives.cover_path,
+    archives.cover_img,
     archives.type,
     archives.created_at,
     archives.updated_at,
@@ -136,9 +138,10 @@ select
     archives.page_count,
     archives.file_path,
     archives.file_name,
-    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
+    archives.cover_path,
+    archives.cover_img,
     archives.type,
     archives.created_at,
     archives.updated_at,
@@ -165,9 +168,10 @@ select
     archives.page_count,
     archives.file_path,
     archives.file_name,
-    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
+    archives.cover_path,
+    archives.cover_img,
     archives.type,
     archives.created_at,
     archives.updated_at,
@@ -201,9 +205,10 @@ select
     page_count,
     file_path,
     file_name,
-    -- archive_id,
     hash,
     thumbs_path,
+    cover_path,
+    cover_img,
     type,
     created_at,
     updated_at,
@@ -230,9 +235,10 @@ select
     page_count,
     file_path,
     file_name,
-    -- archive_id,
     hash,
     thumbs_path,
+    cover_path,
+    cover_img,
     type,
     created_at,
     updated_at,
@@ -274,6 +280,7 @@ select count(*)
 from archives
 ;
 
+
 -- name: UpdateArchive :one
 update archives
 set title = coalesce(sqlc.narg('title'), title),
@@ -292,9 +299,10 @@ returning
     page_count,
     file_path,
     file_name,
--- archive_id,
     hash,
     thumbs_path,
+    cover_path,
+    cover_img,
     type,
     created_at,
     updated_at,
@@ -306,6 +314,14 @@ update archives
 set thumbs_path = $1,
     updated_at = $2
 where id = $3
+;
+
+-- name: UpdateCoverInfo :exec
+update archives
+set cover_path = coalesce(sqlc.narg('cover_path'), cover_path),
+    cover_img = coalesce(sqlc.narg('cover_img'), cover_img),
+    updated_at = $1
+where id = $2
 ;
 
 -- name: UpdateFilePath :exec

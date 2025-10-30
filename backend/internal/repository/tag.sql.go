@@ -138,9 +138,10 @@ select
     archives.page_count,
     archives.file_path,
     archives.file_name,
-    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
+    archives.cover_path,
+    archives.cover_img,
     archives.type,
     archives.created_at,
     archives.updated_at,
@@ -172,6 +173,8 @@ type GetArchivesByTagRow struct {
 	FileName    string     `json:"file_name"`
 	Hash        string     `json:"hash"`
 	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	CoverImg    *string    `json:"cover_img"`
 	Type        string     `json:"type"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -199,6 +202,8 @@ func (q *Queries) GetArchivesByTag(ctx context.Context, arg GetArchivesByTagPara
 			&i.FileName,
 			&i.Hash,
 			&i.ThumbsPath,
+			&i.CoverPath,
+			&i.CoverImg,
 			&i.Type,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -225,9 +230,10 @@ select
     archives.page_count,
     archives.file_path,
     archives.file_name,
-    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
+    archives.cover_path,
+    archives.cover_img,
     archives.type,
     archives.created_at,
     archives.updated_at,
@@ -263,6 +269,8 @@ type GetArchivesByTagListRow struct {
 	FileName    string     `json:"file_name"`
 	Hash        string     `json:"hash"`
 	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	CoverImg    *string    `json:"cover_img"`
 	Type        string     `json:"type"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -295,6 +303,8 @@ func (q *Queries) GetArchivesByTagList(ctx context.Context, arg GetArchivesByTag
 			&i.FileName,
 			&i.Hash,
 			&i.ThumbsPath,
+			&i.CoverPath,
+			&i.CoverImg,
 			&i.Type,
 			&i.CreatedAt,
 			&i.UpdatedAt,

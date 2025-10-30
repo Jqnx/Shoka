@@ -140,8 +140,6 @@ type CreateArchiveRow struct {
 	ReleaseDate *time.Time `json:"release_date"`
 }
 
-// archive_id,
-// archive_id,
 func (q *Queries) CreateArchive(ctx context.Context, arg CreateArchiveParams) (CreateArchiveRow, error) {
 	row := q.db.QueryRow(ctx, createArchive,
 		arg.ID,
@@ -209,9 +207,10 @@ select
     archives.page_count,
     archives.file_path,
     archives.file_name,
-    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
+    archives.cover_path,
+    archives.cover_img,
     archives.type,
     archives.created_at,
     archives.updated_at,
@@ -238,6 +237,8 @@ type GetAllArchivesRow struct {
 	FileName    string     `json:"file_name"`
 	Hash        string     `json:"hash"`
 	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	CoverImg    *string    `json:"cover_img"`
 	Type        string     `json:"type"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -267,6 +268,8 @@ func (q *Queries) GetAllArchives(ctx context.Context, uid uuid.UUID) ([]GetAllAr
 			&i.FileName,
 			&i.Hash,
 			&i.ThumbsPath,
+			&i.CoverPath,
+			&i.CoverImg,
 			&i.Type,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -295,9 +298,10 @@ select
     page_count,
     file_path,
     file_name,
-    -- archive_id,
     hash,
     thumbs_path,
+    cover_path,
+    cover_img,
     type,
     created_at,
     updated_at,
@@ -317,6 +321,8 @@ type GetArchiveByFilePathRow struct {
 	FileName    string     `json:"file_name"`
 	Hash        string     `json:"hash"`
 	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	CoverImg    *string    `json:"cover_img"`
 	Type        string     `json:"type"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -337,6 +343,8 @@ func (q *Queries) GetArchiveByFilePath(ctx context.Context, filePath string) (Ge
 		&i.FileName,
 		&i.Hash,
 		&i.ThumbsPath,
+		&i.CoverPath,
+		&i.CoverImg,
 		&i.Type,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -355,9 +363,10 @@ select
     page_count,
     file_path,
     file_name,
-    -- archive_id,
     hash,
     thumbs_path,
+    cover_path,
+    cover_img,
     type,
     created_at,
     updated_at,
@@ -377,6 +386,8 @@ type GetArchiveByHashRow struct {
 	FileName    string     `json:"file_name"`
 	Hash        string     `json:"hash"`
 	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	CoverImg    *string    `json:"cover_img"`
 	Type        string     `json:"type"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -397,6 +408,8 @@ func (q *Queries) GetArchiveByHash(ctx context.Context, hash string) (GetArchive
 		&i.FileName,
 		&i.Hash,
 		&i.ThumbsPath,
+		&i.CoverPath,
+		&i.CoverImg,
 		&i.Type,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -415,9 +428,10 @@ select
     page_count,
     file_path,
     file_name,
-    -- archive_id,
     hash,
     thumbs_path,
+    cover_path,
+    cover_img,
     type,
     created_at,
     updated_at,
@@ -437,6 +451,8 @@ type GetArchiveByIDRow struct {
 	FileName    string     `json:"file_name"`
 	Hash        string     `json:"hash"`
 	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	CoverImg    *string    `json:"cover_img"`
 	Type        string     `json:"type"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -457,6 +473,8 @@ func (q *Queries) GetArchiveByID(ctx context.Context, id string) (GetArchiveByID
 		&i.FileName,
 		&i.Hash,
 		&i.ThumbsPath,
+		&i.CoverPath,
+		&i.CoverImg,
 		&i.Type,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -475,9 +493,10 @@ select
     archives.page_count,
     archives.file_path,
     archives.file_name,
-    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
+    archives.cover_path,
+    archives.cover_img,
     archives.type,
     archives.created_at,
     archives.updated_at,
@@ -511,6 +530,8 @@ type GetArchiveListRow struct {
 	FileName    string     `json:"file_name"`
 	Hash        string     `json:"hash"`
 	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	CoverImg    *string    `json:"cover_img"`
 	Type        string     `json:"type"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -540,6 +561,8 @@ func (q *Queries) GetArchiveList(ctx context.Context, arg GetArchiveListParams) 
 			&i.FileName,
 			&i.Hash,
 			&i.ThumbsPath,
+			&i.CoverPath,
+			&i.CoverImg,
 			&i.Type,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -587,9 +610,10 @@ select
     archives.page_count,
     archives.file_path,
     archives.file_name,
-    -- archives.archive_id,
     archives.hash,
     archives.thumbs_path,
+    archives.cover_path,
+    archives.cover_img,
     archives.type,
     archives.created_at,
     archives.updated_at,
@@ -617,6 +641,8 @@ type GetRecentlyReadArchivesRow struct {
 	FileName    string     `json:"file_name"`
 	Hash        string     `json:"hash"`
 	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	CoverImg    *string    `json:"cover_img"`
 	Type        string     `json:"type"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -646,6 +672,8 @@ func (q *Queries) GetRecentlyReadArchives(ctx context.Context, uid uuid.UUID) ([
 			&i.FileName,
 			&i.Hash,
 			&i.ThumbsPath,
+			&i.CoverPath,
+			&i.CoverImg,
 			&i.Type,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -674,9 +702,10 @@ select
     page_count,
     file_path,
     file_name,
-    -- archive_id,
     hash,
     thumbs_path,
+    cover_path,
+    cover_img,
     type,
     created_at,
     updated_at,
@@ -698,6 +727,8 @@ type SearchArchivesRow struct {
 	FileName    string     `json:"file_name"`
 	Hash        string     `json:"hash"`
 	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	CoverImg    *string    `json:"cover_img"`
 	Type        string     `json:"type"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -725,6 +756,8 @@ func (q *Queries) SearchArchives(ctx context.Context, websearchToTsquery string)
 			&i.FileName,
 			&i.Hash,
 			&i.ThumbsPath,
+			&i.CoverPath,
+			&i.CoverImg,
 			&i.Type,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -751,9 +784,10 @@ select
     page_count,
     file_path,
     file_name,
-    -- archive_id,
     hash,
     thumbs_path,
+    cover_path,
+    cover_img,
     type,
     created_at,
     updated_at,
@@ -783,6 +817,8 @@ type SearchArchivesListRow struct {
 	FileName    string     `json:"file_name"`
 	Hash        string     `json:"hash"`
 	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	CoverImg    *string    `json:"cover_img"`
 	Type        string     `json:"type"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
@@ -810,6 +846,8 @@ func (q *Queries) SearchArchivesList(ctx context.Context, arg SearchArchivesList
 			&i.FileName,
 			&i.Hash,
 			&i.ThumbsPath,
+			&i.CoverPath,
+			&i.CoverImg,
 			&i.Type,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -856,6 +894,8 @@ returning
     file_name,
     hash,
     thumbs_path,
+    cover_path,
+    cover_img,
     type,
     created_at,
     updated_at,
@@ -883,13 +923,14 @@ type UpdateArchiveRow struct {
 	FileName    string     `json:"file_name"`
 	Hash        string     `json:"hash"`
 	ThumbsPath  *string    `json:"thumbs_path"`
+	CoverPath   *string    `json:"cover_path"`
+	CoverImg    *string    `json:"cover_img"`
 	Type        string     `json:"type"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
 }
 
-// archive_id,
 func (q *Queries) UpdateArchive(ctx context.Context, arg UpdateArchiveParams) (UpdateArchiveRow, error) {
 	row := q.db.QueryRow(ctx, updateArchive,
 		arg.UpdatedAt,
@@ -912,12 +953,39 @@ func (q *Queries) UpdateArchive(ctx context.Context, arg UpdateArchiveParams) (U
 		&i.FileName,
 		&i.Hash,
 		&i.ThumbsPath,
+		&i.CoverPath,
+		&i.CoverImg,
 		&i.Type,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ReleaseDate,
 	)
 	return i, err
+}
+
+const updateCoverInfo = `-- name: UpdateCoverInfo :exec
+update archives
+set cover_path = coalesce($3, cover_path),
+    cover_img = coalesce($4, cover_img),
+    updated_at = $1
+where id = $2
+`
+
+type UpdateCoverInfoParams struct {
+	UpdatedAt time.Time `json:"updated_at"`
+	ID        string    `json:"id"`
+	CoverPath *string   `json:"cover_path"`
+	CoverImg  *string   `json:"cover_img"`
+}
+
+func (q *Queries) UpdateCoverInfo(ctx context.Context, arg UpdateCoverInfoParams) error {
+	_, err := q.db.Exec(ctx, updateCoverInfo,
+		arg.UpdatedAt,
+		arg.ID,
+		arg.CoverPath,
+		arg.CoverImg,
+	)
+	return err
 }
 
 const updateFileName = `-- name: UpdateFileName :exec
