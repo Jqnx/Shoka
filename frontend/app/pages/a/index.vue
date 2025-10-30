@@ -40,8 +40,13 @@ const { data: archives } = await useAsyncData(
       onRequest({ options }) {
         options.headers.set("Authorization", `${token.value}`);
       },
+      onResponse({ response }) {
+        if (response._data.total != 0) {
+          generateCover(response._data.archives);
+        }
+      },
     }),
-  { watch: [sortBy, sortDir, currentPage] },
+  { watch: [sortBy, sortDir, currentPage] }
 );
 
 const scrollToTop = () => {

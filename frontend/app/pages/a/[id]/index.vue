@@ -72,6 +72,20 @@ async function favorite() {
   });
 }
 
+const generateCover = () => {
+  $fetch(`/api/a/${id}/cover`, {
+    method: "post",
+    onResponseError({ response }) {
+      toast.error(response._data.data);
+    },
+    onResponse({ response }) {
+      if (response.ok) {
+        toast.success("Successfully generated cover");
+      }
+    },
+  });
+};
+
 const toFile = () => {
   $fetch(`/api/a/${id}/meta/tofile`, {
     method: "post",

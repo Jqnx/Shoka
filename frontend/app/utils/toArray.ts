@@ -1,4 +1,4 @@
-export default function toArray(input: any[]) {
+export default function (input: any[]) {
   const output: string[] = [];
   if (!input) {
     return undefined;

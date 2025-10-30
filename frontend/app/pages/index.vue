@@ -1,10 +1,16 @@
 <script setup lang="ts">
 const { token } = useAuth();
+
 const { data: recentlyReleased } = await useFetch("/api/a/", {
   query: { page: 1, size: 14, sortby: "release_date" },
   key: "recentlyReleased",
   onRequest({ options }) {
     options.headers.set("Authorization", `${token.value}`);
+  },
+  onResponse({ response }) {
+    if (response._data.total != 0) {
+      generateCover(response._data.archives);
+    }
   },
 });
 
@@ -14,12 +20,22 @@ const { data: recentlyAdded } = await useFetch("/api/a/", {
   onRequest({ options }) {
     options.headers.set("Authorization", `${token.value}`);
   },
+  onResponse({ response }) {
+    if (response._data.total != 0) {
+      generateCover(response._data.archives);
+    }
+  },
 });
 
 const { data: recentlyRead } = await useFetch("/api/a/recent", {
   key: "recentlyRead",
   onRequest({ options }) {
     options.headers.set("Authorization", `${token.value}`);
+  },
+  onResponse({ response }) {
+    if (response._data.total != 0) {
+      generateCover(response._data.archives);
+    }
   },
 });
 </script>
