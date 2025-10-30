@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"path/filepath"
 
 	"Shoka/internal/config"
 	"Shoka/internal/util"
@@ -73,7 +74,7 @@ func (z *SevenZipArchive) ImagesToMap() (map[int]string, error) {
 	m := make(map[int]string)
 
 	for i, file := range list {
-		m[i+1] = file
+		m[i+1] = filepath.Base(file)
 	}
 	return m, nil
 }

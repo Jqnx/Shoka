@@ -59,7 +59,7 @@ func (z *ZipArchive) ImagesToMap() (map[int]string, error) {
 	m := make(map[int]string)
 
 	for i, file := range list {
-		m[i+1] = file
+		m[i+1] = filepath.Base(file)
 	}
 	return m, nil
 }
