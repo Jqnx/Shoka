@@ -2,7 +2,6 @@ package workers
 
 import (
 	"context"
-	"fmt"
 
 	"Shoka/internal/config"
 	"Shoka/internal/fsutil"
@@ -14,23 +13,16 @@ import (
 // TODO: Also think about deleting generated thumbnails if archive has not been read recently
 // TODO: LastRead column in db, gets updated when user GETs archive pages
 
-func (w *Workers) NewScanClient() {
-	url := fmt.Sprintf("%v:%v", w.app.Cfg.Workers.RedisHost, w.app.Cfg.Workers.RedisPort)
-	opt := asynq.RedisClientOpt{
-		Addr: url,
-	}
-	client := asynq.NewClient(opt)
-	defer client.Close()
-
+// Scan takes in a list of archive filepaths,
+// checks if they already exist in the database
+// and queues a new create archive task if they do not
+func (w *Workers) Scan(list []string) {
 	// TASKS
 	// Scanning
 
 	// Check media type based extension & folder name
-
-	list := fsutil.ListArchives(w.app.Cfg.ContentDir)
 	for _, item := range list {
 		if fsutil.MatchExtension(item, config.ArchiveExtensions) {
-
 			ctx := context.Background()
 
 			exists, err := w.app.Repo.FilePathExists(ctx, item)
@@ -44,7 +36,7 @@ func (w *Workers) NewScanClient() {
 				if err != nil {
 					w.app.Log.Error("could not create task:", "error", err.Error())
 				}
-				arch, err := client.Enqueue(newArch, asynq.Queue("critical"))
+				arch, err := w.app.Client.Enqueue(newArch, asynq.Queue("critical"))
 				if err != nil {
 					w.app.Log.Error("could not queue task:", "error", err.Error())
 				}

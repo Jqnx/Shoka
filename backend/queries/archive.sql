@@ -99,6 +99,11 @@ from archives
 where hash = $1
 ;
 
+-- name: GetAllFilePaths :many
+select id, file_path
+from archives
+;
+
 -- name: GetAllArchives :many
 select
     archives.id,
@@ -348,5 +353,10 @@ where id = $3
 -- name: DeleteArchive :exec
 delete from archives
 where id = $1
+;
+
+-- name: DeleteArchiveByFilePath :exec
+delete from archives
+where file_path = $1
 ;
 

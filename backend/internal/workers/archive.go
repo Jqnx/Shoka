@@ -31,10 +31,12 @@ func (w *Workers) NewArchives() {
 	ac := w.NewAsynqClient()
 	defer ac.Close()
 
-	// File scan client
-	w.NewScanClient()
-
+	// Get list of Archives
 	list := fsutil.ListArchives(w.app.Cfg.ContentDir)
+
+	// File scan client
+	w.Scan(list)
+
 	for range list {
 
 		arch := <-s.NotificationC()

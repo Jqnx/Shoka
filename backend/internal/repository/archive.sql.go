@@ -187,6 +187,16 @@ func (q *Queries) DeleteArchive(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteArchiveByFilePath = `-- name: DeleteArchiveByFilePath :exec
+delete from archives
+where file_path = $1
+`
+
+func (q *Queries) DeleteArchiveByFilePath(ctx context.Context, filePath string) error {
+	_, err := q.db.Exec(ctx, deleteArchiveByFilePath, filePath)
+	return err
+}
+
 const filePathExists = `-- name: FilePathExists :execresult
 select file_path
 from archives
@@ -278,6 +288,36 @@ func (q *Queries) GetAllArchives(ctx context.Context, uid uuid.UUID) ([]GetAllAr
 			&i.LastRead,
 			&i.State,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAllFilePaths = `-- name: GetAllFilePaths :many
+select id, file_path
+from archives
+`
+
+type GetAllFilePathsRow struct {
+	ID       string `json:"id"`
+	FilePath string `json:"file_path"`
+}
+
+func (q *Queries) GetAllFilePaths(ctx context.Context) ([]GetAllFilePathsRow, error) {
+	rows, err := q.db.Query(ctx, getAllFilePaths)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllFilePathsRow
+	for rows.Next() {
+		var i GetAllFilePathsRow
+		if err := rows.Scan(&i.ID, &i.FilePath); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -3,8 +3,8 @@ create table if not exists artists_groups (
     artist_id bigint,
     group_id bigint,
     primary key (artist_id, group_id),
-    foreign key (artist_id) references artists (id),
-    foreign key (group_id) references groups (id)
+    foreign key (artist_id) references artists (id) on delete cascade,
+    foreign key (group_id) references groups (id) on delete cascade
 );
 
 -- +goose Down

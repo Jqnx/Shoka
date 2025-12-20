@@ -137,6 +137,7 @@ func main() {
 	// Start workers
 	w := workers.NewWorkers(&app, false, ctx)
 	go w.NewArchives()
+	go w.Cleanup()
 
 	// Create a done channel to signal when the shutdown is complete
 	done := make(chan bool, 1)
