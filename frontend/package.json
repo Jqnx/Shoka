@@ -24,13 +24,16 @@
     "@vueuse/nuxt": "^13.9.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.45.1",
     "embla-carousel-autoplay": "^8.6.0",
     "embla-carousel-vue": "^8.6.0",
     "eslint": "^9.38.0",
     "lucide-vue-next": "^0.514.0",
     "motion-v": "^1.7.4",
     "next-auth": "~4.21.1",
-    "nuxt": "^4.2.0",
+    "nuxt": "^4.2.2",
+    "pg": "^8.16.3",
     "pinia": "^3.0.3",
     "pinia-plugin-persistedstate": "^4.5.0",
     "reka-ui": "^2.6.0",
@@ -46,11 +49,14 @@
   },
   "devDependencies": {
     "@iconify-json/lucide": "^1.2.71",
+    "@types/pg": "^8.16.0",
     "daisyui": "^5.3.10",
+    "drizzle-kit": "^0.31.8",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
   "overrides": {
     "@vue/devtools-kit": ">=8.0.3"
   },
-  "packageManager": "pnpm@10.14.0+sha512.ad27a79641b49c3e481a16a805baa71817a04bbe06a38d17e60e2eaee83f6a146c6a688125f5792e48dd5ba30e7da52a5cda4c3992b9ccf333f9ce223af84748"
+  "packageManager": "pnpm@10.26.1"
 }
