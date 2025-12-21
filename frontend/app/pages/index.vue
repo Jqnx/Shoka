@@ -42,7 +42,10 @@ const { data: recentlyRead } = await useFetch("/api/a/recent", {
 
 <template>
   <div class="flex flex-col gap-4">
-    <div v-if="recentlyRead.total > 0" class="flex flex-col gap-2">
+    <div
+      v-if="recentlyRead && recentlyRead.total > 0"
+      class="flex flex-col gap-2"
+    >
       <CarouselTitle
         class="px-4 md:px-14 lg:px-16 xl:px-18"
         title="Recently read"
@@ -54,7 +57,10 @@ const { data: recentlyRead } = await useFetch("/api/a/recent", {
         class="overflow-x-hidden md:px-10 xl:px-8 2xl:px-6"
       />
     </div>
-    <div v-if="recentlyReleased.total > 0" class="flex flex-col gap-2">
+    <div
+      v-if="recentlyReleased && recentlyReleased.total > 0"
+      class="flex flex-col gap-2"
+    >
       <CarouselTitle
         class="px-4 md:px-14 lg:px-16 xl:px-18"
         title="Recent Releases"
@@ -66,7 +72,10 @@ const { data: recentlyRead } = await useFetch("/api/a/recent", {
         class="overflow-x-hidden md:px-10 xl:px-8 2xl:px-6"
       />
     </div>
-    <div v-if="recentlyAdded.total > 0" class="flex flex-col gap-2">
+    <div
+      v-if="recentlyAdded && recentlyAdded.total > 0"
+      class="flex flex-col gap-2"
+    >
       <CarouselTitle
         class="px-4 md:px-14 lg:px-16 xl:px-18"
         title="Recently Added"

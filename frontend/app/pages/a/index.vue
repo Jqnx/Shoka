@@ -16,7 +16,7 @@ useHead({
 
 const { currentPage, pageSize } = storeToRefs(usePageStore());
 const { sortBy, sortDir, filters } = storeToRefs(useFiltersStore());
-const { token } = useAuth();
+//const { token } = useAuth();
 
 const { data: archives } = await useAsyncData(
   "archives",
@@ -37,16 +37,16 @@ const { data: archives } = await useAsyncData(
         languages: filters.value.languages,
         categories: filters.value.categories,
       },
-      onRequest({ options }) {
-        options.headers.set("Authorization", `${token.value}`);
-      },
+      //onRequest({ options }) {
+      //  options.headers.set("Authorization", `${token.value}`);
+      //},
       onResponse({ response }) {
         if (response._data.total != 0) {
           generateCover(response._data.archives);
         }
       },
     }),
-  { watch: [sortBy, sortDir, currentPage] }
+  { watch: [sortBy, sortDir, currentPage] },
 );
 
 const scrollToTop = () => {
@@ -60,7 +60,7 @@ router.beforeResolve((_) => {
 </script>
 
 <template>
-  <div class="flex flex-1 flex-col gap-4 p-4 pt-0">
+  <div v-if="archives" class="flex flex-1 flex-col gap-4 p-4 pt-0">
     <ListOptions />
     <div
       class="py-4 grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
@@ -103,5 +103,8 @@ router.beforeResolve((_) => {
         <PaginationLast @click="scrollToTop" />
       </PaginationContent>
     </Pagination>
+  </div>
+  <div v-else class="flex justify-center pt-12">
+    <h1 class="text-3xl font-bold">No Archives Found</h1>
   </div>
 </template>
