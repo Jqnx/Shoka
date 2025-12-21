@@ -1,9 +1,5 @@
 import tailwindcss from "@tailwindcss/vite";
 
-const baseApi = "http://localhost:8081/api";
-const baseAssets = "http://localhost:8081/assets";
-const baseWs = "ws://localhost:8081/ws";
-
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   compatibilityDate: "2024-11-01",
@@ -15,14 +11,14 @@ export default defineNuxtConfig({
     },
   },
   runtimeConfig: {
-    baseApi: baseApi,
-    baseAssets: baseAssets,
+    apiUrl: "",
+    assetsUrl: "",
     public: {
-      ws: baseWs,
+      wsUrl: "",
     },
   },
   devServer: {
-    port: 8080,
+    port: 3000,
   },
   modules: [
     "@vueuse/nuxt",
@@ -35,7 +31,6 @@ export default defineNuxtConfig({
     "pinia-plugin-persistedstate/nuxt",
     "@vee-validate/nuxt",
     "vue-sonner/nuxt",
-    "@sidebase/nuxt-auth",
     "motion-v/nuxt",
   ],
   css: ["./app/assets/css/tailwind.css"],
@@ -45,7 +40,6 @@ export default defineNuxtConfig({
   colorMode: {
     preference: "system",
     fallback: "dark",
-    classSuffix: "",
   },
   shadcn: {
     prefix: "",
@@ -54,39 +48,39 @@ export default defineNuxtConfig({
   image: {
     domains: ["localhost"],
     alias: {
-      archive: `${baseApi}/a`,
-      assets: baseAssets,
+      archive: `${process.env.NUXT_API_URL}/a`,
+      assets: `${process.env.NUXT_ASSETS_URL}`,
     },
   },
-  auth: {
-    isEnabled: true,
-    provider: {
-      type: "local",
-      endpoints: {
-        signIn: { path: "/login", method: "post" },
-        signUp: { path: "/register", method: "post" },
-        signOut: { path: "/logout", method: "post" },
-        getSession: { path: "/session", method: "get" },
-      },
-      token: {
-        signInResponseTokenPointer: "/token",
-        type: "Bearer",
-        cookieName: "auth.token",
-        headerName: "Authorization",
-        maxAgeInSeconds: 259200,
-        sameSiteAttribute: "lax",
-        cookieDomain: "",
-        secureCookieAttribute: false,
-        httpOnlyCookieAttribute: false,
-      },
-      session: {
-        dataType: {
-          id: "number",
-          username: "string",
-          created_at: "string,",
-        },
-      },
-    },
-    globalAppMiddleware: true,
-  },
+  //auth: {
+  //  isEnabled: true,
+  //  provider: {
+  //    type: "local",
+  //    endpoints: {
+  //      signIn: { path: "/login", method: "post" },
+  //      signUp: { path: "/register", method: "post" },
+  //      signOut: { path: "/logout", method: "post" },
+  //      getSession: { path: "/session", method: "get" },
+  //    },
+  //    token: {
+  //      signInResponseTokenPointer: "/token",
+  //      type: "Bearer",
+  //      cookieName: "auth.token",
+  //      headerName: "Authorization",
+  //      maxAgeInSeconds: 259200,
+  //      sameSiteAttribute: "lax",
+  //      cookieDomain: "",
+  //      secureCookieAttribute: false,
+  //      httpOnlyCookieAttribute: false,
+  //    },
+  //    session: {
+  //      dataType: {
+  //        id: "number",
+  //        username: "string",
+  //        created_at: "string,",
+  //      },
+  //    },
+  //  },
+  //  globalAppMiddleware: true,
+  //},
 });

@@ -1,39 +1,38 @@
 <script setup lang="ts">
-  import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-  import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuGroup,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-  } from "@/components/ui/dropdown-menu";
-  import {
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
-    useSidebar,
-  } from "@/components/ui/sidebar";
-  import {
-    ChevronsUpDown,
-    Heart,
-    LogOut,
-    Panda,
-    Settings,
-  } from "lucide-vue-next";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import {
+  ChevronsUpDown,
+  Heart,
+  LogOut,
+  Panda,
+  Settings,
+} from "lucide-vue-next";
 
-  defineProps<{
-    user: {
-      name: string | undefined;
-      avatar: string;
-    };
-  }>();
+defineProps<{
+  user: {
+    name: string | undefined;
+    avatar: string;
+  };
+}>();
 
-  const { isMobile } = useSidebar();
-
-  const { signOut } = useAuth();
+const { isMobile } = useSidebar();
+const { signOut } = useAuth();
 </script>
 
 <template>
@@ -43,7 +42,8 @@
         <DropdownMenuTrigger as-child>
           <SidebarMenuButton
             size="lg"
-            class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
+            class="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+          >
             <Avatar class="h-8 w-8 rounded-lg">
               <AvatarImage :src="user.avatar" :alt="user.name" />
               <AvatarFallback class="rounded-lg">
@@ -60,7 +60,8 @@
           class="w-[--reka-dropdown-menu-trigger-width] min-w-56 rounded-lg"
           :side="isMobile ? 'bottom' : 'right'"
           align="end"
-          :side-offset="4">
+          :side-offset="4"
+        >
           <DropdownMenuLabel class="p-0 font-normal">
             <div class="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
               <Avatar class="h-8 w-8 rounded-lg">
@@ -90,7 +91,7 @@
             </NuxtLink>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuItem @click="() => signOut({ callbackUrl: '/login' })">
+          <DropdownMenuItem @click="() => signOut({ redirectTo: '/login' })">
             <LogOut />
             Log out
           </DropdownMenuItem>

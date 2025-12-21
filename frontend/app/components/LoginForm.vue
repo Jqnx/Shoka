@@ -1,49 +1,61 @@
 <script setup lang="ts">
-  import type { HTMLAttributes } from "vue";
-  import { cn } from "~/lib/utils";
-  import { Button } from "@/components/ui/button";
-  import { Input } from "@/components/ui/input";
-  import {
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-  } from "@/components/ui/form";
-  import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-  } from "@/components/ui/card";
-  import { z } from "zod";
+import type { HTMLAttributes } from "vue";
+import { cn } from "~/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+} from "@/components/ui/form";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { z } from "zod";
+import { toast } from "vue-sonner";
 
-  const props = defineProps<{
-    class?: HTMLAttributes["class"];
-  }>();
+const props = defineProps<{
+  class?: HTMLAttributes["class"];
+}>();
 
-  const formSchema = toTypedSchema(
-    z.object({
-      username: z
-        .string({ required_error: "Username is required." })
-        .min(2, { message: "Must be atleast 2 characters." })
-        .max(64, { message: "Cannot be longer than 64 characters." }),
-      password: z
-        .string({ required_error: "Password is required." })
-        .min(8, { message: "Must be atleast 8 characters." })
-        .max(64, { message: "Cannot be longer than 64 characters." }),
-    })
-  );
+const formSchema = toTypedSchema(
+  z.object({
+    username: z
+      .string({ required_error: "Username is required." })
+      .min(2, { message: "Must be atleast 2 characters." })
+      .max(64, { message: "Cannot be longer than 64 characters." }),
+    password: z
+      .string({ required_error: "Password is required." })
+      .min(8, { message: "Must be atleast 8 characters." })
+      .max(64, { message: "Cannot be longer than 64 characters." }),
+  }),
+);
 
-  const { handleSubmit, errors } = useForm({
-    validationSchema: formSchema,
+const { handleSubmit, errors } = useForm({
+  validationSchema: formSchema,
+});
+
+const { signIn } = useAuth();
+
+const onSubmit = handleSubmit(async (values) => {
+  await signIn.username({
+    username: values.username,
+    password: values.password,
+    fetchOptions: {
+      onSuccess: () => {
+        navigateTo("/");
+      },
+      onError: (ctx) => {
+        toast.error(ctx.error.message);
+      },
+    },
   });
-
-  const { signIn } = useAuth();
-
-  const onSubmit = handleSubmit((values) => {
-    signIn(values, { callbackUrl: "/" });
-  });
+});
 </script>
 
 <template>

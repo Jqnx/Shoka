@@ -1,11 +1,11 @@
-import { joinURL } from 'ufo'
+import { joinURL } from "ufo";
 
 export default defineEventHandler(async (event) => {
-  const apiUrl = useRuntimeConfig().baseApi
+  const apiUrl = useRuntimeConfig().apiUrl;
 
-  const path = event.path.replace(/^\/api\//, '')
+  const path = event.path.replace(/^\/api\//, "");
 
-  const target = joinURL(apiUrl, path)
+  const target = joinURL(apiUrl, path);
 
-  return proxyRequest(event, target)
-})
+  return proxyRequest(event, target);
+});

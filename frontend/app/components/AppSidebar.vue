@@ -31,11 +31,11 @@ const props = withDefaults(defineProps<SidebarProps>(), {
   variant: "inset",
 });
 
-const { data: user } = useAuthState();
+const { user } = useAuth();
 
 const data = {
   user: {
-    name: user.value?.username,
+    name: user.value?.displayUsername,
     avatar: "",
   },
   Media: [
