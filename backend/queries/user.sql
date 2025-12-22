@@ -1,3 +1,4 @@
+/*
 -- name: CreateUser :one
 insert into users (
   id,
@@ -33,4 +34,5 @@ returning *
 delete from users
 where id = $1
 ;
+*/
 

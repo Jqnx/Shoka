@@ -1,5 +1,5 @@
 -- name: CreateArchive :one
-insert into archives (
+insert into archive (
     id,
     title,
     summary,
@@ -7,15 +7,13 @@ insert into archives (
     category,
     page_count,
     file_path,
-    file_name,
-    hash,
-    thumbs_path,
-    type,
+    file_hash,
+    thumb_path,
     created_at,
     updated_at,
     release_date
     )
-values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 returning
     id,
     title,
@@ -24,10 +22,8 @@ returning
     category,
     page_count,
     file_path,
-    file_name,
-    hash,
-    thumbs_path,
-    type,
+    file_hash,
+    thumb_path,
     created_at,
     updated_at,
     release_date
@@ -42,16 +38,12 @@ select
     category,
     page_count,
     file_path,
-    file_name,
-    hash,
-    thumbs_path,
-    cover_path,
-    cover_img,
-    type,
+    file_hash,
+    thumb_path,
     created_at,
     updated_at,
     release_date
-from archives
+from archive
 where id = $1
 ;
 
@@ -64,20 +56,16 @@ select
     category,
     page_count,
     file_path,
-    file_name,
-    hash,
-    thumbs_path,
-    cover_path,
-    cover_img,
-    type,
+    file_hash,
+    thumb_path,
     created_at,
     updated_at,
     release_date
-from archives
+from archive
 where file_path = $1
 ;
 
--- name: GetArchiveByHash :one
+-- name: GetArchiveByFileHash :one
 select
     id,
     title,
@@ -86,78 +74,66 @@ select
     category,
     page_count,
     file_path,
-    file_name,
-    hash,
-    thumbs_path,
-    cover_path,
-    cover_img,
-    type,
+    file_hash,
+    thumb_path,
     created_at,
     updated_at,
     release_date
-from archives
-where hash = $1
+from archive
+where file_hash = $1
 ;
 
 -- name: GetAllFilePaths :many
 select id, file_path
-from archives
+from archive
 ;
 
 -- name: GetAllArchives :many
 select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
     reading_progress.page,
     reading_progress.last_read,
-    reading_progress.state
-from archives
+    reading_progress.status
+from archive
 left join
     reading_progress
-    on archives.id = reading_progress.archive_id
+    on archive.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg('uid')
-order by archives.id
+order by archive.id
 ;
 
 -- name: GetRecentlyReadArchives :many
 select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
     reading_progress.page,
     reading_progress.last_read,
-    reading_progress.state
-from archives
+    reading_progress.status
+from archive
 left join
     reading_progress
-    on archives.id = reading_progress.archive_id
+    on archive.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg('uid')
 where reading_progress.last_read is not null
 order by reading_progress.last_read
@@ -165,29 +141,25 @@ order by reading_progress.last_read
 
 -- name: GetArchiveList :many
 select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
     reading_progress.page,
     reading_progress.last_read,
-    reading_progress.state
-from archives
+    reading_progress.status
+from archive
 left join
     reading_progress
-    on archives.id = reading_progress.archive_id
+    on archive.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg('uid')
 limit $1
 offset $2
@@ -195,12 +167,12 @@ offset $2
 
 -- name: GetArchiveShuffle :one
 select id
-from archives
+from archive
 limit $1
 offset $2
 ;
 
--- name: SearchArchives :many
+-- name: SearchArchive :many
 select
     id,
     title,
@@ -209,28 +181,24 @@ select
     category,
     page_count,
     file_path,
-    file_name,
-    hash,
-    thumbs_path,
-    cover_path,
-    cover_img,
-    type,
+    file_hash,
+    thumb_path,
     created_at,
     updated_at,
     release_date,
     ts_rank_cd(search_vector, query) as rank
-from archives, websearch_to_tsquery('english', $1) query
+from archive, websearch_to_tsquery('english', $1) query
 where search_vector @@ query
 order by rank desc
 ;
 
--- name: CountSearchArchives :many
+-- name: CountSearchArchive :many
 select count(*)
-from archives, websearch_to_tsquery('english', $1) query
+from archive, websearch_to_tsquery('english', $1) query
 where search_vector @@ query
 ;
 
--- name: SearchArchivesList :many
+-- name: SearchArchiveList :many
 select
     id,
     title,
@@ -239,17 +207,13 @@ select
     category,
     page_count,
     file_path,
-    file_name,
-    hash,
-    thumbs_path,
-    cover_path,
-    cover_img,
-    type,
+    file_hash,
+    thumb_path,
     created_at,
     updated_at,
     release_date,
     ts_rank_cd(search_vector, query) as rank
-from archives, websearch_to_tsquery('english', $1) query
+from archive, websearch_to_tsquery('english', $1) query
 where search_vector @@ query
 order by rank desc
 limit $2
@@ -258,36 +222,35 @@ offset $3
 
 -- name: ArchiveExists :execresult
 select title
-from archives
+from archive
 where title = $1
 ;
 
 -- name: FilePathExists :execresult
 select file_path
-from archives
+from archive
 where file_path = $1
 ;
 
 -- name: ArchiveIDExists :execresult
 select id
-from archives
+from archive
 where id = $1
 ;
 
 -- name: ThumbsPathExistsForFilePath :execresult
-select thumbs_path
-from archives
+select thumb_path
+from archive
 where file_path = $1
 ;
 
 -- name: CountArchives :one
 select count(*)
-from archives
+from archive
 ;
 
-
 -- name: UpdateArchive :one
-update archives
+update archive
 set title = coalesce(sqlc.narg('title'), title),
     summary = coalesce(sqlc.narg('summary'), summary),
     language = coalesce(sqlc.narg('language'), language),
@@ -303,60 +266,41 @@ returning
     category,
     page_count,
     file_path,
-    file_name,
-    hash,
-    thumbs_path,
-    cover_path,
-    cover_img,
-    type,
+    file_hash,
+    thumb_path,
     created_at,
     updated_at,
     release_date
 ;
 
 -- name: UpdateThumbPath :exec
-update archives
-set thumbs_path = $1,
+update archive
+set thumb_path = $1,
     updated_at = $2
 where id = $3
 ;
 
--- name: UpdateCoverInfo :exec
-update archives
-set cover_path = coalesce(sqlc.narg('cover_path'), cover_path),
-    cover_img = coalesce(sqlc.narg('cover_img'), cover_img),
-    updated_at = $1
-where id = $2
-;
-
 -- name: UpdateFilePath :exec
-update archives
+update archive
 set file_path = $1,
     updated_at = $2
 where id = $3
 ;
 
--- name: UpdateFileName :exec
-update archives
-set file_name = $1,
-    updated_at = $2
-where id = $3
-;
-
--- name: UpdateHash :exec
-update archives
-set hash = $1,
+-- name: UpdateFileHash :exec
+update archive
+set file_hash = $1,
     updated_at = $2
 where id = $3
 ;
 
 -- name: DeleteArchive :exec
-delete from archives
+delete from archive
 where id = $1
 ;
 
 -- name: DeleteArchiveByFilePath :exec
-delete from archives
+delete from archive
 where file_path = $1
 ;
 

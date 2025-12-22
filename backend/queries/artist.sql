@@ -1,199 +1,193 @@
 -- name: CreateArtist :one
-insert into artists (name, count, created_at, updated_at)
-values ($1, $2, $3, $4)
+insert into artist (name, count)
+values ($1, $2)
 returning *
 ;
 
 -- name: CreateAlias :exec
-insert into artist_aliases (alias, artist_id)
+insert into artist_alias (alias, artist_id)
 values ($1, $2)
 ;
 
--- name: CreateArtistLink :exec
-insert into artist_links (link, artist_id)
+-- name: CreateArtistUrl :exec
+insert into artist_url (url, artist_id)
 values ($1, $2)
 ;
 
 -- name: GetAllArtists :many
-select id, name, count, created_at, updated_at
-from artists
+select id, name, count
+from artist
 order by id
 ;
 
 -- name: GetArtistByName :one
-select id, name, count, created_at, updated_at
-from artists
+select id, name, count
+from artist
 where name = $1
 ;
 
 -- name: GetArtistList :many
-select id, name, count, created_at, updated_at
-from artists
+select id, name, count
+from artist
 order by $1
 limit $2
 offset $3
 ;
 
--- name: GetArtistLinks :many
-select artist_links.id, artist_links.link
-from artists
-join artist_links on artists.id = artist_links.artist_id
+-- name: GetArtistUrls :many
+select artist_url.id, artist_url.url
+from artist
+join artist_url on artist.id = artist_url.artist_id
 where name = $1
 ;
 
 -- name: GetArtistAliases :many
-select artist_aliases.id, artist_aliases.alias
-from artists
-join artist_aliases on artists.id = artist_aliases.artist_id
+select artist_alias.id, artist_alias.alias
+from artist
+join artist_alias on artist.id = artist_alias.artist_id
 where name = $1
 ;
 
 -- name: GetArtistGroups :many
+/* 
 select groups.id, groups.name
-from artists
-join artists_groups on artists.id = artists_groups.artist_id
-join groups on artists_groups.group_id = groups.id
-where artists.name = $1
+from artist
+join artist_groups on artist.id = artist_groups.artist_id
+join groups on artist_groups.group_id = groups.id
+where artist.name = $1
 ;
-
+*/
 -- name: ArtistExists :execresult
 select name
-from artists
+from artist
 where name = $1
 ;
 
 -- name: ArtistAliasExists :execresult
 select alias
-from artist_aliases
+from artist_alias
 where alias = $1
 ;
 
--- name: ArtistLinkExists :execresult
-select link
-from artist_links
-where link = $1
+-- name: ArtistUrlExists :execresult
+select url
+from artist_url
+where url = $1
 ;
 
 -- name: TotalArtists :one
 select count(id)
-from artists
+from artist
 ;
 
 -- name: AddArtistToGroup :exec
-insert into artists_groups (artist_id, group_id)
+/*
+insert into artist_groups (artist_id, group_id)
 values ($1, $2)
 ;
-
+*/
 -- name: AddArtistToArchive :exec
-insert into archives_artists (archive_id, artist_id)
+insert into archive_artist (archive_id, artist_id)
 values ($1, $2)
 ;
 
 -- name: UpdateArtist :one
-update artists
-set name = $1,
-    updated_at = $2
+update artist
+set name = $1
 where name = sqlc.arg(old_name)::text
 returning *
 ;
 
 -- name: UpdateArtistCount :exec
-update artists
+update artist
 set count = $1
 where id = $2
 ;
 
 -- name: RemoveArtistFromArchive :many
-delete from archives_artists
+delete from archive_artist
 where archive_id = $1
 returning
     artist_id,
-    (select artists.count from artists where artists.id = archives_artists.artist_id)
+    (select artist.count from artist where artist.id = archive_artist.artist_id)
 ;
 
 -- name: RemoveArtistAliases :exec
-delete from artist_aliases
+delete from artist_alias
 where artist_id = $1
 ;
 
--- name: RemoveArtistLinks :exec
-delete from artist_links
+-- name: RemoveArtistUrls :exec
+delete from artist_url
 where artist_id = $1
 ;
 
 -- name: RemoveArtistFromGroup :exec
-delete from artists_groups
+/*
+delete from artist_groups
 where artist_id = $1
 ;
-
+*/
 -- name: DeleteArtist :exec
-delete from artists
+delete from artist
 where id = $1
 ;
 
 -- name: GetArchiveArtists :many
-select artists.*
-from archives
-join archives_artists on archives.id = archives_artists.archive_id
-join artists on archives_artists.artist_id = artists.id
-where archives.id = $1
+select artist.*
+from archive
+join archive_artist on archive.id = archive_artist.archive_id
+join artist on archive_artist.artist_id = artist.id
+where archive.id = $1
 ;
 
--- name: GetArchivesByArtist :many
+-- name: GetArchiveByArtist :many
 select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date
-from archives
-join archives_artists on archives.id = archives_artists.archive_id
-join artists on archives_artists.artist_id = artists.id
-where artists.name = $1
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date
+from archive
+join archive_artist on archive.id = archive_artist.archive_id
+join artist on archive_artist.artist_id = artist.id
+where artist.name = $1
 ;
 
--- name: GetArchivesByArtistList :many
+-- name: GetArchiveByArtistList :many
 select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date
-from archives
-join archives_artists on archives.id = archives_artists.archive_id
-join artists on archives_artists.artist_id = artists.id
-where artists.name = $1
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date
+from archive
+join archive_artist on archive.id = archive_artist.archive_id
+join artist on archive_artist.artist_id = artist.id
+where artist.name = $1
 limit $2
 offset $3
 ;
 
 -- name: GetArchiveIDsByArtist :many
-select archives.id
-from archives
-join archives_artists on archives.id = archives_artists.archive_id
-join artists on archives_artists.artist_id = artists.id
-where artists.name = $1
+select archive.id
+from archive
+join archive_artist on archive.id = archive_artist.archive_id
+join artist on archive_artist.artist_id = artist.id
+where artist.name = $1
 ;
 

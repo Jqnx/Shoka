@@ -1,130 +1,118 @@
 -- name: CreateParody :one
-insert into parodies (name, count)
+insert into parody (name, count)
 values ($1, $2)
 returning *
 ;
 
 -- name: AddParodyToArchive :exec
-insert into archives_parodies (archive_id, parody_id)
+insert into archive_parody (archive_id, parody_id)
 values ($1, $2)
 ;
 
 -- name: GetParody :one
 select id, name, count
-from parodies
+from parody
 where name = $1
 ;
 
--- name: GetAllParodies :many
+-- name: GetAllParody :many
 select id, name, count
-from parodies
+from parody
 order by id
 ;
 
 -- name: ParodyExists :execresult
 select id, name
-from parodies
+from parody
 where name = $1
 ;
 
 -- name: RemoveParodyFromArchive :many
-delete from archives_parodies
+delete from archive_parody
 where archive_id = $1
 returning
     parody_id,
-    (
-        select parodies.count
-        from parodies
-        where parodies.id = archives_parodies.parody_id
-    )
+    (select parody.count from parody where parody.id = archive_parody.parody_id)
 ;
 
--- name: GetArchiveParodies :many
-select parodies.id, parodies.name, parodies.count
-from archives
-join archives_parodies on archives.id = archives_parodies.archive_id
-join parodies on archives_parodies.parody_id = parodies.id
-where archives.id = $1
+-- name: GetArchiveParody :many
+select parody.id, parody.name, parody.count
+from archive
+join archive_parody on archive.id = archive_parody.archive_id
+join parody on archive_parody.parody_id = parody.id
+where archive.id = $1
 ;
 
--- name: GetArchivesByParody :many
+-- name: GetarchiveByParody :many
 select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
     reading_progress.page
-from archives
-join archives_parodies on archives.id = archives_parodies.archive_id
-join parodies on archives_parodies.parody_id = parodies.id
+from archive
+join archive_parody on archive.id = archive_parody.archive_id
+join parody on archive_parody.parody_id = parody.id
 left join
     reading_progress
-    on archives.id = reading_progress.archive_id
+    on archive.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg('uid')
-where parodies.name = $1
+where parody.name = $1
 ;
 
 -- name: GetArchiveIDsByParody :many
-select archives.id
-from archives
-join archives_parodies on archives.id = archives_parodies.archive_id
-join parodies on archives_parodies.parody_id = parodies.id
-where parodies.name = $1
+select archive.id
+from archive
+join archive_parody on archive.id = archive_parody.archive_id
+join parody on archive_parody.parody_id = parody.id
+where parody.name = $1
 ;
 
--- name: GetArchivesByParodyList :many
+-- name: GetArchiveByParodyList :many
 select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
     reading_progress.page
-from archives
-join archives_parodies on archives.id = archives_parodies.archive_id
-join parodies on archives_parodies.parody_id = parodies.id
+from archive
+join archive_parody on archive.id = archive_parody.archive_id
+join parody on archive_parody.parody_id = parody.id
 left join
     reading_progress
-    on archives.id = reading_progress.archive_id
+    on archive.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg('uid')
-where parodies.name = $1
+where parody.name = $1
 limit $2
 offset $3
 ;
 
--- name: TotalArchivesWithParody :one
-select count(archives.id)
-from archives
-join archives_parodies on archives.id = archives_parodies.archive_id
-join parodies on archives_parodies.parody_id = parodies.id
-where parodies.name = $1
+-- name: TotalArchiveWithParody :one
+select count(archive.id)
+from archive
+join archive_parody on archive.id = archive_parody.archive_id
+join parody on archive_parody.parody_id = parody.id
+where parody.name = $1
 ;
 
 -- name: UpdateParodyCount :exec
-update parodies
+update parody
 set count = $1
 where id = $2
 ;

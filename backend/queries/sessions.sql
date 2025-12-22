@@ -1,3 +1,4 @@
+/*
 -- name: CreateSession :exec
 insert into sessions (
   session_id,
@@ -33,4 +34,5 @@ where user_id = $1
 delete from sessions
 where token = $1
 ;
+*/
 

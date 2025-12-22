@@ -1,48 +1,38 @@
--- name: GetArchivesFilterSortList :many
+-- name: GetArchiveFilterSortList :many
 select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
     reading_progress.page,
     reading_progress.last_read,
-    reading_progress.state
-from archives
+    reading_progress.status
+from archive
 left join
     reading_progress
-    on archives.id = reading_progress.archive_id
+    on archive.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg('uid')
-where archives.id = any(sqlc.arg('ids')::text[])
+where archive.id = any(sqlc.arg('ids')::text[])
 order by
-    case when @order_by::text = 'title_asc' then archives.title end asc,
-    case when @order_by = 'title_desc' then archives.title end desc nulls last,
-    case when @order_by = 'page_count_asc' then archives.page_count end asc,
+    case when @order_by::text = 'title_asc' then archive.title end asc,
+    case when @order_by = 'title_desc' then archive.title end desc nulls last,
+    case when @order_by = 'page_count_asc' then archive.page_count end asc,
+    case when @order_by = 'page_count_desc' then archive.page_count end desc nulls last,
+    case when @order_by = 'created_at_asc' then archive.created_at end asc,
+    case when @order_by = 'created_at_desc' then archive.created_at end desc nulls last,
+    case when @order_by = 'updated_at_asc' then archive.updated_at end asc,
+    case when @order_by = 'updated_at_desc' then archive.updated_at end desc nulls last,
+    case when @order_by = 'release_date_asc' then archive.release_date end asc,
     case
-        when @order_by = 'page_count_desc' then archives.page_count
-    end desc nulls last,
-    case when @order_by = 'created_at_asc' then archives.created_at end asc,
-    case
-        when @order_by = 'created_at_desc' then archives.created_at
-    end desc nulls last,
-    case when @order_by = 'updated_at_asc' then archives.updated_at end asc,
-    case
-        when @order_by = 'updated_at_desc' then archives.updated_at
-    end desc nulls last,
-    case when @order_by = 'release_date_asc' then archives.release_date end asc,
-    case
-        when @order_by = 'release_date_desc' then archives.release_date
+        when @order_by = 'release_date_desc' then archive.release_date
     end desc nulls last,
     case when @order_by = 'last_read_asc' then reading_progress.last_read end asc,
     case
@@ -52,39 +42,35 @@ limit $1
 offset $2
 ;
 
--- name: GetArchivesFilter :one
-select archives.id
-from archives
-where archives.id = any(sqlc.arg('ids')::text[])
+-- name: GetArchiveFilter :one
+select archive.id
+from archive
+where archive.id = any(sqlc.arg('ids')::text[])
 limit $1
 offset $2
 ;
 
 -- name: GetArchiveSortList :many
 select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
     reading_progress.page,
     reading_progress.last_read,
-    reading_progress.state
-from archives
+    reading_progress.status
+from archive
 left join
     reading_progress
-    on archives.id = reading_progress.archive_id
+    on archive.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg('uid')
 order by
     case when @order_by::text = 'title_asc' then title end asc,
@@ -107,29 +93,25 @@ offset $2
 
 -- name: GetArchiveSort :many
 select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
     reading_progress.page,
     reading_progress.last_read,
-    reading_progress.state
-from archives
+    reading_progress.status
+from archive
 left join
     reading_progress
-    on archives.id = reading_progress.archive_id
+    on archive.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg('uid')
 order by
     case when @order_by::text = 'title_asc' then title end asc,
@@ -148,9 +130,9 @@ order by
     end desc nulls last
 ;
 
--- name: CountFilteredArchives :one
-select count(archives.id)
-from archives
-where archives.id = any(sqlc.arg('ids')::text[])
+-- name: CountFilteredArchive :one
+select count(archive.id)
+from archive
+where archive.id = any(sqlc.arg('ids')::text[])
 ;
 

@@ -1,3 +1,4 @@
+/*
 -- name: CreateGroup :one
 insert into groups (name, created_at, updated_at)
 values ($1, $2, $3)
@@ -60,4 +61,5 @@ where group_id = $1
 delete from groups
 where name = $1
 ;
+*/
 

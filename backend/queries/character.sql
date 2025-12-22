@@ -1,130 +1,122 @@
 -- name: CreateCharacter :one
-insert into characters (name, count)
+insert into character (name, count)
 values ($1, $2)
 returning *
 ;
 
 -- name: AddCharacterToArchive :exec
-insert into archives_characters (archive_id, character_id)
+insert into archive_character (archive_id, character_id)
 values ($1, $2)
 ;
 
 -- name: GetCharacter :one
 select id, name, count
-from characters
+from character
 where name = $1
 ;
 
 -- name: GetAllCharacter :many
 select id, name, count
-from characters
+from character
 order by id
 ;
 
 -- name: CharacterExists :execresult
 select id, name
-from characters
+from character
 where name = $1
 ;
 
 -- name: RemoveCharacterFromArchive :many
-delete from archives_characters
+delete from archive_character
 where archive_id = $1
 returning
     character_id,
     (
-        select characters.count
-        from characters
-        where characters.id = archives_characters.character_id
+        select character.count
+        from character
+        where character.id = archive_character.character_id
     )
 ;
 
 -- name: GetArchiveCharacters :many
-select characters.id, characters.name, characters.count
-from archives
-join archives_characters on archives.id = archives_characters.archive_id
-join characters on archives_characters.character_id = characters.id
-where archives.id = $1
+select character.id, character.name, character.count
+from archive
+join archive_character on archive.id = archive_character.archive_id
+join character on archive_character.character_id = character.id
+where archive.id = $1
 ;
 
--- name: GetArchivesByCharacter :many
+-- name: GetArchiveByCharacter :many
 select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
     reading_progress.page
-from archives
-join archives_characters on archives.id = archives_characters.archive_id
-join characters on archives_characters.character_id = characters.id
+from archive
+join archive_character on archive.id = archive_character.archive_id
+join character on archive_character.character_id = character.id
 left join
     reading_progress
-    on archives.id = reading_progress.archive_id
+    on archive.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg('uid')
-where characters.name = $1
+where character.name = $1
 ;
 
 -- name: GetArchiveIDsByCharacter :many
-select archives.id
-from archives
-join archives_characters on archives.id = archives_characters.archive_id
-join characters on archives_characters.character_id = characters.id
-where characters.name = $1
+select archive.id
+from archive
+join archive_character on archive.id = archive_character.archive_id
+join character on archive_character.character_id = character.id
+where character.name = $1
 ;
 
--- name: GetArchivesByCharacterList :many
+-- name: GetArchiveByCharacterList :many
 select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
     reading_progress.page
-from archives
-join archives_characters on archives.id = archives_characters.archive_id
-join characters on archives_characters.character_id = characters.id
+from archive
+join archive_character on archive.id = archive_character.archive_id
+join character on archive_character.character_id = character.id
 left join
     reading_progress
-    on archives.id = reading_progress.archive_id
+    on archive.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg('uid')
-where characters.name = $1
+where character.name = $1
 limit $2
 offset $3
 ;
 
--- name: TotalArchivesWithCharacter :one
-select count(archives.id)
-from archives
-join archives_characters on archives.id = archives_characters.archive_id
-join characters on archives_characters.character_id = characters.id
-where characters.name = $1
+-- name: TotalArchiveWithCharacter :one
+select count(archive.id)
+from archive
+join archive_character on archive.id = archive_character.archive_id
+join character on archive_character.character_id = character.id
+where character.name = $1
 ;
 
 -- name: UpdateCharacterCount :exec
-update characters
+update character
 set count = $1
 where id = $2
 ;

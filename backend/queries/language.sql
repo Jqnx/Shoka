@@ -1,80 +1,72 @@
 -- name: GetAllLanguage :many
 select language
-from archives
+from archive
 where language is not null
 ;
 
--- name: GetArchivesByLanguage :many
+-- name: GetArchiveByLanguage :many
 select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
     reading_progress.page
-from archives
+from archive
 left join
     reading_progress
-    on archives.id = reading_progress.archive_id
+    on archive.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg('uid')
 where language = $1
 ;
 
 -- name: GetArchiveIDsByLanguage :many
-select archives.id
-from archives
+select archive.id
+from archive
 where language = $1
 ;
 
--- name: GetArchivesByLanguageList :many
+-- name: GetArchiveByLanguageList :many
 select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
     reading_progress.page
-from archives
+from archive
 left join
     reading_progress
-    on archives.id = reading_progress.archive_id
+    on archive.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg('uid')
 where language = $1
 limit $2
 offset $3
 ;
 
--- name: TotalArchivesWithLanguage :one
+-- name: TotalArchiveWithLanguage :one
 select count(id)
-from archives
+from archive
 where language = $1
 ;
 
 -- name: LanguageExists :execresult
 select language
-from archives
+from archive
 where language = $1
 ;
 

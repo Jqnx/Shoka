@@ -1,126 +1,118 @@
 -- name: CreateTag :one
-insert into tags (name, count)
+insert into tag (name, count)
 values ($1, $2)
 returning *
 ;
 
 -- name: AddTagToArchive :exec
-insert into archives_tags (archive_id, tag_id)
+insert into archive_tag (archive_id, tag_id)
 values ($1, $2)
 ;
 
 -- name: GetTag :one
 select id, name, count
-from tags
+from tag
 where name = $1
 ;
 
 -- name: GetAllTags :many
 select id, name, count
-from tags
+from tag
 order by name
 ;
 
 -- name: TagExists :execresult
 select id, name
-from tags
+from tag
 where name = $1
 ;
 
 -- name: RemoveTagFromArchive :many
-delete from archives_tags
+delete from archive_tag
 where archive_id = $1
-returning tag_id, (select tags.count from tags where tags.id = archives_tags.tag_id)
+returning tag_id, (select tag.count from tag where tag.id = archive_tag.tag_id)
 ;
 
--- name: GetArchiveTags :many
-select tags.id, tags.name, tags.count
-from archives
-join archives_tags on archives.id = archives_tags.archive_id
-join tags on archives_tags.tag_id = tags.id
-where archives.id = $1
+-- name: GetArchiveTag :many
+select tag.id, tag.name, tag.count
+from archive
+join archive_tag on archive.id = archive_tag.archive_id
+join tag on archive_tag.tag_id = tag.id
+where archive.id = $1
 ;
 
--- name: GetArchivesByTag :many
+-- name: GetArchiveByTag :many
 select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
     reading_progress.page
-from archives
-join archives_tags on archives.id = archives_tags.archive_id
-join tags on archives_tags.tag_id = tags.id
+from archive
+join archive_tag on archive.id = archive_tag.archive_id
+join tag on archive_tag.tag_id = tag.id
 left join
     reading_progress
-    on archives.id = reading_progress.archive_id
+    on archive.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg('uid')
-where tags.name = $1
+where tag.name = $1
 ;
 
 
 -- name: GetArchiveIDsByTag :many
-select archives.id
-from archives
-join archives_tags on archives.id = archives_tags.archive_id
-join tags on archives_tags.tag_id = tags.id
-where tags.name = $1
+select archive.id
+from archive
+join archive_tag on archive.id = archive_tag.archive_id
+join tag on archive_tag.tag_id = tag.id
+where tag.name = $1
 ;
 
--- name: GetArchivesByTagList :many
+-- name: GetArchiveByTagList :many
 select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
     reading_progress.page
-from archives
-join archives_tags on archives.id = archives_tags.archive_id
-join tags on archives_tags.tag_id = tags.id
+from archive
+join archive_tag on archive.id = archive_tag.archive_id
+join tag on archive_tag.tag_id = tag.id
 left join
     reading_progress
-    on archives.id = reading_progress.archive_id
+    on archive.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg('uid')
-where tags.name = $1
+where tag.name = $1
 limit $2
 offset $3
 ;
 
 
--- name: TotalArchivesWithTag :one
-select count(archives.id)
-from archives
-join archives_tags on archives.id = archives_tags.archive_id
-join tags on archives_tags.tag_id = tags.id
-where tags.name = $1
+-- name: TotalArchiveWithTag :one
+select count(archive.id)
+from archive
+join archive_tag on archive.id = archive_tag.archive_id
+join tag on archive_tag.tag_id = tag.id
+where tag.name = $1
 ;
 
 -- name: UpdateTagCount :exec
-update tags
+update tag
 set count = $1
 where id = $2
 ;
