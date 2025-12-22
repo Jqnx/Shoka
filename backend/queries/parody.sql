@@ -43,7 +43,7 @@ join parody on archive_parody.parody_id = parody.id
 where archive.id = $1
 ;
 
--- name: GetarchiveByParody :many
+-- name: GetArchiveByParody :many
 select
     archive.id,
     archive.title,

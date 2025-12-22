@@ -203,7 +203,7 @@ from favorite_archives
 where user_id = $1 and archive_id = $2
 ;
 
--- name: CountUserFavoritearchive :one
+-- name: CountUserFavoriteArchive :one
 select count(archive_id)
 from favorite_archives
 where user_id = $1
