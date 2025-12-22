@@ -5,6 +5,7 @@
 
 package repository
 
+/*
 import (
 	"context"
 	"time"
@@ -131,3 +132,4 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 	)
 	return i, err
 }
+*/

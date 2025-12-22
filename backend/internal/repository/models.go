@@ -64,9 +64,9 @@ type ArchiveTag struct {
 }
 
 type ArchiveUrl struct {
-	ID        int32   `json:"id"`
-	ArchiveID *string `json:"archive_id"`
-	Url       string  `json:"url"`
+	ID        int32  `json:"id"`
+	ArchiveID string `json:"archive_id"`
+	Url       string `json:"url"`
 }
 
 type Artist struct {

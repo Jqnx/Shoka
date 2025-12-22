@@ -5,6 +5,7 @@
 
 package repository
 
+/*
 import (
 	"context"
 	"time"
@@ -224,3 +225,4 @@ func (q *Queries) UpdateGroup(ctx context.Context, arg UpdateGroupParams) (Group
 	)
 	return i, err
 }
+*/

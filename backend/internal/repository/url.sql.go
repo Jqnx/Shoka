@@ -27,8 +27,8 @@ values ($1, $2)
 `
 
 type CreateArchiveURLParams struct {
-	Url       string  `json:"url"`
-	ArchiveID *string `json:"archive_id"`
+	Url       string `json:"url"`
+	ArchiveID string `json:"archive_id"`
 }
 
 func (q *Queries) CreateArchiveURL(ctx context.Context, arg CreateArchiveURLParams) error {
@@ -73,7 +73,7 @@ delete from archive_url
 where archive_id = $1
 `
 
-func (q *Queries) RemoveArchiveUrl(ctx context.Context, archiveID *string) error {
+func (q *Queries) RemoveArchiveUrl(ctx context.Context, archiveID string) error {
 	_, err := q.db.Exec(ctx, removeArchiveUrl, archiveID)
 	return err
 }

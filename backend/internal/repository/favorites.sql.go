@@ -70,14 +70,14 @@ func (q *Queries) CountFavoriteFilteredArchive(ctx context.Context, arg CountFav
 	return count, err
 }
 
-const countUserFavoritearchive = `-- name: CountUserFavoritearchive :one
+const countUserFavoriteArchive = `-- name: CountUserFavoriteArchive :one
 select count(archive_id)
 from favorite_archives
 where user_id = $1
 `
 
-func (q *Queries) CountUserFavoritearchive(ctx context.Context, userID uuid.UUID) (int64, error) {
-	row := q.db.QueryRow(ctx, countUserFavoritearchive, userID)
+func (q *Queries) CountUserFavoriteArchive(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countUserFavoriteArchive, userID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

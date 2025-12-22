@@ -5,6 +5,7 @@
 
 package repository
 
+/*
 import (
 	"context"
 	"time"
@@ -231,7 +232,7 @@ func (q *Queries) GetPendingDownloads(ctx context.Context) ([]Download, error) {
 }
 
 const updateDownloadProgress = `-- name: UpdateDownloadProgress :one
-UPDATE downloads 
+UPDATE downloads
 SET progress = $2, updated_at = $3
 WHERE id = $1
 RETURNING id, url, source, filename, status, progress, error, created_at, updated_at, speed, total_size, downloaded, started_at, can_resume, resume_supported
@@ -267,7 +268,7 @@ func (q *Queries) UpdateDownloadProgress(ctx context.Context, arg UpdateDownload
 }
 
 const updateDownloadStatus = `-- name: UpdateDownloadStatus :one
-UPDATE downloads 
+UPDATE downloads
 SET status = $2, progress = $3, error = $4, updated_at = $5
 WHERE id = $1
 RETURNING id, url, source, filename, status, progress, error, created_at, updated_at, speed, total_size, downloaded, started_at, can_resume, resume_supported
@@ -309,3 +310,4 @@ func (q *Queries) UpdateDownloadStatus(ctx context.Context, arg UpdateDownloadSt
 	)
 	return i, err
 }
+*/

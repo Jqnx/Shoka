@@ -12,23 +12,18 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-const addArtistToGroup = `-- name: AddArtistToGroup :exec
-/*
-insert into artist_groups (artist_id, group_id)
-values ($1, $2)
-;
-*/
+const addArtistToArchive = `-- name: AddArtistToArchive :exec
 insert into archive_artist (archive_id, artist_id)
 values ($1, $2)
 `
 
-type AddArtistToGroupParams struct {
+type AddArtistToArchiveParams struct {
 	ArchiveID string `json:"archive_id"`
 	ArtistID  int32  `json:"artist_id"`
 }
 
-func (q *Queries) AddArtistToGroup(ctx context.Context, arg AddArtistToGroupParams) error {
-	_, err := q.db.Exec(ctx, addArtistToGroup, arg.ArchiveID, arg.ArtistID)
+func (q *Queries) AddArtistToArchive(ctx context.Context, arg AddArtistToArchiveParams) error {
+	_, err := q.db.Exec(ctx, addArtistToArchive, arg.ArchiveID, arg.ArtistID)
 	return err
 }
 
@@ -40,6 +35,16 @@ where alias = $1
 
 func (q *Queries) ArtistAliasExists(ctx context.Context, alias string) (pgconn.CommandTag, error) {
 	return q.db.Exec(ctx, artistAliasExists, alias)
+}
+
+const artistExists = `-- name: ArtistExists :execresult
+select name
+from artist
+where name = $1
+`
+
+func (q *Queries) ArtistExists(ctx context.Context, name string) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, artistExists, name)
 }
 
 const artistUrlExists = `-- name: ArtistUrlExists :execresult
@@ -97,6 +102,16 @@ type CreateArtistUrlParams struct {
 
 func (q *Queries) CreateArtistUrl(ctx context.Context, arg CreateArtistUrlParams) error {
 	_, err := q.db.Exec(ctx, createArtistUrl, arg.Url, arg.ArtistID)
+	return err
+}
+
+const deleteArtist = `-- name: DeleteArtist :exec
+delete from artist
+where id = $1
+`
+
+func (q *Queries) DeleteArtist(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, deleteArtist, id)
 	return err
 }
 
@@ -371,40 +386,6 @@ func (q *Queries) GetArtistByName(ctx context.Context, name string) (Artist, err
 	return i, err
 }
 
-const getArtistGroups = `-- name: GetArtistGroups :many
-/* 
-select groups.id, groups.name
-from artist
-join artist_groups on artist.id = artist_groups.artist_id
-join groups on artist_groups.group_id = groups.id
-where artist.name = $1
-;
-*/
-select name
-from artist
-where name = $1
-`
-
-func (q *Queries) GetArtistGroups(ctx context.Context, name string) ([]string, error) {
-	rows, err := q.db.Query(ctx, getArtistGroups, name)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
-			return nil, err
-		}
-		items = append(items, name)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getArtistList = `-- name: GetArtistList :many
 select id, name, count
 from artist
@@ -512,21 +493,6 @@ func (q *Queries) RemoveArtistFromArchive(ctx context.Context, archiveID string)
 		return nil, err
 	}
 	return items, nil
-}
-
-const removeArtistFromGroup = `-- name: RemoveArtistFromGroup :exec
-/*
-delete from artist_groups
-where artist_id = $1
-;
-*/
-delete from artist
-where id = $1
-`
-
-func (q *Queries) RemoveArtistFromGroup(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, removeArtistFromGroup, id)
-	return err
 }
 
 const removeArtistUrls = `-- name: RemoveArtistUrls :exec

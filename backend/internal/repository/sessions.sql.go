@@ -5,6 +5,7 @@
 
 package repository
 
+/*
 import (
 	"context"
 	"net/netip"
@@ -132,3 +133,4 @@ func (q *Queries) GetUserSessions(ctx context.Context, userID uuid.UUID) ([]Sess
 	}
 	return items, nil
 }
+*/

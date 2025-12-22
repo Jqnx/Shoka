@@ -72,6 +72,86 @@ func (q *Queries) GetAllParody(ctx context.Context) ([]Parody, error) {
 	return items, nil
 }
 
+const getArchiveByParody = `-- name: GetArchiveByParody :many
+select
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
+    reading_progress.page
+from archive
+join archive_parody on archive.id = archive_parody.archive_id
+join parody on archive_parody.parody_id = parody.id
+left join
+    reading_progress
+    on archive.id = reading_progress.archive_id
+    and reading_progress.user_id = $2
+where parody.name = $1
+`
+
+type GetArchiveByParodyParams struct {
+	Name string    `json:"name"`
+	Uid  uuid.UUID `json:"uid"`
+}
+
+type GetArchiveByParodyRow struct {
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int16      `json:"page_count"`
+	FilePath    string     `json:"file_path"`
+	FileHash    string     `json:"file_hash"`
+	ThumbPath   *string    `json:"thumb_path"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int16     `json:"page"`
+}
+
+func (q *Queries) GetArchiveByParody(ctx context.Context, arg GetArchiveByParodyParams) ([]GetArchiveByParodyRow, error) {
+	rows, err := q.db.Query(ctx, getArchiveByParody, arg.Name, arg.Uid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchiveByParodyRow
+	for rows.Next() {
+		var i GetArchiveByParodyRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.FileHash,
+			&i.ThumbPath,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+			&i.Page,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArchiveByParodyList = `-- name: GetArchiveByParodyList :many
 select
     archive.id,
@@ -228,86 +308,6 @@ func (q *Queries) GetParody(ctx context.Context, name string) (Parody, error) {
 	var i Parody
 	err := row.Scan(&i.ID, &i.Name, &i.Count)
 	return i, err
-}
-
-const getarchiveByParody = `-- name: GetarchiveByParody :many
-select
-    archive.id,
-    archive.title,
-    archive.summary,
-    archive.language,
-    archive.category,
-    archive.page_count,
-    archive.file_path,
-    archive.file_hash,
-    archive.thumb_path,
-    archive.created_at,
-    archive.updated_at,
-    archive.release_date,
-    reading_progress.page
-from archive
-join archive_parody on archive.id = archive_parody.archive_id
-join parody on archive_parody.parody_id = parody.id
-left join
-    reading_progress
-    on archive.id = reading_progress.archive_id
-    and reading_progress.user_id = $2
-where parody.name = $1
-`
-
-type GetarchiveByParodyParams struct {
-	Name string    `json:"name"`
-	Uid  uuid.UUID `json:"uid"`
-}
-
-type GetarchiveByParodyRow struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	Summary     *string    `json:"summary"`
-	Language    *string    `json:"language"`
-	Category    *string    `json:"category"`
-	PageCount   int16      `json:"page_count"`
-	FilePath    string     `json:"file_path"`
-	FileHash    string     `json:"file_hash"`
-	ThumbPath   *string    `json:"thumb_path"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ReleaseDate *time.Time `json:"release_date"`
-	Page        *int16     `json:"page"`
-}
-
-func (q *Queries) GetarchiveByParody(ctx context.Context, arg GetarchiveByParodyParams) ([]GetarchiveByParodyRow, error) {
-	rows, err := q.db.Query(ctx, getarchiveByParody, arg.Name, arg.Uid)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetarchiveByParodyRow
-	for rows.Next() {
-		var i GetarchiveByParodyRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Summary,
-			&i.Language,
-			&i.Category,
-			&i.PageCount,
-			&i.FilePath,
-			&i.FileHash,
-			&i.ThumbPath,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ReleaseDate,
-			&i.Page,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const parodyExists = `-- name: ParodyExists :execresult
