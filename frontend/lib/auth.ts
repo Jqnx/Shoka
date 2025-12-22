@@ -15,4 +15,9 @@ export const auth = betterAuth({
     enabled: true,
   },
   plugins: [jwt(), username()],
+  advanced: {
+    database: {
+      generateId: "uuid",
+    },
+  },
 });

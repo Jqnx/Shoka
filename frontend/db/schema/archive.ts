@@ -21,9 +21,9 @@ export const archive = pgTable(
     filePath: text("file_path").unique().notNull(),
     fileHash: varchar("file_hash", { length: 64 }).unique().notNull(),
     thumbPath: text("thumb_path"),
-    releaseDate: timestamp("release_date"),
-    createdAt: timestamp("created_at").notNull(),
-    updatedAt: timestamp("updated_at").notNull(),
+    releaseDate: timestamp("release_date", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
   },
   (table) => [
     index("idx_title").on(table.title),

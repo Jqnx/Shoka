@@ -1,6 +1,6 @@
 {
-  "id": "2019b513-6af0-472c-98c7-e93cb6f772e7",
-  "prevId": "56db599e-c3d0-4987-a86f-01185b5627c3",
+  "id": "883b744e-5f2c-42b9-8c3e-b732088a71fd",
+  "prevId": "592aa0a2-e310-4725-8984-907e035ad35e",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -64,19 +64,19 @@
         },
         "release_date": {
           "name": "release_date",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "created_at": {
           "name": "created_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -369,9 +369,10 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "default": "pg_catalog.gen_random_uuid()"
         },
         "account_id": {
           "name": "account_id",
@@ -387,7 +388,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -491,9 +492,10 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "default": "pg_catalog.gen_random_uuid()"
         },
         "public_key": {
           "name": "public_key",
@@ -534,9 +536,10 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "default": "pg_catalog.gen_random_uuid()"
         },
         "expires_at": {
           "name": "expires_at",
@@ -577,7 +580,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         }
@@ -634,9 +637,10 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "default": "pg_catalog.gen_random_uuid()"
         },
         "name": {
           "name": "name",
@@ -719,9 +723,10 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "default": "pg_catalog.gen_random_uuid()"
         },
         "identifier": {
           "name": "identifier",
@@ -899,13 +904,13 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
         "favorited_at": {
           "name": "favorited_at",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -1072,7 +1077,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -1090,7 +1095,7 @@
         },
         "last_read": {
           "name": "last_read",
-          "type": "timestamp",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
         }

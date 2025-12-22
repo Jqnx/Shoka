@@ -8,9 +8,9 @@ CREATE TABLE "archive" (
 	"file_path" text NOT NULL,
 	"file_hash" varchar(64) NOT NULL,
 	"thumb_path" text,
-	"release_date" timestamp,
-	"created_at" timestamp NOT NULL,
-	"updated_at" timestamp NOT NULL,
+	"release_date" timestamp with time zone,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "archive_file_path_unique" UNIQUE("file_path"),
 	CONSTRAINT "archive_file_hash_unique" UNIQUE("file_hash")
 );
@@ -42,10 +42,10 @@ CREATE TABLE "artist_url" (
 );
 --> statement-breakpoint
 CREATE TABLE "account" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" uuid PRIMARY KEY DEFAULT pg_catalog.gen_random_uuid() NOT NULL,
 	"account_id" text NOT NULL,
 	"provider_id" text NOT NULL,
-	"user_id" text NOT NULL,
+	"user_id" uuid NOT NULL,
 	"access_token" text,
 	"refresh_token" text,
 	"id_token" text,
@@ -58,7 +58,7 @@ CREATE TABLE "account" (
 );
 --> statement-breakpoint
 CREATE TABLE "jwks" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" uuid PRIMARY KEY DEFAULT pg_catalog.gen_random_uuid() NOT NULL,
 	"public_key" text NOT NULL,
 	"private_key" text NOT NULL,
 	"created_at" timestamp NOT NULL,
@@ -66,19 +66,19 @@ CREATE TABLE "jwks" (
 );
 --> statement-breakpoint
 CREATE TABLE "session" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" uuid PRIMARY KEY DEFAULT pg_catalog.gen_random_uuid() NOT NULL,
 	"expires_at" timestamp NOT NULL,
 	"token" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp NOT NULL,
 	"ip_address" text,
 	"user_agent" text,
-	"user_id" text NOT NULL,
+	"user_id" uuid NOT NULL,
 	CONSTRAINT "session_token_unique" UNIQUE("token")
 );
 --> statement-breakpoint
 CREATE TABLE "user" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" uuid PRIMARY KEY DEFAULT pg_catalog.gen_random_uuid() NOT NULL,
 	"name" text NOT NULL,
 	"email" text NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
@@ -92,7 +92,7 @@ CREATE TABLE "user" (
 );
 --> statement-breakpoint
 CREATE TABLE "verification" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" uuid PRIMARY KEY DEFAULT pg_catalog.gen_random_uuid() NOT NULL,
 	"identifier" text NOT NULL,
 	"value" text NOT NULL,
 	"expires_at" timestamp NOT NULL,
@@ -114,8 +114,8 @@ CREATE TABLE "character" (
 --> statement-breakpoint
 CREATE TABLE "favorite_archives" (
 	"archive_id" char(8),
-	"user_id" text,
-	"favorited_at" timestamp NOT NULL,
+	"user_id" uuid,
+	"favorited_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "favorite_archives_archive_id_user_id_pk" PRIMARY KEY("archive_id","user_id")
 );
 --> statement-breakpoint
@@ -133,10 +133,10 @@ CREATE TABLE "parody" (
 --> statement-breakpoint
 CREATE TABLE "reading_progress" (
 	"archive_id" char(8),
-	"user_id" text,
+	"user_id" uuid,
 	"page" smallint NOT NULL,
 	"status" text NOT NULL,
-	"last_read" timestamp NOT NULL,
+	"last_read" timestamp with time zone NOT NULL,
 	CONSTRAINT "reading_progress_archive_id_user_id_pk" PRIMARY KEY("archive_id","user_id")
 );
 --> statement-breakpoint
