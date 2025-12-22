@@ -1,0 +1,1 @@
+ALTER TABLE "archive_url" ALTER COLUMN "archive_id" SET NOT NULL;

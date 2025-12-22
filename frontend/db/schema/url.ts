@@ -3,8 +3,10 @@ import { archive } from "./archive";
 
 export const archiveUrl = pgTable("archive_url", {
   id: serial("id").primaryKey(),
-  archiveId: char("archive_id", { length: 8 }).references(() => archive.id, {
-    onDelete: "cascade",
-  }),
+  archiveId: char("archive_id", { length: 8 })
+    .references(() => archive.id, {
+      onDelete: "cascade",
+    })
+    .notNull(),
   url: text("url").notNull(),
 });
