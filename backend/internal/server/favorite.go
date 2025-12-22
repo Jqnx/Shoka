@@ -1,10 +1,6 @@
 package server
 
 import (
-	"Shoka/internal/config"
-	"Shoka/internal/filter"
-	"Shoka/internal/models"
-	"Shoka/internal/repository"
 	"context"
 	"errors"
 	"fmt"
@@ -12,6 +8,11 @@ import (
 	"reflect"
 	"strconv"
 	"time"
+
+	"Shoka/internal/config"
+	"Shoka/internal/filter"
+	"Shoka/internal/models"
+	"Shoka/internal/repository"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -99,7 +100,7 @@ func (s *Server) getUserFavoriteArchives(c *gin.Context) {
 	}
 
 	if p == "" && ps == "" {
-		archives, err := s.repo.GetUserFavoriteArchivesAll(ctx, userId)
+		archives, err := s.repo.GetUserFavoriteArchiveAll(ctx, userId)
 		if err != nil {
 			c.JSON(http.StatusNotFound, &models.Response{
 				Status:  "error",
@@ -114,7 +115,7 @@ func (s *Server) getUserFavoriteArchives(c *gin.Context) {
 		return
 	}
 
-	archives, err := s.repo.GetUserFavoriteArchivesList(ctx, repository.GetUserFavoriteArchivesListParams{
+	archives, err := s.repo.GetUserFavoriteArchiveList(ctx, repository.GetUserFavoriteArchiveListParams{
 		ID:     userId,
 		Limit:  int32(pageSize),
 		Offset: (int32(page) - 1) * int32(pageSize),
@@ -126,7 +127,7 @@ func (s *Server) getUserFavoriteArchives(c *gin.Context) {
 		})
 		return
 	}
-	count, err := s.repo.CountUserFavoriteArchives(ctx, userId)
+	count, err := s.repo.CountUserFavoriteArchive(ctx, userId)
 	if err != nil {
 		c.JSON(http.StatusNotFound, &models.Response{
 			Status:  "error",
@@ -347,7 +348,7 @@ func (s *Server) getFavoriteArchiveFilterHandler(c *gin.Context) {
 		}
 	} else {
 		// Otherwise only sort
-		count, err := s.repo.CountUserFavoriteArchives(ctx, userid)
+		count, err := s.repo.CountUserFavoriteArchive(ctx, userid)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",

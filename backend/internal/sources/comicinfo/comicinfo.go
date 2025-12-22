@@ -39,7 +39,7 @@ type ComicInfoParams struct {
 	Tags      []repository.Tag
 	Parody    []repository.Parody
 	Character []repository.Character
-	URLs      []repository.GetArchiveURLsRow
+	URLs      []repository.GetArchiveUrlsRow
 }
 
 // NewComicInfo creates a pointer to a new ComicInfo struct

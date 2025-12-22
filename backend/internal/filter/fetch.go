@@ -1,8 +1,10 @@
+// Package filter
 package filter
 
 import (
-	"Shoka/internal/repository"
 	"context"
+
+	"Shoka/internal/repository"
 )
 
 func fetchTags(in []string, qtx *repository.Queries) ([]string, error) {

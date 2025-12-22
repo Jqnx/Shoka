@@ -1,9 +1,12 @@
+// Package workers contains all the logic regarding background workers
+// and the queuing of their tasks.
 package workers
 
 import (
-	"Shoka/internal/config"
 	"fmt"
 	"time"
+
+	"Shoka/internal/config"
 
 	"github.com/hibiken/asynq"
 )

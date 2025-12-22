@@ -14,9 +14,9 @@ import (
 )
 
 type ReadingProgress struct {
-	ReadingState string
-	Progress     int16
-	LastRead     *time.Time
+	Status   string
+	Progress int16
+	LastRead *time.Time
 }
 
 func GetReadingProgress(page, max int16) *ReadingProgress {
@@ -24,21 +24,21 @@ func GetReadingProgress(page, max int16) *ReadingProgress {
 	switch {
 	case page == 0:
 		return &ReadingProgress{
-			ReadingState: "unread",
-			Progress:     0,
-			LastRead:     nil,
+			Status:   "unread",
+			Progress: 0,
+			LastRead: nil,
 		}
 	case page > 0 && page < max:
 		return &ReadingProgress{
-			ReadingState: "reading",
-			Progress:     page,
-			LastRead:     &now,
+			Status:   "reading",
+			Progress: page,
+			LastRead: &now,
 		}
 	case page == max:
 		return &ReadingProgress{
-			ReadingState: "finished",
-			Progress:     page,
-			LastRead:     &now,
+			Status:   "finished",
+			Progress: page,
+			LastRead: &now,
 		}
 	}
 	return nil
@@ -108,7 +108,7 @@ func (s *Server) updateReadingProgressHandler(c *gin.Context) {
 			ArchiveID: arch.ID,
 			UserID:    user_id,
 			Page:      read.Progress,
-			State:     read.ReadingState,
+			Status:    read.Status,
 			LastRead:  *read.LastRead,
 		}); err != nil {
 			c.JSON(http.StatusInternalServerError, &models.Response{
@@ -122,7 +122,7 @@ func (s *Server) updateReadingProgressHandler(c *gin.Context) {
 			ArchiveID: arch.ID,
 			UserID:    user_id,
 			Page:      &read.Progress,
-			State:     &read.ReadingState,
+			Status:    &read.Status,
 			LastRead:  *read.LastRead,
 		}); err != nil {
 			c.JSON(http.StatusInternalServerError, &models.Response{
@@ -138,7 +138,7 @@ func (s *Server) updateReadingProgressHandler(c *gin.Context) {
 		"userid":     user_id,
 		"page":       read.Progress,
 		"last_read":  read.LastRead,
-		"read_state": read.ReadingState,
+		"read_state": read.Status,
 	})
 }
 

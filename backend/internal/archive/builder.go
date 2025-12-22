@@ -72,28 +72,22 @@ func (a *Archive) setFilePath(path string) {
 	a.FilePath = path
 }
 
-// setFileName sets archive's FileName
-func (a *Archive) setFileName() {
-	name := fsutil.GetNameFromPath(a.FilePath, false)
-	a.FileName = name
-}
-
 // setHash sets archive's FileHash
 func (a *Archive) setHash() {
 	hash := fsutil.GenHash(a.FilePath)
-	a.Hash = hash
+	a.FileHash = hash
 }
 
 // setThumbsPath sets archive's ThumbsPath
 // creates if necessary
 func (a *Archive) setThumbsPath() {
-	d := fsutil.NewArchiveDir(a.app.Cfg.ThumbDir, a.Type, a.Hash)
+	d := fsutil.NewArchiveDir(a.app.Cfg.ThumbDir, a.FileHash)
 	archiveDir, err := d.CreateDirs()
 	if err != nil {
 		a.app.Log.Error("error creating archive directories:", "err", err.Error(), "archive", a.ID)
 		return
 	}
-	a.ThumbsPath = &archiveDir
+	a.ThumbPath = &archiveDir
 	a.archiveDir = d
 }
 
@@ -103,8 +97,8 @@ func (a *Archive) setThumbsPath() {
 // necessary as it should already get created
 // during setThumbsPath.
 func (a *Archive) CreateCoverDir() error {
-	if err := a.archiveDir.CreateCoverDir(*a.ThumbsPath); err != nil {
-		return fmt.Errorf("failed to create cover directory for %v: %v", a.Type, a.ID)
+	if err := a.archiveDir.CreateCoverDir(*a.ThumbPath); err != nil {
+		return fmt.Errorf("failed to create cover directory for archive: %v", a.ID)
 	}
 	return nil
 }
@@ -115,15 +109,10 @@ func (a *Archive) CreateCoverDir() error {
 // necessary as it should already get created
 // during setThumbsPath.
 func (a *Archive) CreatePagesDir() error {
-	if err := a.archiveDir.CreatePagesDir(*a.ThumbsPath); err != nil {
-		return fmt.Errorf("failed to create pages directory for %v: %v", a.Type, a.ID)
+	if err := a.archiveDir.CreatePagesDir(*a.ThumbPath); err != nil {
+		return fmt.Errorf("failed to create pages directory for archive: %v", a.ID)
 	}
 	return nil
-}
-
-// setType sets archive's media type
-func (a *Archive) setType() {
-	a.Type = "archive"
 }
 
 // setCreatedAt sets time at which archive is created and put in db
@@ -143,7 +132,6 @@ func (a *Archive) Get() Archive {
 
 func (a *Archive) New(path string) {
 	a.setFilePath(path)
-	a.setFileName()
 	a.setHash()
 	a.setArchiveID("")
 	a.setTitle("")
@@ -151,7 +139,6 @@ func (a *Archive) New(path string) {
 	a.setLanguage("")
 	a.setCategory("")
 	a.setPageCount()
-	a.setType()
 	a.setThumbsPath()
 	a.setCreatedAt()
 	a.setUpdatedAt()

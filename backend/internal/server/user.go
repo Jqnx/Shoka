@@ -1,24 +1,6 @@
 package server
 
-import (
-	"Shoka/internal/config"
-	"Shoka/internal/models"
-	"Shoka/internal/repository"
-	"Shoka/internal/util"
-	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"errors"
-	"fmt"
-	"net/http"
-	"time"
-
-	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
-	"github.com/google/uuid"
-	"golang.org/x/crypto/bcrypt"
-)
-
+/*
 func (s *Server) registerUser(c *gin.Context) {
 	var payload models.UserPayload
 	if errPost := c.ShouldBind(&payload); errPost != nil {
@@ -284,3 +266,4 @@ func (s *Server) deleteUserHandler(c *gin.Context) {
 		"status": "User sucessfully deleted.",
 	})
 }
+*/

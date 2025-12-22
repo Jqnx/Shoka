@@ -5,22 +5,20 @@ import (
 )
 
 type ArchiveDir struct {
-	ThumbsDir string
-	MediaType string
-	Hash      string
+	GlobalThumbDir string
+	FileHash       string
 }
 
-func NewArchiveDir(cfgThumbDir, mediatype, hash string) *ArchiveDir {
+func NewArchiveDir(globalThumbDir, filehash string) *ArchiveDir {
 	return &ArchiveDir{
-		ThumbsDir: cfgThumbDir,
-		MediaType: mediatype,
-		Hash:      hash,
+		GlobalThumbDir: globalThumbDir,
+		FileHash:       filehash,
 	}
 }
 
 // GenThumbDir generates the thumbnail directory for a specific archive
 func (d *ArchiveDir) GenThumbDir() (string, error) {
-	fp := filepath.Join(d.ThumbsDir, d.MediaType, d.Hash[0:2], d.Hash[2:4])
+	fp := filepath.Join(d.GlobalThumbDir, d.FileHash[0:2], d.FileHash[2:4], d.FileHash[4:6])
 	return fp, nil
 }
 

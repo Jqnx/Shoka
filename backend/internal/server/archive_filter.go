@@ -1,16 +1,16 @@
 package server
 
 import (
-	"Shoka/internal/config"
-	"Shoka/internal/filter"
-	"Shoka/internal/models"
-	"Shoka/internal/repository"
-	"Shoka/internal/util"
 	"context"
 	"errors"
 	"net/http"
 	"reflect"
 	"strconv"
+
+	"Shoka/internal/config"
+	"Shoka/internal/filter"
+	"Shoka/internal/models"
+	"Shoka/internal/repository"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -39,20 +39,23 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 
 	ctx := context.Background()
 
+	// TODO: Update to receive JWT
 	var uid uuid.UUID
-	header := c.Request.Header.Get("Authorization")
-	if header != "" {
-		token := util.GetAuthTokenFromHeader(header)
-		user, err := s.repo.GetUserByToken(ctx, token)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, &models.Response{
-				Status:  "error",
-				Message: "Unauthorized",
-			})
-			return
+	/*
+		header := c.Request.Header.Get("Authorization")
+		if header != "" {
+			token := util.GetAuthTokenFromHeader(header)
+			user, err := s.repo.GetUserByToken(ctx, token)
+			if err != nil {
+				c.JSON(http.StatusUnauthorized, &models.Response{
+					Status:  "error",
+					Message: "Unauthorized",
+				})
+				return
+			}
+			uid = user.ID
 		}
-		uid = user.ID
-	}
+	*/
 
 	// URL Queries
 	p := c.Query("page")
@@ -473,7 +476,7 @@ func (s *Server) getAllFiltersHandler(c *gin.Context) {
 		})
 		return
 	}
-	parodies, err := s.repo.GetAllParodies(ctx)
+	parodies, err := s.repo.GetAllParody(ctx)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",

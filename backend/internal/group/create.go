@@ -1,16 +1,6 @@
 package group
 
-import (
-	"Shoka/internal/logger"
-	"Shoka/internal/models"
-	"Shoka/internal/repository"
-	"context"
-	"strings"
-	"time"
-
-	"github.com/jackc/pgx/v5/pgxpool"
-)
-
+/*
 func CreateTransaction(c context.Context,
 	db *pgxpool.Pool,
 	q *repository.Queries,
@@ -58,3 +48,4 @@ func CreateTransaction(c context.Context,
 
 	return result, tx.Commit(c)
 }
+*/

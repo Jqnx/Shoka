@@ -11,7 +11,6 @@ import (
 
 	"Shoka/internal/config"
 	"Shoka/internal/database"
-	"Shoka/internal/downloader"
 	"Shoka/internal/fsutil"
 	"Shoka/internal/logger"
 	"Shoka/internal/notifier"
@@ -112,12 +111,12 @@ func main() {
 	app := config.NewApp(repo, log, db, cfg, noti, client, hub, grab)
 	defer app.Close()
 
-	dm := downloader.NewDownloadManager(&app)
-	defer dm.Close()
+	// dm := downloader.NewDownloadManager(&app)
+	// defer dm.Close()
 
 	// Starting web server
 	log.Info(fmt.Sprintf("starting server on :%v", cfg.Server.Port))
-	server := server.NewServer(&app, dm)
+	server := server.NewServer(&app)
 
 	// Defining asynq handlers
 	mux := asynq.NewServeMux()
@@ -125,7 +124,7 @@ func main() {
 	mux.Handle(tasks.TypeCreateCover, tasks.NewCoverProcessor(&app))
 	mux.Handle(tasks.TypeCreateThumbnail, tasks.NewThumbnailProcessor(&app))
 	mux.Handle(tasks.TypeNewMetadata, tasks.NewMetadataProcessor(&app))
-	mux.Handle(downloader.TypeDownload, downloader.NewDownloadProcessor(dm))
+	// mux.Handle(downloader.TypeDownload, downloader.NewDownloadProcessor(dm))
 
 	// Start asynq server
 	go func() {

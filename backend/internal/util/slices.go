@@ -1,9 +1,10 @@
 package util
 
 import (
-	"Shoka/internal/repository"
 	"slices"
 	"strings"
+
+	"Shoka/internal/repository"
 )
 
 func RemoveDuplicatesStrPointer(in []*string) []string {
@@ -51,7 +52,7 @@ func ToString(in any) string {
 		for _, i := range in {
 			slice = append(slice, i.Name)
 		}
-	case []repository.GetArchiveURLsRow:
+	case []repository.GetArchiveUrlsRow:
 		for _, i := range in {
 			slice = append(slice, i.Url)
 		}

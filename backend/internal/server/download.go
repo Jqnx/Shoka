@@ -1,25 +1,6 @@
 package server
 
-import (
-	"Shoka/internal/config"
-	"Shoka/internal/downloader"
-	"Shoka/internal/models"
-	"Shoka/internal/repository"
-	"Shoka/internal/util"
-	"context"
-	"errors"
-	"fmt"
-	"net/http"
-	"slices"
-	"strconv"
-	"time"
-
-	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-)
-
+/*
 type DownloadRequest struct {
 	URL []string `json:"url" binding:"required"`
 }
@@ -261,3 +242,4 @@ func (s *Server) deleteDownloadHandler(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"success": "Download deleted"})
 }
+*/

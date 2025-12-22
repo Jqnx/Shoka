@@ -1,22 +1,23 @@
 package filter
 
 import (
+	"context"
+
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
 	"Shoka/internal/util"
-	"context"
 
 	"github.com/google/uuid"
 )
 
 type ArchiveList struct {
-	Archives []repository.GetArchivesFilterSortListRow `json:"archives"`
-	Count    int                                       `json:"total"`
+	Archives []repository.GetArchiveFilterSortListRow `json:"archives"`
+	Count    int                                      `json:"total"`
 }
 
 type FavoriteArchiveList struct {
-	Archives []repository.GetFavoriteArchivesFilterSortListRow `json:"archives"`
-	Count    int64                                             `json:"total"`
+	Archives []repository.GetFavoriteArchiveFilterSortListRow `json:"archives"`
+	Count    int64                                            `json:"total"`
 }
 
 func matchArtistsTags(in models.ArchiveFilters, qtx *repository.Queries) ([]string, error) {
@@ -88,7 +89,7 @@ func MatchAndGet(in models.ArchiveFilters, qtx *repository.Queries, page, pageSi
 		return nil, err
 	}
 
-	archives, err := qtx.GetArchivesFilterSortList(ctx, repository.GetArchivesFilterSortListParams{
+	archives, err := qtx.GetArchiveFilterSortList(ctx, repository.GetArchiveFilterSortListParams{
 		Uid:     uid,
 		Ids:     list,
 		OrderBy: order,
@@ -113,7 +114,7 @@ func MatchAndGetFavorites(in models.ArchiveFilters, qtx *repository.Queries, pag
 		return nil, err
 	}
 
-	archives, err := qtx.GetFavoriteArchivesFilterSortList(ctx, repository.GetFavoriteArchivesFilterSortListParams{
+	archives, err := qtx.GetFavoriteArchiveFilterSortList(ctx, repository.GetFavoriteArchiveFilterSortListParams{
 		UserID:  userid,
 		Ids:     list,
 		OrderBy: order,
@@ -124,7 +125,7 @@ func MatchAndGetFavorites(in models.ArchiveFilters, qtx *repository.Queries, pag
 		return nil, err
 	}
 
-	count, err := qtx.CountFavoriteFilteredArchives(ctx, repository.CountFavoriteFilteredArchivesParams{
+	count, err := qtx.CountFavoriteFilteredArchive(ctx, repository.CountFavoriteFilteredArchiveParams{
 		Ids:    list,
 		UserID: userid,
 	})
@@ -148,7 +149,7 @@ func MatchAndGetShuffle(in models.ArchiveFilters, qtx *repository.Queries, rng i
 	}
 
 	if favorite {
-		archive, err := qtx.GetFavoriteArchivesFilter(ctx, repository.GetFavoriteArchivesFilterParams{
+		archive, err := qtx.GetFavoriteArchiveFilter(ctx, repository.GetFavoriteArchiveFilterParams{
 			UserID: userid,
 			Ids:    list,
 			Limit:  1,
@@ -160,7 +161,7 @@ func MatchAndGetShuffle(in models.ArchiveFilters, qtx *repository.Queries, rng i
 
 		return archive, nil
 	} else {
-		archive, err := qtx.GetArchivesFilter(ctx, repository.GetArchivesFilterParams{
+		archive, err := qtx.GetArchiveFilter(ctx, repository.GetArchiveFilterParams{
 			Ids:    list,
 			Limit:  1,
 			Offset: int32(rng),

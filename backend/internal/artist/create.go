@@ -1,11 +1,12 @@
+// Package artist
 package artist
 
 import (
+	"context"
+
 	"Shoka/internal/logger"
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
-	"context"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -27,9 +28,7 @@ func CreateTransaction(c context.Context,
 	defer tx.Rollback(c)
 	qtx := q.WithTx(tx)
 	artist, err := qtx.CreateArtist(c, repository.CreateArtistParams{
-		Name:      p.Name,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		Name: p.Name,
 	})
 	if err != nil {
 		log.Error(err.Error())
@@ -44,9 +43,9 @@ func CreateTransaction(c context.Context,
 		return nil, err
 	}
 
-	if err := Group(c, qtx, p, &artist); err != nil {
-		return nil, err
-	}
+	//if err := Group(c, qtx, p, &artist); err != nil {
+	//	return nil, err
+	//}
 
 	result, err := Get(c, qtx, artist.Name, log)
 	if err != nil {

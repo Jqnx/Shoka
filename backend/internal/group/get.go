@@ -1,12 +1,6 @@
 package group
 
-import (
-	"Shoka/internal/logger"
-	"Shoka/internal/models"
-	"Shoka/internal/repository"
-	"context"
-)
-
+/*
 func Get(c context.Context, q *repository.Queries, name string, log logger.Logger) (*models.GroupResponse, error) {
 	group, err := q.GetGroup(c, name)
 	if err != nil {
@@ -51,3 +45,4 @@ func GetAll(c context.Context, q *repository.Queries, log logger.Logger) (*[]mod
 	}
 	return &result, nil
 }
+*/

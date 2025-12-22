@@ -49,7 +49,7 @@ func (s *Server) generateThumbHandler(c *gin.Context) {
 
 	ch := make(chan *asynq.TaskInfo)
 
-	if arch.ThumbsPath == nil {
+	if arch.ThumbPath == nil {
 		w := workers.NewWorkers(s.app, false, ctx)
 		go w.Thumbs(ch, &arch)
 		thumb := <-ch
@@ -70,7 +70,7 @@ func (s *Server) generateThumbHandler(c *gin.Context) {
 		}
 	}
 
-	p, _ := filepath.Abs(*arch.ThumbsPath)
+	p, _ := filepath.Abs(*arch.ThumbPath)
 	if force {
 		w := workers.NewWorkers(s.app, true, ctx)
 		go w.Thumbs(ch, &arch)
@@ -129,7 +129,7 @@ func (s *Server) getThumbHandler(c *gin.Context) {
 		return
 	}
 
-	if arch.ThumbsPath == nil || *arch.ThumbsPath == "" {
+	if arch.ThumbPath == nil || *arch.ThumbPath == "" {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: "archive has no thumbspath",
@@ -137,7 +137,7 @@ func (s *Server) getThumbHandler(c *gin.Context) {
 		return
 	}
 
-	pageDir := filepath.Join(*arch.ThumbsPath, "pages")
+	pageDir := filepath.Join(*arch.ThumbPath, "pages")
 
 	zip, err := fsutil.OpenArchive(arch.FilePath)
 	if err != nil {

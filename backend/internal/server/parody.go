@@ -1,14 +1,14 @@
 package server
 
 import (
-	"Shoka/internal/config"
-	"Shoka/internal/models"
-	"Shoka/internal/repository"
-	"Shoka/internal/util"
 	"context"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"Shoka/internal/config"
+	"Shoka/internal/models"
+	"Shoka/internal/repository"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -18,7 +18,7 @@ import (
 func (s *Server) getAllParodyHandler(c *gin.Context) {
 	ctx := context.Background()
 
-	parodies, err := s.repo.GetAllParodies(ctx)
+	parodies, err := s.repo.GetAllParody(ctx)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			c.JSON(http.StatusNotFound, &models.Response{
@@ -62,24 +62,27 @@ func (s *Server) getArchiveByParodyHandler(c *gin.Context) {
 		return
 	}
 
+	// TODO: Update to receive JWT
 	var uid uuid.UUID
-	header := c.Request.Header.Get("Authorization")
-	if header != "" {
-		token := util.GetAuthTokenFromHeader(header)
-		user, err := s.repo.GetUserByToken(ctx, token)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, &models.Response{
-				Status:  "error",
-				Message: "Unauthorized",
-			})
-			return
+	/*
+		header := c.Request.Header.Get("Authorization")
+		if header != "" {
+			token := util.GetAuthTokenFromHeader(header)
+			user, err := s.repo.GetUserByToken(ctx, token)
+			if err != nil {
+				c.JSON(http.StatusUnauthorized, &models.Response{
+					Status:  "error",
+					Message: "Unauthorized",
+				})
+				return
+			}
+			uid = user.ID
 		}
-		uid = user.ID
-	}
+	*/
 
 	// Get archives
 	if p == "" && ps == "" {
-		archives, err := s.repo.GetArchivesByParody(ctx, repository.GetArchivesByParodyParams{
+		archives, err := s.repo.GetArchiveByParody(ctx, repository.GetArchiveByParodyParams{
 			Name: parody,
 			Uid:  uid,
 		})
@@ -100,7 +103,7 @@ func (s *Server) getArchiveByParodyHandler(c *gin.Context) {
 				return
 			}
 		}
-		total, err := s.repo.TotalArchivesWithParody(ctx, parody)
+		total, err := s.repo.TotalArchiveWithParody(ctx, parody)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
@@ -124,7 +127,7 @@ func (s *Server) getArchiveByParodyHandler(c *gin.Context) {
 			pageSize = 10
 		}
 
-		archives, err := s.repo.GetArchivesByParodyList(ctx, repository.GetArchivesByParodyListParams{
+		archives, err := s.repo.GetArchiveByParodyList(ctx, repository.GetArchiveByParodyListParams{
 			Name:   parody,
 			Offset: (int32(page) - 1) * int32(pageSize),
 			Limit:  int32(pageSize),
@@ -147,7 +150,7 @@ func (s *Server) getArchiveByParodyHandler(c *gin.Context) {
 				return
 			}
 		}
-		total, err := s.repo.TotalArchivesWithParody(ctx, parody)
+		total, err := s.repo.TotalArchiveWithParody(ctx, parody)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",

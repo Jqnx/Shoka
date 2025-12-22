@@ -120,7 +120,7 @@ func (s *Server) metadataToFileHandler(c *gin.Context) {
 			return
 		}
 	}
-	tags, err := s.repo.GetArchiveTags(ctx, id)
+	tags, err := s.repo.GetArchiveTag(ctx, id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			c.JSON(http.StatusNotFound, &models.Response{
@@ -152,7 +152,7 @@ func (s *Server) metadataToFileHandler(c *gin.Context) {
 			return
 		}
 	}
-	parodies, err := s.repo.GetArchiveParodies(ctx, id)
+	parodies, err := s.repo.GetArchiveParody(ctx, id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			c.JSON(http.StatusNotFound, &models.Response{
@@ -168,7 +168,7 @@ func (s *Server) metadataToFileHandler(c *gin.Context) {
 			return
 		}
 	}
-	urls, err := s.repo.GetArchiveURLs(ctx, id)
+	urls, err := s.repo.GetArchiveUrls(ctx, id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			c.JSON(http.StatusNotFound, &models.Response{

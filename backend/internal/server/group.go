@@ -1,22 +1,7 @@
 package server
 
-import (
-	"Shoka/internal/config"
-	"Shoka/internal/group"
-	"Shoka/internal/models"
-	"context"
-	"errors"
-	"net/http"
-	"strings"
-
-	"github.com/gin-gonic/gin"
-	"github.com/go-playground/validator/v10"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
-)
-
 // TODO:
-
+/*
 // Create
 func (s *Server) createGroupHandler(c *gin.Context) {
 	var payload models.GroupPayload
@@ -261,3 +246,4 @@ func (s *Server) deleteGroupHandler(c *gin.Context) {
 	// Respond with 200 success
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
+*/

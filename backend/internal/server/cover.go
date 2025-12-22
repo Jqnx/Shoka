@@ -61,7 +61,7 @@ func (s *Server) getCoverHandler(c *gin.Context) {
 		return
 	}
 
-	if arch.ThumbsPath == nil || *arch.ThumbsPath == "" {
+	if arch.ThumbPath == nil || *arch.ThumbPath == "" {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: "archive has no thumbspath",
@@ -69,8 +69,8 @@ func (s *Server) getCoverHandler(c *gin.Context) {
 		return
 	}
 
-	coverDir := filepath.Join(*arch.ThumbsPath, "cover")
-	fileName := fmt.Sprintf("%s.webp", arch.Hash)
+	coverDir := filepath.Join(*arch.ThumbPath, "cover")
+	fileName := fmt.Sprintf("%s.webp", arch.FileHash)
 	cover := filepath.Join(coverDir, fileName)
 
 	if !fsutil.FileExists(cover) {

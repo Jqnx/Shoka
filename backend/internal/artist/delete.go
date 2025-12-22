@@ -1,9 +1,10 @@
 package artist
 
 import (
+	"context"
+
 	"Shoka/internal/logger"
 	"Shoka/internal/repository"
-	"context"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -31,14 +32,14 @@ func DeleteTransaction(c context.Context,
 		log.Error(err.Error())
 		return err
 	}
-	if err := qtx.RemoveArtistLinks(c, artist.ID); err != nil {
+	if err := qtx.RemoveArtistUrls(c, artist.ID); err != nil {
 		log.Error(err.Error())
 		return err
 	}
-	if err := qtx.RemoveArtistFromGroup(c, artist.ID); err != nil {
-		log.Error(err.Error())
-		return err
-	}
+	//if err := qtx.RemoveArtistFromGroup(c, artist.ID); err != nil {
+	//	log.Error(err.Error())
+	//	return err
+	//}
 
 	if err := qtx.DeleteArtist(c, artist.ID); err != nil {
 		log.Error(err.Error())

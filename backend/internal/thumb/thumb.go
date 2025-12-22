@@ -74,7 +74,7 @@ func (t *Thumb) convertThumb(dest string, content []byte) {
 
 	strippedFn := fsutil.StripExtension(dest)
 	fn := fmt.Sprintf("%s.webp", strippedFn)
-	fp := filepath.Join(filepath.Join(*t.Archive.ThumbsPath, "pages"), fn)
+	fp := filepath.Join(filepath.Join(*t.Archive.ThumbPath, "pages"), fn)
 
 	err = bimg.Write(fp, img)
 	if err != nil {

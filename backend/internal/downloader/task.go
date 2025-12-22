@@ -1,20 +1,6 @@
 package downloader
 
-import (
-	"Shoka/internal/config"
-	"Shoka/internal/fsutil"
-	"Shoka/internal/models"
-	"context"
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
-	"time"
-
-	"github.com/cavaliergopher/grab/v3"
-	"github.com/hibiken/asynq"
-)
-
+/*
 const TypeDownload = "file:download"
 
 type DownloadPayload struct {
@@ -176,3 +162,4 @@ func NewDownloadProcessor(dm *Manager) *DownloadProcessor {
 		dm: dm,
 	}
 }
+*/

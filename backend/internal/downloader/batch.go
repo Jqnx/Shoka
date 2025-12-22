@@ -1,15 +1,6 @@
 package downloader
 
-import (
-	"Shoka/internal/repository"
-	"context"
-	"sync"
-	"time"
-
-	"github.com/cavaliergopher/grab/v3"
-	"github.com/google/uuid"
-)
-
+/*
 func (dm *Manager) downloadBatch(id string, ctx context.Context, requests []*grab.Request, activeDownload *ActiveDownload) ([]*grab.Response, error) {
 	var current int
 	// respch := dm.grab.DoBatch(1, requests...)
@@ -121,3 +112,4 @@ func (dm *Manager) doBatch(workers int, requests ...*grab.Request) <-chan *grab.
 	}()
 	return respch
 }
+*/

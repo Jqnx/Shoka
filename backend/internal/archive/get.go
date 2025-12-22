@@ -37,7 +37,7 @@ func GetResponse(ctx context.Context, app *config.App, id string) (*models.Archi
 	if err != nil {
 		return nil, err
 	}
-	tags, err := qtx.GetArchiveTags(ctx, id)
+	tags, err := qtx.GetArchiveTag(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -45,11 +45,11 @@ func GetResponse(ctx context.Context, app *config.App, id string) (*models.Archi
 	if err != nil {
 		return nil, err
 	}
-	parodies, err := qtx.GetArchiveParodies(ctx, id)
+	parodies, err := qtx.GetArchiveParody(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	urls, err := qtx.GetArchiveURLs(ctx, id)
+	urls, err := qtx.GetArchiveUrls(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func GetResponse(ctx context.Context, app *config.App, id string) (*models.Archi
 	}
 
 	var pages int
-	p, _ := filepath.Abs(*archive.ThumbsPath)
+	p, _ := filepath.Abs(*archive.ThumbPath)
 	d, err := os.ReadDir(filepath.Join(p, "pages"))
 	if err != nil {
 		pages = 0
@@ -82,9 +82,8 @@ func GetResponse(ctx context.Context, app *config.App, id string) (*models.Archi
 		Category:    archive.Category,
 		PageCount:   archive.PageCount,
 		URL:         urls,
-		Hash:        archive.Hash,
+		FileHash:    archive.FileHash,
 		Pages:       pages,
-		Type:        archive.Type,
 		CreatedAt:   archive.CreatedAt,
 		UpdatedAt:   archive.UpdatedAt,
 		ReleaseDate: archive.ReleaseDate,
@@ -102,7 +101,7 @@ func GetAll(c context.Context, q *repository.Queries, log *slog.Logger, uid uuid
 	result := []models.ArchiveResponse{}
 
 	for _, item := range archives {
-		tags, err := q.GetArchiveTags(c, item.ID)
+		tags, err := q.GetArchiveTag(c, item.ID)
 		if err != nil {
 			log.Error(err.Error())
 			return nil, err
@@ -112,12 +111,12 @@ func GetAll(c context.Context, q *repository.Queries, log *slog.Logger, uid uuid
 			log.Error(err.Error())
 			return nil, err
 		}
-		parodies, err := q.GetArchiveParodies(c, item.ID)
+		parodies, err := q.GetArchiveParody(c, item.ID)
 		if err != nil {
 			log.Error(err.Error())
 			return nil, err
 		}
-		urls, err := q.GetArchiveURLs(c, item.ID)
+		urls, err := q.GetArchiveUrls(c, item.ID)
 		if err != nil {
 			log.Error(err.Error())
 			return nil, err
@@ -139,8 +138,7 @@ func GetAll(c context.Context, q *repository.Queries, log *slog.Logger, uid uuid
 			Category:    item.Category,
 			PageCount:   item.PageCount,
 			URL:         urls,
-			Hash:        item.Hash,
-			Type:        item.Type,
+			FileHash:    item.FileHash,
 			CreatedAt:   item.CreatedAt,
 			UpdatedAt:   item.UpdatedAt,
 			ReleaseDate: item.ReleaseDate,

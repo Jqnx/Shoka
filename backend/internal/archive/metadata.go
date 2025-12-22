@@ -3,7 +3,6 @@ package archive
 import (
 	"context"
 	"strings"
-	"time"
 
 	"Shoka/internal/repository"
 
@@ -222,10 +221,8 @@ func (m *Metadata) Artist(c context.Context) error {
 			}
 		} else {
 			artist, err := m.Qtx.CreateArtist(c, repository.CreateArtistParams{
-				Name:      i,
-				Count:     1,
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
+				Name:  i,
+				Count: 1,
 			})
 			if err != nil {
 				return err

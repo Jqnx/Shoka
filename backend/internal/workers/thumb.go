@@ -23,7 +23,7 @@ func (w *Workers) Thumbs(ch chan *asynq.TaskInfo, arch *repository.GetArchiveByI
 func (c *Client) NewThumb(force bool) *asynq.TaskInfo {
 	ctx := context.Background()
 
-	aDir := fsutil.NewArchiveDir(c.app.Cfg.ThumbDir, c.arch.Type, c.arch.Hash)
+	aDir := fsutil.NewArchiveDir(c.app.Cfg.ThumbDir, c.arch.FileHash)
 	tDir, err := aDir.GenThumbDir()
 	if err != nil {
 		c.app.Log.Error("could not generate thumbnail", "err", err.Error())
@@ -31,15 +31,15 @@ func (c *Client) NewThumb(force bool) *asynq.TaskInfo {
 	}
 	pDir := filepath.Join(tDir, "pages")
 
-	if c.arch.ThumbsPath == nil || c.arch.ThumbsPath != &tDir {
+	if c.arch.ThumbPath == nil || c.arch.ThumbPath != &tDir {
 		if err := c.app.Repo.UpdateThumbPath(ctx, repository.UpdateThumbPathParams{
-			ID:         c.arch.ID,
-			ThumbsPath: &tDir,
-			UpdatedAt:  time.Now(),
+			ID:        c.arch.ID,
+			ThumbPath: &tDir,
+			UpdatedAt: time.Now(),
 		}); err != nil {
 			c.app.Log.Error("could not update thumbs_path in db", "err", err.Error(), "archive", c.arch.ID)
 		}
-		c.arch.ThumbsPath = &tDir
+		c.arch.ThumbPath = &tDir
 	}
 
 	pages, err := os.ReadDir(pDir)

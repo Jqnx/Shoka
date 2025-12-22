@@ -1,23 +1,6 @@
 package downloader
 
-import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"net/url"
-	"os"
-	"path/filepath"
-	"time"
-
-	"Shoka/internal/config"
-	"Shoka/internal/fsutil"
-	"Shoka/internal/repository"
-	"Shoka/internal/sources"
-
-	"github.com/cavaliergopher/grab/v3"
-	"github.com/google/uuid"
-)
-
+/*
 func (dm *Manager) reQueueInterruptedDownloads() error {
 	ctx := context.Background()
 
@@ -345,3 +328,4 @@ func (dm *Manager) Close() {
 	}
 	dm.ActiveMutex.Unlock()
 }
+*/

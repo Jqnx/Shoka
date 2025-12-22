@@ -1,11 +1,6 @@
 package group
 
-import (
-	"Shoka/internal/logger"
-	"Shoka/internal/repository"
-	"context"
-)
-
+/*
 func Delete(c context.Context,
 	q *repository.Queries,
 	name string,
@@ -17,3 +12,4 @@ func Delete(c context.Context,
 	}
 	return nil
 }
+*/

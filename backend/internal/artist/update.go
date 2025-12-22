@@ -1,12 +1,12 @@
 package artist
 
 import (
+	"context"
+	"strings"
+
 	"Shoka/internal/logger"
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
-	"context"
-	"strings"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -28,9 +28,8 @@ func UpdateTransaction(c context.Context,
 
 	name := strings.ToLower(p.Name)
 	artist, err := qtx.UpdateArtist(c, repository.UpdateArtistParams{
-		Name:      name,
-		UpdatedAt: time.Now(),
-		OldName:   oldname,
+		Name:    name,
+		OldName: oldname,
 	})
 	if err != nil {
 		log.Error(err.Error())
@@ -47,10 +46,10 @@ func UpdateTransaction(c context.Context,
 		return nil, err
 	}
 
-	if err := Group(c, qtx, p, &artist); err != nil {
-		log.Error(err.Error())
-		return nil, err
-	}
+	//if err := Group(c, qtx, p, &artist); err != nil {
+	//	log.Error(err.Error())
+	//	return nil, err
+	//}
 
 	result, err := Get(c, qtx, name, log)
 	if err != nil {

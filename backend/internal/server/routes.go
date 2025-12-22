@@ -79,14 +79,16 @@ func (s *Server) RegisterRoutes() http.Handler {
 		}
 
 		// Group API
-		group := api.Group("/group")
-		{
-			group.GET("", s.getAllGroupHandler)
-			group.GET("/:name", s.getGroupHandler)
-			group.POST("", s.createGroupHandler)
-			group.PUT("/:name", s.updateGroupHandler)
-			group.DELETE("/:name", s.deleteGroupHandler)
-		}
+		/*
+			group := api.Group("/group")
+			{
+				group.GET("", s.getAllGroupHandler)
+				group.GET("/:name", s.getGroupHandler)
+				group.POST("", s.createGroupHandler)
+				group.PUT("/:name", s.updateGroupHandler)
+				group.DELETE("/:name", s.deleteGroupHandler)
+			}
+		*/
 
 		// Tag API
 		tag := api.Group("/tag")
@@ -121,32 +123,36 @@ func (s *Server) RegisterRoutes() http.Handler {
 			category.GET("", s.getAllCategoryHandler)
 		}
 
-		auth := api.Group("/auth")
-		{
-			auth.POST("/register", s.registerUser)
-			auth.POST("/login", s.signInUser)
-			auth.GET("/session", middleware.Auth(s.repo), s.getUserSession)
-			auth.POST("/logout", middleware.Auth(s.repo), s.signOutUser)
-		}
+		/*
+			auth := api.Group("/auth")
+			{
+				auth.POST("/register", s.registerUser)
+				auth.POST("/login", s.signInUser)
+				auth.GET("/session", middleware.Auth(s.repo), s.getUserSession)
+				auth.POST("/logout", middleware.Auth(s.repo), s.signOutUser)
+			}
+		*/
 
 		user := api.Group("/user")
 		{
 			// user.GET("/favorites", middleware.Auth(s.repo), s.getUserFavoriteArchives)
 			user.POST("/favorites", middleware.Auth(s.repo), s.getFavoriteArchiveFilterHandler)
-			user.PUT("/update", middleware.Auth(s.repo), s.updateUserHandler)
-			user.DELETE("/delete", middleware.Auth(s.repo), s.deleteUserHandler)
+			// user.PUT("/update", middleware.Auth(s.repo), s.updateUserHandler)
+			// user.DELETE("/delete", middleware.Auth(s.repo), s.deleteUserHandler)
 		}
 
-		download := api.Group("/download")
-		{
-			download.POST("", s.addDownloadHandler)
-			download.GET("", s.getAllDownloadsHandler)
-			download.GET("/:id", s.getDownloadHandler)
-			download.GET("/active", s.getActiveDownloadHandler)
-			download.POST("/:id/pause", s.pauseDownloadHandler)
-			download.POST("/:id/resume", s.resumeDownloadHandler)
-			download.DELETE("/:id", s.deleteDownloadHandler)
-		}
+		/*
+			download := api.Group("/download")
+			{
+				download.POST("", s.addDownloadHandler)
+				download.GET("", s.getAllDownloadsHandler)
+				download.GET("/:id", s.getDownloadHandler)
+				download.GET("/active", s.getActiveDownloadHandler)
+				download.POST("/:id/pause", s.pauseDownloadHandler)
+				download.POST("/:id/resume", s.resumeDownloadHandler)
+				download.DELETE("/:id", s.deleteDownloadHandler)
+			}
+		*/
 		config := api.Group("/config")
 		{
 			config.GET("/flaresolverr", s.getFlaresolverrHandler)

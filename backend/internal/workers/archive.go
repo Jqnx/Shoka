@@ -28,9 +28,6 @@ func (w *Workers) NewArchives() {
 	force := false
 	s := w.app.Noti.Listen("notifyarchives")
 
-	ac := w.NewAsynqClient()
-	defer ac.Close()
-
 	// Get list of Archives
 	list := fsutil.ListArchives(w.app.Cfg.ContentDir)
 
@@ -48,8 +45,7 @@ func (w *Workers) NewArchives() {
 			return
 		}
 
-		// TODO: Use global client
-		c := NewClient(ac, w.app, &payload)
+		c := NewClient(w.app.Client, w.app, &payload)
 		// Create cover client
 		// w.Covers(&payload, item)
 		c.NewCover(force)

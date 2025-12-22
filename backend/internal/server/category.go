@@ -1,14 +1,15 @@
 package server
 
 import (
-	"Shoka/internal/config"
-	"Shoka/internal/models"
-	"Shoka/internal/repository"
-	"Shoka/internal/util"
 	"context"
 	"net/http"
 	"strconv"
 	"strings"
+
+	"Shoka/internal/config"
+	"Shoka/internal/models"
+	"Shoka/internal/repository"
+	"Shoka/internal/util"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -65,24 +66,27 @@ func (s *Server) getArchiveByCategoryHandler(c *gin.Context) {
 		return
 	}
 
+	// TODO: Update to receive JWT
 	var uid uuid.UUID
-	header := c.Request.Header.Get("Authorization")
-	if header != "" {
-		token := util.GetAuthTokenFromHeader(header)
-		user, err := s.repo.GetUserByToken(ctx, token)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, &models.Response{
-				Status:  "error",
-				Message: "Unauthorized",
-			})
-			return
+	/*
+		header := c.Request.Header.Get("Authorization")
+		if header != "" {
+			token := util.GetAuthTokenFromHeader(header)
+			user, err := s.repo.GetUserByToken(ctx, token)
+			if err != nil {
+				c.JSON(http.StatusUnauthorized, &models.Response{
+					Status:  "error",
+					Message: "Unauthorized",
+				})
+				return
+			}
+			uid = user.ID
 		}
-		uid = user.ID
-	}
+	*/
 
 	// Get archives
 	if p == "" && ps == "" {
-		archives, err := s.repo.GetArchivesByCategory(ctx, repository.GetArchivesByCategoryParams{
+		archives, err := s.repo.GetArchiveByCategory(ctx, repository.GetArchiveByCategoryParams{
 			Category: &category,
 			Uid:      uid,
 		})
@@ -103,7 +107,7 @@ func (s *Server) getArchiveByCategoryHandler(c *gin.Context) {
 				return
 			}
 		}
-		total, err := s.repo.TotalArchivesWithCategory(ctx, &category)
+		total, err := s.repo.TotalArchiveWithCategory(ctx, &category)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
@@ -127,7 +131,7 @@ func (s *Server) getArchiveByCategoryHandler(c *gin.Context) {
 		if pageSize == 0 {
 			pageSize = 10
 		}
-		archives, err := s.repo.GetArchivesByCategoryList(ctx, repository.GetArchivesByCategoryListParams{
+		archives, err := s.repo.GetArchiveByCategoryList(ctx, repository.GetArchiveByCategoryListParams{
 			Category: &category,
 			Offset:   (int32(page) - 1) * int32(pageSize),
 			Limit:    int32(pageSize),
@@ -150,7 +154,7 @@ func (s *Server) getArchiveByCategoryHandler(c *gin.Context) {
 				return
 			}
 		}
-		total, err := s.repo.TotalArchivesWithCategory(ctx, &category)
+		total, err := s.repo.TotalArchiveWithCategory(ctx, &category)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",

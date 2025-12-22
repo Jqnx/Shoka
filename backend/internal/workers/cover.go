@@ -1,12 +1,10 @@
 package workers
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"Shoka/internal/archive"
 	"Shoka/internal/fsutil"
@@ -26,14 +24,14 @@ func (w *Workers) Covers(ch chan *asynq.TaskInfo, arch *repository.GetArchiveByI
 // TODO: LastRead column in db, gets updated when user GETs archive pages
 
 func (c *Client) NewCover(force bool) *asynq.TaskInfo {
-	// Check if archive has valid ThumbsPath
-	if c.arch.ThumbsPath == nil || *c.arch.ThumbsPath == "" {
-		c.app.Log.Error("could not create task", "task", "generate cover", "archive", c.arch.ID, "err", "thumbspath does not exist")
+	// Check if archive has valid ThumbPath
+	if c.arch.ThumbPath == nil || *c.arch.ThumbPath == "" {
+		c.app.Log.Error("could not create task", "task", "generate cover", "archive", c.arch.ID, "err", "thumbpath does not exist")
 		return nil
 	}
 
 	// Check if cover directory exists on filesystem for a single archive
-	path := filepath.Join(*c.arch.ThumbsPath, "cover")
+	path := filepath.Join(*c.arch.ThumbPath, "cover")
 	exists, err := fsutil.DirExists(path)
 	if err != nil {
 		c.app.Log.Error("could not create task", "err", err.Error())
@@ -61,7 +59,7 @@ func (c *Client) NewCover(force bool) *asynq.TaskInfo {
 		// if not create a new cover.
 
 		// 1. Checks if file exists on filesystem
-		fileName := fmt.Sprintf("%s.webp", c.arch.Hash)
+		fileName := fmt.Sprintf("%s.webp", c.arch.FileHash)
 		_, err := os.Stat(filepath.Join(path, fileName))
 		if err != nil {
 			if errors.Is(err, os.ErrNotExist) {
@@ -69,17 +67,6 @@ func (c *Client) NewCover(force bool) *asynq.TaskInfo {
 				return cover
 			} else {
 				c.app.Log.Error("could not check if file exists", "err", err.Error())
-			}
-		} else {
-			ctx := context.Background()
-			coverPath := fmt.Sprintf("/cover/%s", fileName)
-			if err := c.app.Repo.UpdateCoverInfo(ctx, repository.UpdateCoverInfoParams{
-				ID:        c.arch.ID,
-				CoverPath: &coverPath,
-				UpdatedAt: time.Now(),
-			}); err != nil {
-				c.app.Log.Error("could not update cover info", "archive", c.arch.ID)
-				return nil
 			}
 		}
 	}

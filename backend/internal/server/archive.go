@@ -16,7 +16,6 @@ import (
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
 	"Shoka/internal/sources"
-	"Shoka/internal/util"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -86,20 +85,23 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 	sortby := c.Query("sortby")
 	sortdir := c.Query("sortdir")
 
+	// TODO: Update to use JWT received from frontend server
 	var uid uuid.UUID
-	header := c.Request.Header.Get("Authorization")
-	if header != "" {
-		token := util.GetAuthTokenFromHeader(header)
-		user, err := s.repo.GetUserByToken(ctx, token)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, &models.Response{
-				Status:  "error",
-				Message: "Unauthorized",
-			})
-			return
+	/*
+		header := c.Request.Header.Get("Authorization")
+		if header != "" {
+			token := util.GetAuthTokenFromHeader(header)
+			user, err := s.repo.GetUserByToken(ctx, token)
+			if err != nil {
+				c.JSON(http.StatusUnauthorized, &models.Response{
+					Status:  "error",
+					Message: "Unauthorized",
+				})
+				return
+			}
+			uid = user.ID
 		}
-		uid = user.ID
-	}
+	*/
 
 	if p == "" && ps == "" && sortby == "" && sortdir == "" {
 		archives, err := s.repo.GetAllArchives(ctx, uid)
@@ -709,20 +711,23 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 		return
 	}
 
+	// TODO: Update to use JWT received from frontend server
 	var userid uuid.UUID
-	header := c.Request.Header.Get("Authorization")
-	if header != "" {
-		token := util.GetAuthTokenFromHeader(header)
-		user, err := s.repo.GetUserByToken(ctx, token)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, &models.Response{
-				Status:  "error",
-				Message: "Unauthorized",
-			})
-			return
+	/*
+		header := c.Request.Header.Get("Authorization")
+		if header != "" {
+			token := util.GetAuthTokenFromHeader(header)
+			user, err := s.repo.GetUserByToken(ctx, token)
+			if err != nil {
+				c.JSON(http.StatusUnauthorized, &models.Response{
+					Status:  "error",
+					Message: "Unauthorized",
+				})
+				return
+			}
+			userid = user.ID
 		}
-		userid = user.ID
-	}
+	*/
 
 	if userid != uuid.Nil {
 		fav := false
@@ -748,7 +753,7 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				read.ReadingState = "unread"
+				read.Status = "unread"
 				read.Progress = 0
 				read.LastRead = nil
 			} else {
@@ -759,33 +764,32 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 				return
 			}
 		} else {
-			read.ReadingState = rp.State
+			read.Status = rp.Status
 			read.Progress = rp.Page
 			read.LastRead = &rp.LastRead
 		}
 
 		result := &models.ArchiveResponseFavorite{
-			ID:           res.ID,
-			Title:        res.Title,
-			Summary:      res.Summary,
-			Tags:         res.Tags,
-			Artist:       res.Artist,
-			Parody:       res.Parody,
-			Character:    res.Character,
-			Language:     res.Language,
-			Category:     res.Category,
-			PageCount:    res.PageCount,
-			URL:          res.URL,
-			Hash:         res.Hash,
-			Pages:        res.Pages,
-			Type:         res.Type,
-			Progress:     read.Progress,
-			ReadingState: read.ReadingState,
-			LastRead:     read.LastRead,
-			CreatedAt:    res.CreatedAt,
-			UpdatedAt:    res.UpdatedAt,
-			ReleaseDate:  res.ReleaseDate,
-			IsFavorite:   fav,
+			ID:          res.ID,
+			Title:       res.Title,
+			Summary:     res.Summary,
+			Tags:        res.Tags,
+			Artist:      res.Artist,
+			Parody:      res.Parody,
+			Character:   res.Character,
+			Language:    res.Language,
+			Category:    res.Category,
+			PageCount:   res.PageCount,
+			URL:         res.URL,
+			FileHash:    res.FileHash,
+			Pages:       res.Pages,
+			Progress:    read.Progress,
+			Status:      read.Status,
+			LastRead:    read.LastRead,
+			CreatedAt:   res.CreatedAt,
+			UpdatedAt:   res.UpdatedAt,
+			ReleaseDate: res.ReleaseDate,
+			IsFavorite:  fav,
 		}
 
 		c.JSON(http.StatusOK, result)
@@ -811,7 +815,7 @@ func (s *Server) searchArchiveHandler(c *gin.Context) {
 		pageSize = 10
 	}
 
-	archives, err := s.repo.SearchArchivesList(ctx, repository.SearchArchivesListParams{
+	archives, err := s.repo.SearchArchiveList(ctx, repository.SearchArchiveListParams{
 		WebsearchToTsquery: query,
 		Limit:              int32(pageSize),
 		Offset:             (int32(page) - 1) * int32(pageSize),
@@ -824,7 +828,7 @@ func (s *Server) searchArchiveHandler(c *gin.Context) {
 		})
 		return
 	}
-	count, err := s.repo.CountSearchArchives(ctx, query)
+	count, err := s.repo.CountSearchArchive(ctx, query)
 	if err != nil {
 		c.JSON(http.StatusNotFound, &models.Response{
 			Status:  "error",
@@ -864,20 +868,23 @@ func (s *Server) shuffleArchiveHandler(c *gin.Context) {
 		favorite = false
 	}
 
+	// TODO: Update to receive JWT from frontend server
 	var userid uuid.UUID
-	header := c.Request.Header.Get("Authorization")
-	if header != "" {
-		token := util.GetAuthTokenFromHeader(header)
-		user, err := s.repo.GetUserByToken(ctx, token)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, &models.Response{
-				Status:  "error",
-				Message: "Unauthorized",
-			})
-			return
+	/*
+		header := c.Request.Header.Get("Authorization")
+		if header != "" {
+			token := util.GetAuthTokenFromHeader(header)
+			user, err := s.repo.GetUserByToken(ctx, token)
+			if err != nil {
+				c.JSON(http.StatusUnauthorized, &models.Response{
+					Status:  "error",
+					Message: "Unauthorized",
+				})
+				return
+			}
+			userid = user.ID
 		}
-		userid = user.ID
-	}
+	*/
 
 	countQuery := c.Query("c")
 	var count int
@@ -894,7 +901,7 @@ func (s *Server) shuffleArchiveHandler(c *gin.Context) {
 	} else {
 		var total int64
 		if favorite {
-			tot, err := s.repo.CountUserFavoriteArchives(ctx, userid)
+			tot, err := s.repo.CountUserFavoriteArchive(ctx, userid)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, &models.Response{
 					Status:  "error",
@@ -936,7 +943,7 @@ func (s *Server) shuffleArchiveHandler(c *gin.Context) {
 		c.JSON(http.StatusOK, archive)
 	} else {
 		if favorite {
-			archive, err := s.repo.GetUserFavoriteArchivesShuffle(ctx, repository.GetUserFavoriteArchivesShuffleParams{
+			archive, err := s.repo.GetUserFavoriteArchiveShuffle(ctx, repository.GetUserFavoriteArchiveShuffleParams{
 				ID:     userid,
 				Limit:  1,
 				Offset: int32(count),

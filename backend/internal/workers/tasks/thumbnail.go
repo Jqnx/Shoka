@@ -47,7 +47,7 @@ func (w *ThumbnailProcessor) ProcessTask(ctx context.Context, t *asynq.Task) err
 	arch := archive.RepoToArchive(payload.Archive, w.app)
 
 	thumb := thumb.NewThumb(arch, w.app)
-	pagePath := filepath.Join(*arch.ThumbsPath, "pages")
+	pagePath := filepath.Join(*arch.ThumbPath, "pages")
 	ok, err := fsutil.DirExists(pagePath)
 	if err != nil {
 		return err

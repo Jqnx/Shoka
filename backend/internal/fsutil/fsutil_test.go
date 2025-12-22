@@ -63,11 +63,11 @@ func (suite *FSutilSuite) TestGetNameFromPath() {
 	GetNameFromPath(fn, true)
 }
 
-func (suite *FSutilSuite) TestGetPageCount() {
-	file := ""
-	fn := filepath.Join(suite.dir, file)
-	GetPageCount(fn, imageExtensions)
-}
+//func (suite *FSutilSuite) TestGetPageCount() {
+//	file := ""
+//	fn := filepath.Join(suite.dir, file)
+//	GetPageCount(fn, imageExtensions)
+//}
 
 func (suite *FSutilSuite) TestCheck7z() {
 	file := ""

@@ -1,19 +1,6 @@
 package downloader
 
-import (
-	"Shoka/internal/config"
-	"Shoka/internal/logger"
-	"Shoka/internal/repository"
-	"Shoka/internal/websocket"
-	"context"
-	"sync"
-	"time"
-
-	"github.com/cavaliergopher/grab/v3"
-	"github.com/hibiken/asynq"
-	"github.com/jackc/pgx/v5/pgxpool"
-)
-
+/*
 const (
 	StatusPending     = "pending"
 	StatusDownloading = "downloading"
@@ -72,3 +59,4 @@ func NewDownloadManager(app *config.App) *Manager {
 
 	return dm
 }
+*/

@@ -1,13 +1,14 @@
 package server
 
 import (
-	"Shoka/internal/artist"
-	"Shoka/internal/config"
-	"Shoka/internal/models"
 	"context"
 	"errors"
 	"net/http"
 	"strings"
+
+	"Shoka/internal/artist"
+	"Shoka/internal/config"
+	"Shoka/internal/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"

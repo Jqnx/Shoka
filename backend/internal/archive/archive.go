@@ -13,7 +13,6 @@ import (
 // Archive struct that represents an archive
 type Archive struct {
 	ID          string
-	Type        string
 	Title       string
 	Summary     *string
 	Language    *string
@@ -26,9 +25,8 @@ type Archive struct {
 	ReleaseDate *time.Time
 	PageCount   int16
 	FilePath    string
-	FileName    string
-	Hash        string
-	ThumbsPath  *string
+	FileHash    string
+	ThumbPath   *string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	app         *config.App
