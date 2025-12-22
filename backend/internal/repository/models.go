@@ -5,11 +5,27 @@
 package repository
 
 import (
-	"net/netip"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type Account struct {
+	ID                    uuid.UUID        `json:"id"`
+	AccountID             string           `json:"account_id"`
+	ProviderID            string           `json:"provider_id"`
+	UserID                uuid.UUID        `json:"user_id"`
+	AccessToken           *string          `json:"access_token"`
+	RefreshToken          *string          `json:"refresh_token"`
+	IDToken               *string          `json:"id_token"`
+	AccessTokenExpiresAt  pgtype.Timestamp `json:"access_token_expires_at"`
+	RefreshTokenExpiresAt pgtype.Timestamp `json:"refresh_token_expires_at"`
+	Scope                 *string          `json:"scope"`
+	Password              *string          `json:"password"`
+	CreatedAt             pgtype.Timestamp `json:"created_at"`
+	UpdatedAt             pgtype.Timestamp `json:"updated_at"`
+}
 
 type Archive struct {
 	ID           string      `json:"id"`
@@ -19,85 +35,62 @@ type Archive struct {
 	Category     *string     `json:"category"`
 	PageCount    int16       `json:"page_count"`
 	FilePath     string      `json:"file_path"`
-	FileName     string      `json:"file_name"`
-	Hash         string      `json:"hash"`
-	ThumbsPath   *string     `json:"thumbs_path"`
-	CoverPath    *string     `json:"cover_path"`
-	CoverImg     *string     `json:"cover_img"`
-	Type         string      `json:"type"`
+	FileHash     string      `json:"file_hash"`
+	ThumbPath    *string     `json:"thumb_path"`
+	ReleaseDate  *time.Time  `json:"release_date"`
 	CreatedAt    time.Time   `json:"created_at"`
 	UpdatedAt    time.Time   `json:"updated_at"`
-	ReleaseDate  *time.Time  `json:"release_date"`
 	SearchVector interface{} `json:"search_vector"`
 }
 
-type ArchivesArtist struct {
+type ArchiveArtist struct {
 	ArchiveID string `json:"archive_id"`
-	ArtistID  int64  `json:"artist_id"`
+	ArtistID  int32  `json:"artist_id"`
 }
 
-type ArchivesCharacter struct {
+type ArchiveCharacter struct {
 	ArchiveID   string `json:"archive_id"`
-	CharacterID int64  `json:"character_id"`
+	CharacterID int32  `json:"character_id"`
 }
 
-type ArchivesParody struct {
+type ArchiveParody struct {
 	ArchiveID string `json:"archive_id"`
-	ParodyID  int64  `json:"parody_id"`
+	ParodyID  int32  `json:"parody_id"`
 }
 
-type ArchivesTag struct {
+type ArchiveTag struct {
 	ArchiveID string `json:"archive_id"`
-	TagID     int64  `json:"tag_id"`
+	TagID     int32  `json:"tag_id"`
+}
+
+type ArchiveUrl struct {
+	ID        int32   `json:"id"`
+	ArchiveID *string `json:"archive_id"`
+	Url       string  `json:"url"`
 }
 
 type Artist struct {
-	ID        int64     `json:"id"`
-	Name      string    `json:"name"`
-	Count     int32     `json:"count"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID    int32  `json:"id"`
+	Name  string `json:"name"`
+	Count int32  `json:"count"`
 }
 
 type ArtistAlias struct {
-	ID       int64  `json:"id"`
+	ID       int32  `json:"id"`
+	ArtistID int32  `json:"artist_id"`
 	Alias    string `json:"alias"`
-	ArtistID int64  `json:"artist_id"`
 }
 
-type ArtistLink struct {
-	ID       int64  `json:"id"`
-	Link     string `json:"link"`
-	ArtistID int64  `json:"artist_id"`
-}
-
-type ArtistsGroup struct {
-	ArtistID int64 `json:"artist_id"`
-	GroupID  int64 `json:"group_id"`
+type ArtistUrl struct {
+	ID       int32  `json:"id"`
+	ArtistID int32  `json:"artist_id"`
+	Url      string `json:"url"`
 }
 
 type Character struct {
-	ID    int64  `json:"id"`
+	ID    int32  `json:"id"`
 	Name  string `json:"name"`
-	Count int64  `json:"count"`
-}
-
-type Download struct {
-	ID              uuid.UUID  `json:"id"`
-	Url             string     `json:"url"`
-	Source          string     `json:"source"`
-	Filename        string     `json:"filename"`
-	Status          string     `json:"status"`
-	Progress        *int32     `json:"progress"`
-	Error           *string    `json:"error"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
-	Speed           *int64     `json:"speed"`
-	TotalSize       *int64     `json:"total_size"`
-	Downloaded      *int64     `json:"downloaded"`
-	StartedAt       *time.Time `json:"started_at"`
-	CanResume       *bool      `json:"can_resume"`
-	ResumeSupported *bool      `json:"resume_supported"`
+	Count int32  `json:"count"`
 }
 
 type FavoriteArchive struct {
@@ -106,53 +99,62 @@ type FavoriteArchive struct {
 	FavoritedAt time.Time `json:"favorited_at"`
 }
 
-type Group struct {
-	ID        int64     `json:"id"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+type Jwk struct {
+	ID         uuid.UUID        `json:"id"`
+	PublicKey  string           `json:"public_key"`
+	PrivateKey string           `json:"private_key"`
+	CreatedAt  pgtype.Timestamp `json:"created_at"`
+	ExpiresAt  pgtype.Timestamp `json:"expires_at"`
 }
 
 type Parody struct {
-	ID    int64  `json:"id"`
+	ID    int32  `json:"id"`
 	Name  string `json:"name"`
-	Count int64  `json:"count"`
+	Count int32  `json:"count"`
 }
 
 type ReadingProgress struct {
 	ArchiveID string    `json:"archive_id"`
 	UserID    uuid.UUID `json:"user_id"`
 	Page      int16     `json:"page"`
-	State     string    `json:"state"`
+	Status    string    `json:"status"`
 	LastRead  time.Time `json:"last_read"`
 }
 
 type Session struct {
-	SessionID uuid.UUID   `json:"session_id"`
-	UserID    uuid.UUID   `json:"user_id"`
-	Token     string      `json:"token"`
-	ExpiresAt time.Time   `json:"expires_at"`
-	CreatedAt time.Time   `json:"created_at"`
-	IpAddress *netip.Addr `json:"ip_address"`
-	UserAgent *string     `json:"user_agent"`
+	ID        uuid.UUID        `json:"id"`
+	ExpiresAt pgtype.Timestamp `json:"expires_at"`
+	Token     string           `json:"token"`
+	CreatedAt pgtype.Timestamp `json:"created_at"`
+	UpdatedAt pgtype.Timestamp `json:"updated_at"`
+	IpAddress *string          `json:"ip_address"`
+	UserAgent *string          `json:"user_agent"`
+	UserID    uuid.UUID        `json:"user_id"`
 }
 
 type Tag struct {
-	ID    int64  `json:"id"`
+	ID    int32  `json:"id"`
 	Name  string `json:"name"`
-	Count int64  `json:"count"`
-}
-
-type Url struct {
-	ID        int64  `json:"id"`
-	Url       string `json:"url"`
-	ArchiveID string `json:"archive_id"`
+	Count int32  `json:"count"`
 }
 
 type User struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	Password  string    `json:"password"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID              uuid.UUID        `json:"id"`
+	Name            string           `json:"name"`
+	Email           string           `json:"email"`
+	EmailVerified   bool             `json:"email_verified"`
+	Image           *string          `json:"image"`
+	CreatedAt       pgtype.Timestamp `json:"created_at"`
+	UpdatedAt       pgtype.Timestamp `json:"updated_at"`
+	Username        *string          `json:"username"`
+	DisplayUsername *string          `json:"display_username"`
+}
+
+type Verification struct {
+	ID         uuid.UUID        `json:"id"`
+	Identifier string           `json:"identifier"`
+	Value      string           `json:"value"`
+	ExpiresAt  pgtype.Timestamp `json:"expires_at"`
+	CreatedAt  pgtype.Timestamp `json:"created_at"`
+	UpdatedAt  pgtype.Timestamp `json:"updated_at"`
 }

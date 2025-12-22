@@ -12,39 +12,29 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-const addArtistToArchive = `-- name: AddArtistToArchive :exec
-insert into archives_artists (archive_id, artist_id)
-values ($1, $2)
-`
-
-type AddArtistToArchiveParams struct {
-	ArchiveID string `json:"archive_id"`
-	ArtistID  int64  `json:"artist_id"`
-}
-
-func (q *Queries) AddArtistToArchive(ctx context.Context, arg AddArtistToArchiveParams) error {
-	_, err := q.db.Exec(ctx, addArtistToArchive, arg.ArchiveID, arg.ArtistID)
-	return err
-}
-
 const addArtistToGroup = `-- name: AddArtistToGroup :exec
-insert into artists_groups (artist_id, group_id)
+/*
+insert into artist_groups (artist_id, group_id)
+values ($1, $2)
+;
+*/
+insert into archive_artist (archive_id, artist_id)
 values ($1, $2)
 `
 
 type AddArtistToGroupParams struct {
-	ArtistID int64 `json:"artist_id"`
-	GroupID  int64 `json:"group_id"`
+	ArchiveID string `json:"archive_id"`
+	ArtistID  int32  `json:"artist_id"`
 }
 
 func (q *Queries) AddArtistToGroup(ctx context.Context, arg AddArtistToGroupParams) error {
-	_, err := q.db.Exec(ctx, addArtistToGroup, arg.ArtistID, arg.GroupID)
+	_, err := q.db.Exec(ctx, addArtistToGroup, arg.ArchiveID, arg.ArtistID)
 	return err
 }
 
 const artistAliasExists = `-- name: ArtistAliasExists :execresult
 select alias
-from artist_aliases
+from artist_alias
 where alias = $1
 `
 
@@ -52,34 +42,24 @@ func (q *Queries) ArtistAliasExists(ctx context.Context, alias string) (pgconn.C
 	return q.db.Exec(ctx, artistAliasExists, alias)
 }
 
-const artistExists = `-- name: ArtistExists :execresult
-select name
-from artists
-where name = $1
+const artistUrlExists = `-- name: ArtistUrlExists :execresult
+select url
+from artist_url
+where url = $1
 `
 
-func (q *Queries) ArtistExists(ctx context.Context, name string) (pgconn.CommandTag, error) {
-	return q.db.Exec(ctx, artistExists, name)
-}
-
-const artistLinkExists = `-- name: ArtistLinkExists :execresult
-select link
-from artist_links
-where link = $1
-`
-
-func (q *Queries) ArtistLinkExists(ctx context.Context, link string) (pgconn.CommandTag, error) {
-	return q.db.Exec(ctx, artistLinkExists, link)
+func (q *Queries) ArtistUrlExists(ctx context.Context, url string) (pgconn.CommandTag, error) {
+	return q.db.Exec(ctx, artistUrlExists, url)
 }
 
 const createAlias = `-- name: CreateAlias :exec
-insert into artist_aliases (alias, artist_id)
+insert into artist_alias (alias, artist_id)
 values ($1, $2)
 `
 
 type CreateAliasParams struct {
 	Alias    string `json:"alias"`
-	ArtistID int64  `json:"artist_id"`
+	ArtistID int32  `json:"artist_id"`
 }
 
 func (q *Queries) CreateAlias(ctx context.Context, arg CreateAliasParams) error {
@@ -88,64 +68,41 @@ func (q *Queries) CreateAlias(ctx context.Context, arg CreateAliasParams) error 
 }
 
 const createArtist = `-- name: CreateArtist :one
-insert into artists (name, count, created_at, updated_at)
-values ($1, $2, $3, $4)
-returning id, name, count, created_at, updated_at
+insert into artist (name, count)
+values ($1, $2)
+returning id, name, count
 `
 
 type CreateArtistParams struct {
-	Name      string    `json:"name"`
-	Count     int32     `json:"count"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Name  string `json:"name"`
+	Count int32  `json:"count"`
 }
 
 func (q *Queries) CreateArtist(ctx context.Context, arg CreateArtistParams) (Artist, error) {
-	row := q.db.QueryRow(ctx, createArtist,
-		arg.Name,
-		arg.Count,
-		arg.CreatedAt,
-		arg.UpdatedAt,
-	)
+	row := q.db.QueryRow(ctx, createArtist, arg.Name, arg.Count)
 	var i Artist
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Count,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
+	err := row.Scan(&i.ID, &i.Name, &i.Count)
 	return i, err
 }
 
-const createArtistLink = `-- name: CreateArtistLink :exec
-insert into artist_links (link, artist_id)
+const createArtistUrl = `-- name: CreateArtistUrl :exec
+insert into artist_url (url, artist_id)
 values ($1, $2)
 `
 
-type CreateArtistLinkParams struct {
-	Link     string `json:"link"`
-	ArtistID int64  `json:"artist_id"`
+type CreateArtistUrlParams struct {
+	Url      string `json:"url"`
+	ArtistID int32  `json:"artist_id"`
 }
 
-func (q *Queries) CreateArtistLink(ctx context.Context, arg CreateArtistLinkParams) error {
-	_, err := q.db.Exec(ctx, createArtistLink, arg.Link, arg.ArtistID)
-	return err
-}
-
-const deleteArtist = `-- name: DeleteArtist :exec
-delete from artists
-where id = $1
-`
-
-func (q *Queries) DeleteArtist(ctx context.Context, id int64) error {
-	_, err := q.db.Exec(ctx, deleteArtist, id)
+func (q *Queries) CreateArtistUrl(ctx context.Context, arg CreateArtistUrlParams) error {
+	_, err := q.db.Exec(ctx, createArtistUrl, arg.Url, arg.ArtistID)
 	return err
 }
 
 const getAllArtists = `-- name: GetAllArtists :many
-select id, name, count, created_at, updated_at
-from artists
+select id, name, count
+from artist
 order by id
 `
 
@@ -158,13 +115,7 @@ func (q *Queries) GetAllArtists(ctx context.Context) ([]Artist, error) {
 	var items []Artist
 	for rows.Next() {
 		var i Artist
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Count,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
+		if err := rows.Scan(&i.ID, &i.Name, &i.Count); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -176,11 +127,11 @@ func (q *Queries) GetAllArtists(ctx context.Context) ([]Artist, error) {
 }
 
 const getArchiveArtists = `-- name: GetArchiveArtists :many
-select artists.id, artists.name, artists.count, artists.created_at, artists.updated_at
-from archives
-join archives_artists on archives.id = archives_artists.archive_id
-join artists on archives_artists.artist_id = artists.id
-where archives.id = $1
+select artist.id, artist.name, artist.count
+from archive
+join archive_artist on archive.id = archive_artist.archive_id
+join artist on archive_artist.artist_id = artist.id
+where archive.id = $1
 `
 
 func (q *Queries) GetArchiveArtists(ctx context.Context, id string) ([]Artist, error) {
@@ -192,12 +143,150 @@ func (q *Queries) GetArchiveArtists(ctx context.Context, id string) ([]Artist, e
 	var items []Artist
 	for rows.Next() {
 		var i Artist
+		if err := rows.Scan(&i.ID, &i.Name, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArchiveByArtist = `-- name: GetArchiveByArtist :many
+select
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date
+from archive
+join archive_artist on archive.id = archive_artist.archive_id
+join artist on archive_artist.artist_id = artist.id
+where artist.name = $1
+`
+
+type GetArchiveByArtistRow struct {
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int16      `json:"page_count"`
+	FilePath    string     `json:"file_path"`
+	FileHash    string     `json:"file_hash"`
+	ThumbPath   *string    `json:"thumb_path"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+}
+
+func (q *Queries) GetArchiveByArtist(ctx context.Context, name string) ([]GetArchiveByArtistRow, error) {
+	rows, err := q.db.Query(ctx, getArchiveByArtist, name)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchiveByArtistRow
+	for rows.Next() {
+		var i GetArchiveByArtistRow
 		if err := rows.Scan(
 			&i.ID,
-			&i.Name,
-			&i.Count,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.FileHash,
+			&i.ThumbPath,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ReleaseDate,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArchiveByArtistList = `-- name: GetArchiveByArtistList :many
+select
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date
+from archive
+join archive_artist on archive.id = archive_artist.archive_id
+join artist on archive_artist.artist_id = artist.id
+where artist.name = $1
+limit $2
+offset $3
+`
+
+type GetArchiveByArtistListParams struct {
+	Name   string `json:"name"`
+	Limit  int32  `json:"limit"`
+	Offset int32  `json:"offset"`
+}
+
+type GetArchiveByArtistListRow struct {
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int16      `json:"page_count"`
+	FilePath    string     `json:"file_path"`
+	FileHash    string     `json:"file_hash"`
+	ThumbPath   *string    `json:"thumb_path"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+}
+
+func (q *Queries) GetArchiveByArtistList(ctx context.Context, arg GetArchiveByArtistListParams) ([]GetArchiveByArtistListRow, error) {
+	rows, err := q.db.Query(ctx, getArchiveByArtistList, arg.Name, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchiveByArtistListRow
+	for rows.Next() {
+		var i GetArchiveByArtistListRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.FileHash,
+			&i.ThumbPath,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
 		); err != nil {
 			return nil, err
 		}
@@ -210,11 +299,11 @@ func (q *Queries) GetArchiveArtists(ctx context.Context, id string) ([]Artist, e
 }
 
 const getArchiveIDsByArtist = `-- name: GetArchiveIDsByArtist :many
-select archives.id
-from archives
-join archives_artists on archives.id = archives_artists.archive_id
-join artists on archives_artists.artist_id = artists.id
-where artists.name = $1
+select archive.id
+from archive
+join archive_artist on archive.id = archive_artist.archive_id
+join artist on archive_artist.artist_id = artist.id
+where artist.name = $1
 `
 
 func (q *Queries) GetArchiveIDsByArtist(ctx context.Context, name string) ([]string, error) {
@@ -237,183 +326,15 @@ func (q *Queries) GetArchiveIDsByArtist(ctx context.Context, name string) ([]str
 	return items, nil
 }
 
-const getArchivesByArtist = `-- name: GetArchivesByArtist :many
-select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date
-from archives
-join archives_artists on archives.id = archives_artists.archive_id
-join artists on archives_artists.artist_id = artists.id
-where artists.name = $1
-`
-
-type GetArchivesByArtistRow struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	Summary     *string    `json:"summary"`
-	Language    *string    `json:"language"`
-	Category    *string    `json:"category"`
-	PageCount   int16      `json:"page_count"`
-	FilePath    string     `json:"file_path"`
-	FileName    string     `json:"file_name"`
-	Hash        string     `json:"hash"`
-	ThumbsPath  *string    `json:"thumbs_path"`
-	CoverPath   *string    `json:"cover_path"`
-	CoverImg    *string    `json:"cover_img"`
-	Type        string     `json:"type"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ReleaseDate *time.Time `json:"release_date"`
-}
-
-func (q *Queries) GetArchivesByArtist(ctx context.Context, name string) ([]GetArchivesByArtistRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByArtist, name)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetArchivesByArtistRow
-	for rows.Next() {
-		var i GetArchivesByArtistRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Summary,
-			&i.Language,
-			&i.Category,
-			&i.PageCount,
-			&i.FilePath,
-			&i.FileName,
-			&i.Hash,
-			&i.ThumbsPath,
-			&i.CoverPath,
-			&i.CoverImg,
-			&i.Type,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ReleaseDate,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getArchivesByArtistList = `-- name: GetArchivesByArtistList :many
-select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date
-from archives
-join archives_artists on archives.id = archives_artists.archive_id
-join artists on archives_artists.artist_id = artists.id
-where artists.name = $1
-limit $2
-offset $3
-`
-
-type GetArchivesByArtistListParams struct {
-	Name   string `json:"name"`
-	Limit  int32  `json:"limit"`
-	Offset int32  `json:"offset"`
-}
-
-type GetArchivesByArtistListRow struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	Summary     *string    `json:"summary"`
-	Language    *string    `json:"language"`
-	Category    *string    `json:"category"`
-	PageCount   int16      `json:"page_count"`
-	FilePath    string     `json:"file_path"`
-	FileName    string     `json:"file_name"`
-	Hash        string     `json:"hash"`
-	ThumbsPath  *string    `json:"thumbs_path"`
-	CoverPath   *string    `json:"cover_path"`
-	CoverImg    *string    `json:"cover_img"`
-	Type        string     `json:"type"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ReleaseDate *time.Time `json:"release_date"`
-}
-
-func (q *Queries) GetArchivesByArtistList(ctx context.Context, arg GetArchivesByArtistListParams) ([]GetArchivesByArtistListRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByArtistList, arg.Name, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetArchivesByArtistListRow
-	for rows.Next() {
-		var i GetArchivesByArtistListRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Summary,
-			&i.Language,
-			&i.Category,
-			&i.PageCount,
-			&i.FilePath,
-			&i.FileName,
-			&i.Hash,
-			&i.ThumbsPath,
-			&i.CoverPath,
-			&i.CoverImg,
-			&i.Type,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ReleaseDate,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getArtistAliases = `-- name: GetArtistAliases :many
-select artist_aliases.id, artist_aliases.alias
-from artists
-join artist_aliases on artists.id = artist_aliases.artist_id
+select artist_alias.id, artist_alias.alias
+from artist
+join artist_alias on artist.id = artist_alias.artist_id
 where name = $1
 `
 
 type GetArtistAliasesRow struct {
-	ID    int64  `json:"id"`
+	ID    int32  `json:"id"`
 	Alias string `json:"alias"`
 }
 
@@ -438,82 +359,45 @@ func (q *Queries) GetArtistAliases(ctx context.Context, name string) ([]GetArtis
 }
 
 const getArtistByName = `-- name: GetArtistByName :one
-select id, name, count, created_at, updated_at
-from artists
+select id, name, count
+from artist
 where name = $1
 `
 
 func (q *Queries) GetArtistByName(ctx context.Context, name string) (Artist, error) {
 	row := q.db.QueryRow(ctx, getArtistByName, name)
 	var i Artist
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Count,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
+	err := row.Scan(&i.ID, &i.Name, &i.Count)
 	return i, err
 }
 
 const getArtistGroups = `-- name: GetArtistGroups :many
+/* 
 select groups.id, groups.name
-from artists
-join artists_groups on artists.id = artists_groups.artist_id
-join groups on artists_groups.group_id = groups.id
-where artists.name = $1
+from artist
+join artist_groups on artist.id = artist_groups.artist_id
+join groups on artist_groups.group_id = groups.id
+where artist.name = $1
+;
+*/
+select name
+from artist
+where name = $1
 `
 
-type GetArtistGroupsRow struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
-}
-
-func (q *Queries) GetArtistGroups(ctx context.Context, name string) ([]GetArtistGroupsRow, error) {
+func (q *Queries) GetArtistGroups(ctx context.Context, name string) ([]string, error) {
 	rows, err := q.db.Query(ctx, getArtistGroups, name)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetArtistGroupsRow
+	var items []string
 	for rows.Next() {
-		var i GetArtistGroupsRow
-		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+		var name string
+		if err := rows.Scan(&name); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getArtistLinks = `-- name: GetArtistLinks :many
-select artist_links.id, artist_links.link
-from artists
-join artist_links on artists.id = artist_links.artist_id
-where name = $1
-`
-
-type GetArtistLinksRow struct {
-	ID   int64  `json:"id"`
-	Link string `json:"link"`
-}
-
-func (q *Queries) GetArtistLinks(ctx context.Context, name string) ([]GetArtistLinksRow, error) {
-	rows, err := q.db.Query(ctx, getArtistLinks, name)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetArtistLinksRow
-	for rows.Next() {
-		var i GetArtistLinksRow
-		if err := rows.Scan(&i.ID, &i.Link); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
+		items = append(items, name)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -522,8 +406,8 @@ func (q *Queries) GetArtistLinks(ctx context.Context, name string) ([]GetArtistL
 }
 
 const getArtistList = `-- name: GetArtistList :many
-select id, name, count, created_at, updated_at
-from artists
+select id, name, count
+from artist
 order by $1
 limit $2
 offset $3
@@ -544,13 +428,39 @@ func (q *Queries) GetArtistList(ctx context.Context, arg GetArtistListParams) ([
 	var items []Artist
 	for rows.Next() {
 		var i Artist
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Count,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
+		if err := rows.Scan(&i.ID, &i.Name, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArtistUrls = `-- name: GetArtistUrls :many
+select artist_url.id, artist_url.url
+from artist
+join artist_url on artist.id = artist_url.artist_id
+where name = $1
+`
+
+type GetArtistUrlsRow struct {
+	ID  int32  `json:"id"`
+	Url string `json:"url"`
+}
+
+func (q *Queries) GetArtistUrls(ctx context.Context, name string) ([]GetArtistUrlsRow, error) {
+	rows, err := q.db.Query(ctx, getArtistUrls, name)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArtistUrlsRow
+	for rows.Next() {
+		var i GetArtistUrlsRow
+		if err := rows.Scan(&i.ID, &i.Url); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -562,25 +472,25 @@ func (q *Queries) GetArtistList(ctx context.Context, arg GetArtistListParams) ([
 }
 
 const removeArtistAliases = `-- name: RemoveArtistAliases :exec
-delete from artist_aliases
+delete from artist_alias
 where artist_id = $1
 `
 
-func (q *Queries) RemoveArtistAliases(ctx context.Context, artistID int64) error {
+func (q *Queries) RemoveArtistAliases(ctx context.Context, artistID int32) error {
 	_, err := q.db.Exec(ctx, removeArtistAliases, artistID)
 	return err
 }
 
 const removeArtistFromArchive = `-- name: RemoveArtistFromArchive :many
-delete from archives_artists
+delete from archive_artist
 where archive_id = $1
 returning
     artist_id,
-    (select artists.count from artists where artists.id = archives_artists.artist_id)
+    (select artist.count from artist where artist.id = archive_artist.artist_id)
 `
 
 type RemoveArtistFromArchiveRow struct {
-	ArtistID int64 `json:"artist_id"`
+	ArtistID int32 `json:"artist_id"`
 	Count    int32 `json:"count"`
 }
 
@@ -605,28 +515,33 @@ func (q *Queries) RemoveArtistFromArchive(ctx context.Context, archiveID string)
 }
 
 const removeArtistFromGroup = `-- name: RemoveArtistFromGroup :exec
-delete from artists_groups
+/*
+delete from artist_groups
 where artist_id = $1
+;
+*/
+delete from artist
+where id = $1
 `
 
-func (q *Queries) RemoveArtistFromGroup(ctx context.Context, artistID int64) error {
-	_, err := q.db.Exec(ctx, removeArtistFromGroup, artistID)
+func (q *Queries) RemoveArtistFromGroup(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, removeArtistFromGroup, id)
 	return err
 }
 
-const removeArtistLinks = `-- name: RemoveArtistLinks :exec
-delete from artist_links
+const removeArtistUrls = `-- name: RemoveArtistUrls :exec
+delete from artist_url
 where artist_id = $1
 `
 
-func (q *Queries) RemoveArtistLinks(ctx context.Context, artistID int64) error {
-	_, err := q.db.Exec(ctx, removeArtistLinks, artistID)
+func (q *Queries) RemoveArtistUrls(ctx context.Context, artistID int32) error {
+	_, err := q.db.Exec(ctx, removeArtistUrls, artistID)
 	return err
 }
 
 const totalArtists = `-- name: TotalArtists :one
 select count(id)
-from artists
+from artist
 `
 
 func (q *Queries) TotalArtists(ctx context.Context) (int64, error) {
@@ -637,41 +552,33 @@ func (q *Queries) TotalArtists(ctx context.Context) (int64, error) {
 }
 
 const updateArtist = `-- name: UpdateArtist :one
-update artists
-set name = $1,
-    updated_at = $2
-where name = $3::text
-returning id, name, count, created_at, updated_at
+update artist
+set name = $1
+where name = $2::text
+returning id, name, count
 `
 
 type UpdateArtistParams struct {
-	Name      string    `json:"name"`
-	UpdatedAt time.Time `json:"updated_at"`
-	OldName   string    `json:"old_name"`
+	Name    string `json:"name"`
+	OldName string `json:"old_name"`
 }
 
 func (q *Queries) UpdateArtist(ctx context.Context, arg UpdateArtistParams) (Artist, error) {
-	row := q.db.QueryRow(ctx, updateArtist, arg.Name, arg.UpdatedAt, arg.OldName)
+	row := q.db.QueryRow(ctx, updateArtist, arg.Name, arg.OldName)
 	var i Artist
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Count,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
+	err := row.Scan(&i.ID, &i.Name, &i.Count)
 	return i, err
 }
 
 const updateArtistCount = `-- name: UpdateArtistCount :exec
-update artists
+update artist
 set count = $1
 where id = $2
 `
 
 type UpdateArtistCountParams struct {
 	Count int32 `json:"count"`
-	ID    int64 `json:"id"`
+	ID    int32 `json:"id"`
 }
 
 func (q *Queries) UpdateArtistCount(ctx context.Context, arg UpdateArtistCountParams) error {

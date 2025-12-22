@@ -14,13 +14,13 @@ import (
 )
 
 const addCharacterToArchive = `-- name: AddCharacterToArchive :exec
-insert into archives_characters (archive_id, character_id)
+insert into archive_character (archive_id, character_id)
 values ($1, $2)
 `
 
 type AddCharacterToArchiveParams struct {
 	ArchiveID   string `json:"archive_id"`
-	CharacterID int64  `json:"character_id"`
+	CharacterID int32  `json:"character_id"`
 }
 
 func (q *Queries) AddCharacterToArchive(ctx context.Context, arg AddCharacterToArchiveParams) error {
@@ -30,7 +30,7 @@ func (q *Queries) AddCharacterToArchive(ctx context.Context, arg AddCharacterToA
 
 const characterExists = `-- name: CharacterExists :execresult
 select id, name
-from characters
+from character
 where name = $1
 `
 
@@ -39,14 +39,14 @@ func (q *Queries) CharacterExists(ctx context.Context, name string) (pgconn.Comm
 }
 
 const createCharacter = `-- name: CreateCharacter :one
-insert into characters (name, count)
+insert into character (name, count)
 values ($1, $2)
 returning id, name, count
 `
 
 type CreateCharacterParams struct {
 	Name  string `json:"name"`
-	Count int64  `json:"count"`
+	Count int32  `json:"count"`
 }
 
 func (q *Queries) CreateCharacter(ctx context.Context, arg CreateCharacterParams) (Character, error) {
@@ -58,7 +58,7 @@ func (q *Queries) CreateCharacter(ctx context.Context, arg CreateCharacterParams
 
 const getAllCharacter = `-- name: GetAllCharacter :many
 select id, name, count
-from characters
+from character
 order by id
 `
 
@@ -82,12 +82,181 @@ func (q *Queries) GetAllCharacter(ctx context.Context) ([]Character, error) {
 	return items, nil
 }
 
+const getArchiveByCharacter = `-- name: GetArchiveByCharacter :many
+select
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
+    reading_progress.page
+from archive
+join archive_character on archive.id = archive_character.archive_id
+join character on archive_character.character_id = character.id
+left join
+    reading_progress
+    on archive.id = reading_progress.archive_id
+    and reading_progress.user_id = $2
+where character.name = $1
+`
+
+type GetArchiveByCharacterParams struct {
+	Name string    `json:"name"`
+	Uid  uuid.UUID `json:"uid"`
+}
+
+type GetArchiveByCharacterRow struct {
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int16      `json:"page_count"`
+	FilePath    string     `json:"file_path"`
+	FileHash    string     `json:"file_hash"`
+	ThumbPath   *string    `json:"thumb_path"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int16     `json:"page"`
+}
+
+func (q *Queries) GetArchiveByCharacter(ctx context.Context, arg GetArchiveByCharacterParams) ([]GetArchiveByCharacterRow, error) {
+	rows, err := q.db.Query(ctx, getArchiveByCharacter, arg.Name, arg.Uid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchiveByCharacterRow
+	for rows.Next() {
+		var i GetArchiveByCharacterRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.FileHash,
+			&i.ThumbPath,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+			&i.Page,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArchiveByCharacterList = `-- name: GetArchiveByCharacterList :many
+select
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
+    reading_progress.page
+from archive
+join archive_character on archive.id = archive_character.archive_id
+join character on archive_character.character_id = character.id
+left join
+    reading_progress
+    on archive.id = reading_progress.archive_id
+    and reading_progress.user_id = $4
+where character.name = $1
+limit $2
+offset $3
+`
+
+type GetArchiveByCharacterListParams struct {
+	Name   string    `json:"name"`
+	Limit  int32     `json:"limit"`
+	Offset int32     `json:"offset"`
+	Uid    uuid.UUID `json:"uid"`
+}
+
+type GetArchiveByCharacterListRow struct {
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int16      `json:"page_count"`
+	FilePath    string     `json:"file_path"`
+	FileHash    string     `json:"file_hash"`
+	ThumbPath   *string    `json:"thumb_path"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int16     `json:"page"`
+}
+
+func (q *Queries) GetArchiveByCharacterList(ctx context.Context, arg GetArchiveByCharacterListParams) ([]GetArchiveByCharacterListRow, error) {
+	rows, err := q.db.Query(ctx, getArchiveByCharacterList,
+		arg.Name,
+		arg.Limit,
+		arg.Offset,
+		arg.Uid,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchiveByCharacterListRow
+	for rows.Next() {
+		var i GetArchiveByCharacterListRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.FileHash,
+			&i.ThumbPath,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+			&i.Page,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArchiveCharacters = `-- name: GetArchiveCharacters :many
-select characters.id, characters.name, characters.count
-from archives
-join archives_characters on archives.id = archives_characters.archive_id
-join characters on archives_characters.character_id = characters.id
-where archives.id = $1
+select character.id, character.name, character.count
+from archive
+join archive_character on archive.id = archive_character.archive_id
+join character on archive_character.character_id = character.id
+where archive.id = $1
 `
 
 func (q *Queries) GetArchiveCharacters(ctx context.Context, id string) ([]Character, error) {
@@ -111,11 +280,11 @@ func (q *Queries) GetArchiveCharacters(ctx context.Context, id string) ([]Charac
 }
 
 const getArchiveIDsByCharacter = `-- name: GetArchiveIDsByCharacter :many
-select archives.id
-from archives
-join archives_characters on archives.id = archives_characters.archive_id
-join characters on archives_characters.character_id = characters.id
-where characters.name = $1
+select archive.id
+from archive
+join archive_character on archive.id = archive_character.archive_id
+join character on archive_character.character_id = character.id
+where character.name = $1
 `
 
 func (q *Queries) GetArchiveIDsByCharacter(ctx context.Context, name string) ([]string, error) {
@@ -138,202 +307,9 @@ func (q *Queries) GetArchiveIDsByCharacter(ctx context.Context, name string) ([]
 	return items, nil
 }
 
-const getArchivesByCharacter = `-- name: GetArchivesByCharacter :many
-select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
-    reading_progress.page
-from archives
-join archives_characters on archives.id = archives_characters.archive_id
-join characters on archives_characters.character_id = characters.id
-left join
-    reading_progress
-    on archives.id = reading_progress.archive_id
-    and reading_progress.user_id = $2
-where characters.name = $1
-`
-
-type GetArchivesByCharacterParams struct {
-	Name string    `json:"name"`
-	Uid  uuid.UUID `json:"uid"`
-}
-
-type GetArchivesByCharacterRow struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	Summary     *string    `json:"summary"`
-	Language    *string    `json:"language"`
-	Category    *string    `json:"category"`
-	PageCount   int16      `json:"page_count"`
-	FilePath    string     `json:"file_path"`
-	FileName    string     `json:"file_name"`
-	Hash        string     `json:"hash"`
-	ThumbsPath  *string    `json:"thumbs_path"`
-	CoverPath   *string    `json:"cover_path"`
-	CoverImg    *string    `json:"cover_img"`
-	Type        string     `json:"type"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ReleaseDate *time.Time `json:"release_date"`
-	Page        *int16     `json:"page"`
-}
-
-func (q *Queries) GetArchivesByCharacter(ctx context.Context, arg GetArchivesByCharacterParams) ([]GetArchivesByCharacterRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByCharacter, arg.Name, arg.Uid)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetArchivesByCharacterRow
-	for rows.Next() {
-		var i GetArchivesByCharacterRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Summary,
-			&i.Language,
-			&i.Category,
-			&i.PageCount,
-			&i.FilePath,
-			&i.FileName,
-			&i.Hash,
-			&i.ThumbsPath,
-			&i.CoverPath,
-			&i.CoverImg,
-			&i.Type,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ReleaseDate,
-			&i.Page,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getArchivesByCharacterList = `-- name: GetArchivesByCharacterList :many
-select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
-    reading_progress.page
-from archives
-join archives_characters on archives.id = archives_characters.archive_id
-join characters on archives_characters.character_id = characters.id
-left join
-    reading_progress
-    on archives.id = reading_progress.archive_id
-    and reading_progress.user_id = $4
-where characters.name = $1
-limit $2
-offset $3
-`
-
-type GetArchivesByCharacterListParams struct {
-	Name   string    `json:"name"`
-	Limit  int32     `json:"limit"`
-	Offset int32     `json:"offset"`
-	Uid    uuid.UUID `json:"uid"`
-}
-
-type GetArchivesByCharacterListRow struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	Summary     *string    `json:"summary"`
-	Language    *string    `json:"language"`
-	Category    *string    `json:"category"`
-	PageCount   int16      `json:"page_count"`
-	FilePath    string     `json:"file_path"`
-	FileName    string     `json:"file_name"`
-	Hash        string     `json:"hash"`
-	ThumbsPath  *string    `json:"thumbs_path"`
-	CoverPath   *string    `json:"cover_path"`
-	CoverImg    *string    `json:"cover_img"`
-	Type        string     `json:"type"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ReleaseDate *time.Time `json:"release_date"`
-	Page        *int16     `json:"page"`
-}
-
-func (q *Queries) GetArchivesByCharacterList(ctx context.Context, arg GetArchivesByCharacterListParams) ([]GetArchivesByCharacterListRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByCharacterList,
-		arg.Name,
-		arg.Limit,
-		arg.Offset,
-		arg.Uid,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetArchivesByCharacterListRow
-	for rows.Next() {
-		var i GetArchivesByCharacterListRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Summary,
-			&i.Language,
-			&i.Category,
-			&i.PageCount,
-			&i.FilePath,
-			&i.FileName,
-			&i.Hash,
-			&i.ThumbsPath,
-			&i.CoverPath,
-			&i.CoverImg,
-			&i.Type,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ReleaseDate,
-			&i.Page,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getCharacter = `-- name: GetCharacter :one
 select id, name, count
-from characters
+from character
 where name = $1
 `
 
@@ -345,20 +321,20 @@ func (q *Queries) GetCharacter(ctx context.Context, name string) (Character, err
 }
 
 const removeCharacterFromArchive = `-- name: RemoveCharacterFromArchive :many
-delete from archives_characters
+delete from archive_character
 where archive_id = $1
 returning
     character_id,
     (
-        select characters.count
-        from characters
-        where characters.id = archives_characters.character_id
+        select character.count
+        from character
+        where character.id = archive_character.character_id
     )
 `
 
 type RemoveCharacterFromArchiveRow struct {
-	CharacterID int64 `json:"character_id"`
-	Count       int64 `json:"count"`
+	CharacterID int32 `json:"character_id"`
+	Count       int32 `json:"count"`
 }
 
 func (q *Queries) RemoveCharacterFromArchive(ctx context.Context, archiveID string) ([]RemoveCharacterFromArchiveRow, error) {
@@ -381,30 +357,30 @@ func (q *Queries) RemoveCharacterFromArchive(ctx context.Context, archiveID stri
 	return items, nil
 }
 
-const totalArchivesWithCharacter = `-- name: TotalArchivesWithCharacter :one
-select count(archives.id)
-from archives
-join archives_characters on archives.id = archives_characters.archive_id
-join characters on archives_characters.character_id = characters.id
-where characters.name = $1
+const totalArchiveWithCharacter = `-- name: TotalArchiveWithCharacter :one
+select count(archive.id)
+from archive
+join archive_character on archive.id = archive_character.archive_id
+join character on archive_character.character_id = character.id
+where character.name = $1
 `
 
-func (q *Queries) TotalArchivesWithCharacter(ctx context.Context, name string) (int64, error) {
-	row := q.db.QueryRow(ctx, totalArchivesWithCharacter, name)
+func (q *Queries) TotalArchiveWithCharacter(ctx context.Context, name string) (int64, error) {
+	row := q.db.QueryRow(ctx, totalArchiveWithCharacter, name)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
 const updateCharacterCount = `-- name: UpdateCharacterCount :exec
-update characters
+update character
 set count = $1
 where id = $2
 `
 
 type UpdateCharacterCountParams struct {
-	Count int64 `json:"count"`
-	ID    int64 `json:"id"`
+	Count int32 `json:"count"`
+	ID    int32 `json:"id"`
 }
 
 func (q *Queries) UpdateCharacterCount(ctx context.Context, arg UpdateCharacterCountParams) error {

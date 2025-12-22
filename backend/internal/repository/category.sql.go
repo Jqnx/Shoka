@@ -15,7 +15,7 @@ import (
 
 const categoryExists = `-- name: CategoryExists :execresult
 select category
-from archives
+from archive
 where category = $1
 `
 
@@ -25,7 +25,7 @@ func (q *Queries) CategoryExists(ctx context.Context, category *string) (pgconn.
 
 const getAllCategory = `-- name: GetAllCategory :many
 select category
-from archives
+from archive
 where category is not null
 `
 
@@ -49,9 +49,174 @@ func (q *Queries) GetAllCategory(ctx context.Context) ([]*string, error) {
 	return items, nil
 }
 
+const getArchiveByCategory = `-- name: GetArchiveByCategory :many
+select
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
+    reading_progress.page
+from archive
+left join
+    reading_progress
+    on archive.id = reading_progress.archive_id
+    and reading_progress.user_id = $2
+where category = $1
+`
+
+type GetArchiveByCategoryParams struct {
+	Category *string   `json:"category"`
+	Uid      uuid.UUID `json:"uid"`
+}
+
+type GetArchiveByCategoryRow struct {
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int16      `json:"page_count"`
+	FilePath    string     `json:"file_path"`
+	FileHash    string     `json:"file_hash"`
+	ThumbPath   *string    `json:"thumb_path"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int16     `json:"page"`
+}
+
+func (q *Queries) GetArchiveByCategory(ctx context.Context, arg GetArchiveByCategoryParams) ([]GetArchiveByCategoryRow, error) {
+	rows, err := q.db.Query(ctx, getArchiveByCategory, arg.Category, arg.Uid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchiveByCategoryRow
+	for rows.Next() {
+		var i GetArchiveByCategoryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.FileHash,
+			&i.ThumbPath,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+			&i.Page,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArchiveByCategoryList = `-- name: GetArchiveByCategoryList :many
+select
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
+    reading_progress.page
+from archive
+left join
+    reading_progress
+    on archive.id = reading_progress.archive_id
+    and reading_progress.user_id = $4
+where category = $1
+limit $2
+offset $3
+`
+
+type GetArchiveByCategoryListParams struct {
+	Category *string   `json:"category"`
+	Limit    int32     `json:"limit"`
+	Offset   int32     `json:"offset"`
+	Uid      uuid.UUID `json:"uid"`
+}
+
+type GetArchiveByCategoryListRow struct {
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int16      `json:"page_count"`
+	FilePath    string     `json:"file_path"`
+	FileHash    string     `json:"file_hash"`
+	ThumbPath   *string    `json:"thumb_path"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int16     `json:"page"`
+}
+
+func (q *Queries) GetArchiveByCategoryList(ctx context.Context, arg GetArchiveByCategoryListParams) ([]GetArchiveByCategoryListRow, error) {
+	rows, err := q.db.Query(ctx, getArchiveByCategoryList,
+		arg.Category,
+		arg.Limit,
+		arg.Offset,
+		arg.Uid,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchiveByCategoryListRow
+	for rows.Next() {
+		var i GetArchiveByCategoryListRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.FileHash,
+			&i.ThumbPath,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+			&i.Page,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArchiveIDsByCategory = `-- name: GetArchiveIDsByCategory :many
-select archives.id
-from archives
+select archive.id
+from archive
 where category = $1
 `
 
@@ -75,203 +240,14 @@ func (q *Queries) GetArchiveIDsByCategory(ctx context.Context, category *string)
 	return items, nil
 }
 
-const getArchivesByCategory = `-- name: GetArchivesByCategory :many
-select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
-    reading_progress.page
-from archives
-left join
-    reading_progress
-    on archives.id = reading_progress.archive_id
-    and reading_progress.user_id = $2
-where category = $1
-`
-
-type GetArchivesByCategoryParams struct {
-	Category *string   `json:"category"`
-	Uid      uuid.UUID `json:"uid"`
-}
-
-type GetArchivesByCategoryRow struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	Summary     *string    `json:"summary"`
-	Language    *string    `json:"language"`
-	Category    *string    `json:"category"`
-	PageCount   int16      `json:"page_count"`
-	FilePath    string     `json:"file_path"`
-	FileName    string     `json:"file_name"`
-	Hash        string     `json:"hash"`
-	ThumbsPath  *string    `json:"thumbs_path"`
-	CoverPath   *string    `json:"cover_path"`
-	CoverImg    *string    `json:"cover_img"`
-	Type        string     `json:"type"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ReleaseDate *time.Time `json:"release_date"`
-	Page        *int16     `json:"page"`
-}
-
-func (q *Queries) GetArchivesByCategory(ctx context.Context, arg GetArchivesByCategoryParams) ([]GetArchivesByCategoryRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByCategory, arg.Category, arg.Uid)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetArchivesByCategoryRow
-	for rows.Next() {
-		var i GetArchivesByCategoryRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Summary,
-			&i.Language,
-			&i.Category,
-			&i.PageCount,
-			&i.FilePath,
-			&i.FileName,
-			&i.Hash,
-			&i.ThumbsPath,
-			&i.CoverPath,
-			&i.CoverImg,
-			&i.Type,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ReleaseDate,
-			&i.Page,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getArchivesByCategoryList = `-- name: GetArchivesByCategoryList :many
-select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
-    reading_progress.page
-from archives
-left join
-    reading_progress
-    on archives.id = reading_progress.archive_id
-    and reading_progress.user_id = $4
-where category = $1
-limit $2
-offset $3
-`
-
-type GetArchivesByCategoryListParams struct {
-	Category *string   `json:"category"`
-	Limit    int32     `json:"limit"`
-	Offset   int32     `json:"offset"`
-	Uid      uuid.UUID `json:"uid"`
-}
-
-type GetArchivesByCategoryListRow struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	Summary     *string    `json:"summary"`
-	Language    *string    `json:"language"`
-	Category    *string    `json:"category"`
-	PageCount   int16      `json:"page_count"`
-	FilePath    string     `json:"file_path"`
-	FileName    string     `json:"file_name"`
-	Hash        string     `json:"hash"`
-	ThumbsPath  *string    `json:"thumbs_path"`
-	CoverPath   *string    `json:"cover_path"`
-	CoverImg    *string    `json:"cover_img"`
-	Type        string     `json:"type"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ReleaseDate *time.Time `json:"release_date"`
-	Page        *int16     `json:"page"`
-}
-
-func (q *Queries) GetArchivesByCategoryList(ctx context.Context, arg GetArchivesByCategoryListParams) ([]GetArchivesByCategoryListRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByCategoryList,
-		arg.Category,
-		arg.Limit,
-		arg.Offset,
-		arg.Uid,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetArchivesByCategoryListRow
-	for rows.Next() {
-		var i GetArchivesByCategoryListRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Summary,
-			&i.Language,
-			&i.Category,
-			&i.PageCount,
-			&i.FilePath,
-			&i.FileName,
-			&i.Hash,
-			&i.ThumbsPath,
-			&i.CoverPath,
-			&i.CoverImg,
-			&i.Type,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ReleaseDate,
-			&i.Page,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const totalArchivesWithCategory = `-- name: TotalArchivesWithCategory :one
+const totalArchiveWithCategory = `-- name: TotalArchiveWithCategory :one
 select count(id)
-from archives
+from archive
 where category = $1
 `
 
-func (q *Queries) TotalArchivesWithCategory(ctx context.Context, category *string) (int64, error) {
-	row := q.db.QueryRow(ctx, totalArchivesWithCategory, category)
+func (q *Queries) TotalArchiveWithCategory(ctx context.Context, category *string) (int64, error) {
+	row := q.db.QueryRow(ctx, totalArchiveWithCategory, category)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

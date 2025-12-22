@@ -29,7 +29,7 @@ func (q *Queries) DeleteReadingProgress(ctx context.Context, arg DeleteReadingPr
 }
 
 const getUserReadingProgress = `-- name: GetUserReadingProgress :one
-select archive_id, user_id, page, state, last_read
+select archive_id, user_id, page, status, last_read
 from reading_progress
 where archive_id = $1 and user_id = $2
 `
@@ -46,7 +46,7 @@ func (q *Queries) GetUserReadingProgress(ctx context.Context, arg GetUserReading
 		&i.ArchiveID,
 		&i.UserID,
 		&i.Page,
-		&i.State,
+		&i.Status,
 		&i.LastRead,
 	)
 	return i, err
@@ -57,7 +57,7 @@ insert into reading_progress (
   archive_id,
   user_id,
   page,
-  state,
+  status,
   last_read
 ) values ( $1, $2, $3, $4, $5 )
 `
@@ -66,7 +66,7 @@ type InsertReadingProgressParams struct {
 	ArchiveID string    `json:"archive_id"`
 	UserID    uuid.UUID `json:"user_id"`
 	Page      int16     `json:"page"`
-	State     string    `json:"state"`
+	Status    string    `json:"status"`
 	LastRead  time.Time `json:"last_read"`
 }
 
@@ -75,7 +75,7 @@ func (q *Queries) InsertReadingProgress(ctx context.Context, arg InsertReadingPr
 		arg.ArchiveID,
 		arg.UserID,
 		arg.Page,
-		arg.State,
+		arg.Status,
 		arg.LastRead,
 	)
 	return err
@@ -84,14 +84,14 @@ func (q *Queries) InsertReadingProgress(ctx context.Context, arg InsertReadingPr
 const updateReadingProgress = `-- name: UpdateReadingProgress :one
 update reading_progress
 set page = coalesce($4, page),
-    state = coalesce($5, state),
+    status = coalesce($5, status),
     last_read = coalesce($1, last_read)
 where archive_id = $2 AND user_id = $3
 returning
   archive_id,
   user_id,
   page,
-  state,
+  status,
   last_read
 `
 
@@ -100,7 +100,7 @@ type UpdateReadingProgressParams struct {
 	ArchiveID string    `json:"archive_id"`
 	UserID    uuid.UUID `json:"user_id"`
 	Page      *int16    `json:"page"`
-	State     *string   `json:"state"`
+	Status    *string   `json:"status"`
 }
 
 func (q *Queries) UpdateReadingProgress(ctx context.Context, arg UpdateReadingProgressParams) (ReadingProgress, error) {
@@ -109,21 +109,21 @@ func (q *Queries) UpdateReadingProgress(ctx context.Context, arg UpdateReadingPr
 		arg.ArchiveID,
 		arg.UserID,
 		arg.Page,
-		arg.State,
+		arg.Status,
 	)
 	var i ReadingProgress
 	err := row.Scan(
 		&i.ArchiveID,
 		&i.UserID,
 		&i.Page,
-		&i.State,
+		&i.Status,
 		&i.LastRead,
 	)
 	return i, err
 }
 
 const userReadingProgressExists = `-- name: UserReadingProgressExists :execresult
-select archive_id, user_id, page, state, last_read
+select archive_id, user_id, page, status, last_read
 from reading_progress
 where archive_id = $1 and user_id = $2
 `

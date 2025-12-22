@@ -14,13 +14,13 @@ import (
 )
 
 const addTagToArchive = `-- name: AddTagToArchive :exec
-insert into archives_tags (archive_id, tag_id)
+insert into archive_tag (archive_id, tag_id)
 values ($1, $2)
 `
 
 type AddTagToArchiveParams struct {
 	ArchiveID string `json:"archive_id"`
-	TagID     int64  `json:"tag_id"`
+	TagID     int32  `json:"tag_id"`
 }
 
 func (q *Queries) AddTagToArchive(ctx context.Context, arg AddTagToArchiveParams) error {
@@ -29,14 +29,14 @@ func (q *Queries) AddTagToArchive(ctx context.Context, arg AddTagToArchiveParams
 }
 
 const createTag = `-- name: CreateTag :one
-insert into tags (name, count)
+insert into tag (name, count)
 values ($1, $2)
 returning id, name, count
 `
 
 type CreateTagParams struct {
 	Name  string `json:"name"`
-	Count int64  `json:"count"`
+	Count int32  `json:"count"`
 }
 
 func (q *Queries) CreateTag(ctx context.Context, arg CreateTagParams) (Tag, error) {
@@ -48,7 +48,7 @@ func (q *Queries) CreateTag(ctx context.Context, arg CreateTagParams) (Tag, erro
 
 const getAllTags = `-- name: GetAllTags :many
 select id, name, count
-from tags
+from tag
 order by name
 `
 
@@ -72,12 +72,181 @@ func (q *Queries) GetAllTags(ctx context.Context) ([]Tag, error) {
 	return items, nil
 }
 
+const getArchiveByTag = `-- name: GetArchiveByTag :many
+select
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
+    reading_progress.page
+from archive
+join archive_tag on archive.id = archive_tag.archive_id
+join tag on archive_tag.tag_id = tag.id
+left join
+    reading_progress
+    on archive.id = reading_progress.archive_id
+    and reading_progress.user_id = $2
+where tag.name = $1
+`
+
+type GetArchiveByTagParams struct {
+	Name string    `json:"name"`
+	Uid  uuid.UUID `json:"uid"`
+}
+
+type GetArchiveByTagRow struct {
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int16      `json:"page_count"`
+	FilePath    string     `json:"file_path"`
+	FileHash    string     `json:"file_hash"`
+	ThumbPath   *string    `json:"thumb_path"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int16     `json:"page"`
+}
+
+func (q *Queries) GetArchiveByTag(ctx context.Context, arg GetArchiveByTagParams) ([]GetArchiveByTagRow, error) {
+	rows, err := q.db.Query(ctx, getArchiveByTag, arg.Name, arg.Uid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchiveByTagRow
+	for rows.Next() {
+		var i GetArchiveByTagRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.FileHash,
+			&i.ThumbPath,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+			&i.Page,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArchiveByTagList = `-- name: GetArchiveByTagList :many
+select
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
+    reading_progress.page
+from archive
+join archive_tag on archive.id = archive_tag.archive_id
+join tag on archive_tag.tag_id = tag.id
+left join
+    reading_progress
+    on archive.id = reading_progress.archive_id
+    and reading_progress.user_id = $4
+where tag.name = $1
+limit $2
+offset $3
+`
+
+type GetArchiveByTagListParams struct {
+	Name   string    `json:"name"`
+	Limit  int32     `json:"limit"`
+	Offset int32     `json:"offset"`
+	Uid    uuid.UUID `json:"uid"`
+}
+
+type GetArchiveByTagListRow struct {
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int16      `json:"page_count"`
+	FilePath    string     `json:"file_path"`
+	FileHash    string     `json:"file_hash"`
+	ThumbPath   *string    `json:"thumb_path"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int16     `json:"page"`
+}
+
+func (q *Queries) GetArchiveByTagList(ctx context.Context, arg GetArchiveByTagListParams) ([]GetArchiveByTagListRow, error) {
+	rows, err := q.db.Query(ctx, getArchiveByTagList,
+		arg.Name,
+		arg.Limit,
+		arg.Offset,
+		arg.Uid,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchiveByTagListRow
+	for rows.Next() {
+		var i GetArchiveByTagListRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.FileHash,
+			&i.ThumbPath,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+			&i.Page,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArchiveIDsByTag = `-- name: GetArchiveIDsByTag :many
-select archives.id
-from archives
-join archives_tags on archives.id = archives_tags.archive_id
-join tags on archives_tags.tag_id = tags.id
-where tags.name = $1
+select archive.id
+from archive
+join archive_tag on archive.id = archive_tag.archive_id
+join tag on archive_tag.tag_id = tag.id
+where tag.name = $1
 `
 
 func (q *Queries) GetArchiveIDsByTag(ctx context.Context, name string) ([]string, error) {
@@ -100,16 +269,16 @@ func (q *Queries) GetArchiveIDsByTag(ctx context.Context, name string) ([]string
 	return items, nil
 }
 
-const getArchiveTags = `-- name: GetArchiveTags :many
-select tags.id, tags.name, tags.count
-from archives
-join archives_tags on archives.id = archives_tags.archive_id
-join tags on archives_tags.tag_id = tags.id
-where archives.id = $1
+const getArchiveTag = `-- name: GetArchiveTag :many
+select tag.id, tag.name, tag.count
+from archive
+join archive_tag on archive.id = archive_tag.archive_id
+join tag on archive_tag.tag_id = tag.id
+where archive.id = $1
 `
 
-func (q *Queries) GetArchiveTags(ctx context.Context, id string) ([]Tag, error) {
-	rows, err := q.db.Query(ctx, getArchiveTags, id)
+func (q *Queries) GetArchiveTag(ctx context.Context, id string) ([]Tag, error) {
+	rows, err := q.db.Query(ctx, getArchiveTag, id)
 	if err != nil {
 		return nil, err
 	}
@@ -128,202 +297,9 @@ func (q *Queries) GetArchiveTags(ctx context.Context, id string) ([]Tag, error) 
 	return items, nil
 }
 
-const getArchivesByTag = `-- name: GetArchivesByTag :many
-select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
-    reading_progress.page
-from archives
-join archives_tags on archives.id = archives_tags.archive_id
-join tags on archives_tags.tag_id = tags.id
-left join
-    reading_progress
-    on archives.id = reading_progress.archive_id
-    and reading_progress.user_id = $2
-where tags.name = $1
-`
-
-type GetArchivesByTagParams struct {
-	Name string    `json:"name"`
-	Uid  uuid.UUID `json:"uid"`
-}
-
-type GetArchivesByTagRow struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	Summary     *string    `json:"summary"`
-	Language    *string    `json:"language"`
-	Category    *string    `json:"category"`
-	PageCount   int16      `json:"page_count"`
-	FilePath    string     `json:"file_path"`
-	FileName    string     `json:"file_name"`
-	Hash        string     `json:"hash"`
-	ThumbsPath  *string    `json:"thumbs_path"`
-	CoverPath   *string    `json:"cover_path"`
-	CoverImg    *string    `json:"cover_img"`
-	Type        string     `json:"type"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ReleaseDate *time.Time `json:"release_date"`
-	Page        *int16     `json:"page"`
-}
-
-func (q *Queries) GetArchivesByTag(ctx context.Context, arg GetArchivesByTagParams) ([]GetArchivesByTagRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByTag, arg.Name, arg.Uid)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetArchivesByTagRow
-	for rows.Next() {
-		var i GetArchivesByTagRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Summary,
-			&i.Language,
-			&i.Category,
-			&i.PageCount,
-			&i.FilePath,
-			&i.FileName,
-			&i.Hash,
-			&i.ThumbsPath,
-			&i.CoverPath,
-			&i.CoverImg,
-			&i.Type,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ReleaseDate,
-			&i.Page,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getArchivesByTagList = `-- name: GetArchivesByTagList :many
-select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
-    reading_progress.page
-from archives
-join archives_tags on archives.id = archives_tags.archive_id
-join tags on archives_tags.tag_id = tags.id
-left join
-    reading_progress
-    on archives.id = reading_progress.archive_id
-    and reading_progress.user_id = $4
-where tags.name = $1
-limit $2
-offset $3
-`
-
-type GetArchivesByTagListParams struct {
-	Name   string    `json:"name"`
-	Limit  int32     `json:"limit"`
-	Offset int32     `json:"offset"`
-	Uid    uuid.UUID `json:"uid"`
-}
-
-type GetArchivesByTagListRow struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	Summary     *string    `json:"summary"`
-	Language    *string    `json:"language"`
-	Category    *string    `json:"category"`
-	PageCount   int16      `json:"page_count"`
-	FilePath    string     `json:"file_path"`
-	FileName    string     `json:"file_name"`
-	Hash        string     `json:"hash"`
-	ThumbsPath  *string    `json:"thumbs_path"`
-	CoverPath   *string    `json:"cover_path"`
-	CoverImg    *string    `json:"cover_img"`
-	Type        string     `json:"type"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ReleaseDate *time.Time `json:"release_date"`
-	Page        *int16     `json:"page"`
-}
-
-func (q *Queries) GetArchivesByTagList(ctx context.Context, arg GetArchivesByTagListParams) ([]GetArchivesByTagListRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesByTagList,
-		arg.Name,
-		arg.Limit,
-		arg.Offset,
-		arg.Uid,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetArchivesByTagListRow
-	for rows.Next() {
-		var i GetArchivesByTagListRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Summary,
-			&i.Language,
-			&i.Category,
-			&i.PageCount,
-			&i.FilePath,
-			&i.FileName,
-			&i.Hash,
-			&i.ThumbsPath,
-			&i.CoverPath,
-			&i.CoverImg,
-			&i.Type,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ReleaseDate,
-			&i.Page,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getTag = `-- name: GetTag :one
 select id, name, count
-from tags
+from tag
 where name = $1
 `
 
@@ -335,14 +311,14 @@ func (q *Queries) GetTag(ctx context.Context, name string) (Tag, error) {
 }
 
 const removeTagFromArchive = `-- name: RemoveTagFromArchive :many
-delete from archives_tags
+delete from archive_tag
 where archive_id = $1
-returning tag_id, (select tags.count from tags where tags.id = archives_tags.tag_id)
+returning tag_id, (select tag.count from tag where tag.id = archive_tag.tag_id)
 `
 
 type RemoveTagFromArchiveRow struct {
-	TagID int64 `json:"tag_id"`
-	Count int64 `json:"count"`
+	TagID int32 `json:"tag_id"`
+	Count int32 `json:"count"`
 }
 
 func (q *Queries) RemoveTagFromArchive(ctx context.Context, archiveID string) ([]RemoveTagFromArchiveRow, error) {
@@ -367,7 +343,7 @@ func (q *Queries) RemoveTagFromArchive(ctx context.Context, archiveID string) ([
 
 const tagExists = `-- name: TagExists :execresult
 select id, name
-from tags
+from tag
 where name = $1
 `
 
@@ -375,30 +351,30 @@ func (q *Queries) TagExists(ctx context.Context, name string) (pgconn.CommandTag
 	return q.db.Exec(ctx, tagExists, name)
 }
 
-const totalArchivesWithTag = `-- name: TotalArchivesWithTag :one
-select count(archives.id)
-from archives
-join archives_tags on archives.id = archives_tags.archive_id
-join tags on archives_tags.tag_id = tags.id
-where tags.name = $1
+const totalArchiveWithTag = `-- name: TotalArchiveWithTag :one
+select count(archive.id)
+from archive
+join archive_tag on archive.id = archive_tag.archive_id
+join tag on archive_tag.tag_id = tag.id
+where tag.name = $1
 `
 
-func (q *Queries) TotalArchivesWithTag(ctx context.Context, name string) (int64, error) {
-	row := q.db.QueryRow(ctx, totalArchivesWithTag, name)
+func (q *Queries) TotalArchiveWithTag(ctx context.Context, name string) (int64, error) {
+	row := q.db.QueryRow(ctx, totalArchiveWithTag, name)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
 const updateTagCount = `-- name: UpdateTagCount :exec
-update tags
+update tag
 set count = $1
 where id = $2
 `
 
 type UpdateTagCountParams struct {
-	Count int64 `json:"count"`
-	ID    int64 `json:"id"`
+	Count int32 `json:"count"`
+	ID    int32 `json:"id"`
 }
 
 func (q *Queries) UpdateTagCount(ctx context.Context, arg UpdateTagCountParams) error {

@@ -13,7 +13,7 @@ import (
 
 const archiveUrlExists = `-- name: ArchiveUrlExists :execresult
 select url
-from urls
+from archive_url
 where url = $1
 `
 
@@ -22,13 +22,13 @@ func (q *Queries) ArchiveUrlExists(ctx context.Context, url string) (pgconn.Comm
 }
 
 const createArchiveURL = `-- name: CreateArchiveURL :exec
-insert into urls (url, archive_id)
+insert into archive_url (url, archive_id)
 values ($1, $2)
 `
 
 type CreateArchiveURLParams struct {
-	Url       string `json:"url"`
-	ArchiveID string `json:"archive_id"`
+	Url       string  `json:"url"`
+	ArchiveID *string `json:"archive_id"`
 }
 
 func (q *Queries) CreateArchiveURL(ctx context.Context, arg CreateArchiveURLParams) error {
@@ -36,27 +36,27 @@ func (q *Queries) CreateArchiveURL(ctx context.Context, arg CreateArchiveURLPara
 	return err
 }
 
-const getArchiveURLs = `-- name: GetArchiveURLs :many
-select urls.id, urls.url
-from archives
-join urls on archives.id = urls.archive_id
-where archives.id = $1
+const getArchiveUrls = `-- name: GetArchiveUrls :many
+select archive_url.id, archive_url.url
+from archive
+join archive_url on archive.id = archive_url.archive_id
+where archive.id = $1
 `
 
-type GetArchiveURLsRow struct {
-	ID  int64  `json:"id"`
+type GetArchiveUrlsRow struct {
+	ID  int32  `json:"id"`
 	Url string `json:"url"`
 }
 
-func (q *Queries) GetArchiveURLs(ctx context.Context, id string) ([]GetArchiveURLsRow, error) {
-	rows, err := q.db.Query(ctx, getArchiveURLs, id)
+func (q *Queries) GetArchiveUrls(ctx context.Context, id string) ([]GetArchiveUrlsRow, error) {
+	rows, err := q.db.Query(ctx, getArchiveUrls, id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetArchiveURLsRow
+	var items []GetArchiveUrlsRow
 	for rows.Next() {
-		var i GetArchiveURLsRow
+		var i GetArchiveUrlsRow
 		if err := rows.Scan(&i.ID, &i.Url); err != nil {
 			return nil, err
 		}
@@ -69,11 +69,11 @@ func (q *Queries) GetArchiveURLs(ctx context.Context, id string) ([]GetArchiveUR
 }
 
 const removeArchiveUrl = `-- name: RemoveArchiveUrl :exec
-delete from urls
+delete from archive_url
 where archive_id = $1
 `
 
-func (q *Queries) RemoveArchiveUrl(ctx context.Context, archiveID string) error {
+func (q *Queries) RemoveArchiveUrl(ctx context.Context, archiveID *string) error {
 	_, err := q.db.Exec(ctx, removeArchiveUrl, archiveID)
 	return err
 }

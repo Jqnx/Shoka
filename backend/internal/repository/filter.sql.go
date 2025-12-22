@@ -12,44 +12,173 @@ import (
 	"github.com/google/uuid"
 )
 
-const countFilteredArchives = `-- name: CountFilteredArchives :one
-select count(archives.id)
-from archives
-where archives.id = any($1::text[])
+const countFilteredArchive = `-- name: CountFilteredArchive :one
+select count(archive.id)
+from archive
+where archive.id = any($1::text[])
 `
 
-func (q *Queries) CountFilteredArchives(ctx context.Context, ids []string) (int64, error) {
-	row := q.db.QueryRow(ctx, countFilteredArchives, ids)
+func (q *Queries) CountFilteredArchive(ctx context.Context, ids []string) (int64, error) {
+	row := q.db.QueryRow(ctx, countFilteredArchive, ids)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
-const getArchiveSort = `-- name: GetArchiveSort :many
+const getArchiveFilter = `-- name: GetArchiveFilter :one
+select archive.id
+from archive
+where archive.id = any($3::text[])
+limit $1
+offset $2
+`
+
+type GetArchiveFilterParams struct {
+	Limit  int32    `json:"limit"`
+	Offset int32    `json:"offset"`
+	Ids    []string `json:"ids"`
+}
+
+func (q *Queries) GetArchiveFilter(ctx context.Context, arg GetArchiveFilterParams) (string, error) {
+	row := q.db.QueryRow(ctx, getArchiveFilter, arg.Limit, arg.Offset, arg.Ids)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getArchiveFilterSortList = `-- name: GetArchiveFilterSortList :many
 select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
     reading_progress.page,
     reading_progress.last_read,
-    reading_progress.state
-from archives
+    reading_progress.status
+from archive
 left join
     reading_progress
-    on archives.id = reading_progress.archive_id
+    on archive.id = reading_progress.archive_id
+    and reading_progress.user_id = $3
+where archive.id = any($4::text[])
+order by
+    case when $5::text = 'title_asc' then archive.title end asc,
+    case when $5 = 'title_desc' then archive.title end desc nulls last,
+    case when $5 = 'page_count_asc' then archive.page_count end asc,
+    case when $5 = 'page_count_desc' then archive.page_count end desc nulls last,
+    case when $5 = 'created_at_asc' then archive.created_at end asc,
+    case when $5 = 'created_at_desc' then archive.created_at end desc nulls last,
+    case when $5 = 'updated_at_asc' then archive.updated_at end asc,
+    case when $5 = 'updated_at_desc' then archive.updated_at end desc nulls last,
+    case when $5 = 'release_date_asc' then archive.release_date end asc,
+    case
+        when $5 = 'release_date_desc' then archive.release_date
+    end desc nulls last,
+    case when $5 = 'last_read_asc' then reading_progress.last_read end asc,
+    case
+        when $5 = 'last_read_desc' then reading_progress.last_read
+    end desc nulls last
+limit $1
+offset $2
+`
+
+type GetArchiveFilterSortListParams struct {
+	Limit   int32     `json:"limit"`
+	Offset  int32     `json:"offset"`
+	Uid     uuid.UUID `json:"uid"`
+	Ids     []string  `json:"ids"`
+	OrderBy string    `json:"order_by"`
+}
+
+type GetArchiveFilterSortListRow struct {
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int16      `json:"page_count"`
+	FilePath    string     `json:"file_path"`
+	FileHash    string     `json:"file_hash"`
+	ThumbPath   *string    `json:"thumb_path"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int16     `json:"page"`
+	LastRead    *time.Time `json:"last_read"`
+	Status      *string    `json:"status"`
+}
+
+func (q *Queries) GetArchiveFilterSortList(ctx context.Context, arg GetArchiveFilterSortListParams) ([]GetArchiveFilterSortListRow, error) {
+	rows, err := q.db.Query(ctx, getArchiveFilterSortList,
+		arg.Limit,
+		arg.Offset,
+		arg.Uid,
+		arg.Ids,
+		arg.OrderBy,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchiveFilterSortListRow
+	for rows.Next() {
+		var i GetArchiveFilterSortListRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.FileHash,
+			&i.ThumbPath,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+			&i.Page,
+			&i.LastRead,
+			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArchiveSort = `-- name: GetArchiveSort :many
+select
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
+    reading_progress.page,
+    reading_progress.last_read,
+    reading_progress.status
+from archive
+left join
+    reading_progress
+    on archive.id = reading_progress.archive_id
     and reading_progress.user_id = $1
 order by
     case when $2::text = 'title_asc' then title end asc,
@@ -81,18 +210,14 @@ type GetArchiveSortRow struct {
 	Category    *string    `json:"category"`
 	PageCount   int16      `json:"page_count"`
 	FilePath    string     `json:"file_path"`
-	FileName    string     `json:"file_name"`
-	Hash        string     `json:"hash"`
-	ThumbsPath  *string    `json:"thumbs_path"`
-	CoverPath   *string    `json:"cover_path"`
-	CoverImg    *string    `json:"cover_img"`
-	Type        string     `json:"type"`
+	FileHash    string     `json:"file_hash"`
+	ThumbPath   *string    `json:"thumb_path"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
 	Page        *int16     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
-	State       *string    `json:"state"`
+	Status      *string    `json:"status"`
 }
 
 func (q *Queries) GetArchiveSort(ctx context.Context, arg GetArchiveSortParams) ([]GetArchiveSortRow, error) {
@@ -112,18 +237,14 @@ func (q *Queries) GetArchiveSort(ctx context.Context, arg GetArchiveSortParams) 
 			&i.Category,
 			&i.PageCount,
 			&i.FilePath,
-			&i.FileName,
-			&i.Hash,
-			&i.ThumbsPath,
-			&i.CoverPath,
-			&i.CoverImg,
-			&i.Type,
+			&i.FileHash,
+			&i.ThumbPath,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
 			&i.Page,
 			&i.LastRead,
-			&i.State,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -137,29 +258,25 @@ func (q *Queries) GetArchiveSort(ctx context.Context, arg GetArchiveSortParams) 
 
 const getArchiveSortList = `-- name: GetArchiveSortList :many
 select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
+    archive.id,
+    archive.title,
+    archive.summary,
+    archive.language,
+    archive.category,
+    archive.page_count,
+    archive.file_path,
+    archive.file_hash,
+    archive.thumb_path,
+    archive.created_at,
+    archive.updated_at,
+    archive.release_date,
     reading_progress.page,
     reading_progress.last_read,
-    reading_progress.state
-from archives
+    reading_progress.status
+from archive
 left join
     reading_progress
-    on archives.id = reading_progress.archive_id
+    on archive.id = reading_progress.archive_id
     and reading_progress.user_id = $3
 order by
     case when $4::text = 'title_asc' then title end asc,
@@ -195,18 +312,14 @@ type GetArchiveSortListRow struct {
 	Category    *string    `json:"category"`
 	PageCount   int16      `json:"page_count"`
 	FilePath    string     `json:"file_path"`
-	FileName    string     `json:"file_name"`
-	Hash        string     `json:"hash"`
-	ThumbsPath  *string    `json:"thumbs_path"`
-	CoverPath   *string    `json:"cover_path"`
-	CoverImg    *string    `json:"cover_img"`
-	Type        string     `json:"type"`
+	FileHash    string     `json:"file_hash"`
+	ThumbPath   *string    `json:"thumb_path"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
 	Page        *int16     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
-	State       *string    `json:"state"`
+	Status      *string    `json:"status"`
 }
 
 func (q *Queries) GetArchiveSortList(ctx context.Context, arg GetArchiveSortListParams) ([]GetArchiveSortListRow, error) {
@@ -231,169 +344,14 @@ func (q *Queries) GetArchiveSortList(ctx context.Context, arg GetArchiveSortList
 			&i.Category,
 			&i.PageCount,
 			&i.FilePath,
-			&i.FileName,
-			&i.Hash,
-			&i.ThumbsPath,
-			&i.CoverPath,
-			&i.CoverImg,
-			&i.Type,
+			&i.FileHash,
+			&i.ThumbPath,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
 			&i.Page,
 			&i.LastRead,
-			&i.State,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getArchivesFilter = `-- name: GetArchivesFilter :one
-select archives.id
-from archives
-where archives.id = any($3::text[])
-limit $1
-offset $2
-`
-
-type GetArchivesFilterParams struct {
-	Limit  int32    `json:"limit"`
-	Offset int32    `json:"offset"`
-	Ids    []string `json:"ids"`
-}
-
-func (q *Queries) GetArchivesFilter(ctx context.Context, arg GetArchivesFilterParams) (string, error) {
-	row := q.db.QueryRow(ctx, getArchivesFilter, arg.Limit, arg.Offset, arg.Ids)
-	var id string
-	err := row.Scan(&id)
-	return id, err
-}
-
-const getArchivesFilterSortList = `-- name: GetArchivesFilterSortList :many
-select
-    archives.id,
-    archives.title,
-    archives.summary,
-    archives.language,
-    archives.category,
-    archives.page_count,
-    archives.file_path,
-    archives.file_name,
-    archives.hash,
-    archives.thumbs_path,
-    archives.cover_path,
-    archives.cover_img,
-    archives.type,
-    archives.created_at,
-    archives.updated_at,
-    archives.release_date,
-    reading_progress.page,
-    reading_progress.last_read,
-    reading_progress.state
-from archives
-left join
-    reading_progress
-    on archives.id = reading_progress.archive_id
-    and reading_progress.user_id = $3
-where archives.id = any($4::text[])
-order by
-    case when $5::text = 'title_asc' then archives.title end asc,
-    case when $5 = 'title_desc' then archives.title end desc nulls last,
-    case when $5 = 'page_count_asc' then archives.page_count end asc,
-    case
-        when $5 = 'page_count_desc' then archives.page_count
-    end desc nulls last,
-    case when $5 = 'created_at_asc' then archives.created_at end asc,
-    case
-        when $5 = 'created_at_desc' then archives.created_at
-    end desc nulls last,
-    case when $5 = 'updated_at_asc' then archives.updated_at end asc,
-    case
-        when $5 = 'updated_at_desc' then archives.updated_at
-    end desc nulls last,
-    case when $5 = 'release_date_asc' then archives.release_date end asc,
-    case
-        when $5 = 'release_date_desc' then archives.release_date
-    end desc nulls last,
-    case when $5 = 'last_read_asc' then reading_progress.last_read end asc,
-    case
-        when $5 = 'last_read_desc' then reading_progress.last_read
-    end desc nulls last
-limit $1
-offset $2
-`
-
-type GetArchivesFilterSortListParams struct {
-	Limit   int32     `json:"limit"`
-	Offset  int32     `json:"offset"`
-	Uid     uuid.UUID `json:"uid"`
-	Ids     []string  `json:"ids"`
-	OrderBy string    `json:"order_by"`
-}
-
-type GetArchivesFilterSortListRow struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	Summary     *string    `json:"summary"`
-	Language    *string    `json:"language"`
-	Category    *string    `json:"category"`
-	PageCount   int16      `json:"page_count"`
-	FilePath    string     `json:"file_path"`
-	FileName    string     `json:"file_name"`
-	Hash        string     `json:"hash"`
-	ThumbsPath  *string    `json:"thumbs_path"`
-	CoverPath   *string    `json:"cover_path"`
-	CoverImg    *string    `json:"cover_img"`
-	Type        string     `json:"type"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ReleaseDate *time.Time `json:"release_date"`
-	Page        *int16     `json:"page"`
-	LastRead    *time.Time `json:"last_read"`
-	State       *string    `json:"state"`
-}
-
-func (q *Queries) GetArchivesFilterSortList(ctx context.Context, arg GetArchivesFilterSortListParams) ([]GetArchivesFilterSortListRow, error) {
-	rows, err := q.db.Query(ctx, getArchivesFilterSortList,
-		arg.Limit,
-		arg.Offset,
-		arg.Uid,
-		arg.Ids,
-		arg.OrderBy,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetArchivesFilterSortListRow
-	for rows.Next() {
-		var i GetArchivesFilterSortListRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Summary,
-			&i.Language,
-			&i.Category,
-			&i.PageCount,
-			&i.FilePath,
-			&i.FileName,
-			&i.Hash,
-			&i.ThumbsPath,
-			&i.CoverPath,
-			&i.CoverImg,
-			&i.Type,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ReleaseDate,
-			&i.Page,
-			&i.LastRead,
-			&i.State,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}
