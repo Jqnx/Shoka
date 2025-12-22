@@ -48,15 +48,6 @@ join artist_alias on artist.id = artist_alias.artist_id
 where name = $1
 ;
 
--- name: GetArtistGroups :many
-/* 
-select groups.id, groups.name
-from artist
-join artist_groups on artist.id = artist_groups.artist_id
-join groups on artist_groups.group_id = groups.id
-where artist.name = $1
-;
-*/
 -- name: ArtistExists :execresult
 select name
 from artist
@@ -80,12 +71,6 @@ select count(id)
 from artist
 ;
 
--- name: AddArtistToGroup :exec
-/*
-insert into artist_groups (artist_id, group_id)
-values ($1, $2)
-;
-*/
 -- name: AddArtistToArchive :exec
 insert into archive_artist (archive_id, artist_id)
 values ($1, $2)
@@ -122,12 +107,6 @@ delete from artist_url
 where artist_id = $1
 ;
 
--- name: RemoveArtistFromGroup :exec
-/*
-delete from artist_groups
-where artist_id = $1
-;
-*/
 -- name: DeleteArtist :exec
 delete from artist
 where id = $1
