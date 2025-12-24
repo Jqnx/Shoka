@@ -44,6 +44,7 @@ type Database struct {
 	DBUser     string
 	DBPassword string
 	DBSchema   string
+	DBMaxConn  int
 }
 
 type Workers struct {
@@ -148,6 +149,7 @@ func getEnv(c *Config) error {
 	c.Database.DBUser = os.Getenv("DB_USERNAME")
 	c.Database.DBPassword = os.Getenv("DB_PASSWORD")
 	c.Database.DBSchema = os.Getenv("DB_SCHEMA")
+	c.Database.DBMaxConn = 70
 
 	// Config.Workers
 	c.Workers.RedisHost = os.Getenv("REDIS_HOST")

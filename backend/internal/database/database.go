@@ -36,7 +36,7 @@ func NewPool(ctx context.Context, c *config.Config, log logger.Logger) (*pgxpool
 		return nil, config.ErrNoDBPassword
 	}
 
-	connStr := fmt.Sprintf("user=%s password=%s host=%s port=%s dbname=%s sslmode=disable TimeZone=%s", c.Database.DBUser, c.Database.DBPassword, c.Database.DBHost, c.Database.DBPort, c.Database.DBDatabase, c.TimeZone)
+	connStr := fmt.Sprintf("user=%s password=%s host=%s port=%s dbname=%s sslmode=disable TimeZone=%s pool_max_conns=%d", c.Database.DBUser, c.Database.DBPassword, c.Database.DBHost, c.Database.DBPort, c.Database.DBDatabase, c.TimeZone, c.Database.DBMaxConn)
 	pool, err := pgxpool.New(ctx, connStr)
 	if err != nil {
 		log.Error("failed to create db pool", "error", err)
