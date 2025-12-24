@@ -4,7 +4,7 @@ import type {
   InferUserFromClient,
 } from "better-auth/client";
 import { createAuthClient } from "better-auth/vue";
-import { usernameClient } from "better-auth/client/plugins";
+import { jwtClient, usernameClient } from "better-auth/client/plugins";
 import type { RouteLocationRaw } from "vue-router";
 
 export function useAuth() {
@@ -15,7 +15,7 @@ export function useAuth() {
     fetchOptions: {
       headers,
     },
-    plugins: [usernameClient()],
+    plugins: [usernameClient(), jwtClient()],
   });
 
   const session =
@@ -59,6 +59,11 @@ export function useAuth() {
     });
   }
 
+  const getToken = async () => {
+    const { data: token } = await useFetch("/api/get-token");
+    return token.value?.token;
+  };
+
   return {
     session,
     user,
@@ -83,5 +88,6 @@ export function useAuth() {
     },
     client,
     fetchSession,
+    getToken,
   };
 }

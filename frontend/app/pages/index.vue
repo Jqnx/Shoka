@@ -1,11 +1,11 @@
 <script setup lang="ts">
-const { token } = useAuth();
+const token = await useAuth().getToken();
 
 const { data: recentlyReleased } = await useFetch("/api/a/", {
   query: { page: 1, size: 14, sortby: "release_date" },
   key: "recentlyReleased",
   onRequest({ options }) {
-    options.headers.set("Authorization", `${token.value}`);
+    options.headers.set("Authorization", `Bearer ${token}`);
   },
   onResponse({ response }) {
     if (response._data.total != 0) {
@@ -18,7 +18,7 @@ const { data: recentlyAdded } = await useFetch("/api/a/", {
   query: { page: 1, size: 14, sortby: "created_at", sortdir: "desc" },
   key: "recentlyAdded",
   onRequest({ options }) {
-    options.headers.set("Authorization", `${token.value}`);
+    options.headers.set("Authorization", `Bearer ${token}`);
   },
   onResponse({ response }) {
     if (response._data.total != 0) {
@@ -30,7 +30,7 @@ const { data: recentlyAdded } = await useFetch("/api/a/", {
 const { data: recentlyRead } = await useFetch("/api/a/recent", {
   key: "recentlyRead",
   onRequest({ options }) {
-    options.headers.set("Authorization", `${token.value}`);
+    options.headers.set("Authorization", `Bearer ${token}`);
   },
   onResponse({ response }) {
     if (response._data.total != 0) {

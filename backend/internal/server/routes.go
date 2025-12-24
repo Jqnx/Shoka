@@ -39,12 +39,12 @@ func (s *Server) RegisterRoutes() http.Handler {
 	// Archive API
 	api := r.Group("/api")
 	{
-		api.GET("/test/:id", s.testHandler)
+		api.GET("/test", middleware.Auth(), s.testHandler)
 		api.GET("/search", s.searchArchiveHandler)
 		archive := api.Group("/a")
 		{
 			archive.GET("", s.getArchiveListHandler)
-			archive.GET("/recent", middleware.Auth(s.repo), s.getRecentlyReadHandler)
+			archive.GET("/recent", middleware.Auth(), s.getRecentlyReadHandler)
 			archive.POST("/filter", s.getArchiveFilterHandler)
 			archive.GET("/filters", s.getAllFiltersHandler)
 			archive.GET("/:id", s.getArchiveHandler)
@@ -56,10 +56,10 @@ func (s *Server) RegisterRoutes() http.Handler {
 			archive.POST("", s.createArchiveHandler)
 			archive.POST("/:id/cover", s.generateCoverHandler)
 			archive.POST("/:id/thumb", s.generateThumbHandler)
-			archive.POST("/:id/favorite", middleware.Auth(s.repo), s.favoriteArchiveHandler)
-			archive.POST("/:id/:page", middleware.Auth(s.repo), s.updateReadingProgressHandler)
+			archive.POST("/:id/favorite", middleware.Auth(), s.favoriteArchiveHandler)
+			archive.POST("/:id/:page", middleware.Auth(), s.updateReadingProgressHandler)
 			archive.PUT("/:id", s.updateArchiveHandler)
-			archive.DELETE("/:id/rp", middleware.Auth(s.repo), s.deleteReadingProgressHandler)
+			archive.DELETE("/:id/rp", middleware.Auth(), s.deleteReadingProgressHandler)
 			// archive.DELETE("/:id", s.deleteArchiveHandler)
 			// archive.GET("/lastid", s.getLastIDHandler)
 			meta := archive.Group("/:id/meta")
@@ -136,7 +136,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 		user := api.Group("/user")
 		{
 			// user.GET("/favorites", middleware.Auth(s.repo), s.getUserFavoriteArchives)
-			user.POST("/favorites", middleware.Auth(s.repo), s.getFavoriteArchiveFilterHandler)
+			user.POST("/favorites", middleware.Auth(), s.getFavoriteArchiveFilterHandler)
 			// user.PUT("/update", middleware.Auth(s.repo), s.updateUserHandler)
 			// user.DELETE("/delete", middleware.Auth(s.repo), s.deleteUserHandler)
 		}
