@@ -16,6 +16,7 @@ import (
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
 	"Shoka/internal/sources"
+	"Shoka/internal/util"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -87,21 +88,10 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 
 	// TODO: Update to use JWT received from frontend server
 	var uid uuid.UUID
-	/*
-		header := c.Request.Header.Get("Authorization")
-		if header != "" {
-			token := util.GetAuthTokenFromHeader(header)
-			user, err := s.repo.GetUserByToken(ctx, token)
-			if err != nil {
-				c.JSON(http.StatusUnauthorized, &models.Response{
-					Status:  "error",
-					Message: "Unauthorized",
-				})
-				return
-			}
-			uid = user.ID
-		}
-	*/
+	header := c.Request.Header.Get("Authorization")
+	if header != "" {
+		uid = util.GetUserFromRequest(c)
+	}
 
 	if p == "" && ps == "" && sortby == "" && sortdir == "" {
 		archives, err := s.repo.GetAllArchives(ctx, uid)
@@ -713,21 +703,10 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 
 	// TODO: Update to use JWT received from frontend server
 	var userid uuid.UUID
-	/*
-		header := c.Request.Header.Get("Authorization")
-		if header != "" {
-			token := util.GetAuthTokenFromHeader(header)
-			user, err := s.repo.GetUserByToken(ctx, token)
-			if err != nil {
-				c.JSON(http.StatusUnauthorized, &models.Response{
-					Status:  "error",
-					Message: "Unauthorized",
-				})
-				return
-			}
-			userid = user.ID
-		}
-	*/
+	header := c.Request.Header.Get("Authorization")
+	if header != "" {
+		userid = util.GetUserFromRequest(c)
+	}
 
 	if userid != uuid.Nil {
 		fav := false
@@ -870,21 +849,10 @@ func (s *Server) shuffleArchiveHandler(c *gin.Context) {
 
 	// TODO: Update to receive JWT from frontend server
 	var userid uuid.UUID
-	/*
-		header := c.Request.Header.Get("Authorization")
-		if header != "" {
-			token := util.GetAuthTokenFromHeader(header)
-			user, err := s.repo.GetUserByToken(ctx, token)
-			if err != nil {
-				c.JSON(http.StatusUnauthorized, &models.Response{
-					Status:  "error",
-					Message: "Unauthorized",
-				})
-				return
-			}
-			userid = user.ID
-		}
-	*/
+	header := c.Request.Header.Get("Authorization")
+	if header != "" {
+		userid = util.GetUserFromRequest(c)
+	}
 
 	countQuery := c.Query("c")
 	var count int

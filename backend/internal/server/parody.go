@@ -9,6 +9,7 @@ import (
 	"Shoka/internal/config"
 	"Shoka/internal/models"
 	"Shoka/internal/repository"
+	"Shoka/internal/util"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -64,21 +65,10 @@ func (s *Server) getArchiveByParodyHandler(c *gin.Context) {
 
 	// TODO: Update to receive JWT
 	var uid uuid.UUID
-	/*
-		header := c.Request.Header.Get("Authorization")
-		if header != "" {
-			token := util.GetAuthTokenFromHeader(header)
-			user, err := s.repo.GetUserByToken(ctx, token)
-			if err != nil {
-				c.JSON(http.StatusUnauthorized, &models.Response{
-					Status:  "error",
-					Message: "Unauthorized",
-				})
-				return
-			}
-			uid = user.ID
-		}
-	*/
+	header := c.Request.Header.Get("Authorization")
+	if header != "" {
+		uid = util.GetUserFromRequest(c)
+	}
 
 	// Get archives
 	if p == "" && ps == "" {

@@ -28,7 +28,7 @@ type ArchiveResponse struct {
 	Category    *string                        `json:"category"`
 	PageCount   int16                          `json:"page_count"`
 	URL         []repository.GetArchiveUrlsRow `json:"url"`
-	FileHash    string                         `json:"hash"`
+	FileHash    string                         `json:"file_hash"`
 	Pages       int                            `json:"pages"`
 	CreatedAt   time.Time                      `json:"created_at"`
 	UpdatedAt   time.Time                      `json:"updated_at"`
@@ -47,7 +47,7 @@ type ArchiveResponseFavorite struct {
 	Category    *string                        `json:"category"`
 	PageCount   int16                          `json:"page_count"`
 	URL         []repository.GetArchiveUrlsRow `json:"url"`
-	FileHash    string                         `json:"hash"`
+	FileHash    string                         `json:"file_hash"`
 	Pages       int                            `json:"pages"`
 	Type        string                         `json:"type"`
 	Status      string                         `json:"read_state"`

@@ -33,7 +33,7 @@ offset $3
 select archive.id
 from archive
 join favorite_archives on archive.id = favorite_archives.archive_id
-join "user" as u on favorite_archive.user_id = u.id
+join "user" as u on favorite_archives.user_id = u.id
 where u.id = $1
 limit $2
 offset $3
@@ -184,9 +184,11 @@ order by
     case
         when @order_by = 'release_date_desc' then archive.release_date
     end desc nulls last,
-    case when @order_by = 'favorited_at_asc' then favorite_archive.favorited_at end asc,
     case
-        when @order_by = 'favorited_at_desc' then favorite_archive.favorited_at
+        when @order_by = 'favorited_at_asc' then favorite_archives.favorited_at
+    end asc,
+    case
+        when @order_by = 'favorited_at_desc' then favorite_archives.favorited_at
     end desc nulls last
 limit $1
 offset $2

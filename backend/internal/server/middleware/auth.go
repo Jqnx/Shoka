@@ -2,7 +2,6 @@
 package middleware
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
@@ -20,15 +19,6 @@ import (
 // Auth authenticates a user with the api server
 func Auth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		keyset, err := jwk.Fetch(c.Request.Context(), "http://localhost:3000/api/auth/jwks")
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, &models.Response{
-				Status:  "error",
-				Message: "missing JWKS",
-			})
-			return
-		}
-
 		header := c.Request.Header.Get("Authorization")
 		if header == "" {
 			c.AbortWithStatusJSON(http.StatusBadRequest, &models.Response{
@@ -38,7 +28,14 @@ func Auth() gin.HandlerFunc {
 			return
 		}
 
-		fmt.Println(header)
+		keyset, err := jwk.Fetch(c.Request.Context(), "http://localhost:3000/api/auth/jwks")
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, &models.Response{
+				Status:  "error",
+				Message: "missing JWKS",
+			})
+			return
+		}
 
 		token, err := jwt.ParseRequest(c.Request, jwt.WithKeySet(keyset))
 		if err != nil {
