@@ -17,7 +17,7 @@ import { useBreakpoints } from "@vueuse/core";
 import { Progress } from "@/components/ui/progress";
 
 const { id } = useRoute().params;
-const { token } = useAuth();
+const token = await useAuth().getToken();
 const { copy } = useClipboard();
 
 const breakpoints = useBreakpoints(
@@ -40,7 +40,7 @@ const copyArchiveId = () => {
 
 const { data: archive } = await useFetch(`/api/a/${id}`, {
   onRequest({ options }) {
-    options.headers.set("Authorization", `${token.value}`);
+    options.headers.set("Authorization", `Bearer ${token}`);
   },
   onResponse({ response }) {
     if (response._data.pages != response._data.page_count) {
@@ -60,7 +60,7 @@ async function favorite() {
   return $fetch(`/api/a/${id}/favorite`, {
     method: "post",
     onRequest({ options }) {
-      options.headers.set("Authorization", `${token.value}`);
+      options.headers.set("Authorization", `Bearer ${token}`);
       archive.value.is_favorite = true;
     },
     onResponseError() {

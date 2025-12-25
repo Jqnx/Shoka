@@ -12,7 +12,7 @@ import {
 
 const { currentPage } = storeToRefs(usePageStore());
 const { parody } = useRoute().params;
-const { token } = useAuth();
+const token = await useAuth().getToken();
 
 useHead({
   title: `Parody: ${parody}`,
@@ -21,7 +21,7 @@ useHead({
 const pageSize = ref(30);
 const { data: archives } = await useFetch(`/api/parody/${parody}`, {
   onRequest({ options }) {
-    options.headers.set("Authorization", `${token.value}`);
+    options.headers.set("Authorization", `Bearer ${token}`);
   },
   query: { page: currentPage, size: pageSize },
   key: "archives",

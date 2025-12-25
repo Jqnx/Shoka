@@ -12,7 +12,7 @@ import {
 
 const { currentPage } = storeToRefs(usePageStore());
 const { tag } = useRoute().params;
-const { token } = useAuth();
+const token = await useAuth().getToken();
 
 useHead({
   title: `Tag: ${tag}`,
@@ -21,7 +21,7 @@ useHead({
 const pageSize = ref(30);
 const { data: archives } = await useFetch(`/api/tag/${tag}`, {
   onRequest({ options }) {
-    options.headers.set("Authorization", `${token.value}`);
+    options.headers.set("Authorization", `Bearer ${token}`);
   },
   query: { page: currentPage, size: pageSize },
   key: "archives",

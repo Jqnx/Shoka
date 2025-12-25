@@ -17,7 +17,7 @@ useHead({
 const { currentPage, pageSize } = storeToRefs(usePageStore());
 const { sortBy, sortDir, filters } = storeToRefs(useFavoriteFiltersStore());
 
-const { token } = useAuth();
+const token = await useAuth().getToken();
 
 const { data: archives } = await useAsyncData(
   "favorites",
@@ -25,7 +25,7 @@ const { data: archives } = await useAsyncData(
     $fetch("/api/user/favorites", {
       method: "POST",
       onRequest({ options }) {
-        options.headers.set("Authorization", `${token.value}`);
+        options.headers.set("Authorization", `Bearer ${token}`);
       },
       query: {
         page: currentPage.value,

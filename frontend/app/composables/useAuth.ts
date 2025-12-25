@@ -60,7 +60,7 @@ export function useAuth() {
   }
 
   const getToken = async () => {
-    const { data: token } = await useFetch("/api/get-token");
+    const { data: token } = await useFetch("/api/get-token", { key: "token" });
     return token.value?.token;
   };
 

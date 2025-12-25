@@ -16,7 +16,7 @@ useHead({
 
 const { currentPage, pageSize } = storeToRefs(usePageStore());
 const { sortBy, sortDir, filters } = storeToRefs(useFiltersStore());
-//const { token } = useAuth();
+const token = await useAuth().getToken();
 
 const { data: archives } = await useAsyncData(
   "archives",
@@ -37,9 +37,9 @@ const { data: archives } = await useAsyncData(
         languages: filters.value.languages,
         categories: filters.value.categories,
       },
-      //onRequest({ options }) {
-      //  options.headers.set("Authorization", `${token.value}`);
-      //},
+      onRequest({ options }) {
+        options.headers.set("Authorization", `Bearer ${token}`);
+      },
       onResponse({ response }) {
         if (response._data.total != 0) {
           generateCover(response._data.archives);

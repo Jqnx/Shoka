@@ -53,7 +53,7 @@ const sortListFavorite = [
   { value: "favorited_at", label: "Favorited At" },
 ];
 
-const { token } = useAuth();
+const token = await useAuth().getToken();
 
 const shuffle = () => {
   // generate number with total archives as max
@@ -63,7 +63,7 @@ const shuffle = () => {
     method: "POST",
     onRequest({ options }) {
       if (isFav.value) {
-        options.headers.set("Authorization", `${token.value}`);
+        options.headers.set("Authorization", `Bearer ${token}`);
       }
     },
     query: {
