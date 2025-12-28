@@ -39,7 +39,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	// Archive API
 	api := r.Group("/api")
 	{
-		api.GET("/test", middleware.Auth(), s.testHandler)
+		api.GET("/test", s.testHandler)
 		api.GET("/search", s.searchArchiveHandler)
 		archive := api.Group("/a")
 		{

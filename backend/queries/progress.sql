@@ -20,6 +20,11 @@ from reading_progress
 where archive_id = $1 and user_id = $2
 ;
 
+-- name: GetAllLastRead :many
+select archive_id, last_read
+from reading_progress
+;
+
 -- name: UpdateReadingProgress :one
 update reading_progress
 set page = coalesce(sqlc.narg('page'), page),

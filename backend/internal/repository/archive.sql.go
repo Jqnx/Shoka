@@ -568,6 +568,19 @@ func (q *Queries) GetArchiveShuffle(ctx context.Context, arg GetArchiveShufflePa
 	return id, err
 }
 
+const getFilePathByID = `-- name: GetFilePathByID :one
+select file_path
+from archive
+where id = $1
+`
+
+func (q *Queries) GetFilePathByID(ctx context.Context, id string) (string, error) {
+	row := q.db.QueryRow(ctx, getFilePathByID, id)
+	var file_path string
+	err := row.Scan(&file_path)
+	return file_path, err
+}
+
 const getRecentlyReadArchives = `-- name: GetRecentlyReadArchives :many
 select
     archive.id,
@@ -646,6 +659,19 @@ func (q *Queries) GetRecentlyReadArchives(ctx context.Context, uid uuid.UUID) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const getThumbPathByID = `-- name: GetThumbPathByID :one
+select thumb_path
+from archive
+where id = $1
+`
+
+func (q *Queries) GetThumbPathByID(ctx context.Context, id string) (*string, error) {
+	row := q.db.QueryRow(ctx, getThumbPathByID, id)
+	var thumb_path *string
+	err := row.Scan(&thumb_path)
+	return thumb_path, err
 }
 
 const searchArchive = `-- name: SearchArchive :many

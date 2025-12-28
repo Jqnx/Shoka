@@ -67,7 +67,6 @@ func (s *Server) getArchiveByLanguageHandler(c *gin.Context) {
 		return
 	}
 
-	// TODO: Update to receive JWT
 	var uid uuid.UUID
 	header := c.Request.Header.Get("Authorization")
 	if header != "" {

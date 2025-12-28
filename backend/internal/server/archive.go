@@ -86,7 +86,6 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 	sortby := c.Query("sortby")
 	sortdir := c.Query("sortdir")
 
-	// TODO: Update to use JWT received from frontend server
 	var uid uuid.UUID
 	header := c.Request.Header.Get("Authorization")
 	if header != "" {
@@ -701,7 +700,6 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 		return
 	}
 
-	// TODO: Update to use JWT received from frontend server
 	var userid uuid.UUID
 	header := c.Request.Header.Get("Authorization")
 	if header != "" {
@@ -847,7 +845,6 @@ func (s *Server) shuffleArchiveHandler(c *gin.Context) {
 		favorite = false
 	}
 
-	// TODO: Update to receive JWT from frontend server
 	var userid uuid.UUID
 	header := c.Request.Header.Get("Authorization")
 	if header != "" {

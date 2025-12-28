@@ -28,6 +28,36 @@ func (q *Queries) DeleteReadingProgress(ctx context.Context, arg DeleteReadingPr
 	return err
 }
 
+const getAllLastRead = `-- name: GetAllLastRead :many
+select archive_id, last_read
+from reading_progress
+`
+
+type GetAllLastReadRow struct {
+	ArchiveID string    `json:"archive_id"`
+	LastRead  time.Time `json:"last_read"`
+}
+
+func (q *Queries) GetAllLastRead(ctx context.Context) ([]GetAllLastReadRow, error) {
+	rows, err := q.db.Query(ctx, getAllLastRead)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllLastReadRow
+	for rows.Next() {
+		var i GetAllLastReadRow
+		if err := rows.Scan(&i.ArchiveID, &i.LastRead); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUserReadingProgress = `-- name: GetUserReadingProgress :one
 select archive_id, user_id, page, status, last_read
 from reading_progress

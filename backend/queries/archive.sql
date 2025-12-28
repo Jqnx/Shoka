@@ -244,6 +244,18 @@ from archive
 where file_path = $1
 ;
 
+-- name: GetThumbPathByID :one
+select thumb_path
+from archive
+where id = $1
+;
+
+-- name: GetFilePathByID :one
+select file_path
+from archive
+where id = $1
+;
+
 -- name: CountArchives :one
 select count(*)
 from archive

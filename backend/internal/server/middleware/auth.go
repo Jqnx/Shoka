@@ -12,7 +12,6 @@ import (
 	"github.com/lestrrat-go/jwx/v3/jwt"
 )
 
-// TODO: Update to receive and handle JWT tokens
 // TODO: Use env variable's as url for frontend
 // TODO: Add JWK caching: https://github.com/lestrrat-go/jwx/blob/develop/v3/docs/04-jwk.md#auto-refreshing-remote-keys
 

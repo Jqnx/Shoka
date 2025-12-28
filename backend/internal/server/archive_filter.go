@@ -40,7 +40,6 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 
 	ctx := context.Background()
 
-	// TODO: Update to receive JWT
 	var uid uuid.UUID
 	header := c.Request.Header.Get("Authorization")
 	if header != "" {
