@@ -296,6 +296,10 @@
   }
 }
 
+@theme {
+  --font-sans: 'Noto Sans', sans-serif;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
