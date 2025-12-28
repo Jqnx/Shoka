@@ -23,7 +23,6 @@ export default defineNuxtConfig({
   modules: [
     "@vueuse/nuxt",
     "@nuxt/eslint",
-    "@nuxt/fonts",
     "@nuxtjs/color-mode",
     "shadcn-nuxt",
     "@nuxt/image",
@@ -32,6 +31,7 @@ export default defineNuxtConfig({
     "@vee-validate/nuxt",
     "vue-sonner/nuxt",
     "motion-v/nuxt",
+    "@nuxt/fonts",
   ],
   css: ["./app/assets/css/tailwind.css"],
   vite: {
@@ -52,35 +52,10 @@ export default defineNuxtConfig({
       assets: `${process.env.NUXT_ASSETS_URL}`,
     },
   },
-  //auth: {
-  //  isEnabled: true,
-  //  provider: {
-  //    type: "local",
-  //    endpoints: {
-  //      signIn: { path: "/login", method: "post" },
-  //      signUp: { path: "/register", method: "post" },
-  //      signOut: { path: "/logout", method: "post" },
-  //      getSession: { path: "/session", method: "get" },
-  //    },
-  //    token: {
-  //      signInResponseTokenPointer: "/token",
-  //      type: "Bearer",
-  //      cookieName: "auth.token",
-  //      headerName: "Authorization",
-  //      maxAgeInSeconds: 259200,
-  //      sameSiteAttribute: "lax",
-  //      cookieDomain: "",
-  //      secureCookieAttribute: false,
-  //      httpOnlyCookieAttribute: false,
-  //    },
-  //    session: {
-  //      dataType: {
-  //        id: "number",
-  //        username: "string",
-  //        created_at: "string,",
-  //      },
-  //    },
-  //  },
-  //  globalAppMiddleware: true,
-  //},
+  fonts: {
+    defaults: {
+      weights: ["100 900"],
+    },
+  },
 });
+
