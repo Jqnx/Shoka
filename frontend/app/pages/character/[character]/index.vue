@@ -48,7 +48,7 @@ router.beforeResolve((_) => {
           :id="archive.id"
           :title="archive.title"
           :progress="archive.page"
-          :page_count="archive.page_count"
+          :page-count="archive.page_count"
         />
       </div>
     </div>

@@ -28,7 +28,8 @@ const progressValue = computed(() => {
   <article class="group relative overflow-hidden">
     <NuxtLink :to="`/a/${id}`" class="block pt-[140%]">
       <Progress
-        class="z-1 rounded-2xl bg-transparent h-1"
+        v-if="props.progress"
+        class="z-1 rounded-2xl bg-transparent h-1 rounded-tl-none rounded-tr-none"
         :model-value="progressValue"
         :title="`${props.progress} of ${props.pageCount} pages read`"
       />
