@@ -97,8 +97,8 @@ const hover = ref("");
   >
     <FormItem>
       <FormControl>
-        <Input v-model="search" placeholder="Search..." />
-        <div class="overflow-y-scroll h-(--reka-accordion-content-height)">
+        <Input v-model="search" placeholder="Search..." class="w-[98%]" />
+        <div class="overflow-y-hidden h-(--reka-accordion-content-height)">
           <div class="flex flex-col gap-1 w-[98%]">
             <Button
               v-for="item in componentField.modelValue"
