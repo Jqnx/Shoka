@@ -11,9 +11,10 @@ import {
 } from "@/components/ui/dialog";
 import Button from "./ui/button/Button.vue";
 import Badge from "./ui/badge/Badge.vue";
-import { ChevronLeft, ChevronRight, ListFilter } from "lucide-vue-next";
+import { ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-vue-next";
 
 const route = useRoute();
+const scroll = useCustomScrollbar();
 
 const filters = computed(() => {
   if (route.name === "favorites") {
@@ -128,8 +129,12 @@ function clearFilters() {
 <template>
   <Dialog>
     <DialogTrigger as-child>
-      <Button variant="secondary">
-        <ListFilter />
+      <Button
+        variant="ghost"
+        class="text-muted-foreground hover:cursor-pointer"
+        title="Filter"
+      >
+        <SlidersHorizontal />
       </Button>
     </DialogTrigger>
     <DialogContent class="max-h-[75dvh] flex flex-col justify-start">
@@ -161,7 +166,7 @@ function clearFilters() {
         </div>
       </DialogHeader>
       <form id="filters" @submit="onSubmit">
-        <div class="h-[50dvh] flex flex-col overflow-y-scroll">
+        <div class="h-[50dvh] flex flex-col overflow-y-auto" :class="scroll">
           <div v-if="active === 0" class="flex flex-col gap-1">
             <Button
               v-for="item in list"
