@@ -1,32 +1,27 @@
-<script lang="ts" setup>
-import AppSidebar from "@/components/AppSidebar.vue";
-import { Separator } from "@/components/ui/separator";
-import Input from "~/components/ui/input/Input.vue";
+<script setup lang="ts">
 import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+  navigationMenuTriggerStyle,
+} from "@/components/ui/navigation-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  Combobox,
-  ComboboxAnchor,
-  ComboboxEmpty,
-  ComboboxGroup,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-  ComboboxSeparator,
-} from "@/components/ui/combobox";
-import Button from "~/components/ui/button/Button.vue";
-import { Search, Sun, Moon } from "lucide-vue-next";
+  Sun,
+  Moon,
+  type LucideIcon,
+  Heart,
+  Settings,
+  Library,
+  LogOut,
+  Panda,
+  Search,
+} from "lucide-vue-next";
 
-const defaultOpen = useCookie<boolean>("sidebar:state");
-
-const { currentPage, pageSize } = storeToRefs(usePageStore());
-const { searchQuery } = storeToRefs(useSearchStore());
-
-const route = useRoute();
-
+const { signOut, user } = useAuth();
 const color = useColorMode();
 const changeColorMode = () => {
   if (color.value === "dark") {
@@ -36,118 +31,132 @@ const changeColorMode = () => {
   }
 };
 
-const search = refDebounced(searchQuery, 250);
-
-const compSearch = computed(() => {
-  return search;
-});
-
-const goSearch = () => {
-  if (route.name === "search") {
-    navigateTo({
-      name: "search",
-      query: {
-        q: searchQuery.value,
-      },
-    });
-    refreshNuxtData("searchPageResults");
-  } else {
-    navigateTo({
-      name: "search",
-      query: {
-        q: searchQuery.value,
-      },
-    });
-  }
-};
-
-const { data: result } = await useFetch("/api/search", {
-  query: {
-    q: compSearch.value,
-    page: currentPage.value,
-    size: pageSize.value,
+const pages: { title: string; href: string }[] = [
+  {
+    title: "Home",
+    href: "index",
   },
-  key: "searchResults",
-});
+  {
+    title: "Archives",
+    href: "a",
+  },
+  {
+    title: "Artists",
+    href: "artist",
+  },
+  {
+    title: "Tags",
+    href: "tag",
+  },
+  {
+    title: "Characters",
+    href: "character",
+  },
+  {
+    title: "Parodies",
+    href: "parody",
+  },
+];
+
+const userMenu: { title: string; href: string; icon: LucideIcon }[] = [
+  {
+    title: "Favorites",
+    href: "favorites",
+    icon: Heart,
+  },
+  {
+    title: "Settings",
+    href: "settings",
+    icon: Settings,
+  },
+];
 </script>
 
 <template>
-  <SidebarProvider :default-open="defaultOpen">
-    <AppSidebar />
-    <SidebarInset>
-      <header class="flex h-16 shrink-0 items-center justify-between">
-        <div class="flex items-center gap-2 px-4">
-          <SidebarTrigger class="-ml-1" />
-          <Separator
-            orientation="vertical"
-            class="data-[orientation=vertical]:h-4"
-          />
-        </div>
-        <div class="flex flex-1 justify-center items-center mr-8 px-4">
-          <div class="relative w-full max-w-xl items-center">
-            <Combobox :ignore-filter="true">
-              <ComboboxAnchor class="w-full">
-                <ComboboxInput v-model="searchQuery" as-child>
-                  <Input
-                    placeholder="Search..."
-                    class="pl-12 rounded-xl"
-                    type="text"
-                  />
-                </ComboboxInput>
-                <Button
-                  variant="ghost"
-                  class="absolute rounded-l-xl start-0 -inset-y-1.5 flex items-center justify-center size-10"
-                  @click="goSearch()"
-                >
-                  <Search class="size-[1.25em] text-muted-foreground" />
-                </Button>
-              </ComboboxAnchor>
-              <ComboboxList
-                class="w-(--reka-combobox-trigger-width) max-h-[80dvh]"
-              >
-                <ComboboxEmpty>Nothing found.</ComboboxEmpty>
-                <ComboboxGroup
-                  v-if="searchQuery !== ''"
-                  class="overflow-y-scroll"
-                >
-                  <!--TODO: Add covers to search results-->
-                  <ComboboxItem :value="searchQuery" @select="goSearch()"
-                    >See all results.</ComboboxItem
+  <div class="flex flex-col gap-4">
+    <header class="bg-secondary py-2.5 shadow-sm flex justify-center">
+      <NavigationMenu>
+        <NavigationMenuList>
+          <NavigationMenuItem>
+            <NavigationMenuLink as-child class="bg-primary">
+              <NuxtLink to="/">
+                <Library class="size-6 stroke-primary-foreground" />
+              </NuxtLink>
+            </NavigationMenuLink>
+          </NavigationMenuItem>
+        </NavigationMenuList>
+        <NavigationMenuList class="md:px-10 lg:px-24 xl:px-32">
+          <NavigationMenuItem v-for="(item, index) in pages" :key="index">
+            <NavigationMenuLink
+              as-child
+              :class="navigationMenuTriggerStyle()"
+              class="bg-secondary"
+            >
+              <NuxtLink :to="{ name: item.href }">{{ item.title }}</NuxtLink>
+            </NavigationMenuLink>
+          </NavigationMenuItem>
+        </NavigationMenuList>
+        <NavigationMenuList>
+          <NavigationMenuItem>
+            <NavigationMenuLink>
+              <Search class="size-5 stroke-3 stroke-foreground" />
+            </NavigationMenuLink>
+          </NavigationMenuItem>
+          <NavigationMenuItem>
+            <NavigationMenuTrigger class="bg-secondary">
+              <Avatar>
+                <!--
+                <AvatarImage :src="user?.image" :alt="user?.displayUsername" />
+                -->
+                <AvatarFallback>
+                  <Panda />
+                </AvatarFallback>
+              </Avatar>
+            </NavigationMenuTrigger>
+            <NavigationMenuContent>
+              <h4 class="text-center pt-1.5 text-md font-semibold">
+                {{ user?.displayUsername }}
+              </h4>
+              <Separator class="my-3" />
+              <ul class="grid w-35 gap-1">
+                <li v-for="(item, index) in userMenu" :key="index">
+                  <NavigationMenuLink as-child>
+                    <NuxtLink
+                      :to="{ name: item.href }"
+                      class="flex flex-row gap-3 items-center"
+                    >
+                      <component :is="item.icon" />
+                      <span>{{ item.title }}</span>
+                    </NuxtLink>
+                  </NavigationMenuLink>
+                </li>
+                <li>
+                  <NavigationMenuLink
+                    class="flex flex-row gap-3 items-center hover:cursor-pointer"
+                    @click="changeColorMode"
                   >
-                  <ComboboxSeparator v-if="result.archives" class="my-1" />
-                  <ComboboxItem
-                    v-for="item in result.archives"
-                    :key="item.id"
-                    :value="item"
-                    @select="
-                      () => {
-                        navigateTo({
-                          name: 'a-id',
-                          params: { id: item.id },
-                        });
-                      }
-                    "
+                    <Sun v-if="color.preference === 'dark'" />
+                    <Moon v-if="color.preference === 'light'" />
+                    <span>Theme</span>
+                  </NavigationMenuLink>
+                </li>
+                <li>
+                  <NavigationMenuLink
+                    class="flex flex-row gap-3 items-center hover:cursor-pointer"
+                    @click="() => signOut({ redirectTo: '/login' })"
                   >
-                    <NuxtImg
-                      :src="`/archive/${item.id}/cover`"
-                      width="48px"
-                      class="rounded-sm"
-                    />
-                    {{ item.title }}
-                  </ComboboxItem>
-                </ComboboxGroup>
-              </ComboboxList>
-            </Combobox>
-          </div>
-        </div>
-        <div class="pr-2">
-          <Button size="icon" variant="ghost" @click="changeColorMode">
-            <Sun v-if="color.preference === 'dark'" />
-            <Moon v-if="color.preference === 'light'" />
-          </Button>
-        </div>
-      </header>
+                    <LogOut />
+                    <span>Sign Out</span>
+                  </NavigationMenuLink>
+                </li>
+              </ul>
+            </NavigationMenuContent>
+          </NavigationMenuItem>
+        </NavigationMenuList>
+      </NavigationMenu>
+    </header>
+    <main class="lg:px-40">
       <slot />
-    </SidebarInset>
-  </SidebarProvider>
+    </main>
+  </div>
 </template>

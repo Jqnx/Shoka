@@ -15,6 +15,7 @@ export default defineNuxtConfig({
     assetsUrl: "",
     public: {
       wsUrl: "",
+      pageSize: 30,
     },
   },
   devServer: {
@@ -32,6 +33,7 @@ export default defineNuxtConfig({
     "vue-sonner/nuxt",
     "motion-v/nuxt",
     "@nuxt/fonts",
+    "@nuxtjs/device",
   ],
   css: ["./app/assets/css/tailwind.css"],
   vite: {
@@ -43,7 +45,7 @@ export default defineNuxtConfig({
   },
   shadcn: {
     prefix: "",
-    componentDir: "./app/components/ui",
+    componentDir: "@/components/ui",
   },
   image: {
     domains: ["localhost"],
@@ -58,4 +60,3 @@ export default defineNuxtConfig({
     },
   },
 });
-
