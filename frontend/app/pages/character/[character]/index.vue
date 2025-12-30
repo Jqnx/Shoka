@@ -10,31 +10,35 @@ import {
   PaginationLast,
 } from "@/components/ui/pagination";
 
-const { currentPage } = storeToRefs(usePageStore());
 const { character } = useRoute().params;
 const token = await useAuth().getToken();
+
+const currentPage = ref(0);
+const query = useRoute().query;
+const page = parseInt(query.page as string, 10);
+if (isNaN(page)) {
+  currentPage.value = 1;
+} else {
+  currentPage.value = page;
+}
+
+const pageSize = useRuntimeConfig().public.pageSize;
 
 useHead({
   title: `Character: ${character}`,
 });
 
-const pageSize = ref(30);
 const { data: archives } = await useFetch(`/api/character/${character}`, {
   onRequest({ options }) {
     options.headers.set("Authorization", `Bearer ${token}`);
   },
   query: { page: currentPage, size: pageSize },
-  key: "archives",
+  key: `archives-${character}`,
 });
 
 const scrollToTop = () => {
   window.scrollTo({ top: 0, behavior: "smooth" });
 };
-
-const router = useRouter();
-router.beforeResolve((_) => {
-  currentPage.value = 1;
-});
 </script>
 
 <template>
@@ -59,6 +63,7 @@ router.beforeResolve((_) => {
       :items-per-page="pageSize"
       :total="archives.total"
       :default-page="1"
+      @update:page="navigateTo(`/a?page=${currentPage}`)"
     >
       <PaginationContent v-slot="{ items }">
         <PaginationFirst @click="scrollToTop" />

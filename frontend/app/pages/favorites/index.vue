@@ -14,10 +14,19 @@ useHead({
   title: "Favorites",
 });
 
-const { currentPage, pageSize } = storeToRefs(usePageStore());
 const { sortBy, sortDir, filters } = storeToRefs(useFavoriteFiltersStore());
 
 const token = await useAuth().getToken();
+const currentPage = ref(0);
+const query = useRoute().query;
+const page = parseInt(query.page as string, 10);
+if (isNaN(page)) {
+  currentPage.value = 1;
+} else {
+  currentPage.value = page;
+}
+
+const pageSize = useRuntimeConfig().public.pageSize;
 
 const { data: archives } = await useAsyncData(
   "favorites",
@@ -29,7 +38,7 @@ const { data: archives } = await useAsyncData(
       },
       query: {
         page: currentPage.value,
-        size: pageSize.value,
+        size: pageSize,
         sortby: sortBy.value,
         sortdir: sortDir.value,
       },
@@ -78,6 +87,7 @@ router.beforeResolve((_) => {
       :items-per-page="pageSize"
       :total="archives.total"
       :default-page="1"
+      @update:page="navigateTo(`/a?page=${currentPage}`)"
     >
       <PaginationContent v-slot="{ items }">
         <PaginationFirst @click="scrollToTop" />
@@ -85,10 +95,10 @@ router.beforeResolve((_) => {
 
         <template v-for="(item, index) in items" :key="index">
           <PaginationItem
-            v-if="item.type == 'page'"
+            v-if="item.type === 'page'"
             :key="index"
             :value="item.value"
-            :is-active="item.value == currentPage"
+            :is-active="item.value === currentPage"
             @click="scrollToTop"
           >
             {{ item.value }}
