@@ -36,19 +36,20 @@ const isFav = computed(() => {
   }
 });
 
+// TODO: Implement favorites as sort option
+
 const sortList = [
   { value: "title", label: "Title" },
-  { value: "page_count", label: "Page Count" },
+  { value: "page_count", label: "Length" },
+  { value: "favorites", label: "Favorites" },
   { value: "created_at", label: "Date Added" },
-  { value: "updated_at", label: "Updated At" },
   { value: "release_date", label: "Release Date" },
 ];
 
 const sortListFavorite = [
   { value: "title", label: "Title" },
-  { value: "page_count", label: "Page Count" },
-  { value: "created_at", label: "Created At" },
-  { value: "updated_at", label: "Updated At" },
+  { value: "page_count", label: "Length" },
+  { value: "created_at", label: "Date Added" },
   { value: "release_date", label: "Release Date" },
   { value: "favorited_at", label: "Favorited At" },
 ];
@@ -94,7 +95,11 @@ const shuffle = () => {
       <div class="flex">
         <DropdownMenu>
           <DropdownMenuTrigger as-child>
-            <Button variant="secondary" class="rounded-r-none">
+            <Button
+              variant="ghost"
+              class="rounded-r-none text-muted-foreground"
+              title="Sort By"
+            >
               {{ filters.sortLabel }}
             </Button>
           </DropdownMenuTrigger>
@@ -116,6 +121,7 @@ const shuffle = () => {
             <DropdownMenuItem
               v-for="(item, index) in sortList"
               :key="index"
+              class="text-muted-foreground font-medium"
               @select="
                 () => {
                   filters.sortBy.value = item.value;
@@ -129,18 +135,20 @@ const shuffle = () => {
         </DropdownMenu>
         <Button
           v-if="filters.sortDir.value == 'asc'"
-          variant="secondary"
-          class="rounded-l-none"
+          variant="ghost"
+          class="rounded-l-none text-muted-foreground hover:cursor-pointer"
           size="icon"
+          title="Ascending"
           @click="filters.sortDir.value = 'desc'"
         >
           <ChevronUp />
         </Button>
         <Button
           v-else
-          variant="secondary"
-          class="rounded-l-none"
+          variant="ghost"
+          class="rounded-l-none text-muted-foreground hover:cursor-pointer"
           size="icon"
+          title="Descending"
           @click="filters.sortDir.value = 'asc'"
         >
           <ChevronDown />
@@ -148,7 +156,12 @@ const shuffle = () => {
       </div>
     </div>
     <div>
-      <Button variant="secondary" @click="shuffle">
+      <Button
+        variant="ghost"
+        class="text-muted-foreground hover:cursor-pointer"
+        title="Shuffle"
+        @click="shuffle"
+      >
         <Shuffle />
       </Button>
     </div>
