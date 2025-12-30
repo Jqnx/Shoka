@@ -4,20 +4,25 @@ definePageMeta({
 });
 
 const token = await useAuth().getToken();
-const data = useNuxtData("archive_reader");
-
 const params = computed(() => {
   return useRoute().params;
 });
+
+const { data } = await useFetch(`/api/a/${params.value.id}`, {
+  key: "archive_reader",
+  pick: ["title", "page_count"] as any,
+});
+
 const pageInt = computed(() => {
   return Number(params.value.page);
 });
+
 const clamp = (num: number, min: number, max: number) => {
   return Math.min(Math.max(num, min), max);
 };
 
 useHead({
-  title: `${data.data.value.title} - Page ${pageInt.value}`,
+  title: `${data.value.title} - Page ${pageInt.value}`,
 });
 
 const { preload, fit } = storeToRefs(useReaderSettingsStore());
@@ -35,7 +40,7 @@ onBeforeRouteLeave(() => {
   $fetch(`/api/a/${params.value.id}/${params.value.page}`, {
     method: "post",
     onRequest({ options }) {
-      options.headers.set("Authorization", `${token}`);
+      options.headers.set("Authorization", `Bearer ${token}`);
     },
   });
 });
@@ -48,7 +53,7 @@ onBeforeRouteLeave(() => {
         :src="`/archive/${params.id}/${clamp(
           pageInt + index,
           pageInt,
-          data.data.value.page_count,
+          data.page_count,
         )}`"
         preload
         hidden

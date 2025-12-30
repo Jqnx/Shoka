@@ -10,23 +10,19 @@ const clamp = (num: number, min: number, max: number) => {
   return Math.min(Math.max(num, min), max);
 };
 
-const { data } = await useFetch(`/api/a/${params.value.id}`, {
-  key: "archive_reader",
-  pick: ["title", "page_count"] as any,
-});
-
+const data = useNuxtData("archive_reader");
 const goBack = () => {
   navigateTo({
     name: "a-id-page",
     params: {
       id: params.value.id,
-      page: clamp(pageInt.value - 1, 1, data.value.page_count),
+      page: clamp(pageInt.value - 1, 1, data.data.value.page_count),
     },
   });
 };
 
 const goNext = () => {
-  if (pageInt.value === data.value.page_count) {
+  if (pageInt.value === data.data.value.page_count) {
     navigateTo({
       name: "a-id",
       params: {
@@ -38,7 +34,7 @@ const goNext = () => {
       name: "a-id-page",
       params: {
         id: params.value.id,
-        page: clamp(pageInt.value + 1, 1, data.value.page_count),
+        page: clamp(pageInt.value + 1, 1, data.data.value.page_count),
       },
     });
   }
