@@ -11,7 +11,9 @@ import { user } from "./better-auth";
 export const favoriteArchives = pgTable(
   "favorite_archives",
   {
-    archiveId: char("archive_id", { length: 8 }).references(() => archive.id),
+    archiveId: char("archive_id", { length: 8 }).references(() => archive.id, {
+      onDelete: "cascade",
+    }),
     userId: uuid("user_id").references(() => user.id),
     favoritedAt: timestamp("favorited_at", { withTimezone: true }).notNull(),
   },
