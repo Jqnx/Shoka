@@ -1,10 +1,12 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
 	"Shoka/internal/config"
+	"Shoka/internal/database"
 	"Shoka/internal/models"
 
 	"github.com/gin-gonic/gin"
@@ -51,5 +53,21 @@ func (s *Server) setFlaresolverrHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, &models.Response{
 		Status:  "success",
 		Message: req,
+	})
+}
+
+func (s *Server) resetDatabaseHandler(c *gin.Context) {
+	ctx := context.Background()
+
+	if err := database.ResetDatabase(ctx, s.app); err != nil {
+		c.JSON(http.StatusInternalServerError, &models.Response{
+			Status:  "error",
+			Message: err,
+		})
+	}
+
+	c.JSON(http.StatusOK, &models.Response{
+		Status:  "success",
+		Message: "successfully reset database",
 	})
 }

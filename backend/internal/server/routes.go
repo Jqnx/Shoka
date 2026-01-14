@@ -133,10 +133,10 @@ func (s *Server) RegisterRoutes() http.Handler {
 			}
 		*/
 
-		user := api.Group("/user")
+		user := api.Group("/user", middleware.Auth())
 		{
-			user.GET("/favorites", middleware.Auth(), s.getUserFavoriteArchives)
-			user.POST("/favorites", middleware.Auth(), s.getFavoriteArchiveFilterHandler)
+			user.GET("/favorites", s.getUserFavoriteArchives)
+			user.POST("/favorites", s.getFavoriteArchiveFilterHandler)
 			// user.PUT("/update", middleware.Auth(s.repo), s.updateUserHandler)
 		}
 
@@ -152,10 +152,11 @@ func (s *Server) RegisterRoutes() http.Handler {
 				download.DELETE("/:id", s.deleteDownloadHandler)
 			}
 		*/
-		config := api.Group("/config")
+		config := api.Group("/config", middleware.Auth())
 		{
 			config.GET("/flaresolverr", s.getFlaresolverrHandler)
 			config.POST("/flaresolverr", s.setFlaresolverrHandler)
+			config.DELETE("/database", s.resetDatabaseHandler)
 		}
 	}
 
