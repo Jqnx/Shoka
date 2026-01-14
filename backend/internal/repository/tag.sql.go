@@ -46,6 +46,25 @@ func (q *Queries) CreateTag(ctx context.Context, arg CreateTagParams) (Tag, erro
 	return i, err
 }
 
+const deleteAllTag = `-- name: DeleteAllTag :exec
+delete from tag
+`
+
+func (q *Queries) DeleteAllTag(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteAllTag)
+	return err
+}
+
+const deleteTag = `-- name: DeleteTag :exec
+delete from tag
+where id = $1
+`
+
+func (q *Queries) DeleteTag(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, deleteTag, id)
+	return err
+}
+
 const getAllTags = `-- name: GetAllTags :many
 select id, name, count
 from tag

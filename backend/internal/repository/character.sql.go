@@ -56,6 +56,25 @@ func (q *Queries) CreateCharacter(ctx context.Context, arg CreateCharacterParams
 	return i, err
 }
 
+const deleteAllCharacter = `-- name: DeleteAllCharacter :exec
+delete from character
+`
+
+func (q *Queries) DeleteAllCharacter(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteAllCharacter)
+	return err
+}
+
+const deleteCharacter = `-- name: DeleteCharacter :exec
+delete from character
+where id = $1
+`
+
+func (q *Queries) DeleteCharacter(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, deleteCharacter, id)
+	return err
+}
+
 const getAllCharacter = `-- name: GetAllCharacter :many
 select id, name, count
 from character

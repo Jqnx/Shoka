@@ -165,6 +165,15 @@ func (q *Queries) CreateArchive(ctx context.Context, arg CreateArchiveParams) (C
 	return i, err
 }
 
+const deleteAllArchive = `-- name: DeleteAllArchive :exec
+delete from archive
+`
+
+func (q *Queries) DeleteAllArchive(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteAllArchive)
+	return err
+}
+
 const deleteArchive = `-- name: DeleteArchive :exec
 delete from archive
 where id = $1

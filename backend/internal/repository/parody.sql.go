@@ -46,6 +46,25 @@ func (q *Queries) CreateParody(ctx context.Context, arg CreateParodyParams) (Par
 	return i, err
 }
 
+const deleteAllParody = `-- name: DeleteAllParody :exec
+delete from parody
+`
+
+func (q *Queries) DeleteAllParody(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteAllParody)
+	return err
+}
+
+const deleteParody = `-- name: DeleteParody :exec
+delete from parody
+where id = $1
+`
+
+func (q *Queries) DeleteParody(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, deleteParody, id)
+	return err
+}
+
 const getAllParody = `-- name: GetAllParody :many
 select id, name, count
 from parody

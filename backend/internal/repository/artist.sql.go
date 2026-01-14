@@ -105,6 +105,15 @@ func (q *Queries) CreateArtistUrl(ctx context.Context, arg CreateArtistUrlParams
 	return err
 }
 
+const deleteAllArtist = `-- name: DeleteAllArtist :exec
+delete from artist
+`
+
+func (q *Queries) DeleteAllArtist(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteAllArtist)
+	return err
+}
+
 const deleteArtist = `-- name: DeleteArtist :exec
 delete from artist
 where id = $1
