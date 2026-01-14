@@ -44,3 +44,31 @@ func NewPool(ctx context.Context, c *config.Config, log logger.Logger) (*pgxpool
 
 	return pool, nil
 }
+
+func ResetDatabase(ctx context.Context, app *config.App) error {
+	tx, err := app.DB.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	qtx := app.Repo.WithTx(tx)
+
+	if err := qtx.DeleteAllArchive(ctx); err != nil {
+		return err
+	}
+	if err := qtx.DeleteAllArtist(ctx); err != nil {
+		return err
+	}
+	if err := qtx.DeleteAllCharacter(ctx); err != nil {
+		return err
+	}
+	if err := qtx.DeleteAllParody(ctx); err != nil {
+		return err
+	}
+	if err := qtx.DeleteAllTag(ctx); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
