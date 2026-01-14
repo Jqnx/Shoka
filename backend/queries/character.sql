@@ -121,3 +121,12 @@ set count = $1
 where id = $2
 ;
 
+-- name: DeleteCharacter :exec
+delete from character
+where id = $1
+;
+
+-- name: DeleteAllCharacter :exec
+delete from character
+;
+

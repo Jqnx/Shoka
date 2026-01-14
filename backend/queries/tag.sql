@@ -117,3 +117,12 @@ set count = $1
 where id = $2
 ;
 
+-- name: DeleteTag :exec
+delete from tag
+where id = $1
+;
+
+-- name: DeleteAllTag :exec
+delete from tag
+;
+

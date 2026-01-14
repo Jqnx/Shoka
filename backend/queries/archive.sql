@@ -311,6 +311,10 @@ delete from archive
 where id = $1
 ;
 
+-- name: DeleteAllArchive :exec
+delete from archive
+;
+
 -- name: DeleteArchiveByFilePath :exec
 delete from archive
 where file_path = $1

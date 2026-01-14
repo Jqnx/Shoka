@@ -112,6 +112,10 @@ delete from artist
 where id = $1
 ;
 
+-- name: DeleteAllArtist :exec
+delete from artist
+;
+
 -- name: GetArchiveArtists :many
 select artist.*
 from archive

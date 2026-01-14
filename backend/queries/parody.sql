@@ -117,3 +117,12 @@ set count = $1
 where id = $2
 ;
 
+-- name: DeleteParody :exec
+delete from parody
+where id = $1
+;
+
+-- name: DeleteAllParody :exec
+delete from parody
+;
+
