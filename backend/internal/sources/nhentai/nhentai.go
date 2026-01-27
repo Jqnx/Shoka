@@ -64,14 +64,10 @@ func (s *Nhentai) Unmarshal(data any) error {
 		if err := json.Unmarshal(data.([]byte), &s.Metadata); err != nil {
 			return err
 		}
-
-		fmt.Println(s.Metadata)
 	case config.MethodTitle:
 		if err := json.Unmarshal(data.([]byte), &s.SearchMetadata); err != nil {
 			return err
 		}
-
-		fmt.Println(s.SearchMetadata)
 	}
 
 	return nil

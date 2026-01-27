@@ -31,32 +31,23 @@ func (a *Archive) setTitle(title string) {
 }
 
 // setSummary sets archive's summary
-// if passed summary is empty sets to nil
 func (a *Archive) setSummary(summary string) {
 	if summary != "" {
 		a.Summary = &summary
-	} else {
-		a.Summary = nil
 	}
 }
 
 // setLanguage sets archive's language
-// if passed language is empty sets to nil
 func (a *Archive) setLanguage(language string) {
 	if language != "" {
 		a.Language = &language
-	} else {
-		a.Language = nil
 	}
 }
 
 // setCategory sets archive's category
-// if passed category is empty sets to nil
 func (a *Archive) setCategory(category string) {
 	if category != "" {
 		a.Category = &category
-	} else {
-		a.Category = nil
 	}
 }
 
