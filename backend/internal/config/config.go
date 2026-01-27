@@ -115,8 +115,8 @@ func LoadConfig(log logger.Logger) (*Config, error) {
 func setDefaults() {
 	// Directories
 	viper.SetDefault("content_dir", "../content")
-	viper.SetDefault("thumb_dir", "../thumb")
-	viper.SetDefault("temp_dir", "../tmp")
+	viper.SetDefault("thumb_dir", "./thumb")
+	viper.SetDefault("temp_dir", "./tmp")
 
 	// Downloads
 	viper.SetDefault("downloader.download_dir", "../downloads")
