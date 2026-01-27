@@ -34,7 +34,7 @@ func (c *ComicInfo) Write(path, tempDir string) error {
 		return err
 	}
 
-	if err = fsutil.AddToExistingZip(path, file.Name(), tempDir); err != nil {
+	if err = fsutil.AddToExistingZip(path, file.Name(), tempDir, config.ComicInfoFile); err != nil {
 		return err
 	}
 	return nil

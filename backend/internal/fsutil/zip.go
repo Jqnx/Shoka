@@ -95,7 +95,7 @@ func (z *ZipArchive) Close() error {
 
 // AddToExistingZip adds a new file from the filesystem to an existing zip
 // and replaces the original with a new one containing the added file.
-func AddToExistingZip(zipPath, newFile, tempDir string) error {
+func AddToExistingZip(zipPath, newFile, tempDir, fileToRemove string) error {
 	existingZip, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return fmt.Errorf("failed to open existing zip: %w", err)
@@ -121,6 +121,10 @@ func AddToExistingZip(zipPath, newFile, tempDir string) error {
 	defer zipWriter.Close()
 
 	for _, file := range existingZip.File {
+		if fileToRemove != "" && file.Name == fileToRemove {
+			continue
+		}
+
 		err := copyFileToZip(zipWriter, file)
 		if err != nil {
 			return fmt.Errorf("failed to copy existing file %s: %w", file.Name, err)
