@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"net/url"
+	"time"
 
 	"Shoka/internal/repository"
 	"Shoka/internal/util"
@@ -27,7 +28,7 @@ type ComicInfo struct {
 	Web           string   `xml:"Web,omitempty"`    // Space seperated, TODO: Spaces in url need to be hex encoded (%20 for space)
 	URL           string   `xml:"URL,omitempty"`    // Space seperated, TODO: Spaces in url need to be hex encoded (%20 for space)
 	PageCount     int      `xml:"PageCount"`
-	Language      string   `xml:"LanguageISO"`
+	Language      string   `xml:"LanguageISO,omitempty"`
 	Characters    string   `xml:"Characters,omitempty"` // Comma seperated
 	BlackAndWhite string   `xml:"BlackAndWhite,omitempty"`
 	Manga         string   `xml:"Manga,omitempty"`
@@ -64,10 +65,16 @@ func (c *ComicInfo) SetMetadata(data any) error {
 		ci := data
 
 		c.Title = data.Archive.Title
-		c.Summary = *data.Archive.Summary
-		c.Genre = *data.Archive.Category
+		if data.Archive.Summary != nil {
+			c.Summary = *data.Archive.Summary
+		}
+		if data.Archive.Category != nil {
+			c.Genre = *data.Archive.Category
+		}
+		if data.Archive.Language != nil {
+			c.Language = *data.Archive.Language
+		}
 		c.PageCount = int(data.Archive.PageCount)
-		c.Language = *data.Archive.Language
 		c.Writer = util.ToString(ci.Artists)
 		c.Tags = util.ToString(ci.Tags)
 		c.Series = util.ToString(ci.Parody)
@@ -75,7 +82,12 @@ func (c *ComicInfo) SetMetadata(data any) error {
 		c.Web = util.ToString(ci.URLs)
 		c.BlackAndWhite = getBlackWhite(ci.Tags)
 		c.Manga = getManga(ci.Tags)
-		year, month, day := ci.Archive.ReleaseDate.Date()
+
+		var year, day int
+		var month time.Month
+		if ci.Archive.ReleaseDate != nil {
+			year, month, day = ci.Archive.ReleaseDate.Date()
+		}
 		c.Year = year
 		c.Month = int(month)
 		c.Day = day

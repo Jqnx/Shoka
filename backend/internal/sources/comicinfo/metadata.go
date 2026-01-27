@@ -14,6 +14,9 @@ import (
 // if it does, returns false
 // if it does not, returns true
 func getBlackWhite(tags []repository.Tag) string {
+	if len(tags) == 0 {
+		return ""
+	}
 	for _, i := range tags {
 		if strings.Contains(i.Name, "full color") {
 			return "No"
@@ -26,6 +29,9 @@ func getBlackWhite(tags []repository.Tag) string {
 // if it does, returns false
 // if it does not, returns true
 func getManga(tags []repository.Tag) string {
+	if len(tags) == 0 {
+		return ""
+	}
 	for _, i := range tags {
 		if strings.Contains(i.Name, "webtoon") {
 			return "No"
