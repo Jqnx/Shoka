@@ -8,6 +8,7 @@ import {
 useHead({
   title: "Settings",
 });
+const token = await useAuth().getToken();
 </script>
 
 <template>
@@ -18,7 +19,7 @@ useHead({
           >Source Settings</AccordionTrigger
         >
         <AccordionContent class="grid grid-cols-3">
-          <FlaresolverrForm />
+          <FlaresolverrForm :token="token" />
         </AccordionContent>
       </AccordionItem>
     </Accordion>
