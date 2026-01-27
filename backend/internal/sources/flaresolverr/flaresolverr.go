@@ -3,6 +3,7 @@ package flaresolverr
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -49,6 +50,13 @@ type FlaresolverrBody struct {
 }
 
 func Request(cfg *config.Config, url string) ([]byte, error) {
+	var flaresolverrURL string
+	if !strings.Contains(cfg.Sources.Flaresolverr.URL, "/v1") {
+		flaresolverrURL = fmt.Sprintf("%s/v1", cfg.Sources.Flaresolverr.URL)
+	} else {
+		flaresolverrURL = cfg.Sources.Flaresolverr.URL
+	}
+
 	client := http.Client{}
 
 	body := FlaresolverrBody{
@@ -60,7 +68,7 @@ func Request(cfg *config.Config, url string) ([]byte, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, cfg.Sources.Flaresolverr.URL, bytes.NewBuffer(bodyBytes))
+	req, err := http.NewRequest(http.MethodPost, flaresolverrURL, bytes.NewBuffer(bodyBytes))
 	if err != nil {
 		return nil, err
 	}
@@ -92,5 +100,6 @@ func Request(cfg *config.Config, url string) ([]byte, error) {
 	doc.Find("pre").Each(func(i int, s *goquery.Selection) {
 		out, _ = io.ReadAll(strings.NewReader(s.Text()))
 	})
+
 	return out, nil
 }
