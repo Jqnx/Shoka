@@ -8,6 +8,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { toast } from "vue-sonner";
 
 const id = useRoute().params.id;
 const { data: archive } = useNuxtData("archive");
@@ -22,11 +23,15 @@ const {
 } = useLazyAsyncData(
   sourceKey,
   () =>
-    $fetch(`/api/a/${id}/search`, {
+    $fetch(`/api/a/${id}/meta/search`, {
       method: "post",
       body: {
         source: props.source.value,
         title: archive.value.title,
+      },
+      onResponseError({ response }) {
+        toast.error(h("pre", "Error: " + response._data.message));
+        open.value = false;
       },
     }),
   {

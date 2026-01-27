@@ -230,7 +230,7 @@ const activeCategory = ref(false);
 const activeReleaseDate = ref(false);
 const activeURLs = ref(false);
 
-console.log(oldArtists);
+//console.log(oldArtists);
 
 //const id = useRoute().params.id;
 const onSubmit = handleSubmit((values) => {
