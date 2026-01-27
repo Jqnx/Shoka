@@ -43,29 +43,33 @@ func (s *Server) RegisterRoutes() http.Handler {
 		api.GET("/search", s.searchArchiveHandler)
 		archive := api.Group("/a")
 		{
+			// TODO: Merge getArchiveListHandler and getArchiveFilterHandler together into 1 handler
 			archive.GET("", s.getArchiveListHandler)
+			archive.POST("", s.createArchiveHandler)
 			archive.GET("/recent", middleware.Auth(), s.getRecentlyReadHandler)
 			archive.POST("/filter", s.getArchiveFilterHandler)
 			archive.GET("/filters", s.getAllFiltersHandler)
-			archive.GET("/:id", s.getArchiveHandler)
-			archive.GET("/:id/cover", s.getCoverHandler)
-			archive.GET("/:id/:page", s.getThumbHandler)
-			archive.GET("/:id/scanmeta", s.scanMetadataHandler)
-			archive.POST("/:id/search", s.searchMetadataHandler)
 			archive.POST("/shuffle", s.shuffleArchiveHandler)
-			archive.POST("", s.createArchiveHandler)
-			archive.POST("/:id/cover", s.generateCoverHandler)
-			archive.POST("/:id/thumb", s.generateThumbHandler)
-			archive.POST("/:id/favorite", middleware.Auth(), s.favoriteArchiveHandler)
-			archive.POST("/:id/:page", middleware.Auth(), s.updateReadingProgressHandler)
-			archive.PUT("/:id", s.updateArchiveHandler)
-			archive.DELETE("/:id/rp", middleware.Auth(), s.deleteReadingProgressHandler)
+			id := archive.Group("/:id")
+			{
+				id.GET("", s.getArchiveHandler)
+				id.PUT("", s.updateArchiveHandler)
+				id.GET("/cover", s.getCoverHandler)
+				id.GET("/:page", s.getThumbHandler)
+				id.POST("/:page", middleware.Auth(), s.updateReadingProgressHandler)
+				id.POST("/cover", s.generateCoverHandler)
+				id.POST("/thumb", s.generateThumbHandler)
+				id.POST("/favorite", middleware.Auth(), s.favoriteArchiveHandler)
+				id.DELETE("/rp", middleware.Auth(), s.deleteReadingProgressHandler)
+				meta := id.Group("/meta")
+				{
+					meta.POST("/search", s.searchMetadataHandler)
+					meta.POST("/scan", s.scanMetadataHandler)
+					meta.POST("/tofile", s.metadataToFileHandler)
+				}
+			}
 			// archive.DELETE("/:id", s.deleteArchiveHandler)
 			// archive.GET("/lastid", s.getLastIDHandler)
-			meta := archive.Group("/:id/meta")
-			{
-				meta.POST("/tofile", s.metadataToFileHandler)
-			}
 		}
 
 		// Artist API
@@ -154,8 +158,12 @@ func (s *Server) RegisterRoutes() http.Handler {
 		*/
 		config := api.Group("/config", middleware.Auth())
 		{
-			config.GET("/flaresolverr", s.getFlaresolverrHandler)
-			config.POST("/flaresolverr", s.setFlaresolverrHandler)
+			flare := config.Group("/flaresolverr")
+			{
+				flare.GET("", s.getFlaresolverrHandler)
+				flare.POST("", s.setFlaresolverrHandler)
+
+			}
 			config.DELETE("/database", s.resetDatabaseHandler)
 		}
 	}

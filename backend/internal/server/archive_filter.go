@@ -438,6 +438,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 	}
 }
 
+// FIX:  duplicate (category, language) entries in response
 func (s *Server) getAllFiltersHandler(c *gin.Context) {
 	ctx := context.Background()
 
@@ -490,7 +491,7 @@ func (s *Server) getAllFiltersHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	c.JSON(http.StatusOK, &gin.H{
 		"tags":       tags,
 		"artists":    artists,
 		"characters": characters,

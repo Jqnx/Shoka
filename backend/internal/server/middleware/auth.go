@@ -40,7 +40,7 @@ func Auth() gin.HandlerFunc {
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, &models.Response{
 				Status:  "error",
-				Message: "cannot parse request",
+				Message: "invalid or incorrect jwt",
 			})
 			return
 		}
