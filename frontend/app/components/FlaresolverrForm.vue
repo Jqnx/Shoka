@@ -21,11 +21,12 @@ import { toast } from "vue-sonner";
 
 const props = defineProps<{
   class?: HTMLAttributes["class"];
+  token?: string;
 }>();
 
 const formSchema = toTypedSchema(
   z.object({
-    url: z.string({ required_error: "CSRFToken is required." }).url(),
+    url: z.string({ required_error: "URL is required." }).url(),
   }),
 );
 
@@ -35,6 +36,9 @@ const { handleSubmit, errors, setFieldValue } = useForm({
 
 const { data } = useLazyFetch("/api/config/flaresolverr", {
   key: "flaresolverr",
+  onRequest({ options }) {
+    options.headers.set("Authorization", `Bearer ${props.token}`);
+  },
 });
 
 watch(data, () => {
@@ -45,10 +49,13 @@ const onSubmit = handleSubmit((values) => {
   $fetch(`/api/config/flaresolverr`, {
     method: "POST",
     body: JSON.stringify(values, null, 2),
+    onRequest({ options }) {
+      options.headers.set("Authorization", `Bearer ${props.token}`);
+    },
     onResponseError({ response }) {
       const err = JSON.stringify(response._data.data, null, 2);
-      const test = JSON.parse(err);
-      toast.error(h("pre", test));
+      const parsedErr = JSON.parse(err);
+      toast.error(h("pre", parsedErr));
     },
     onResponse({ response }) {
       if (response.ok) {
@@ -82,7 +89,7 @@ const onSubmit = handleSubmit((values) => {
                 <FormItem class="grid gap-3">
                   <FormLabel>URL</FormLabel>
                   <FormControl>
-                    <Input type="csrftoken" v-bind="componentField" />
+                    <Input type="url" v-bind="componentField" />
                   </FormControl>
                   <FormLabel v-if="errors.url">
                     <p class="text-destructive">
