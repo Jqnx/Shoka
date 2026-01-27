@@ -129,8 +129,8 @@ type UpdateReadingProgressParams struct {
 	LastRead  time.Time `json:"last_read"`
 	ArchiveID string    `json:"archive_id"`
 	UserID    uuid.UUID `json:"user_id"`
-	Page      *int16    `json:"page"`
-	Status    *string   `json:"status"`
+	Page      int16     `json:"page"`
+	Status    string    `json:"status"`
 }
 
 func (q *Queries) UpdateReadingProgress(ctx context.Context, arg UpdateReadingProgressParams) (ReadingProgress, error) {

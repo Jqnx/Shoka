@@ -14,6 +14,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"Shoka/internal/config"
+	"Shoka/internal/repository"
+
 	"github.com/bodgit/sevenzip"
 )
 
@@ -358,4 +361,21 @@ func Remove(src string) error {
 		}
 	}
 	return nil
+}
+
+// CountPages counts the amount of image files in the pages directory of an archive
+func CountPages(archive repository.GetArchiveByIDRow) int {
+	p, _ := filepath.Abs(*archive.ThumbPath)
+	d, err := os.ReadDir(filepath.Join(p, "pages"))
+	if err != nil {
+		return 0
+	}
+
+	var pages int
+	for _, i := range d {
+		if MatchExtension(i.Name(), config.ImageExtensions) {
+			pages++
+		}
+	}
+	return pages
 }

@@ -100,91 +100,10 @@ func (s *Server) searchMetadataHandler(c *gin.Context) {
 }
 
 func (s *Server) metadataToFileHandler(c *gin.Context) {
-	ctx := context.Background()
 	id := c.Param("id")
 
 	// Get Metadata from Database
-	arch, err := s.repo.GetArchiveByID(ctx, id)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.Response{
-				Status:  "error",
-				Message: config.ErrArchiveNotFound.Error(),
-			})
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.Response{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-	}
-	tags, err := s.repo.GetArchiveTag(ctx, id)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.Response{
-				Status:  "error",
-				Message: config.ErrArchiveNotFound.Error(),
-			})
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.Response{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-	}
-	characters, err := s.repo.GetArchiveCharacters(ctx, id)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.Response{
-				Status:  "error",
-				Message: config.ErrArchiveNotFound.Error(),
-			})
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.Response{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-	}
-	parodies, err := s.repo.GetArchiveParody(ctx, id)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.Response{
-				Status:  "error",
-				Message: config.ErrArchiveNotFound.Error(),
-			})
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.Response{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-	}
-	urls, err := s.repo.GetArchiveUrls(ctx, id)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.Response{
-				Status:  "error",
-				Message: config.ErrArchiveNotFound.Error(),
-			})
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.Response{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-	}
-	artists, err := s.repo.GetArchiveArtists(ctx, id)
+	arch, err := archive.GetWithMetadata(s.app, id)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			c.JSON(http.StatusNotFound, &models.Response{
@@ -203,12 +122,12 @@ func (s *Server) metadataToFileHandler(c *gin.Context) {
 
 	ci := comicinfo.NewComicInfo()
 	if err := ci.SetMetadata(comicinfo.ComicInfoParams{
-		Archive:   arch,
-		Artists:   artists,
-		Tags:      tags,
-		Parody:    parodies,
-		Character: characters,
-		URLs:      urls,
+		Archive:   arch.Archive,
+		Artists:   arch.Artists,
+		Tags:      arch.Tags,
+		Parody:    arch.Parodies,
+		Character: arch.Characters,
+		URLs:      arch.URLs,
 	}); err != nil {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
@@ -217,7 +136,7 @@ func (s *Server) metadataToFileHandler(c *gin.Context) {
 		return
 	}
 
-	if err := ci.Write(arch.FilePath, s.app.Cfg.TempDir); err != nil {
+	if err := ci.Write(arch.Archive.FilePath, s.app.Cfg.TempDir); err != nil {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),
@@ -225,7 +144,7 @@ func (s *Server) metadataToFileHandler(c *gin.Context) {
 		return
 	}
 
-	a := archive.RepoToArchive(arch, s.app)
+	a := archive.RepoToArchive(arch.Archive, s.app)
 	if err := a.MoveOnFileUpdate(); err != nil {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",

@@ -20,43 +20,24 @@ type ArchiveResponse struct {
 	ID          string                         `json:"id"`
 	Title       string                         `json:"title"`
 	Summary     *string                        `json:"summary"`
-	Tags        []repository.Tag               `json:"tags"`
-	Artist      []repository.Artist            `json:"artist"`
-	Parody      []repository.Parody            `json:"parody"`
-	Character   []repository.Character         `json:"character"`
 	Language    *string                        `json:"language"`
 	Category    *string                        `json:"category"`
-	PageCount   int16                          `json:"page_count"`
-	URL         []repository.GetArchiveUrlsRow `json:"url"`
-	FileHash    string                         `json:"file_hash"`
-	Pages       int                            `json:"pages"`
-	CreatedAt   time.Time                      `json:"created_at"`
-	UpdatedAt   time.Time                      `json:"updated_at"`
-	ReleaseDate *time.Time                     `json:"release_date"`
-}
-
-type ArchiveResponseFavorite struct {
-	ID          string                         `json:"id"`
-	Title       string                         `json:"title"`
-	Summary     *string                        `json:"summary"`
-	Tags        []repository.Tag               `json:"tags"`
-	Artist      []repository.Artist            `json:"artist"`
-	Parody      []repository.Parody            `json:"parody"`
-	Character   []repository.Character         `json:"character"`
-	Language    *string                        `json:"language"`
-	Category    *string                        `json:"category"`
-	PageCount   int16                          `json:"page_count"`
-	URL         []repository.GetArchiveUrlsRow `json:"url"`
-	FileHash    string                         `json:"file_hash"`
-	Pages       int                            `json:"pages"`
+	PageCount   int16                          `json:"pageCount"`
+	FileHash    string                         `json:"fileHash"`
 	Type        string                         `json:"type"`
-	Status      string                         `json:"read_state"`
+	CreatedAt   time.Time                      `json:"createdAt"`
+	UpdatedAt   time.Time                      `json:"updatedAt"`
+	ReleaseDate *time.Time                     `json:"releaseDate"`
+	PagesOnDisk int                            `json:"pagesOnDisk"`
+	Tags        []repository.Tag               `json:"tags"`
+	Artist      []repository.Artist            `json:"artists"`
+	Parody      []repository.Parody            `json:"parodies"`
+	Character   []repository.Character         `json:"characters"`
+	URL         []repository.GetArchiveUrlsRow `json:"url"`
+	Status      string                         `json:"readState"`
 	Progress    int16                          `json:"progress"`
-	LastRead    *time.Time                     `json:"last_read"`
-	CreatedAt   time.Time                      `json:"created_at"`
-	UpdatedAt   time.Time                      `json:"updated_at"`
-	ReleaseDate *time.Time                     `json:"release_date"`
-	IsFavorite  bool                           `json:"is_favorite"`
+	LastRead    *time.Time                     `json:"lastRead"`
+	IsFavorite  bool                           `json:"isFavorite"`
 }
 
 type ArtistResponse struct {

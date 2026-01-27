@@ -27,8 +27,8 @@ from reading_progress
 
 -- name: UpdateReadingProgress :one
 update reading_progress
-set page = coalesce(sqlc.narg('page'), page),
-    status = coalesce(sqlc.narg('status'), status),
+set page = coalesce(sqlc.arg('page'), page),
+    status = coalesce(sqlc.arg('status'), status),
     last_read = coalesce($1, last_read)
 where archive_id = $2 AND user_id = $3
 returning

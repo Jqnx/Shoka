@@ -21,7 +21,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
 // TODO: Print proper error responses instead of just printing errors directly
@@ -688,10 +687,15 @@ func (s *Server) getArchiveListHandler(c *gin.Context) {
 }
 
 func (s *Server) getArchiveHandler(c *gin.Context) {
-	ctx := context.Background()
 	id := c.Param("id")
 
-	res, err := archive.GetResponse(ctx, s.app, id)
+	var userid uuid.UUID
+	header := c.Request.Header.Get("Authorization")
+	if header != "" {
+		userid = util.GetUserFromRequest(c)
+	}
+
+	result, err := archive.GetResponse(s.app, id, userid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
@@ -700,79 +704,7 @@ func (s *Server) getArchiveHandler(c *gin.Context) {
 		return
 	}
 
-	var userid uuid.UUID
-	header := c.Request.Header.Get("Authorization")
-	if header != "" {
-		userid = util.GetUserFromRequest(c)
-	}
-
-	if userid != uuid.Nil {
-		fav := false
-		check, err := s.repo.ArchiveIsFavorited(ctx, repository.ArchiveIsFavoritedParams{
-			UserID:    userid,
-			ArchiveID: res.ID,
-		})
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, &models.Response{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-		if check.RowsAffected() != 0 {
-			fav = true
-		}
-
-		read := &ReadingProgress{}
-		rp, err := s.repo.GetUserReadingProgress(ctx, repository.GetUserReadingProgressParams{
-			UserID:    userid,
-			ArchiveID: res.ID,
-		})
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				read.Status = "unread"
-				read.Progress = 0
-				read.LastRead = nil
-			} else {
-				c.JSON(http.StatusInternalServerError, &models.Response{
-					Status:  "error",
-					Message: err.Error(),
-				})
-				return
-			}
-		} else {
-			read.Status = rp.Status
-			read.Progress = rp.Page
-			read.LastRead = &rp.LastRead
-		}
-
-		result := &models.ArchiveResponseFavorite{
-			ID:          res.ID,
-			Title:       res.Title,
-			Summary:     res.Summary,
-			Tags:        res.Tags,
-			Artist:      res.Artist,
-			Parody:      res.Parody,
-			Character:   res.Character,
-			Language:    res.Language,
-			Category:    res.Category,
-			PageCount:   res.PageCount,
-			URL:         res.URL,
-			FileHash:    res.FileHash,
-			Pages:       res.Pages,
-			Progress:    read.Progress,
-			Status:      read.Status,
-			LastRead:    read.LastRead,
-			CreatedAt:   res.CreatedAt,
-			UpdatedAt:   res.UpdatedAt,
-			ReleaseDate: res.ReleaseDate,
-			IsFavorite:  fav,
-		}
-
-		c.JSON(http.StatusOK, result)
-	} else {
-		c.JSON(http.StatusOK, res)
-	}
+	c.JSON(http.StatusOK, result)
 }
 
 // TODO: Add search for artists, groups, tankoubons aswell
@@ -1004,7 +936,7 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 		})
 		return
 	}
-	res, err := archive.GetResponse(ctx, s.app, arch.ID)
+	res, err := archive.GetResponse(s.app, arch.ID, uuid.Nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
