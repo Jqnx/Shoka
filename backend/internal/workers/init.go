@@ -7,19 +7,35 @@ import (
 	"time"
 
 	"Shoka/internal/config"
+	"Shoka/internal/repository"
 
 	"github.com/hibiken/asynq"
 )
 
-func NewServer(cfg *config.Config) (*asynq.Server, error) {
+type Client struct {
+	client *asynq.Client
+	app    *config.App
+	arch   *repository.GetArchiveByIDRow
+}
+
+func NewClient(client *asynq.Client, app *config.App, arch *repository.GetArchiveByIDRow) *Client {
+	return &Client{
+		client: client,
+		app:    app,
+		arch:   arch,
+	}
+}
+
+func Init(cfg *config.Config) (*asynq.Server, *asynq.Client, error) {
 	switch {
 	case cfg.Workers.RedisHost == "":
-		return nil, config.ErrNoRedisHost
+		return nil, nil, config.ErrNoRedisHost
 	case cfg.Workers.RedisPort == "":
-		return nil, config.ErrNoRedisPort
+		return nil, nil, config.ErrNoRedisPort
 	}
 
 	url := fmt.Sprintf("%v:%v", cfg.Workers.RedisHost, cfg.Workers.RedisPort)
+
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: url},
 		asynq.Config{
@@ -34,5 +50,9 @@ func NewServer(cfg *config.Config) (*asynq.Server, error) {
 				return time.Second * 2
 			},
 		})
-	return srv, nil
+
+	client := asynq.NewClient(asynq.RedisClientOpt{
+		Addr: url,
+	})
+	return srv, client, nil
 }

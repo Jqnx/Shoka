@@ -88,22 +88,18 @@ func main() {
 	repo := repository.New(db)
 	log.Info("New repository initialized.")
 
-	srv, err := workers.NewServer(cfg)
+	// Setup asynq server and client
+	srv, client, err := workers.Init(cfg)
 	if err != nil {
 		log.Fatal("error connecting to redis", "error", err)
 	}
 	log.Info("Connected to redis.")
 
-	// Start new Asynq client
-	client, err := workers.NewAsynqClient(cfg)
-	if err != nil {
-		log.Fatal("error connecting to redis", "error", err)
-	}
-
 	// Initialize new WebSocket Hub
 	hub := websocket.NewHub(log)
 	log.Info("Initialized new WebSocket Hub.")
 
+	// Initialize grab client
 	grab := grab.NewClient()
 	log.Info("Initialized new Grab client.")
 
