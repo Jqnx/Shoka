@@ -41,7 +41,7 @@ const isFav = computed(() => {
 const sortList = [
   { value: "title", label: "Title" },
   { value: "page_count", label: "Length" },
-  { value: "favorites", label: "Favorites" },
+  //{ value: "favorites", label: "Favorites" },
   { value: "created_at", label: "Date Added" },
   { value: "release_date", label: "Release Date" },
 ];

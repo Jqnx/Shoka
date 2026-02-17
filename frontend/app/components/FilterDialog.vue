@@ -38,29 +38,29 @@ const formSchema = toTypedSchema(
 const { handleSubmit, values, setFieldValue } = useForm({
   validationSchema: formSchema,
   initialValues: {
-    tags: filters.value.filters.value.tags,
-    artists: filters.value.filters.value.artists,
-    parodies: filters.value.filters.value.parodies,
-    characters: filters.value.filters.value.characters,
-    languages: filters.value.filters.value.languages,
-    categories: filters.value.filters.value.categories,
+    tags: filters.value.filtersSplit.value.tags,
+    artists: filters.value.filtersSplit.value.artists,
+    parodies: filters.value.filtersSplit.value.parodies,
+    characters: filters.value.filtersSplit.value.characters,
+    languages: filters.value.filtersSplit.value.languages,
+    categories: filters.value.filtersSplit.value.categories,
   },
   keepValuesOnUnmount: true,
 });
 
 const onSubmit = handleSubmit((values) => {
-  filters.value.filters.value.tags = values.tags || [];
-  filters.value.filters.value.artists = values.artists || [];
-  filters.value.filters.value.characters = values.characters || [];
-  filters.value.filters.value.parodies = values.parodies || [];
-  filters.value.filters.value.languages = values.languages || [];
-  filters.value.filters.value.categories = values.categories || [];
-
-  if (route.name === "favorites") {
-    refreshNuxtData("favorites");
-  } else {
-    refreshNuxtData("archives");
-  }
+  filters.value.filters.value.tags =
+    values.tags?.length !== 0 ? values.tags?.join(",") : undefined;
+  filters.value.filters.value.artists =
+    values.artists?.length !== 0 ? values.artists?.join(",") : undefined;
+  filters.value.filters.value.characters =
+    values.characters?.length !== 0 ? values.characters?.join(",") : undefined;
+  filters.value.filters.value.parodies =
+    values.parodies?.length !== 0 ? values.parodies?.join(",") : undefined;
+  filters.value.filters.value.languages =
+    values.languages?.length !== 0 ? values.languages?.join(",") : undefined;
+  filters.value.filters.value.categories =
+    values.categories?.length !== 0 ? values.categories?.join(",") : undefined;
 });
 
 const active = ref(0);
@@ -71,7 +71,7 @@ const list = [
     field: "tags",
     endpoint: "tag",
     len: computed(() => {
-      return values.tags?.length;
+      return values.tags?.length || 0;
     }),
   },
   {
@@ -79,7 +79,7 @@ const list = [
     field: "artists",
     endpoint: "artist",
     len: computed(() => {
-      return values.artists?.length;
+      return values.artists?.length || 0;
     }),
   },
   {
@@ -87,7 +87,7 @@ const list = [
     field: "characters",
     endpoint: "character",
     len: computed(() => {
-      return values.characters?.length;
+      return values.characters?.length || 0;
     }),
   },
   {
@@ -95,7 +95,7 @@ const list = [
     field: "parodies",
     endpoint: "parody",
     len: computed(() => {
-      return values.parodies?.length;
+      return values.parodies?.length || 0;
     }),
   },
   {
@@ -103,7 +103,7 @@ const list = [
     field: "languages",
     endpoint: "lang",
     len: computed(() => {
-      return values.languages?.length;
+      return values.languages?.length || 0;
     }),
   },
   {
@@ -111,7 +111,7 @@ const list = [
     field: "categories",
     endpoint: "category",
     len: computed(() => {
-      return values.categories?.length;
+      return values.categories?.length || 0;
     }),
   },
 ];

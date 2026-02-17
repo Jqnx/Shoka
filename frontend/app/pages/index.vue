@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const { ReleaseDate, CreatedAt } = useSortOptions();
 const token = await useAuth().getToken();
 
 const { data: recentlyReleased } = await useFetch("/api/a/", {
@@ -65,6 +66,8 @@ const { data: recentlyRead } = await useFetch("/api/a/recent", {
         class="px-4 md:px-14 lg:px-16 xl:px-18"
         title="Recent Releases"
         to="a"
+        :sort="ReleaseDate"
+        sortdir="desc"
       />
       <ArchiveCarousel
         :archives="recentlyReleased"
@@ -80,6 +83,8 @@ const { data: recentlyRead } = await useFetch("/api/a/recent", {
         class="px-4 md:px-14 lg:px-16 xl:px-18"
         title="Recently Added"
         to="a"
+        :sort="CreatedAt"
+        sortdir="desc"
       />
       <ArchiveCarousel
         :archives="recentlyAdded"

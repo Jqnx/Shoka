@@ -10,39 +10,37 @@ import {
   PaginationLast,
 } from "@/components/ui/pagination";
 
+definePageMeta({
+  middleware: [
+    function (_, from) {
+      if (from.name == "a") {
+        navigateTo({ query: {} });
+      }
+    },
+  ],
+});
+
 useHead({
   title: "Favorites",
 });
 
-const { sortBy, sortDir, filters } = storeToRefs(useFavoriteFiltersStore());
-
+const router = useRouter();
 const token = await useAuth().getToken();
-const currentPage = ref(0);
-const query = useRoute().query;
-const page = parseInt(query.page as string, 10);
-if (isNaN(page)) {
-  currentPage.value = 1;
-} else {
-  currentPage.value = page;
-}
 
-const pageSize = useRuntimeConfig().public.pageSize;
+const { sortBy, sortDir, filters, page, pageSize } = storeToRefs(
+  useFavoriteFiltersStore(),
+);
 
-const { data: archives } = await useAsyncData(
+const { data: archives } = await useAsyncData<ArchiveList | undefined>(
   "favorites",
   () =>
     $fetch("/api/user/favorites", {
-      method: "POST",
-      onRequest({ options }) {
-        options.headers.set("Authorization", `Bearer ${token}`);
-      },
+      method: "GET",
       query: {
-        page: currentPage.value,
-        size: pageSize,
+        page: page.value,
+        size: pageSize.value,
         sortby: sortBy.value,
         sortdir: sortDir.value,
-      },
-      body: {
         tags: filters.value.tags,
         artists: filters.value.artists,
         characters: filters.value.characters,
@@ -50,22 +48,46 @@ const { data: archives } = await useAsyncData(
         languages: filters.value.languages,
         categories: filters.value.categories,
       },
+      onRequest({ options }) {
+        options.headers.set("Authorization", `Bearer ${token}`);
+      },
+      onResponse({ response }) {
+        if (response._data.total != 0) {
+          generateCover(response._data.archives);
+        }
+      },
     }),
-  { watch: [sortBy, sortDir, currentPage] },
+  { watch: [sortBy, sortDir, page, filters.value] },
 );
+
+watch([page, sortBy, sortDir, filters.value], () => {
+  router.push({
+    query: {
+      page: page.value,
+      size: pageSize.value,
+      sortby: sortBy.value,
+      sortdir: sortDir.value,
+      tags: filters.value.tags,
+      artists: filters.value.artists,
+      characters: filters.value.characters,
+      parodies: filters.value.parodies,
+      languages: filters.value.languages,
+      categories: filters.value.categories,
+    },
+  });
+});
 
 const scrollToTop = () => {
   window.scrollTo({ top: 0, behavior: "smooth" });
 };
 
-const router = useRouter();
-router.beforeResolve((_) => {
-  currentPage.value = 1;
-});
+//router.beforeResolve((_) => {
+//  currentPage.value = 1;
+//});
 </script>
 
 <template>
-  <div class="flex flex-1 flex-col gap-4 p-4 pt-0">
+  <div v-if="archives" class="flex flex-1 flex-col gap-2">
     <!--TODO: Filter options here -->
     <ListOptions />
     <div
@@ -75,19 +97,18 @@ router.beforeResolve((_) => {
         <GalleryItem
           :id="archive.id"
           :title="archive.title"
-          :progress="archive.page"
-          :page-count="archive.page_count"
+          :progress="archive.progress"
+          :page-count="archive.pageCount"
         />
       </div>
     </div>
     <Pagination
-      v-model:page="currentPage"
+      v-model:page="page"
       :show-edges="true"
       :sibling-count="2"
       :items-per-page="pageSize"
       :total="archives.total"
       :default-page="1"
-      @update:page="navigateTo(`/a?page=${currentPage}`)"
     >
       <PaginationContent v-slot="{ items }">
         <PaginationFirst @click="scrollToTop" />
@@ -98,7 +119,7 @@ router.beforeResolve((_) => {
             v-if="item.type === 'page'"
             :key="index"
             :value="item.value"
-            :is-active="item.value === currentPage"
+            :is-active="item.value === page"
             @click="scrollToTop"
           >
             {{ item.value }}
@@ -110,5 +131,8 @@ router.beforeResolve((_) => {
         <PaginationLast @click="scrollToTop" />
       </PaginationContent>
     </Pagination>
+  </div>
+  <div v-else class="flex justify-center pt-12">
+    <h1 class="text-3xl font-bold">No Archives Found</h1>
   </div>
 </template>

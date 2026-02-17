@@ -15,7 +15,7 @@ const props = defineProps<{
   endpoint: string;
   field: string;
   values: {
-    tags?: string[] | undefined;
+    tags?: string[];
     artists?: string[] | undefined;
     parodies?: string[] | undefined;
     characters?: string[] | undefined;
