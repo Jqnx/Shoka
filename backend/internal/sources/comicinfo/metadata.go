@@ -129,44 +129,9 @@ func (c *ComicInfo) getLanguage() string {
 	return lang
 }
 
-// TODO: Fix Release date issues
 func (c *ComicInfo) getReleaseDate(day, month, year int) *time.Time {
-	//switch {
-	//case day < 10 && month < 10:
-	//	dayString := fmt.Sprintf("0%d", day)
-	//	monthString := fmt.Sprintf("0%d", month)
-	//	dateString := fmt.Sprintf("%d-%s-%s", year, monthString, dayString)
-	//	date, err := time.Parse(time.DateOnly, dateString)
-	//	if err != nil {
-	//		fmt.Println(err)
-	//	}
-	//	return &date
-	//case day < 10:
-	//	dayString := fmt.Sprintf("0%d", day)
-	//	dateString := fmt.Sprintf("%d-%d-%s", year, month, dayString)
-	//	date, err := time.Parse(time.DateOnly, dateString)
-	//	if err != nil {
-	//		fmt.Println(err)
-	//	}
-	//	return &date
-	//case month < 10:
-	//	monthString := fmt.Sprintf("0%d", month)
-	//	dateString := fmt.Sprintf("%d-%s-%d", year, monthString, day)
-	//	date, err := time.Parse(time.DateOnly, dateString)
-	//	if err != nil {
-	//		fmt.Println(err)
-	//	}
-	//	return &date
-	//default:
-	//	d := fmt.Sprintf("%d-%d-%d", year, month, day)
-	//	date, err := time.Parse(time.DateOnly, d)
-	//	if err != nil {
-	//		fmt.Println(err)
-	//	}
-	//	return &date
-	//}
 	date := util.DateToTime(day, month, year)
-	return &date
+	return date
 }
 
 func (c *ComicInfo) GetMetadata() ([]models.Metadata, error) {
