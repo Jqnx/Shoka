@@ -63,3 +63,61 @@ func ToString(in any) string {
 	out := strings.Join(slice, ", ")
 	return out
 }
+
+// Intersect compares multiple slices of type string with each other
+// and returns a new slice containing only the items that are present
+// in all input slices.
+func Intersect(slices ...[]string) []string {
+	var validSlices [][]string
+	for _, s := range slices {
+		if len(s) > 0 {
+			validSlices = append(validSlices, s)
+		}
+	}
+
+	if len(validSlices) == 0 {
+		return []string{}
+	}
+
+	shortestIndex := 0
+	minLen := len(validSlices[0])
+	for i, s := range validSlices {
+		if len(s) < minLen {
+			minLen = len(s)
+			shortestIndex = i
+		}
+	}
+
+	candidates := make(map[string]bool)
+	for _, item := range validSlices[shortestIndex] {
+		candidates[item] = true
+	}
+
+	for i, s := range validSlices {
+		if i == shortestIndex {
+			continue
+		}
+
+		if len(candidates) == 0 {
+			return []string{}
+		}
+
+		currentSliceMap := make(map[string]bool)
+		for _, item := range s {
+			currentSliceMap[item] = true
+		}
+
+		for item := range candidates {
+			if !currentSliceMap[item] {
+				delete(candidates, item)
+			}
+		}
+	}
+
+	result := make([]string, 0, len(candidates))
+	for item := range candidates {
+		result = append(result, item)
+	}
+
+	return result
+}
