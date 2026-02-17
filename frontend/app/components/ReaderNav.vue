@@ -29,7 +29,7 @@ const clamp = (num: number, min: number, max: number) => {
 
 const { data } = await useFetch(`/api/a/${params.value.id}`, {
   key: "archive_page_count",
-  pick: ["page_count"] as any,
+  pick: ["pageCount"] as any,
 });
 
 const goBack = () => {
@@ -37,13 +37,13 @@ const goBack = () => {
     name: "a-id-page",
     params: {
       id: params.value.id,
-      page: clamp(pageInt.value - 1, 1, data.value.page_count),
+      page: clamp(pageInt.value - 1, 1, data.value.pageCount),
     },
   });
 };
 
 const goNext = () => {
-  if (pageInt.value === data.value.page_count) {
+  if (pageInt.value === data.value.pageCount) {
     navigateTo({
       name: "a-id",
       params: {
@@ -55,7 +55,7 @@ const goNext = () => {
       name: "a-id-page",
       params: {
         id: params.value.id,
-        page: clamp(pageInt.value + 1, 1, data.value.page_count),
+        page: clamp(pageInt.value + 1, 1, data.value.pageCount),
       },
     });
   }
@@ -102,7 +102,7 @@ onMounted(() => {
               name: 'a-id-page',
               params: {
                 id: params.id,
-                page: clamp(pageInt - 1, 1, data.page_count),
+                page: clamp(pageInt - 1, 1, data.pageCount),
               },
             }"
           >
@@ -113,7 +113,7 @@ onMounted(() => {
           <span class="font-semibold">{{ pageInt }}</span>
           <span v-if="largerMobile">of</span>
           <span v-if="largerMobile" class="font-semibold">{{
-            data.page_count
+            data.pageCount
           }}</span>
         </div>
         <div class="flex h-full">
@@ -124,7 +124,7 @@ onMounted(() => {
               name: 'a-id-page',
               params: {
                 id: params.id,
-                page: clamp(pageInt + 1, 1, data.page_count),
+                page: clamp(pageInt + 1, 1, data.pageCount),
               },
             }"
           >
@@ -135,7 +135,7 @@ onMounted(() => {
             title="Last page"
             :to="{
               name: 'a-id-page',
-              params: { id: params.id, page: data.page_count },
+              params: { id: params.id, page: data.pageCount },
             }"
           >
             <ChevronsRight class="size-5" />

@@ -77,14 +77,14 @@ function arraysEqual(
   return sortedArr1.every((val, index) => val === sortedArr2[index]);
 }
 
-const oldArtists = toArray(archive.value.artist);
+const oldArtists = toArray(archive.value.artists);
 const oldTags = toArray(archive.value.tags);
-const oldParodies = toArray(archive.value.parody);
-const oldCharacters = toArray(archive.value.character);
+const oldParodies = toArray(archive.value.parodies);
+const oldCharacters = toArray(archive.value.characters);
 const oldUrls = toArray(archive.value.url);
 const oldReleaseDate = computed(() => {
-  return archive.value.release_date
-    ? parseAbsolute(archive.value.release_date, "UTC")
+  return archive.value.releaseDate
+    ? parseAbsolute(archive.value.releaseDate, "UTC")
     : undefined;
 });
 

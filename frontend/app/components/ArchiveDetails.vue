@@ -18,13 +18,13 @@ const df = new DateFormatter("en-GB", {
   <div class="flex flex-col gap-1 overflow-auto">
     <!-- Artists -->
     <div
-      v-if="archive.artist"
+      v-if="archive.artists"
       class="flex gap-1.5 flex-wrap sm:gap-0 sm:grid grid-cols-6 md:grid-cols-5 2xl:grid-cols-6"
     >
       <p class="text-md font-medium text-foreground/80">Artists</p>
       <div class="flex flex-wrap gap-1 col-start-2 col-span-full">
         <Badge
-          v-for="artist in archive.artist"
+          v-for="artist in archive.artists"
           :key="artist.id"
           class="bg-border text-foreground font-normal rounded-sm hover:bg-border/80"
         >
@@ -57,13 +57,13 @@ const df = new DateFormatter("en-GB", {
 
     <!-- Parodies -->
     <div
-      v-if="archive.parody"
+      v-if="archive.parodies"
       class="flex gap-1.5 flex-wrap sm:grid grid-cols-6 md:grid-cols-5 2xl:grid-cols-6"
     >
       <p class="text-md font-medium text-foreground/80">Parodies</p>
       <div class="flex gap-1 flex-wrap col-start-2 col-span-full">
         <Badge
-          v-for="parody in archive.parody"
+          v-for="parody in archive.parodies"
           :key="parody.id"
           class="bg-border text-foreground font-normal rounded-sm hover:bg-border/80"
         >
@@ -77,13 +77,13 @@ const df = new DateFormatter("en-GB", {
 
     <!-- Characters -->
     <div
-      v-if="archive.character"
+      v-if="archive.characters"
       class="flex gap-1.5 flex-wrap sm:grid grid-cols-6 md:grid-cols-5 2xl:grid-cols-6"
     >
       <p class="text-md font-medium text-foreground/80">Characters</p>
       <div class="flex flex-wrap gap-1 col-start-2 col-span-full">
         <Badge
-          v-for="character in archive.character"
+          v-for="character in archive.characters"
           :key="character.id"
           class="bg-border text-foreground font-normal rounded-sm hover:bg-border/80"
         >
@@ -147,11 +147,11 @@ const df = new DateFormatter("en-GB", {
           class="bg-border text-foreground font-normal rounded-sm hover:bg-border/80"
         >
           <NuxtTime
-            :datetime="archive.created_at"
+            :datetime="archive.createdAt"
             locale="en-GB"
             :title="
               df.format(
-                toDate(parseAbsolute(archive.created_at, getLocalTimeZone())),
+                toDate(parseAbsolute(archive.createdAt, getLocalTimeZone())),
               )
             "
           />
@@ -169,11 +169,11 @@ const df = new DateFormatter("en-GB", {
           class="bg-border text-foreground font-normal rounded-sm hover:bg-border/80"
         >
           <NuxtTime
-            :datetime="archive.updated_at"
+            :datetime="archive.updatedAt"
             locale="en-GB"
             :title="
               df.format(
-                toDate(parseAbsolute(archive.updated_at, getLocalTimeZone())),
+                toDate(parseAbsolute(archive.updatedAt, getLocalTimeZone())),
               )
             "
           />

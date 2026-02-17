@@ -15,6 +15,7 @@ import {
 import { toDate } from "reka-ui/date";
 import { useBreakpoints } from "@vueuse/core";
 import { Progress } from "@/components/ui/progress";
+import type { Archive } from "~~/shared/types/archive";
 
 const { id } = useRoute().params;
 const token = await useAuth().getToken();
@@ -38,12 +39,12 @@ const copyArchiveId = () => {
   toast.success(`Copied ${archive.value.id} to clipboard.`);
 };
 
-const { data: archive } = await useFetch(`/api/a/${id}`, {
+const { data: archive } = await useFetch<Archive | undefined>(`/api/a/${id}`, {
   onRequest({ options }) {
     options.headers.set("Authorization", `Bearer ${token}`);
   },
   onResponse({ response }) {
-    if (response._data.pages != response._data.page_count) {
+    if (response._data.pagesOnDisk != response._data.pageCount) {
       useFetch(`/api/a/${id}/thumb`, {
         method: "POST",
       });
@@ -61,10 +62,10 @@ async function favorite() {
     method: "post",
     onRequest({ options }) {
       options.headers.set("Authorization", `Bearer ${token}`);
-      archive.value.is_favorite = true;
+      archive.value.isFavorite = true;
     },
     onResponseError() {
-      archive.value.is_favorite = false;
+      archive.value.isFavorite = false;
     },
     async onResponse() {
       refreshNuxtData("archive");
@@ -102,7 +103,7 @@ const toFile = () => {
 
 const toggle = ref(true);
 const progressValue = computed(() => {
-  return (archive.value.progress / archive.value.page_count) * 100;
+  return (archive.value.progress / archive.value.pageCount) * 100;
 });
 </script>
 
@@ -111,17 +112,17 @@ const progressValue = computed(() => {
 
 <template>
   <div>
-    <div class="flex flex-col gap-4 p-4 xl:px-24">
+    <div class="flex flex-col gap-4 p-4">
       <div class="bg-secondary rounded-xl">
         <Progress
           class="bg-transparent rounded-b-none"
           :model-value="progressValue"
-          :title="`${archive.progress} of ${archive.page_count} pages read`"
+          :title="`${archive.progress} of ${archive.pageCount} pages read`"
         />
-        <div class="flex flex-col justify-center py-8 lg:flex-row">
-          <div class="w-full 2xl:w-2/5">
+        <div class="flex flex-col justify-center lg:flex-row">
+          <div class="w-full 2xl:w-2/5 flex flex-col justify-center">
             <!-- Archive Cover -->
-            <figure class="w-3/4 pb-4 m-auto">
+            <figure class="w-full p-4">
               <NuxtLink
                 :to="{ name: 'a-id-page', params: { id: id, page: 1 } }"
               >
@@ -138,7 +139,7 @@ const progressValue = computed(() => {
             </figure>
           </div>
           <!-- Archive Details -->
-          <div class="w-full 2xl:w-3/5 flex flex-col px-4 md:pr-4">
+          <div class="w-full 2xl:w-3/5 flex flex-col px-4 py-2 md:pr-4">
             <div class="flex flex-col gap-1">
               <!-- Title -->
               <h1 class="scroll-m-20 text-2xl font-extrabold tracking-tight">
@@ -170,14 +171,14 @@ const progressValue = computed(() => {
                   <div class="flex items-center gap-1.5">
                     <Files class="size-4 stroke-foreground/70 stroke-2" />
                     <p class="text-foreground/70 font-medium">
-                      {{ archive.page_count }}
+                      {{ archive.pageCount }}
                       <span v-if="largerMobile">Pages</span>
                     </p>
                   </div>
 
                   <!-- Release Date -->
                   <div
-                    v-if="archive.release_date"
+                    v-if="archive.releaseDate"
                     class="flex items-center gap-1.5"
                   >
                     <CalendarArrowUp
@@ -185,13 +186,13 @@ const progressValue = computed(() => {
                     />
                     <p class="text-foreground/70 font-medium">
                       <NuxtTime
-                        :datetime="archive.release_date"
+                        :datetime="archive.releaseDate"
                         locale="en-GB"
                         :title="
                           df.format(
                             toDate(
                               parseAbsolute(
-                                archive.release_date,
+                                archive.releaseDate,
                                 getLocalTimeZone(),
                               ),
                             ),
@@ -203,7 +204,7 @@ const progressValue = computed(() => {
                 </div>
                 <div class="flex gap-2">
                   <div v-if="toggle" class="flex items-center">
-                    <div v-if="archive.is_favorite" title="Unfavorite Archive">
+                    <div v-if="archive.isFavorite" title="Unfavorite Archive">
                       <Heart
                         class="size-5 fill-destructive stroke-destructive cursor-pointer"
                         @click="favorite"
@@ -261,10 +262,10 @@ const progressValue = computed(() => {
       </div>
       <!-- Thumbnail Gallery -->
       <div
-        class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4"
+        class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-2"
       >
         <div
-          v-for="page in archive.page_count"
+          v-for="page in archive.pageCount"
           :key="page"
           class="hover:opacity-50"
         >

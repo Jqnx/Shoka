@@ -73,21 +73,21 @@ if (archive.value.tags) {
 
 const artists: string[] = [];
 if (archive.value.artist) {
-  for (const artist of archive.value.artist) {
+  for (const artist of archive.value.artists) {
     artists.push(artist.name);
   }
 }
 
 const parodies: string[] = [];
 if (archive.value.parody) {
-  for (const parody of archive.value.parody) {
+  for (const parody of archive.value.parodies) {
     parodies.push(parody.name);
   }
 }
 
 const characters: string[] = [];
 if (archive.value.character) {
-  for (const character of archive.value.character) {
+  for (const character of archive.value.characters) {
     characters.push(character.name);
   }
 }
@@ -99,8 +99,8 @@ if (archive.value.url) {
   }
 }
 
-const release_date = archive.value.release_date
-  ? archive.value.release_date
+const releaseDate = archive.value.releaseDate
+  ? archive.value.releaseDate
   : undefined;
 
 const formSchema = toTypedSchema(
@@ -130,7 +130,7 @@ const { handleSubmit, setFieldValue, values } = useForm({
     language: archive.value.language,
     category: archive.value.category,
     url: urls,
-    release_date: release_date,
+    release_date: releaseDate,
   },
 });
 
