@@ -30,7 +30,6 @@ config.yaml
 
 # Project build
 main
-*templ.go
 
 # OS X generated file
 .DS_Store
@@ -45,9 +44,9 @@ tailwindcss
 # Directories
 content/
 content-bak/
-/thumb/
-/downloads/
+backend/thumb/
 
 # Metadata files
 ComicInfo.xml
 info.txt
+info.json
