@@ -40,6 +40,11 @@ type ArchiveResponse struct {
 	IsFavorite  bool                           `json:"isFavorite"`
 }
 
+type ArchiveListResponse[T any] struct {
+	Archives []T `json:"archives"`
+	Count    int `json:"total"`
+}
+
 type ArtistResponse struct {
 	Name    string                           `json:"name"`
 	Aliases []repository.GetArtistAliasesRow `json:"aliases"`

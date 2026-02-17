@@ -4,6 +4,8 @@ import (
 	"time"
 )
 
+var MetadataTypes = []string{"artists", "categories", "characters", "languages", "parodies", "tags"}
+
 type Metadata struct {
 	Title       string      `json:"title"`
 	Summary     string      `json:"summary"`
