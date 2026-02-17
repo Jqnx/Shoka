@@ -10,6 +10,6 @@ migrate:
 
 # Start dev server
 dev:
-	@pnpm dev -o --host
+	@bun dev
 
 .PHONY: generate migrate dev
