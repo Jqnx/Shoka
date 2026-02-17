@@ -350,6 +350,41 @@ func (q *Queries) GetArchiveIDsByArtist(ctx context.Context, name string) ([]str
 	return items, nil
 }
 
+const getArchiveIDsByArtists = `-- name: GetArchiveIDsByArtists :many
+select archive.id
+from archive
+join archive_artist on archive.id = archive_artist.archive_id
+join artist on archive_artist.artist_id = artist.id
+where artist.name = any($1::text[])
+group by archive.id
+having count(distinct artist.id) = $2
+`
+
+type GetArchiveIDsByArtistsParams struct {
+	Artists []string `json:"artists"`
+	Amount  int32    `json:"amount"`
+}
+
+func (q *Queries) GetArchiveIDsByArtists(ctx context.Context, arg GetArchiveIDsByArtistsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, getArchiveIDsByArtists, arg.Artists, arg.Amount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArtistAliases = `-- name: GetArtistAliases :many
 select artist_alias.id, artist_alias.alias
 from artist

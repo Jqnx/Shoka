@@ -14,7 +14,7 @@ import (
 )
 
 const getAllLanguage = `-- name: GetAllLanguage :many
-select language
+select distinct language
 from archive
 where language is not null
 `
@@ -212,6 +212,39 @@ where language = $1
 
 func (q *Queries) GetArchiveIDsByLanguage(ctx context.Context, language *string) ([]string, error) {
 	rows, err := q.db.Query(ctx, getArchiveIDsByLanguage, language)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArchiveIDsByLanguages = `-- name: GetArchiveIDsByLanguages :many
+select archive.id
+from archive
+where language = any($1::text[])
+group by archive.id
+having count(distinct archive.id) = $2::int
+`
+
+type GetArchiveIDsByLanguagesParams struct {
+	Languages []string `json:"languages"`
+	Amount    int32    `json:"amount"`
+}
+
+func (q *Queries) GetArchiveIDsByLanguages(ctx context.Context, arg GetArchiveIDsByLanguagesParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, getArchiveIDsByLanguages, arg.Languages, arg.Amount)
 	if err != nil {
 		return nil, err
 	}

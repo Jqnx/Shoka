@@ -260,6 +260,41 @@ func (q *Queries) GetArchiveByParodyList(ctx context.Context, arg GetArchiveByPa
 	return items, nil
 }
 
+const getArchiveIDsByParodies = `-- name: GetArchiveIDsByParodies :many
+select archive.id
+from archive
+join archive_parody on archive.id = archive_parody.archive_id
+join parody on archive_parody.parody_id = parody.id
+where parody.name = any($1::text[])
+group by archive.id
+having count(distinct parody.id) = $2
+`
+
+type GetArchiveIDsByParodiesParams struct {
+	Parodies []string `json:"parodies"`
+	Amount   int32    `json:"amount"`
+}
+
+func (q *Queries) GetArchiveIDsByParodies(ctx context.Context, arg GetArchiveIDsByParodiesParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, getArchiveIDsByParodies, arg.Parodies, arg.Amount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArchiveIDsByParody = `-- name: GetArchiveIDsByParody :many
 select archive.id
 from archive

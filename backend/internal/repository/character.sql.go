@@ -326,6 +326,41 @@ func (q *Queries) GetArchiveIDsByCharacter(ctx context.Context, name string) ([]
 	return items, nil
 }
 
+const getArchiveIDsByCharacters = `-- name: GetArchiveIDsByCharacters :many
+select archive.id
+from archive
+join archive_character on archive.id = archive_character.archive_id
+join character on archive_character.character_id = character.id
+where character.name = any($1::text[])
+group by archive.id
+having count(distinct character.id) = $2
+`
+
+type GetArchiveIDsByCharactersParams struct {
+	Characters []string `json:"characters"`
+	Amount     int32    `json:"amount"`
+}
+
+func (q *Queries) GetArchiveIDsByCharacters(ctx context.Context, arg GetArchiveIDsByCharactersParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, getArchiveIDsByCharacters, arg.Characters, arg.Amount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getCharacter = `-- name: GetCharacter :one
 select id, name, count
 from character

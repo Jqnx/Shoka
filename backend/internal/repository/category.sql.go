@@ -24,7 +24,7 @@ func (q *Queries) CategoryExists(ctx context.Context, category *string) (pgconn.
 }
 
 const getAllCategory = `-- name: GetAllCategory :many
-select category
+select distinct category
 from archive
 where category is not null
 `
@@ -207,6 +207,39 @@ func (q *Queries) GetArchiveByCategoryList(ctx context.Context, arg GetArchiveBy
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArchiveIDsByCategories = `-- name: GetArchiveIDsByCategories :many
+select archive.id
+from archive
+where category = any($1::text[])
+group by archive.id
+having count(distinct archive.id) = $2::int
+`
+
+type GetArchiveIDsByCategoriesParams struct {
+	Categories []string `json:"categories"`
+	Amount     int32    `json:"amount"`
+}
+
+func (q *Queries) GetArchiveIDsByCategories(ctx context.Context, arg GetArchiveIDsByCategoriesParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, getArchiveIDsByCategories, arg.Categories, arg.Amount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

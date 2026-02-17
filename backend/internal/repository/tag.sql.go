@@ -288,6 +288,41 @@ func (q *Queries) GetArchiveIDsByTag(ctx context.Context, name string) ([]string
 	return items, nil
 }
 
+const getArchiveIDsByTags = `-- name: GetArchiveIDsByTags :many
+select archive.id
+from archive
+join archive_tag on archive.id = archive_tag.archive_id
+join tag on archive_tag.tag_id = tag.id
+where tag.name = any($1::text[])
+group by archive.id
+having count(distinct tag.id) = $2
+`
+
+type GetArchiveIDsByTagsParams struct {
+	Tags   []string `json:"tags"`
+	Amount int32    `json:"amount"`
+}
+
+func (q *Queries) GetArchiveIDsByTags(ctx context.Context, arg GetArchiveIDsByTagsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, getArchiveIDsByTags, arg.Tags, arg.Amount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArchiveTag = `-- name: GetArchiveTag :many
 select tag.id, tag.name, tag.count
 from archive
