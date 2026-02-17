@@ -1,9 +1,13 @@
 package util
 
 import (
+	"fmt"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
 )
 
 func NaturalSort(files []string) {
@@ -40,4 +44,16 @@ func naturalLess(a, b string, re *regexp.Regexp) bool {
 	}
 
 	return a[posA:] < b[posB:]
+}
+
+func GetSortOrderFromRequest(c *gin.Context) string {
+	sortby := c.Query("sortby")
+	sortdir := c.Query("sortdir")
+	if sortby == "" && sortdir == "" && filepath.Base(c.Request.URL.Path) == "favorites" {
+		return "favorited_at_desc"
+	} else if sortby == "" && sortdir == "" {
+		return "title_asc"
+	} else {
+		return fmt.Sprintf("%s_%s", sortby, sortdir)
+	}
 }
