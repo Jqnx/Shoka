@@ -80,6 +80,16 @@ join character on archive_character.character_id = character.id
 where character.name = $1
 ;
 
+-- name: GetArchiveIDsByCharacters :many
+select archive.id
+from archive
+join archive_character on archive.id = archive_character.archive_id
+join character on archive_character.character_id = character.id
+where character.name = any(sqlc.arg('characters')::text[])
+group by archive.id
+having count(distinct character.id) = sqlc.arg('amount')
+;
+
 -- name: GetArchiveByCharacterList :many
 select
     archive.id,

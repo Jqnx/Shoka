@@ -1,5 +1,5 @@
 -- name: GetAllLanguage :many
-select language
+select distinct language
 from archive
 where language is not null
 ;
@@ -31,6 +31,14 @@ where language = $1
 select archive.id
 from archive
 where language = $1
+;
+
+-- name: GetArchiveIDsByLanguages :many
+select archive.id
+from archive
+where language = any(sqlc.arg('languages')::text[])
+group by archive.id
+having count(distinct archive.id) = sqlc.arg('amount')::int
 ;
 
 -- name: GetArchiveByLanguageList :many

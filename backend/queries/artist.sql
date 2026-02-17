@@ -174,3 +174,12 @@ join artist on archive_artist.artist_id = artist.id
 where artist.name = $1
 ;
 
+-- name: GetArchiveIDsByArtists :many
+select archive.id
+from archive
+join archive_artist on archive.id = archive_artist.archive_id
+join artist on archive_artist.artist_id = artist.id
+where artist.name = any(sqlc.arg('artists')::text[])
+group by archive.id
+having count(distinct artist.id) = sqlc.arg('amount')
+;

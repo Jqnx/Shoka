@@ -75,6 +75,16 @@ join tag on archive_tag.tag_id = tag.id
 where tag.name = $1
 ;
 
+-- name: GetArchiveIDsByTags :many
+select archive.id
+from archive
+join archive_tag on archive.id = archive_tag.archive_id
+join tag on archive_tag.tag_id = tag.id
+where tag.name = any(sqlc.arg('tags')::text[])
+group by archive.id
+having count(distinct tag.id) = sqlc.arg('amount')
+;
+
 -- name: GetArchiveByTagList :many
 select
     archive.id,

@@ -76,6 +76,16 @@ join parody on archive_parody.parody_id = parody.id
 where parody.name = $1
 ;
 
+-- name: GetArchiveIDsByParodies :many
+select archive.id
+from archive
+join archive_parody on archive.id = archive_parody.archive_id
+join parody on archive_parody.parody_id = parody.id
+where parody.name = any(sqlc.arg('parodies')::text[])
+group by archive.id
+having count(distinct parody.id) = sqlc.arg('amount')
+;
+
 -- name: GetArchiveByParodyList :many
 select
     archive.id,

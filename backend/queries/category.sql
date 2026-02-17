@@ -1,5 +1,5 @@
 -- name: GetAllCategory :many
-select category
+select distinct category
 from archive
 where category is not null
 ;
@@ -31,6 +31,14 @@ where category = $1
 select archive.id
 from archive
 where category = $1
+;
+
+-- name: GetArchiveIDsByCategories :many
+select archive.id
+from archive
+where category = any(sqlc.arg('categories')::text[])
+group by archive.id
+having count(distinct archive.id) = sqlc.arg('amount')::int
 ;
 
 -- name: GetArchiveByCategoryList :many
