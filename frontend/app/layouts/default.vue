@@ -7,6 +7,7 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
+  navigationMenuTriggerStyleActive,
 } from "@/components/ui/navigation-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -23,6 +24,7 @@ import {
 
 const { signOut, user } = useAuth();
 const color = useColorMode();
+const route = useRoute();
 const changeColorMode = () => {
   if (color.value === "dark") {
     color.preference = "light";
@@ -85,9 +87,18 @@ const userMenu: { title: string; href: string; icon: LucideIcon }[] = [
             </NavigationMenuLink>
           </NavigationMenuItem>
         </NavigationMenuList>
-        <NavigationMenuList class="md:px-10 lg:px-24 xl:px-32">
+        <NavigationMenuList class="lg:px-24 xl:px-32">
           <NavigationMenuItem v-for="(item, index) in pages" :key="index">
             <NavigationMenuLink
+              v-if="route.name == item.href"
+              as-child
+              :class="navigationMenuTriggerStyleActive()"
+              class="bg-secondary text-primary"
+            >
+              <NuxtLink :to="{ name: item.href }">{{ item.title }}</NuxtLink>
+            </NavigationMenuLink>
+            <NavigationMenuLink
+              v-else
               as-child
               :class="navigationMenuTriggerStyle()"
               class="bg-secondary"
@@ -155,7 +166,7 @@ const userMenu: { title: string; href: string; icon: LucideIcon }[] = [
         </NavigationMenuList>
       </NavigationMenu>
     </header>
-    <main class="lg:px-40">
+    <main class="lg:px-4 xl:px-24 2xl:px-62">
       <slot />
     </main>
   </div>
