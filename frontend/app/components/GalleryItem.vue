@@ -30,7 +30,7 @@ const progressValue = computed(() => {
       <div class="block pt-[140%]">
         <Progress
           v-if="props.progress"
-          class="z-1 rounded-2xl bg-transparent h-1 rounded-tl-none rounded-tr-none"
+          class="z-1 rounded-md bg-transparent h-1 rounded-tl-none rounded-tr-none"
           :model-value="progressValue"
           :title="`${props.progress} of ${props.pageCount} pages read`"
         />
@@ -46,18 +46,18 @@ const progressValue = computed(() => {
                 v-if="isLoaded"
                 v-bind="imgAttrs"
                 :src="src"
-                class="object-cover object-center rounded-2xl absolute inset-0 size-full"
+                class="object-cover object-center rounded-md absolute inset-0 size-full"
               />
             </NuxtImg>
             <div
-              class="absolute inset-0 bg-radial rounded-2xl from-transparent from-30% to-shadow/35"
+              class="absolute inset-0 bg-radial rounded-md from-transparent from-30% to-shadow/35"
             />
           </figure>
         </div>
       </div>
     </article>
     <h4
-      class="font-medium text-sm/6 text-wrap tracking-normal line-clamp-2 pt-2 text-muted-foreground transition-all group-hover:text-primary"
+      class="font-semibold text-sm/6 text-wrap tracking-normal line-clamp-2 pt-2 text-muted-foreground transition-all group-hover:text-primary"
       :title="title"
     >
       {{ title }}
