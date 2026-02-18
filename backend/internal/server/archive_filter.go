@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -26,7 +25,7 @@ func (s *Server) getArchiveFilterHandler(c *gin.Context) {
 		uid = util.GetUserFromRequest(c)
 	}
 
-	order := fmt.Sprintf("%s_%s", c.Query("sortby"), c.Query("sortdir"))
+	order := util.GetSortOrderFromRequest(c)
 	page, _ := strconv.Atoi(c.Query("page"))
 	if page == 0 {
 		page = 1
