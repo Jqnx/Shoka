@@ -204,15 +204,33 @@ left join
     on archive.id = reading_progress.archive_id
     and reading_progress.user_id = $4
 where character.name = $1
+order by
+    case when $5::text = 'title_asc' then archive.title end asc,
+    case when $5 = 'title_desc' then archive.title end desc nulls last,
+    case when $5 = 'page_count_asc' then archive.page_count end asc,
+    case when $5 = 'page_count_desc' then archive.page_count end desc nulls last,
+    case when $5 = 'created_at_asc' then archive.created_at end asc,
+    case when $5 = 'created_at_desc' then archive.created_at end desc nulls last,
+    case when $5 = 'updated_at_asc' then archive.updated_at end asc,
+    case when $5 = 'updated_at_desc' then archive.updated_at end desc nulls last,
+    case when $5 = 'release_date_asc' then archive.release_date end asc,
+    case
+        when $5 = 'release_date_desc' then archive.release_date
+    end desc nulls last,
+    case when $5 = 'last_read_asc' then reading_progress.last_read end asc,
+    case
+        when $5 = 'last_read_desc' then reading_progress.last_read
+    end desc nulls last
 limit $2
 offset $3
 `
 
 type GetArchiveByCharacterListParams struct {
-	Name   string    `json:"name"`
-	Limit  int32     `json:"limit"`
-	Offset int32     `json:"offset"`
-	Uid    uuid.UUID `json:"uid"`
+	Name    string    `json:"name"`
+	Limit   int32     `json:"limit"`
+	Offset  int32     `json:"offset"`
+	Uid     uuid.UUID `json:"uid"`
+	OrderBy string    `json:"order_by"`
 }
 
 type GetArchiveByCharacterListRow struct {
@@ -237,6 +255,7 @@ func (q *Queries) GetArchiveByCharacterList(ctx context.Context, arg GetArchiveB
 		arg.Limit,
 		arg.Offset,
 		arg.Uid,
+		arg.OrderBy,
 	)
 	if err != nil {
 		return nil, err

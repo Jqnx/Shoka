@@ -31,7 +31,7 @@ func (q *Queries) AddTagToArchive(ctx context.Context, arg AddTagToArchiveParams
 const createTag = `-- name: CreateTag :one
 insert into tag (name, count)
 values ($1, $2)
-returning id, name, count
+returning id, name, count, description
 `
 
 type CreateTagParams struct {
@@ -42,7 +42,12 @@ type CreateTagParams struct {
 func (q *Queries) CreateTag(ctx context.Context, arg CreateTagParams) (Tag, error) {
 	row := q.db.QueryRow(ctx, createTag, arg.Name, arg.Count)
 	var i Tag
-	err := row.Scan(&i.ID, &i.Name, &i.Count)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Count,
+		&i.Description,
+	)
 	return i, err
 }
 
@@ -66,7 +71,7 @@ func (q *Queries) DeleteTag(ctx context.Context, id int32) error {
 }
 
 const getAllTags = `-- name: GetAllTags :many
-select id, name, count
+select id, name, count, description
 from tag
 order by name
 `
@@ -80,7 +85,12 @@ func (q *Queries) GetAllTags(ctx context.Context) ([]Tag, error) {
 	var items []Tag
 	for rows.Next() {
 		var i Tag
-		if err := rows.Scan(&i.ID, &i.Name, &i.Count); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Count,
+			&i.Description,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -194,15 +204,33 @@ left join
     on archive.id = reading_progress.archive_id
     and reading_progress.user_id = $4
 where tag.name = $1
+order by
+    case when $5::text = 'title_asc' then archive.title end asc,
+    case when $5 = 'title_desc' then archive.title end desc nulls last,
+    case when $5 = 'page_count_asc' then archive.page_count end asc,
+    case when $5 = 'page_count_desc' then archive.page_count end desc nulls last,
+    case when $5 = 'created_at_asc' then archive.created_at end asc,
+    case when $5 = 'created_at_desc' then archive.created_at end desc nulls last,
+    case when $5 = 'updated_at_asc' then archive.updated_at end asc,
+    case when $5 = 'updated_at_desc' then archive.updated_at end desc nulls last,
+    case when $5 = 'release_date_asc' then archive.release_date end asc,
+    case
+        when $5 = 'release_date_desc' then archive.release_date
+    end desc nulls last,
+    case when $5 = 'last_read_asc' then reading_progress.last_read end asc,
+    case
+        when $5 = 'last_read_desc' then reading_progress.last_read
+    end desc nulls last
 limit $2
 offset $3
 `
 
 type GetArchiveByTagListParams struct {
-	Name   string    `json:"name"`
-	Limit  int32     `json:"limit"`
-	Offset int32     `json:"offset"`
-	Uid    uuid.UUID `json:"uid"`
+	Name    string    `json:"name"`
+	Limit   int32     `json:"limit"`
+	Offset  int32     `json:"offset"`
+	UserID  uuid.UUID `json:"UserID"`
+	OrderBy string    `json:"order_by"`
 }
 
 type GetArchiveByTagListRow struct {
@@ -226,7 +254,8 @@ func (q *Queries) GetArchiveByTagList(ctx context.Context, arg GetArchiveByTagLi
 		arg.Name,
 		arg.Limit,
 		arg.Offset,
-		arg.Uid,
+		arg.UserID,
+		arg.OrderBy,
 	)
 	if err != nil {
 		return nil, err
@@ -324,7 +353,7 @@ func (q *Queries) GetArchiveIDsByTags(ctx context.Context, arg GetArchiveIDsByTa
 }
 
 const getArchiveTag = `-- name: GetArchiveTag :many
-select tag.id, tag.name, tag.count
+select tag.id, tag.name, tag.count, tag.description
 from archive
 join archive_tag on archive.id = archive_tag.archive_id
 join tag on archive_tag.tag_id = tag.id
@@ -340,7 +369,12 @@ func (q *Queries) GetArchiveTag(ctx context.Context, id string) ([]Tag, error) {
 	var items []Tag
 	for rows.Next() {
 		var i Tag
-		if err := rows.Scan(&i.ID, &i.Name, &i.Count); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Count,
+			&i.Description,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -352,7 +386,7 @@ func (q *Queries) GetArchiveTag(ctx context.Context, id string) ([]Tag, error) {
 }
 
 const getTag = `-- name: GetTag :one
-select id, name, count
+select id, name, count, description
 from tag
 where name = $1
 `
@@ -360,7 +394,12 @@ where name = $1
 func (q *Queries) GetTag(ctx context.Context, name string) (Tag, error) {
 	row := q.db.QueryRow(ctx, getTag, name)
 	var i Tag
-	err := row.Scan(&i.ID, &i.Name, &i.Count)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Count,
+		&i.Description,
+	)
 	return i, err
 }
 

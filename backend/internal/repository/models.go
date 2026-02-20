@@ -133,9 +133,10 @@ type Session struct {
 }
 
 type Tag struct {
-	ID    int32  `json:"id"`
-	Name  string `json:"name"`
-	Count int32  `json:"count"`
+	ID          int32   `json:"id"`
+	Name        string  `json:"name"`
+	Count       int32   `json:"count"`
+	Description *string `json:"description"`
 }
 
 type User struct {

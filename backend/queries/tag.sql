@@ -10,13 +10,13 @@ values ($1, $2)
 ;
 
 -- name: GetTag :one
-select id, name, count
+select *
 from tag
 where name = $1
 ;
 
 -- name: GetAllTags :many
-select id, name, count
+select *
 from tag
 order by name
 ;
@@ -34,7 +34,7 @@ returning tag_id, (select tag.count from tag where tag.id = archive_tag.tag_id)
 ;
 
 -- name: GetArchiveTag :many
-select tag.id, tag.name, tag.count
+select tag.*
 from archive
 join archive_tag on archive.id = archive_tag.archive_id
 join tag on archive_tag.tag_id = tag.id
@@ -106,8 +106,25 @@ join tag on archive_tag.tag_id = tag.id
 left join
     reading_progress
     on archive.id = reading_progress.archive_id
-    and reading_progress.user_id = sqlc.arg('uid')
+    and reading_progress.user_id = sqlc.arg('UserID')
 where tag.name = $1
+order by
+    case when @order_by::text = 'title_asc' then archive.title end asc,
+    case when @order_by = 'title_desc' then archive.title end desc nulls last,
+    case when @order_by = 'page_count_asc' then archive.page_count end asc,
+    case when @order_by = 'page_count_desc' then archive.page_count end desc nulls last,
+    case when @order_by = 'created_at_asc' then archive.created_at end asc,
+    case when @order_by = 'created_at_desc' then archive.created_at end desc nulls last,
+    case when @order_by = 'updated_at_asc' then archive.updated_at end asc,
+    case when @order_by = 'updated_at_desc' then archive.updated_at end desc nulls last,
+    case when @order_by = 'release_date_asc' then archive.release_date end asc,
+    case
+        when @order_by = 'release_date_desc' then archive.release_date
+    end desc nulls last,
+    case when @order_by = 'last_read_asc' then reading_progress.last_read end asc,
+    case
+        when @order_by = 'last_read_desc' then reading_progress.last_read
+    end desc nulls last
 limit $2
 offset $3
 ;

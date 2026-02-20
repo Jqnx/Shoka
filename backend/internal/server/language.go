@@ -13,7 +13,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
 func (s *Server) getAllLanguageHandler(c *gin.Context) {
@@ -21,33 +20,31 @@ func (s *Server) getAllLanguageHandler(c *gin.Context) {
 
 	languages, err := s.repo.GetAllLanguage(ctx)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.JSON(http.StatusNotFound, &models.Response{
-				Status:  "error",
-				Message: config.ErrNoCharacter.Error(),
-			})
-			return
-		} else {
-			c.JSON(http.StatusInternalServerError, &models.Response{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
+		c.JSON(http.StatusInternalServerError, &models.Response{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
 	}
 
-	result := util.RemoveDuplicatesStrPointer(languages)
-
-	c.JSON(http.StatusOK, result)
+	c.JSON(http.StatusOK, languages)
 }
 
 func (s *Server) getArchiveByLanguageHandler(c *gin.Context) {
-	// Get tag name from url parameter, makes it lowercase
-	language := strings.ToLower(c.Param("language"))
-	p := c.Query("page")
-	ps := c.Query("size")
-
 	ctx := context.Background()
+
+	language := strings.ToLower(c.Param("language"))
+
+	page, _ := strconv.Atoi(c.Query("page"))
+	if page == 0 {
+		page = 1
+	}
+	pageSize, _ := strconv.Atoi(c.Query("size"))
+	if pageSize == 0 {
+		pageSize = 10
+	}
+
+	order := util.GetSortOrderFromRequest(c)
 
 	exists, err := s.repo.LanguageExists(ctx, &language)
 	if err != nil {
@@ -58,7 +55,6 @@ func (s *Server) getArchiveByLanguageHandler(c *gin.Context) {
 		return
 	}
 
-	// If tag does not exists respond with 404 ErrTagNotFound
 	if exists.RowsAffected() == 0 {
 		c.JSON(http.StatusNotFound, &models.Response{
 			Status:  "error",
@@ -73,84 +69,31 @@ func (s *Server) getArchiveByLanguageHandler(c *gin.Context) {
 		uid = util.GetUserFromRequest(c)
 	}
 
-	// Get archives
-	if p == "" && ps == "" {
-		archives, err := s.repo.GetArchiveByLanguage(ctx, repository.GetArchiveByLanguageParams{
-			Language: &language,
-			Uid:      uid,
+	archives, err := s.repo.GetArchiveByLanguageList(ctx, repository.GetArchiveByLanguageListParams{
+		Uid:      uid,
+		Language: &language,
+		Offset:   (int32(page) - 1) * int32(pageSize),
+		Limit:    int32(pageSize),
+		OrderBy:  order,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.Response{
+			Status:  "error",
+			Message: err.Error(),
 		})
-		if err != nil {
-			if err == pgx.ErrNoRows {
-				c.JSON(http.StatusInternalServerError, &models.Response{
-					Status:  "error",
-					Message: config.ErrNoArchive.Error(),
-				})
-				return
-			} else {
-				c.JSON(http.StatusInternalServerError, &models.Response{
-					Status:  "error",
-					Message: err.Error(),
-				})
-				return
-			}
-		}
-		total, err := s.repo.TotalArchiveWithLanguage(ctx, &language)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, &models.Response{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-
-		// Respond with 200 Success
-		c.JSON(http.StatusOK, gin.H{
-			"archives": archives,
-			"total":    total,
-		})
-	} else {
-		page, _ := strconv.Atoi(p)
-		if page == 0 {
-			page = 1
-		}
-		pageSize, _ := strconv.Atoi(ps)
-		if pageSize == 0 {
-			pageSize = 10
-		}
-		archives, err := s.repo.GetArchiveByLanguageList(ctx, repository.GetArchiveByLanguageListParams{
-			Uid:      uid,
-			Language: &language,
-			Offset:   (int32(page) - 1) * int32(pageSize),
-			Limit:    int32(pageSize),
-		})
-		if err != nil {
-			if err == pgx.ErrNoRows {
-				c.JSON(http.StatusInternalServerError, &models.Response{
-					Status:  "error",
-					Message: config.ErrNoLanguage.Error(),
-				})
-				return
-			} else {
-				c.JSON(http.StatusInternalServerError, &models.Response{
-					Status:  "error",
-					Message: err.Error(),
-				})
-				return
-			}
-		}
-		total, err := s.repo.TotalArchiveWithLanguage(ctx, &language)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, &models.Response{
-				Status:  "error",
-				Message: err.Error(),
-			})
-			return
-		}
-
-		// Respond with 200 Success
-		c.JSON(http.StatusOK, gin.H{
-			"archives": archives,
-			"total":    total,
-		})
+		return
 	}
+	total, err := s.repo.TotalArchiveWithLanguage(ctx, &language)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, &models.Response{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, &models.ArchiveListResponse[repository.GetArchiveByLanguageListRow]{
+		Archives: archives,
+		Count:    int(total),
+	})
 }
