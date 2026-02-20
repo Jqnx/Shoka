@@ -10,16 +10,16 @@ export const useFiltersStore = defineStore("filters", () => {
     route.query.sortdir != undefined ? ref(route.query.sortdir) : ref("asc");
   const sortLabel =
     route.query.sortby != undefined
-      ? ref(SortOptionsStore[<string>sortBy.value])
+      ? ref(SortOptionsStore[sortBy.value as string])
       : ref("Title");
 
   const filters = ref({
-    tags: <string>route.query.tags || undefined,
-    artists: <string>route.query.artists || undefined,
-    characters: <string>route.query.characters || undefined,
-    parodies: <string>route.query.parodies || undefined,
-    languages: <string>route.query.languages || undefined,
-    categories: <string>route.query.categories || undefined,
+    tags: (route.query.tags as string) || undefined,
+    artists: (route.query.artists as string) || undefined,
+    characters: (route.query.characters as string) || undefined,
+    parodies: (route.query.parodies as string) || undefined,
+    languages: (route.query.languages as string) || undefined,
+    categories: (route.query.categories as string) || undefined,
   });
 
   const filtersSplit = ref({
@@ -32,9 +32,9 @@ export const useFiltersStore = defineStore("filters", () => {
   });
 
   const page = ref(
-    isNaN(parseInt(<string>route.query.page, 10))
+    isNaN(parseInt(route.query.page as string, 10))
       ? 1
-      : parseInt(<string>route.query.page, 10),
+      : parseInt(route.query.page as string, 10),
   );
 
   const pageSize = ref(useRuntimeConfig().public.pageSize);
