@@ -25,11 +25,14 @@ useHead({
 });
 
 const router = useRouter();
-
 const token = await useAuth().getToken();
-
-const { sortBy, sortDir, filters, page, pageSize } =
+const sortList = useSortOptions().SortOptions;
+const { sortBy, sortDir, sortLabel, filters, page, pageSize } =
   storeToRefs(useFiltersStore());
+
+const siblingCount = computed(() => {
+  return useDevice().isMobile ? 0 : 1;
+});
 
 const { data: archives } = await useAsyncData<ArchiveList | undefined>(
   "archives",
@@ -84,7 +87,14 @@ const scrollToTop = () => {
 
 <template>
   <div v-if="archives" class="flex flex-1 flex-col gap-2">
-    <ListOptions />
+    <ListOptions
+      v-model:sort-by="sortBy"
+      v-model:sort-label="sortLabel"
+      v-model:sort-dir="sortDir"
+      v-model:filters="filters"
+      :sort-list="sortList"
+      use-filters
+    />
     <div
       class="px-2 py-2 grid gap-2 xl:gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
     >
@@ -100,7 +110,7 @@ const scrollToTop = () => {
     <Pagination
       v-model:page="page"
       :show-edges="true"
-      :sibling-count="0"
+      :sibling-count="siblingCount"
       :items-per-page="pageSize"
       :total="archives.total"
       :default-page="1"
