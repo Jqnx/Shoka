@@ -9,14 +9,17 @@ import {
 import Button from "@/components/ui/button/Button.vue";
 
 const route = useRoute();
+const token = await useAuth().getToken();
 
-const filters = computed(() => {
-  if (route.name === "favorites") {
-    return storeToRefs(useFavoriteFiltersStore());
-  } else {
-    return storeToRefs(useFiltersStore());
-  }
+const props = defineProps({
+  useFilters: Boolean,
+  sortList: Object,
 });
+
+const sortBy = defineModel("sortBy");
+const sortLabel = defineModel("sortLabel");
+const sortDir = defineModel("sortDir");
+//const filters = defineModel("filters");
 
 const totalArchives = computed(() => {
   if (route.name === "favorites") {
@@ -36,26 +39,6 @@ const isFav = computed(() => {
   }
 });
 
-// TODO: Implement favorites as sort option
-
-const sortList = [
-  { value: "title", label: "Title" },
-  { value: "page_count", label: "Length" },
-  //{ value: "favorites", label: "Favorites" },
-  { value: "created_at", label: "Date Added" },
-  { value: "release_date", label: "Release Date" },
-];
-
-const sortListFavorite = [
-  { value: "title", label: "Title" },
-  { value: "page_count", label: "Length" },
-  { value: "created_at", label: "Date Added" },
-  { value: "release_date", label: "Release Date" },
-  { value: "favorited_at", label: "Favorited At" },
-];
-
-const token = await useAuth().getToken();
-
 const shuffle = () => {
   // generate number with total archives as max
   const num = Math.floor(Math.random() * totalArchives.value);
@@ -71,14 +54,14 @@ const shuffle = () => {
       c: num,
       favorite: isFav.value,
     },
-    body: {
-      tags: filters.value.filters.value.tags,
-      artists: filters.value.filters.value.artists,
-      characters: filters.value.filters.value.characters,
-      parodies: filters.value.filters.value.parodies,
-      languages: filters.value.filters.value.languages,
-      categories: filters.value.filters.value.categories,
-    },
+    //body: {
+    //  tags: filters.value.filters.value.tags,
+    //  artists: filters.value.filters.value.artists,
+    //  characters: filters.value.filters.value.characters,
+    //  parodies: filters.value.filters.value.parodies,
+    //  languages: filters.value.filters.value.languages,
+    //  categories: filters.value.filters.value.categories,
+    //},
     onResponse({ response }) {
       navigateTo({ name: "a-id", params: { id: response._data } });
     },
@@ -89,7 +72,7 @@ const shuffle = () => {
 <template>
   <div class="flex justify-between">
     <div class="flex gap-2">
-      <div>
+      <div v-if="props.useFilters">
         <FilterDialog />
       </div>
       <div class="flex">
@@ -100,32 +83,18 @@ const shuffle = () => {
               class="rounded-r-none text-muted-foreground"
               title="Sort By"
             >
-              {{ filters.sortLabel }}
+              {{ sortLabel }}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent v-if="route.name === 'favorites'">
-            <DropdownMenuItem
-              v-for="(item, index) in sortListFavorite"
-              :key="index"
-              @select="
-                () => {
-                  filters.sortBy.value = item.value;
-                  filters.sortLabel.value = item.label;
-                }
-              "
-            >
-              {{ item.label }}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-          <DropdownMenuContent v-else>
+          <DropdownMenuContent>
             <DropdownMenuItem
               v-for="(item, index) in sortList"
               :key="index"
               class="text-muted-foreground font-medium"
               @select="
                 () => {
-                  filters.sortBy.value = item.value;
-                  filters.sortLabel.value = item.label;
+                  sortBy = item.value;
+                  sortLabel = item.label;
                 }
               "
             >
@@ -134,12 +103,12 @@ const shuffle = () => {
           </DropdownMenuContent>
         </DropdownMenu>
         <Button
-          v-if="filters.sortDir.value == 'asc'"
+          v-if="sortDir == 'asc'"
           variant="ghost"
           class="rounded-l-none text-muted-foreground hover:cursor-pointer"
           size="icon"
           title="Ascending"
-          @click="filters.sortDir.value = 'desc'"
+          @click="sortDir = 'desc'"
         >
           <ChevronUp />
         </Button>
@@ -149,7 +118,7 @@ const shuffle = () => {
           class="rounded-l-none text-muted-foreground hover:cursor-pointer"
           size="icon"
           title="Descending"
-          @click="filters.sortDir.value = 'asc'"
+          @click="sortDir = 'asc'"
         >
           <ChevronDown />
         </Button>
