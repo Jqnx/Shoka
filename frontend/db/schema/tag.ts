@@ -14,6 +14,7 @@ export const tag = pgTable(
   {
     id: serial("id").primaryKey(),
     name: text("name").notNull(),
+    description: text("description"),
     count: integer("count").notNull(),
   },
   (table) => [uniqueIndex("idx_tag").on(table.name)],

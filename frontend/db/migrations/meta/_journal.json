@@ -64,6 +64,13 @@
       "when": 1767466966556,
       "tag": "0008_strange_the_twelve",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1771440247627,
+      "tag": "0009_mysterious_korvac",
+      "breakpoints": true
     }
   ]
 }
