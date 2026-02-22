@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"Shoka/internal/archive/metadata"
 	"Shoka/internal/fsutil"
 	"Shoka/internal/models"
 )
@@ -12,7 +13,7 @@ import (
 // which is the first 4 bytes of a random UUID
 func (a *Archive) setArchiveID(id string) {
 	if id == "" {
-		newID := NewArchiveID()
+		newID := metadata.NewArchiveID()
 		a.ID = newID
 	} else {
 		a.ID = id
