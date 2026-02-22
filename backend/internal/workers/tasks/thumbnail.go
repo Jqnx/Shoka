@@ -63,7 +63,7 @@ func (w *ThumbnailProcessor) ProcessTask(ctx context.Context, t *asynq.Task) err
 	}
 
 	since := time.Since(now)
-	w.app.Log.Info("new thumbs", "fp", pagePath, "elapsed", since)
+	w.app.Log.Info("new thumbs", "path", pagePath, "elapsed", since)
 	return nil
 }
 

@@ -41,7 +41,7 @@ func (a *ArchiveProcessor) ProcessTask(ctx context.Context, t *asynq.Task) error
 	if err := arch.Insert(c, a.app); err != nil {
 		return err
 	}
-	a.app.Log.Info("archive created", "title:", arch.Title)
+	a.app.Log.Info("archive created", "title", arch.Title)
 
 	return nil
 }
