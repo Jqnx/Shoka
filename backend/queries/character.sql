@@ -9,6 +9,19 @@ insert into archive_character (archive_id, character_id)
 values ($1, $2)
 ;
 
+-- name: BulkAddArchiveCharacters :exec
+insert into archive_character (archive_id, character_id)
+select $1, unnest(sqlc.arg('characters')::int[])
+;
+
+-- name: EnsureCharacterExist :many
+insert into character (name, count)
+select unnest(sqlc.arg('characters')::text[]), 0
+on conflict (name) do update
+set name = excluded.name
+returning id, name
+;
+
 -- name: GetCharacter :one
 select *
 from character
@@ -27,20 +40,21 @@ from character
 where name = $1
 ;
 
--- name: RemoveCharacterFromArchive :many
+-- name: RemoveCharacterFromArchive :exec
 delete from archive_character
-where archive_id = $1
-returning
-    character_id,
-    (
-        select character.count
-        from character
-        where character.id = archive_character.character_id
-    )
+where archive_id = $1 and character_id = any(sqlc.arg('characters')::int[])
 ;
 
 -- name: GetArchiveCharacters :many
-select character.id, character.name, character.count
+select character.*
+from archive
+join archive_character on archive.id = archive_character.archive_id
+join character on archive_character.character_id = character.id
+where archive.id = $1
+;
+
+-- name: GetArchiveCharacterIDs :many
+select character.id
 from archive
 join archive_character on archive.id = archive_character.archive_id
 join character on archive_character.character_id = character.id
@@ -142,10 +156,16 @@ join character on archive_character.character_id = character.id
 where character.name = $1
 ;
 
--- name: UpdateCharacterCount :exec
+-- name: DecrementCharacterCount :exec
 update character
-set count = $1
-where id = $2
+set count = count - 1
+where id = any(sqlc.arg('characters')::int[])
+;
+
+-- name: IncrementCharacterCount :exec
+update character
+set count = count + 1
+where id = any(sqlc.arg('characters')::int[])
 ;
 
 -- name: DeleteCharacter :exec

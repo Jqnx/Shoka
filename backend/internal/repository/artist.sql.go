@@ -57,6 +57,21 @@ func (q *Queries) ArtistUrlExists(ctx context.Context, url string) (pgconn.Comma
 	return q.db.Exec(ctx, artistUrlExists, url)
 }
 
+const bulkAddArchiveArtists = `-- name: BulkAddArchiveArtists :exec
+insert into archive_artist (archive_id, artist_id)
+select $1, unnest($2::int[])
+`
+
+type BulkAddArchiveArtistsParams struct {
+	ArchiveID string  `json:"archive_id"`
+	Artists   []int32 `json:"artists"`
+}
+
+func (q *Queries) BulkAddArchiveArtists(ctx context.Context, arg BulkAddArchiveArtistsParams) error {
+	_, err := q.db.Exec(ctx, bulkAddArchiveArtists, arg.ArchiveID, arg.Artists)
+	return err
+}
+
 const createAlias = `-- name: CreateAlias :exec
 insert into artist_alias (alias, artist_id)
 values ($1, $2)
@@ -105,6 +120,17 @@ func (q *Queries) CreateArtistUrl(ctx context.Context, arg CreateArtistUrlParams
 	return err
 }
 
+const decrementArtistCount = `-- name: DecrementArtistCount :exec
+update artist
+set count = count - 1
+where id = any($1::int[])
+`
+
+func (q *Queries) DecrementArtistCount(ctx context.Context, artists []int32) error {
+	_, err := q.db.Exec(ctx, decrementArtistCount, artists)
+	return err
+}
+
 const deleteAllArtist = `-- name: DeleteAllArtist :exec
 delete from artist
 `
@@ -122,6 +148,39 @@ where id = $1
 func (q *Queries) DeleteArtist(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, deleteArtist, id)
 	return err
+}
+
+const ensureArtistExist = `-- name: EnsureArtistExist :many
+insert into artist (name, count)
+select unnest($1::text[]), 0
+on conflict (name) do update
+set name = excluded.name
+returning id, name
+`
+
+type EnsureArtistExistRow struct {
+	ID   int32  `json:"id"`
+	Name string `json:"name"`
+}
+
+func (q *Queries) EnsureArtistExist(ctx context.Context, artists []string) ([]EnsureArtistExistRow, error) {
+	rows, err := q.db.Query(ctx, ensureArtistExist, artists)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EnsureArtistExistRow
+	for rows.Next() {
+		var i EnsureArtistExistRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getAllArtists = `-- name: GetAllArtists :many
@@ -143,6 +202,34 @@ func (q *Queries) GetAllArtists(ctx context.Context) ([]Artist, error) {
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArchiveArtistIDs = `-- name: GetArchiveArtistIDs :many
+select artist.id
+from archive
+join archive_artist on archive.id = archive_artist.archive_id
+join artist on archive_artist.artist_id = artist.id
+where archive.id = $1
+`
+
+func (q *Queries) GetArchiveArtistIDs(ctx context.Context, id string) ([]int32, error) {
+	rows, err := q.db.Query(ctx, getArchiveArtistIDs, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int32
+	for rows.Next() {
+		var id int32
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -496,6 +583,17 @@ func (q *Queries) GetArtistUrls(ctx context.Context, name string) ([]GetArtistUr
 	return items, nil
 }
 
+const incrementArtistCount = `-- name: IncrementArtistCount :exec
+update artist
+set count = count + 1
+where id = any($1::int[])
+`
+
+func (q *Queries) IncrementArtistCount(ctx context.Context, artists []int32) error {
+	_, err := q.db.Exec(ctx, incrementArtistCount, artists)
+	return err
+}
+
 const removeArtistAliases = `-- name: RemoveArtistAliases :exec
 delete from artist_alias
 where artist_id = $1
@@ -506,37 +604,19 @@ func (q *Queries) RemoveArtistAliases(ctx context.Context, artistID int32) error
 	return err
 }
 
-const removeArtistFromArchive = `-- name: RemoveArtistFromArchive :many
+const removeArtistFromArchive = `-- name: RemoveArtistFromArchive :exec
 delete from archive_artist
-where archive_id = $1
-returning
-    artist_id,
-    (select artist.count from artist where artist.id = archive_artist.artist_id)
+where archive_id = $1 and artist_id = any($2::int[])
 `
 
-type RemoveArtistFromArchiveRow struct {
-	ArtistID int32 `json:"artist_id"`
-	Count    int32 `json:"count"`
+type RemoveArtistFromArchiveParams struct {
+	ArchiveID string  `json:"archive_id"`
+	Artists   []int32 `json:"artists"`
 }
 
-func (q *Queries) RemoveArtistFromArchive(ctx context.Context, archiveID string) ([]RemoveArtistFromArchiveRow, error) {
-	rows, err := q.db.Query(ctx, removeArtistFromArchive, archiveID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []RemoveArtistFromArchiveRow
-	for rows.Next() {
-		var i RemoveArtistFromArchiveRow
-		if err := rows.Scan(&i.ArtistID, &i.Count); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) RemoveArtistFromArchive(ctx context.Context, arg RemoveArtistFromArchiveParams) error {
+	_, err := q.db.Exec(ctx, removeArtistFromArchive, arg.ArchiveID, arg.Artists)
+	return err
 }
 
 const removeArtistUrls = `-- name: RemoveArtistUrls :exec
@@ -578,20 +658,4 @@ func (q *Queries) UpdateArtist(ctx context.Context, arg UpdateArtistParams) (Art
 	var i Artist
 	err := row.Scan(&i.ID, &i.Name, &i.Count)
 	return i, err
-}
-
-const updateArtistCount = `-- name: UpdateArtistCount :exec
-update artist
-set count = $1
-where id = $2
-`
-
-type UpdateArtistCountParams struct {
-	Count int32 `json:"count"`
-	ID    int32 `json:"id"`
-}
-
-func (q *Queries) UpdateArtistCount(ctx context.Context, arg UpdateArtistCountParams) error {
-	_, err := q.db.Exec(ctx, updateArtistCount, arg.Count, arg.ID)
-	return err
 }

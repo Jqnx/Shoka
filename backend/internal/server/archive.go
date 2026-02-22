@@ -21,6 +21,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // TODO: Print proper error responses instead of just printing errors directly
@@ -392,25 +393,41 @@ func (s *Server) updateArchiveHandler(c *gin.Context) {
 
 // Delete
 
-//	func (s *Server) deleteArchiveHandler(c *gin.Context) {
-//		id := c.Param("id")
-//
-//		ctx := context.Background()
-//		if err := archive.DeleteTransaction(ctx, s.db, s.repo, id, s.log); err != nil {
-//			if err == pgx.ErrNoRows {
-//				c.JSON(http.StatusNotFound, &models.ResponseError{
-//					Status:  "error",
-//					Message: config.ErrArchiveNotFound.Error(),
-//				})
-//				return
-//			} else {
-//				c.JSON(http.StatusInternalServerError, &models.ResponseError{
-//					Status:  "error",
-//					Message: err.Error(),
-//				})
-//				return
-//			}
-//		}
-//
-//		c.JSON(http.StatusOK, gin.H{"status": "success"})
-//	}
+// deleteArchiveHandler removes an archive from the database,
+// reduces the count of metadata in the database,
+// and removes the corresponding file from the filesystem
+func (s *Server) deleteArchiveHandler(c *gin.Context) {
+	ctx := context.Background()
+	id := c.Param("id")
+
+	a, err := s.repo.GetArchiveByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			c.JSON(http.StatusNotFound, &models.Response{
+				Status:  "error",
+				Message: "archive not found",
+			})
+			return
+		} else {
+			c.JSON(http.StatusInternalServerError, &models.Response{
+				Status:  "error",
+				Message: err.Error(),
+			})
+			return
+		}
+	}
+
+	arch := archive.RepoToArchive(a, s.app)
+	if err := arch.Delete(ctx, s.app); err != nil {
+		c.JSON(http.StatusInternalServerError, &models.Response{
+			Status:  "error",
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, &models.Response{
+		Status:  "success",
+		Message: "deleted successfully",
+	})
+}

@@ -9,6 +9,19 @@ insert into archive_tag (archive_id, tag_id)
 values ($1, $2)
 ;
 
+-- name: BulkAddArchiveTags :exec
+insert into archive_tag (archive_id, tag_id)
+select $1, unnest(sqlc.arg('tags')::int[])
+;
+
+-- name: EnsureTagExist :many
+insert into tag (name, count)
+select unnest(sqlc.arg('tags')::text[]), 0
+on conflict (name) do update
+set name = excluded.name
+returning id, name
+;
+
 -- name: GetTag :one
 select *
 from tag
@@ -27,14 +40,21 @@ from tag
 where name = $1
 ;
 
--- name: RemoveTagFromArchive :many
+-- name: RemoveTagFromArchive :exec
 delete from archive_tag
-where archive_id = $1
-returning tag_id, (select tag.count from tag where tag.id = archive_tag.tag_id)
+where archive_id = $1 and tag_id = any(sqlc.arg('tags')::int[])
 ;
 
 -- name: GetArchiveTag :many
 select tag.*
+from archive
+join archive_tag on archive.id = archive_tag.archive_id
+join tag on archive_tag.tag_id = tag.id
+where archive.id = $1
+;
+
+-- name: GetArchiveTagIDs :many
+select tag.id
 from archive
 join archive_tag on archive.id = archive_tag.archive_id
 join tag on archive_tag.tag_id = tag.id
@@ -65,7 +85,6 @@ left join
     and reading_progress.user_id = sqlc.arg('uid')
 where tag.name = $1
 ;
-
 
 -- name: GetArchiveIDsByTag :many
 select archive.id
@@ -129,7 +148,6 @@ limit $2
 offset $3
 ;
 
-
 -- name: TotalArchiveWithTag :one
 select count(archive.id)
 from archive
@@ -138,10 +156,16 @@ join tag on archive_tag.tag_id = tag.id
 where tag.name = $1
 ;
 
--- name: UpdateTagCount :exec
+-- name: DecrementTagCount :exec
 update tag
-set count = $1
-where id = $2
+set count = count - 1
+where id = any(sqlc.arg('tags')::int[])
+;
+
+-- name: IncrementTagCount :exec
+update tag
+set count = count + 1
+where id = any(sqlc.arg('tags')::int[])
 ;
 
 -- name: DeleteTag :exec

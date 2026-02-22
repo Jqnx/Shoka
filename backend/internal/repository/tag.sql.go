@@ -28,6 +28,21 @@ func (q *Queries) AddTagToArchive(ctx context.Context, arg AddTagToArchiveParams
 	return err
 }
 
+const bulkAddArchiveTags = `-- name: BulkAddArchiveTags :exec
+insert into archive_tag (archive_id, tag_id)
+select $1, unnest($2::int[])
+`
+
+type BulkAddArchiveTagsParams struct {
+	ArchiveID string  `json:"archive_id"`
+	Tags      []int32 `json:"tags"`
+}
+
+func (q *Queries) BulkAddArchiveTags(ctx context.Context, arg BulkAddArchiveTagsParams) error {
+	_, err := q.db.Exec(ctx, bulkAddArchiveTags, arg.ArchiveID, arg.Tags)
+	return err
+}
+
 const createTag = `-- name: CreateTag :one
 insert into tag (name, count)
 values ($1, $2)
@@ -51,6 +66,17 @@ func (q *Queries) CreateTag(ctx context.Context, arg CreateTagParams) (Tag, erro
 	return i, err
 }
 
+const decrementTagCount = `-- name: DecrementTagCount :exec
+update tag
+set count = count - 1
+where id = any($1::int[])
+`
+
+func (q *Queries) DecrementTagCount(ctx context.Context, tags []int32) error {
+	_, err := q.db.Exec(ctx, decrementTagCount, tags)
+	return err
+}
+
 const deleteAllTag = `-- name: DeleteAllTag :exec
 delete from tag
 `
@@ -68,6 +94,39 @@ where id = $1
 func (q *Queries) DeleteTag(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, deleteTag, id)
 	return err
+}
+
+const ensureTagExist = `-- name: EnsureTagExist :many
+insert into tag (name, count)
+select unnest($1::text[]), 0
+on conflict (name) do update
+set name = excluded.name
+returning id, name
+`
+
+type EnsureTagExistRow struct {
+	ID   int32  `json:"id"`
+	Name string `json:"name"`
+}
+
+func (q *Queries) EnsureTagExist(ctx context.Context, tags []string) ([]EnsureTagExistRow, error) {
+	rows, err := q.db.Query(ctx, ensureTagExist, tags)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EnsureTagExistRow
+	for rows.Next() {
+		var i EnsureTagExistRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getAllTags = `-- name: GetAllTags :many
@@ -385,6 +444,34 @@ func (q *Queries) GetArchiveTag(ctx context.Context, id string) ([]Tag, error) {
 	return items, nil
 }
 
+const getArchiveTagIDs = `-- name: GetArchiveTagIDs :many
+select tag.id
+from archive
+join archive_tag on archive.id = archive_tag.archive_id
+join tag on archive_tag.tag_id = tag.id
+where archive.id = $1
+`
+
+func (q *Queries) GetArchiveTagIDs(ctx context.Context, id string) ([]int32, error) {
+	rows, err := q.db.Query(ctx, getArchiveTagIDs, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int32
+	for rows.Next() {
+		var id int32
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getTag = `-- name: GetTag :one
 select id, name, count, description
 from tag
@@ -403,35 +490,30 @@ func (q *Queries) GetTag(ctx context.Context, name string) (Tag, error) {
 	return i, err
 }
 
-const removeTagFromArchive = `-- name: RemoveTagFromArchive :many
-delete from archive_tag
-where archive_id = $1
-returning tag_id, (select tag.count from tag where tag.id = archive_tag.tag_id)
+const incrementTagCount = `-- name: IncrementTagCount :exec
+update tag
+set count = count + 1
+where id = any($1::int[])
 `
 
-type RemoveTagFromArchiveRow struct {
-	TagID int32 `json:"tag_id"`
-	Count int32 `json:"count"`
+func (q *Queries) IncrementTagCount(ctx context.Context, tags []int32) error {
+	_, err := q.db.Exec(ctx, incrementTagCount, tags)
+	return err
 }
 
-func (q *Queries) RemoveTagFromArchive(ctx context.Context, archiveID string) ([]RemoveTagFromArchiveRow, error) {
-	rows, err := q.db.Query(ctx, removeTagFromArchive, archiveID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []RemoveTagFromArchiveRow
-	for rows.Next() {
-		var i RemoveTagFromArchiveRow
-		if err := rows.Scan(&i.TagID, &i.Count); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+const removeTagFromArchive = `-- name: RemoveTagFromArchive :exec
+delete from archive_tag
+where archive_id = $1 and tag_id = any($2::int[])
+`
+
+type RemoveTagFromArchiveParams struct {
+	ArchiveID string  `json:"archive_id"`
+	Tags      []int32 `json:"tags"`
+}
+
+func (q *Queries) RemoveTagFromArchive(ctx context.Context, arg RemoveTagFromArchiveParams) error {
+	_, err := q.db.Exec(ctx, removeTagFromArchive, arg.ArchiveID, arg.Tags)
+	return err
 }
 
 const tagExists = `-- name: TagExists :execresult
@@ -457,20 +539,4 @@ func (q *Queries) TotalArchiveWithTag(ctx context.Context, name string) (int64, 
 	var count int64
 	err := row.Scan(&count)
 	return count, err
-}
-
-const updateTagCount = `-- name: UpdateTagCount :exec
-update tag
-set count = $1
-where id = $2
-`
-
-type UpdateTagCountParams struct {
-	Count int32 `json:"count"`
-	ID    int32 `json:"id"`
-}
-
-func (q *Queries) UpdateTagCount(ctx context.Context, arg UpdateTagCountParams) error {
-	_, err := q.db.Exec(ctx, updateTagCount, arg.Count, arg.ID)
-	return err
 }

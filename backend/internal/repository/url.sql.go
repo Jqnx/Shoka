@@ -21,6 +21,21 @@ func (q *Queries) ArchiveUrlExists(ctx context.Context, url string) (pgconn.Comm
 	return q.db.Exec(ctx, archiveUrlExists, url)
 }
 
+const bulkAddArchiveURLs = `-- name: BulkAddArchiveURLs :exec
+insert into archive_url (archive_id, url)
+select $1, unnest($2::text[])
+`
+
+type BulkAddArchiveURLsParams struct {
+	ArchiveID string   `json:"archive_id"`
+	Urls      []string `json:"urls"`
+}
+
+func (q *Queries) BulkAddArchiveURLs(ctx context.Context, arg BulkAddArchiveURLsParams) error {
+	_, err := q.db.Exec(ctx, bulkAddArchiveURLs, arg.ArchiveID, arg.Urls)
+	return err
+}
+
 const createArchiveURL = `-- name: CreateArchiveURL :exec
 insert into archive_url (url, archive_id)
 values ($1, $2)
@@ -36,11 +51,36 @@ func (q *Queries) CreateArchiveURL(ctx context.Context, arg CreateArchiveURLPara
 	return err
 }
 
+const getArchiveUrlIDs = `-- name: GetArchiveUrlIDs :many
+select id 
+from archive_url
+where archive_id = $1
+`
+
+func (q *Queries) GetArchiveUrlIDs(ctx context.Context, archiveID string) ([]int32, error) {
+	rows, err := q.db.Query(ctx, getArchiveUrlIDs, archiveID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int32
+	for rows.Next() {
+		var id int32
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArchiveUrls = `-- name: GetArchiveUrls :many
-select archive_url.id, archive_url.url
-from archive
-join archive_url on archive.id = archive_url.archive_id
-where archive.id = $1
+select id, url
+from archive_url
+where archive_id = $1
 `
 
 type GetArchiveUrlsRow struct {
@@ -48,8 +88,8 @@ type GetArchiveUrlsRow struct {
 	Url string `json:"url"`
 }
 
-func (q *Queries) GetArchiveUrls(ctx context.Context, id string) ([]GetArchiveUrlsRow, error) {
-	rows, err := q.db.Query(ctx, getArchiveUrls, id)
+func (q *Queries) GetArchiveUrls(ctx context.Context, archiveID string) ([]GetArchiveUrlsRow, error) {
+	rows, err := q.db.Query(ctx, getArchiveUrls, archiveID)
 	if err != nil {
 		return nil, err
 	}
@@ -70,10 +110,15 @@ func (q *Queries) GetArchiveUrls(ctx context.Context, id string) ([]GetArchiveUr
 
 const removeArchiveUrl = `-- name: RemoveArchiveUrl :exec
 delete from archive_url
-where archive_id = $1
+where archive_id = $1 and url = any($2::text[])
 `
 
-func (q *Queries) RemoveArchiveUrl(ctx context.Context, archiveID string) error {
-	_, err := q.db.Exec(ctx, removeArchiveUrl, archiveID)
+type RemoveArchiveUrlParams struct {
+	ArchiveID string   `json:"archive_id"`
+	Urls      []string `json:"urls"`
+}
+
+func (q *Queries) RemoveArchiveUrl(ctx context.Context, arg RemoveArchiveUrlParams) error {
+	_, err := q.db.Exec(ctx, removeArchiveUrl, arg.ArchiveID, arg.Urls)
 	return err
 }

@@ -14,6 +14,19 @@ insert into artist_url (url, artist_id)
 values ($1, $2)
 ;
 
+-- name: BulkAddArchiveArtists :exec
+insert into archive_artist (archive_id, artist_id)
+select $1, unnest(sqlc.arg('artists')::int[])
+;
+
+-- name: EnsureArtistExist :many
+insert into artist (name, count)
+select unnest(sqlc.arg('artists')::text[]), 0
+on conflict (name) do update
+set name = excluded.name
+returning id, name
+;
+
 -- name: GetAllArtists :many
 select id, name, count
 from artist
@@ -83,18 +96,22 @@ where name = sqlc.arg(old_name)::text
 returning *
 ;
 
--- name: UpdateArtistCount :exec
+-- name: DecrementArtistCount :exec
 update artist
-set count = $1
-where id = $2
+set count = count - 1
+where id = any(sqlc.arg('artists')::int[])
 ;
 
--- name: RemoveArtistFromArchive :many
+-- name: IncrementArtistCount :exec
+update artist
+set count = count + 1
+where id = any(sqlc.arg('artists')::int[])
+;
+
+
+-- name: RemoveArtistFromArchive :exec
 delete from archive_artist
-where archive_id = $1
-returning
-    artist_id,
-    (select artist.count from artist where artist.id = archive_artist.artist_id)
+where archive_id = $1 and artist_id = any(sqlc.arg('artists')::int[])
 ;
 
 -- name: RemoveArtistAliases :exec
@@ -118,6 +135,14 @@ delete from artist
 
 -- name: GetArchiveArtists :many
 select artist.*
+from archive
+join archive_artist on archive.id = archive_artist.archive_id
+join artist on archive_artist.artist_id = artist.id
+where archive.id = $1
+;
+
+-- name: GetArchiveArtistIDs :many
+select artist.id
 from archive
 join archive_artist on archive.id = archive_artist.archive_id
 join artist on archive_artist.artist_id = artist.id

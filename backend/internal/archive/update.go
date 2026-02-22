@@ -3,8 +3,10 @@ package archive
 import (
 	"context"
 
+	"Shoka/internal/archive/metadata"
 	"Shoka/internal/config"
 	"Shoka/internal/repository"
+	"Shoka/internal/util"
 )
 
 // TODO: ArchivePayload to Archive converter
@@ -31,27 +33,37 @@ func (a *Archive) UpdateInDB(ctx context.Context, app *config.App) error {
 		return err
 	}
 
-	m := NewMetadata(qtx, a, archive.ID)
+	old, err := metadata.GetCurrent(ctx, qtx, archive.ID)
+	if err != nil {
+		return err
+	}
+	newTags := util.ToSliceString(a.Tags)
+	newURLs := util.ToSliceString(a.URL)
+	newParodies := util.ToSliceString(a.Parody)
+	newCharacters := util.ToSliceString(a.Character)
+	newArtists := util.ToSliceString(a.Artist)
 
-	if err := m.Artist(ctx); err != nil {
+	if err := metadata.UpdateTags(ctx, qtx, archive.ID, old.Tags, newTags); err != nil {
 		return err
 	}
 
-	if err := m.Tag(ctx); err != nil {
+	if err := metadata.UpdateArtists(ctx, qtx, archive.ID, old.Artists, newArtists); err != nil {
 		return err
 	}
 
-	if err := m.Character(ctx); err != nil {
+	if err := metadata.UpdateCharacters(ctx, qtx, archive.ID, old.Characters, newCharacters); err != nil {
 		return err
 	}
 
-	if err := m.Parody(ctx); err != nil {
+	if err := metadata.UpdateParodies(ctx, qtx, archive.ID, old.Parodies, newParodies); err != nil {
 		return err
 	}
 
-	if err := m.URL(ctx); err != nil {
+	if err := metadata.UpdateURLs(ctx, qtx, archive.ID, old.URLs, newURLs); err != nil {
 		return err
 	}
+
+	app.Log.Info("Successfully updated archive metadata", "archive", archive.ID)
 
 	return tx.Commit(ctx)
 }

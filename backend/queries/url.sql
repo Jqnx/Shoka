@@ -5,7 +5,7 @@ values ($1, $2)
 
 -- name: RemoveArchiveUrl :exec
 delete from archive_url
-where archive_id = $1
+where archive_id = $1 and url = any(sqlc.arg('urls')::text[])
 ;
 
 -- name: ArchiveUrlExists :execresult
@@ -15,9 +15,18 @@ where url = $1
 ;
 
 -- name: GetArchiveUrls :many
-select archive_url.id, archive_url.url
-from archive
-join archive_url on archive.id = archive_url.archive_id
-where archive.id = $1
+select id, url
+from archive_url
+where archive_id = $1
 ;
 
+-- name: GetArchiveUrlIDs :many
+select id 
+from archive_url
+where archive_id = $1
+;
+
+-- name: BulkAddArchiveURLs :exec
+insert into archive_url (archive_id, url)
+select $1, unnest(sqlc.arg('urls')::text[])
+;

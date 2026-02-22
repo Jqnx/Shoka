@@ -9,6 +9,20 @@ insert into archive_parody (archive_id, parody_id)
 values ($1, $2)
 ;
 
+-- name: BulkAddArchiveParodies :exec
+insert into archive_parody (archive_id, parody_id)
+select $1, unnest(sqlc.arg('parodies')::int[])
+;
+
+-- name: EnsureParodyExist :many
+insert into parody (name, count)
+select unnest(sqlc.arg('parodies')::text[]), 0
+on conflict (name) do update
+set name = excluded.name
+returning id, name
+;
+
+
 -- name: GetParody :one
 select *
 from parody
@@ -27,16 +41,21 @@ from parody
 where name = $1
 ;
 
--- name: RemoveParodyFromArchive :many
+-- name: RemoveParodyFromArchive :exec
 delete from archive_parody
-where archive_id = $1
-returning
-    parody_id,
-    (select parody.count from parody where parody.id = archive_parody.parody_id)
+where archive_id = $1 and parody_id = any(sqlc.arg('parodies')::int[])
 ;
 
 -- name: GetArchiveParody :many
-select parody.id, parody.name, parody.count
+select parody.*
+from archive
+join archive_parody on archive.id = archive_parody.archive_id
+join parody on archive_parody.parody_id = parody.id
+where archive.id = $1
+;
+
+-- name: GetArchiveParodyIDs :many
+select parody.id
 from archive
 join archive_parody on archive.id = archive_parody.archive_id
 join parody on archive_parody.parody_id = parody.id
@@ -138,10 +157,16 @@ join parody on archive_parody.parody_id = parody.id
 where parody.name = $1
 ;
 
--- name: UpdateParodyCount :exec
+-- name: DecrementParodyCount :exec
 update parody
-set count = $1
-where id = $2
+set count = count - 1
+where id = any(sqlc.arg('parodies')::int[])
+;
+
+-- name: IncrementParodyCount :exec
+update parody
+set count = count + 1
+where id = any(sqlc.arg('parodies')::int[])
 ;
 
 -- name: DeleteParody :exec

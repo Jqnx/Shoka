@@ -28,6 +28,21 @@ func (q *Queries) AddCharacterToArchive(ctx context.Context, arg AddCharacterToA
 	return err
 }
 
+const bulkAddArchiveCharacters = `-- name: BulkAddArchiveCharacters :exec
+insert into archive_character (archive_id, character_id)
+select $1, unnest($2::int[])
+`
+
+type BulkAddArchiveCharactersParams struct {
+	ArchiveID  string  `json:"archive_id"`
+	Characters []int32 `json:"characters"`
+}
+
+func (q *Queries) BulkAddArchiveCharacters(ctx context.Context, arg BulkAddArchiveCharactersParams) error {
+	_, err := q.db.Exec(ctx, bulkAddArchiveCharacters, arg.ArchiveID, arg.Characters)
+	return err
+}
+
 const characterExists = `-- name: CharacterExists :execresult
 select id, name
 from character
@@ -56,6 +71,17 @@ func (q *Queries) CreateCharacter(ctx context.Context, arg CreateCharacterParams
 	return i, err
 }
 
+const decrementCharacterCount = `-- name: DecrementCharacterCount :exec
+update character
+set count = count - 1
+where id = any($1::int[])
+`
+
+func (q *Queries) DecrementCharacterCount(ctx context.Context, characters []int32) error {
+	_, err := q.db.Exec(ctx, decrementCharacterCount, characters)
+	return err
+}
+
 const deleteAllCharacter = `-- name: DeleteAllCharacter :exec
 delete from character
 `
@@ -73,6 +99,39 @@ where id = $1
 func (q *Queries) DeleteCharacter(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, deleteCharacter, id)
 	return err
+}
+
+const ensureCharacterExist = `-- name: EnsureCharacterExist :many
+insert into character (name, count)
+select unnest($1::text[]), 0
+on conflict (name) do update
+set name = excluded.name
+returning id, name
+`
+
+type EnsureCharacterExistRow struct {
+	ID   int32  `json:"id"`
+	Name string `json:"name"`
+}
+
+func (q *Queries) EnsureCharacterExist(ctx context.Context, characters []string) ([]EnsureCharacterExistRow, error) {
+	rows, err := q.db.Query(ctx, ensureCharacterExist, characters)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EnsureCharacterExistRow
+	for rows.Next() {
+		var i EnsureCharacterExistRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getAllCharacter = `-- name: GetAllCharacter :many
@@ -289,6 +348,34 @@ func (q *Queries) GetArchiveByCharacterList(ctx context.Context, arg GetArchiveB
 	return items, nil
 }
 
+const getArchiveCharacterIDs = `-- name: GetArchiveCharacterIDs :many
+select character.id
+from archive
+join archive_character on archive.id = archive_character.archive_id
+join character on archive_character.character_id = character.id
+where archive.id = $1
+`
+
+func (q *Queries) GetArchiveCharacterIDs(ctx context.Context, id string) ([]int32, error) {
+	rows, err := q.db.Query(ctx, getArchiveCharacterIDs, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int32
+	for rows.Next() {
+		var id int32
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArchiveCharacters = `-- name: GetArchiveCharacters :many
 select character.id, character.name, character.count
 from archive
@@ -393,41 +480,30 @@ func (q *Queries) GetCharacter(ctx context.Context, name string) (Character, err
 	return i, err
 }
 
-const removeCharacterFromArchive = `-- name: RemoveCharacterFromArchive :many
-delete from archive_character
-where archive_id = $1
-returning
-    character_id,
-    (
-        select character.count
-        from character
-        where character.id = archive_character.character_id
-    )
+const incrementCharacterCount = `-- name: IncrementCharacterCount :exec
+update character
+set count = count + 1
+where id = any($1::int[])
 `
 
-type RemoveCharacterFromArchiveRow struct {
-	CharacterID int32 `json:"character_id"`
-	Count       int32 `json:"count"`
+func (q *Queries) IncrementCharacterCount(ctx context.Context, characters []int32) error {
+	_, err := q.db.Exec(ctx, incrementCharacterCount, characters)
+	return err
 }
 
-func (q *Queries) RemoveCharacterFromArchive(ctx context.Context, archiveID string) ([]RemoveCharacterFromArchiveRow, error) {
-	rows, err := q.db.Query(ctx, removeCharacterFromArchive, archiveID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []RemoveCharacterFromArchiveRow
-	for rows.Next() {
-		var i RemoveCharacterFromArchiveRow
-		if err := rows.Scan(&i.CharacterID, &i.Count); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+const removeCharacterFromArchive = `-- name: RemoveCharacterFromArchive :exec
+delete from archive_character
+where archive_id = $1 and character_id = any($2::int[])
+`
+
+type RemoveCharacterFromArchiveParams struct {
+	ArchiveID  string  `json:"archive_id"`
+	Characters []int32 `json:"characters"`
+}
+
+func (q *Queries) RemoveCharacterFromArchive(ctx context.Context, arg RemoveCharacterFromArchiveParams) error {
+	_, err := q.db.Exec(ctx, removeCharacterFromArchive, arg.ArchiveID, arg.Characters)
+	return err
 }
 
 const totalArchiveWithCharacter = `-- name: TotalArchiveWithCharacter :one
@@ -443,20 +519,4 @@ func (q *Queries) TotalArchiveWithCharacter(ctx context.Context, name string) (i
 	var count int64
 	err := row.Scan(&count)
 	return count, err
-}
-
-const updateCharacterCount = `-- name: UpdateCharacterCount :exec
-update character
-set count = $1
-where id = $2
-`
-
-type UpdateCharacterCountParams struct {
-	Count int32 `json:"count"`
-	ID    int32 `json:"id"`
-}
-
-func (q *Queries) UpdateCharacterCount(ctx context.Context, arg UpdateCharacterCountParams) error {
-	_, err := q.db.Exec(ctx, updateCharacterCount, arg.Count, arg.ID)
-	return err
 }
