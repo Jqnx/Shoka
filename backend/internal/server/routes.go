@@ -43,23 +43,23 @@ func (s *Server) RegisterRoutes() http.Handler {
 		api.GET("/search", s.searchArchiveHandler)
 		archive := api.Group("/a")
 		{
-			// TODO: Merge getArchiveListHandler and getArchiveFilterHandler together into 1 handler
 			archive.GET("", s.getArchiveListHandler)
-			archive.POST("", s.createArchiveHandler)
+			// archive.POST("", s.createArchiveHandler)
 			archive.GET("/recent", middleware.Auth(), s.getRecentlyReadHandler)
-			archive.POST("/filter", s.getArchiveFilterHandler)
+			archive.GET("/filter", s.getArchiveFilterHandler)
 			archive.GET("/filters", s.getAllFiltersHandler)
 			archive.POST("/shuffle", s.shuffleArchiveHandler)
 			id := archive.Group("/:id")
 			{
 				id.GET("", s.getArchiveHandler)
 				id.PUT("", s.updateArchiveHandler)
+				id.DELETE("", middleware.Auth(), s.deleteArchiveHandler)
 				id.GET("/cover", s.getCoverHandler)
 				id.GET("/:page", s.getThumbHandler)
 				id.POST("/:page", middleware.Auth(), s.updateReadingProgressHandler)
 				id.POST("/cover", s.generateCoverHandler)
 				id.POST("/thumb", s.generateThumbHandler)
-				id.POST("/favorite", middleware.Auth(), s.favoriteArchiveHandler)
+				id.POST("/favorite", middleware.Auth(), s.favoriteArchiveHandler) // TODO: Change to PUT
 				id.DELETE("/rp", middleware.Auth(), s.deleteReadingProgressHandler)
 				meta := id.Group("/meta")
 				{
@@ -68,7 +68,6 @@ func (s *Server) RegisterRoutes() http.Handler {
 					meta.POST("/tofile", s.metadataToFileHandler)
 				}
 			}
-			// archive.DELETE("/:id", s.deleteArchiveHandler)
 			// archive.GET("/lastid", s.getLastIDHandler)
 		}
 
@@ -127,35 +126,12 @@ func (s *Server) RegisterRoutes() http.Handler {
 			category.GET("", s.getAllCategoryHandler)
 		}
 
-		/*
-			auth := api.Group("/auth")
-			{
-				auth.POST("/register", s.registerUser)
-				auth.POST("/login", s.signInUser)
-				auth.GET("/session", middleware.Auth(s.repo), s.getUserSession)
-				auth.POST("/logout", middleware.Auth(s.repo), s.signOutUser)
-			}
-		*/
-
 		user := api.Group("/user", middleware.Auth())
 		{
-			user.GET("/favorites", s.getUserFavoriteArchives)
-			user.POST("/favorites", s.getFavoriteArchiveFilterHandler)
+			user.GET("/favorites", s.getFavoriteArchiveListHandler)
 			// user.PUT("/update", middleware.Auth(s.repo), s.updateUserHandler)
 		}
 
-		/*
-			download := api.Group("/download")
-			{
-				download.POST("", s.addDownloadHandler)
-				download.GET("", s.getAllDownloadsHandler)
-				download.GET("/:id", s.getDownloadHandler)
-				download.GET("/active", s.getActiveDownloadHandler)
-				download.POST("/:id/pause", s.pauseDownloadHandler)
-				download.POST("/:id/resume", s.resumeDownloadHandler)
-				download.DELETE("/:id", s.deleteDownloadHandler)
-			}
-		*/
 		config := api.Group("/config", middleware.Auth())
 		{
 			flare := config.Group("/flaresolverr")
