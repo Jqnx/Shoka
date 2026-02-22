@@ -72,21 +72,21 @@ if (archive.value.tags) {
 }
 
 const artists: string[] = [];
-if (archive.value.artist) {
+if (archive.value.artists) {
   for (const artist of archive.value.artists) {
     artists.push(artist.name);
   }
 }
 
 const parodies: string[] = [];
-if (archive.value.parody) {
+if (archive.value.parodies) {
   for (const parody of archive.value.parodies) {
     parodies.push(parody.name);
   }
 }
 
 const characters: string[] = [];
-if (archive.value.character) {
+if (archive.value.characters) {
   for (const character of archive.value.characters) {
     characters.push(character.name);
   }
