@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"Shoka/internal/fsutil"
@@ -44,6 +45,10 @@ func (w *Workers) Cleanup() error {
 
 	// TODO: Make amount of days (interval) configurable
 	if err := w.CleanLastRead(14); err != nil {
+		return err
+	}
+
+	if err := w.CleanDeleted(); err != nil {
 		return err
 	}
 
@@ -114,6 +119,31 @@ func (w *Workers) CleanLastRead(days int) error {
 					return err
 				}
 			}
+		}
+	}
+
+	return nil
+}
+
+func (w *Workers) CleanDeleted() error {
+	tmp, err := os.ReadDir(w.app.Cfg.TempDir)
+	if err != nil {
+		return err
+	}
+
+	for _, file := range tmp {
+		if strings.Contains(file.Name(), ".deleted") {
+			err := os.Remove(filepath.Join(w.app.Cfg.TempDir, file.Name()))
+			if err != nil {
+				w.app.Log.Error("failed to remove from filesystem",
+					"task", "cleanup",
+					"file", file.Name(),
+					"error", err.Error())
+				return err
+			}
+			w.app.Log.Info("removed from filesystem",
+				"task", "cleanup",
+				"file", file.Name())
 		}
 	}
 
