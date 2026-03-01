@@ -25,14 +25,8 @@ const props = defineProps<{
 
 const formSchema = toTypedSchema(
   z.object({
-    username: z
-      .string({ required_error: "Username is required." })
-      .min(2, { message: "Must be atleast 2 characters." })
-      .max(64, { message: "Cannot be longer than 64 characters." }),
-    password: z
-      .string({ required_error: "Password is required." })
-      .min(8, { message: "Must be atleast 8 characters." })
-      .max(64, { message: "Cannot be longer than 64 characters." }),
+    username: z.string(),
+    password: z.string(),
   }),
 );
 
