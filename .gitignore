@@ -50,3 +50,5 @@ backend/thumb/
 ComicInfo.xml
 info.txt
 info.json
+info.yaml
+info.yml
