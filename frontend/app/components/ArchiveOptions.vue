@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import { EllipsisVertical, Trash2 } from "lucide-vue-next";
+import {
+  EllipsisVertical,
+  Trash2,
+  SquareArrowRight,
+  SquareArrowRightIcon,
+} from "lucide-vue-next";
 import { toast } from "vue-sonner";
 
 const props = defineProps({
@@ -7,8 +12,8 @@ const props = defineProps({
   token: String,
 });
 
-function toFile(id: string | undefined) {
-  $fetch(`/api/a/${id}/meta/tofile`, {
+function saveToFile(id: string | undefined) {
+  $fetch(`/api/a/${id}/meta/save`, {
     method: "post",
     onResponseError() {
       toast.error("Failed to save ComicInfo.xml file to archive.");
@@ -46,8 +51,9 @@ function deleteArchive(id: string | undefined) {
       <EllipsisVertical class="size-5 stroke-foreground/70 cursor-pointer" />
     </DropdownMenuTrigger>
     <DropdownMenuContent>
-      <DropdownMenuItem @click="toFile(props.id)">
-        Export metadata to ComicInfo
+      <DropdownMenuItem @click="saveToFile(props.id)">
+        <SquareArrowRightIcon class="stroke-foreground" />
+        Export metadata
       </DropdownMenuItem>
       <DropdownMenuItem @click="deleteArchive(props.id)">
         <Trash2 class="stroke-destructive" />
