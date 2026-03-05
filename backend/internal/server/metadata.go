@@ -99,7 +99,7 @@ func (s *Server) searchMetadataHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, meta)
 }
 
-func (s *Server) metadataToFileHandler(c *gin.Context) {
+func (s *Server) saveMetadataHandler(c *gin.Context) {
 	id := c.Param("id")
 
 	// Get Metadata from Database

@@ -65,7 +65,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 				{
 					meta.POST("/search", s.searchMetadataHandler)
 					meta.POST("/scan", s.scanMetadataHandler)
-					meta.POST("/tofile", s.metadataToFileHandler)
+					meta.POST("/save", s.saveMetadataHandler)
 				}
 			}
 			// archive.GET("/lastid", s.getLastIDHandler)
