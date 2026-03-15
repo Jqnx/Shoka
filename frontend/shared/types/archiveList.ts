@@ -1,4 +1,4 @@
-export type ArchiveList = {
+export interface ArchiveList {
   archives: Archive[];
   total: number;
-};
+}

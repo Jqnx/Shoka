@@ -1,28 +1,28 @@
-export type Artist = {
+export interface Artist {
   id: number;
   name: string;
   count: number;
-};
+}
 
-export type Tag = {
+export interface Tag {
   id: number;
   name: string;
   count: number;
-};
+}
 
-export type Parody = {
+export interface Parody {
   id: number;
   name: string;
   count: number;
-};
+}
 
-export type Character = {
+export interface Character {
   id: number;
   name: string;
   count: number;
-};
+}
 
-export type URL = {
+export interface URL {
   id: number;
   url: string;
-};
+}

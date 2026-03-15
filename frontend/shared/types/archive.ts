@@ -1,6 +1,6 @@
 import type { Artist, Character, Parody, Tag, URL } from "./metadata";
 
-export type Archive = {
+export interface Archive {
   id: string;
   title: string;
   summary: string;
@@ -22,4 +22,4 @@ export type Archive = {
   progress: number;
   lastRead: string;
   isFavorite: boolean;
-};
+}
