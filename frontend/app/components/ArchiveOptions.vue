@@ -2,8 +2,8 @@
 import {
   EllipsisVertical,
   Trash2,
-  SquareArrowRight,
   SquareArrowRightIcon,
+  RefreshCw,
 } from "lucide-vue-next";
 import { toast } from "vue-sonner";
 
@@ -21,6 +21,24 @@ function saveToFile(id: string | undefined) {
     onResponse({ response }) {
       if (response.ok) {
         toast.success("Successfully saved ComicInfo.xml file to archive.");
+      }
+    },
+  });
+}
+
+function resetReadingProgress(id: string | undefined) {
+  $fetch(`/api/a/${id}/rp`, {
+    method: "delete",
+    onRequest({ options }) {
+      options.headers.set("Authorization", `Bearer ${props.token}`);
+    },
+    onResponseError() {
+      toast.error("Failed to reset reading progress.");
+    },
+    onResponse({ response }) {
+      if (response.ok) {
+        toast.success("Successfully reset reading progress.");
+        refreshNuxtData("archive");
       }
     },
   });
@@ -53,7 +71,11 @@ function deleteArchive(id: string | undefined) {
     <DropdownMenuContent>
       <DropdownMenuItem @click="saveToFile(props.id)">
         <SquareArrowRightIcon class="stroke-foreground" />
-        Export metadata
+        <p>Export metadata</p>
+      </DropdownMenuItem>
+      <DropdownMenuItem @click="resetReadingProgress(props.id)">
+        <RefreshCw class="stroke-foreground" />
+        <p>Reset reading progress</p>
       </DropdownMenuItem>
       <DropdownMenuItem @click="deleteArchive(props.id)">
         <Trash2 class="stroke-destructive" />
