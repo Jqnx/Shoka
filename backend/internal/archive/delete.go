@@ -9,7 +9,8 @@ import (
 	"Shoka/internal/config"
 )
 
-func (a *Archive) Delete(ctx context.Context, app *config.App) error {
+// Delete fully deletes an archive with all its metadata
+func (a *Archive) Delete(ctx context.Context, app *config.App, removeFile bool) error {
 	tx, err := app.DB.Begin(ctx)
 	if err != nil {
 		return err
@@ -41,28 +42,35 @@ func (a *Archive) Delete(ctx context.Context, app *config.App) error {
 		return err
 	}
 
-	// Soft Delete
-	tempFilePath := filepath.Join(app.Cfg.TempDir, filepath.Base(a.FilePath)+".deleted")
-	err = os.Rename(a.FilePath, tempFilePath)
-	if err != nil {
-		return err
-	}
-
-	// Commit
-	err = tx.Commit(ctx)
-	if err != nil {
-		revertErr := os.Rename(tempFilePath, a.FilePath)
-		if revertErr != nil {
+	if removeFile {
+		// Soft Delete
+		tempFilePath := filepath.Join(app.Cfg.TempDir, filepath.Base(a.FilePath)+".deleted")
+		err = os.Rename(a.FilePath, tempFilePath)
+		if err != nil {
 			return err
 		}
-		return err
-	}
 
-	err = os.Remove(tempFilePath)
-	if err != nil {
-		app.Log.Warn("Archive deleted from database, but failed to clean up tempfile", "id", a.ID, "tempfile", tempFilePath)
+		// Commit
+		err = tx.Commit(ctx)
+		if err != nil {
+			revertErr := os.Rename(tempFilePath, a.FilePath)
+			if revertErr != nil {
+				return err
+			}
+			return err
+		}
+
+		err = os.Remove(tempFilePath)
+		if err != nil {
+			app.Log.Warn("Archive deleted from database, but failed to clean up tempfile", "id", a.ID, "tempfile", tempFilePath)
+		} else {
+			app.Log.Info("Archive removed", "id", a.ID, "file", a.FilePath)
+		}
 	} else {
-		app.Log.Info("Archive removed", "id", a.ID, "file", a.FilePath)
+		if err := tx.Commit(ctx); err != nil {
+			return err
+		}
+		app.Log.Info("Archive removed", "id", a.ID)
 	}
 
 	return nil
