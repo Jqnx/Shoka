@@ -13,10 +13,6 @@ func CreateDirs(cfg *config.Config) error {
 		return err
 	}
 
-	if err := os.MkdirAll(cfg.Downloader.DownloadDir, 0o755); err != nil {
-		return err
-	}
-
 	if err := os.MkdirAll(cfg.ThumbDir, 0o755); err != nil {
 		return err
 	}

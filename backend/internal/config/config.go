@@ -53,10 +53,8 @@ type Workers struct {
 	Max       int64 `mapstructure:"max"`
 }
 
-type Downloader struct {
-	DownloadDir string `mapstructure:"download_dir"`
-	RateLimit   int64  `mapstructure:"rate_limit"`
-	SaveFileExt string `mapstructure:"save_file_ext"`
+type Images struct {
+	RetentionPeriod int16 `mapstructure:"retention_period"`
 }
 
 type Config struct {
@@ -66,9 +64,9 @@ type Config struct {
 	TempDir    string `mapstructure:"temp_dir"`
 	Server     Server
 	Database   Database
-	Workers    Workers    `mapstructure:"workers"`
-	Sources    Sources    `mapstructure:"sources"`
-	Downloader Downloader `mapstructure:"downloader"`
+	Images     Images  `mapstructure:"images"`
+	Workers    Workers `mapstructure:"workers"`
+	Sources    Sources `mapstructure:"sources"`
 }
 
 // TODO: Fix that config/settings set through ENV variables don't get written to file!
@@ -118,16 +116,14 @@ func setDefaults() {
 	viper.SetDefault("thumb_dir", "./thumb")
 	viper.SetDefault("temp_dir", "./tmp")
 
-	// Downloads
-	viper.SetDefault("downloader.download_dir", "../downloads")
-	viper.SetDefault("downloader.rate_limit", 500)
-	viper.SetDefault("downloader.save_file_ext", "cbz")
-
 	// Workers
 	viper.SetDefault("workers.max", 5)
 
 	// Metadata
 	viper.SetDefault("sources.file.format", SourceComicInfo)
+
+	// Images
+	viper.SetDefault("images.retention_period", 14)
 }
 
 func getEnv(c *Config) error {
