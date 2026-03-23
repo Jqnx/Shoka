@@ -8,9 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"Shoka/internal/archive"
 	"Shoka/internal/fsutil"
 	"Shoka/internal/repository"
 )
+
+var task = "cleanup"
 
 // TODO: Cleanup scheduler
 // TODO: What needs to be cleaned up
@@ -20,8 +23,8 @@ import (
 // and removes their database entry and leftover files (thumbnails and cover)
 func (w *Workers) Cleanup() error {
 	ctx := context.Background()
-	list := fsutil.ListArchives(w.app.Cfg.ContentDir)
-	if len(list) == 0 {
+	archives := fsutil.ListArchives(w.app.Cfg.ContentDir)
+	if len(archives) == 0 {
 		return nil
 	}
 
@@ -32,7 +35,7 @@ func (w *Workers) Cleanup() error {
 
 	// Check if file from db is no longer on disk
 	for _, item := range filepaths {
-		if !slices.Contains(list, item.FilePath) {
+		if !slices.Contains(archives, item.FilePath) {
 			if err := w.CleanThumb(item.ID, true); err != nil {
 				return err
 			}
@@ -43,8 +46,7 @@ func (w *Workers) Cleanup() error {
 		}
 	}
 
-	// TODO: Make amount of days (interval) configurable
-	if err := w.CleanLastRead(14); err != nil {
+	if err := w.CleanLastReadThumbnails(int(w.app.Cfg.Images.RetentionPeriod)); err != nil {
 		return err
 	}
 
@@ -59,11 +61,18 @@ func (w *Workers) Cleanup() error {
 // from the database
 func (w *Workers) CleanDB(item repository.GetAllFilePathsRow) error {
 	ctx := context.Background()
-	if err := w.app.Repo.DeleteArchiveByFilePath(ctx, item.FilePath); err != nil {
+	arch, err := w.app.Repo.GetArchiveByFilePath(ctx, item.FilePath)
+	if err != nil {
 		return err
 	}
+
+	a := archive.RepoToArchive(arch, w.app)
+	if err := a.Delete(ctx, w.app, false); err != nil {
+		return err
+	}
+
 	w.app.Log.Info("removed from db",
-		"task", "cleanup",
+		"task", task,
 		"file", filepath.Base(item.FilePath))
 	return nil
 }
@@ -86,14 +95,14 @@ func (w *Workers) CleanThumb(id string, includeCover bool) error {
 		}
 	}
 	w.app.Log.Info("removed thumbs",
-		"task", "cleanup",
+		"task", task,
 		"file", id)
 	return nil
 }
 
 // CleanLastRead removes the thumbnails for items that have
 // not been read in n days or more
-func (w *Workers) CleanLastRead(days int) error {
+func (w *Workers) CleanLastReadThumbnails(days int) error {
 	ctx := context.Background()
 	lastRead, err := w.app.Repo.GetAllLastRead(ctx)
 	if err != nil {
@@ -125,6 +134,8 @@ func (w *Workers) CleanLastRead(days int) error {
 	return nil
 }
 
+// CleanDeleted removes any leftover soft deleted files
+// from the temp directory
 func (w *Workers) CleanDeleted() error {
 	tmp, err := os.ReadDir(w.app.Cfg.TempDir)
 	if err != nil {
@@ -136,13 +147,13 @@ func (w *Workers) CleanDeleted() error {
 			err := os.Remove(filepath.Join(w.app.Cfg.TempDir, file.Name()))
 			if err != nil {
 				w.app.Log.Error("failed to remove from filesystem",
-					"task", "cleanup",
+					"task", task,
 					"file", file.Name(),
 					"error", err.Error())
 				return err
 			}
 			w.app.Log.Info("removed from filesystem",
-				"task", "cleanup",
+				"task", task,
 				"file", file.Name())
 		}
 	}

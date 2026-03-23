@@ -418,7 +418,7 @@ func (s *Server) deleteArchiveHandler(c *gin.Context) {
 	}
 
 	arch := archive.RepoToArchive(a, s.app)
-	if err := arch.Delete(ctx, s.app); err != nil {
+	if err := arch.Delete(ctx, s.app, true); err != nil {
 		c.JSON(http.StatusInternalServerError, &models.Response{
 			Status:  "error",
 			Message: err.Error(),

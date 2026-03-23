@@ -37,6 +37,36 @@ func RepoToArchive(a any, app *config.App) *Archive {
 			UpdatedAt: a.UpdatedAt,
 			app:       app,
 		}
+	case repository.GetArchiveByFilePathRow:
+		return &Archive{
+			ID:        a.ID,
+			Title:     a.Title,
+			Summary:   a.Summary,
+			Language:  a.Language,
+			Category:  a.Category,
+			PageCount: a.PageCount,
+			FilePath:  a.FilePath,
+			FileHash:  a.FileHash,
+			ThumbPath: a.ThumbPath,
+			CreatedAt: a.CreatedAt,
+			UpdatedAt: a.UpdatedAt,
+			app:       app,
+		}
+	case *repository.GetArchiveByFilePathRow:
+		return &Archive{
+			ID:        a.ID,
+			Title:     a.Title,
+			Summary:   a.Summary,
+			Language:  a.Language,
+			Category:  a.Category,
+			PageCount: a.PageCount,
+			FilePath:  a.FilePath,
+			FileHash:  a.FileHash,
+			ThumbPath: a.ThumbPath,
+			CreatedAt: a.CreatedAt,
+			UpdatedAt: a.UpdatedAt,
+			app:       app,
+		}
 	default:
 		return nil
 	}
