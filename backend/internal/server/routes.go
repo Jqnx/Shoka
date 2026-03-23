@@ -33,7 +33,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.Static("/assets", "./assets")
 
 	// Websocket
-	r.GET("/ws", s.app.Hub.HandleWebSocket)
+	// r.GET("/ws", s.app.Hub.HandleWebSocket)
 
 	// Actual API
 	// Archive API
@@ -59,7 +59,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 				id.POST("/:page", middleware.Auth(), s.updateReadingProgressHandler)
 				id.POST("/cover", s.generateCoverHandler)
 				id.POST("/thumb", s.generateThumbHandler)
-				id.POST("/favorite", middleware.Auth(), s.favoriteArchiveHandler) // TODO: Change to PUT
+				id.PUT("/favorite", middleware.Auth(), s.favoriteArchiveHandler)
 				id.DELETE("/rp", middleware.Auth(), s.deleteReadingProgressHandler)
 				meta := id.Group("/meta")
 				{

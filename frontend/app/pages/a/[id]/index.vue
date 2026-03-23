@@ -60,7 +60,7 @@ useHead({
 
 async function favorite() {
   return $fetch(`/api/a/${id}/favorite`, {
-    method: "post",
+    method: "put",
     onRequest({ options }) {
       options.headers.set("Authorization", `Bearer ${token}`);
       archive.value.isFavorite = true;
