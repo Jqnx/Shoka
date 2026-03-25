@@ -17,24 +17,19 @@ var (
 	ConfigFile        = "config.yaml"
 	ImageExtensions   = []string{"png", "jpg", "jpeg", "gif", "webp"}
 	ArchiveExtensions = []string{"zip", "cbz"}
-	SourcesList       = []string{SourceNhentai, SourceComicInfo}
 )
 
 type Server struct {
 	Port int64
 }
 
-type Sources struct {
-	Flaresolverr Flaresolverr `mapstructure:"flaresolverr"`
-	File         File         `mapstructure:"file"`
+type Metadata struct {
+	Flaresolverr   Flaresolverr `mapstructure:"flaresolverr"`
+	EnabledSources []string     `mapstructure:"enabled_sources"`
 }
 
 type Flaresolverr struct {
 	URL string `mapstructure:"url"`
-}
-
-type File struct {
-	Format string `mapstructure:"format"`
 }
 
 type Database struct {
@@ -64,9 +59,9 @@ type Config struct {
 	TempDir    string `mapstructure:"temp_dir"`
 	Server     Server
 	Database   Database
-	Images     Images  `mapstructure:"images"`
-	Workers    Workers `mapstructure:"workers"`
-	Sources    Sources `mapstructure:"sources"`
+	Images     Images   `mapstructure:"images"`
+	Workers    Workers  `mapstructure:"workers"`
+	Metadata   Metadata `mapstructure:"metadata"`
 }
 
 // TODO: Fix that config/settings set through ENV variables don't get written to file!
@@ -119,11 +114,11 @@ func setDefaults() {
 	// Workers
 	viper.SetDefault("workers.max", 5)
 
-	// Metadata
-	viper.SetDefault("sources.file.format", SourceComicInfo)
-
 	// Images
 	viper.SetDefault("images.retention_period", 14)
+
+	// Sources
+	viper.SetDefault("metadata.enabled_sources", []string{"comicinfo"})
 }
 
 func getEnv(c *Config) error {

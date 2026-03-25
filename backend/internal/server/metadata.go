@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"slices"
 
 	"Shoka/internal/archive"
 	"Shoka/internal/config"
@@ -69,7 +68,9 @@ func (s *Server) searchMetadataHandler(c *gin.Context) {
 		return
 	}
 
-	if ok := slices.Contains(config.SourcesList, req.Source); !ok {
+	remote := s.app.Sources.ToMap(s.app.Sources.Remote)
+
+	if _, ok := remote[req.Source]; !ok {
 		c.JSON(http.StatusBadRequest, &models.ResponseFail{
 			Status: "failed",
 			Data:   "invalid source",

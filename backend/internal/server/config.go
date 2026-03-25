@@ -20,7 +20,7 @@ type FlaresolverrPayload struct {
 
 func (s *Server) getFlaresolverrHandler(c *gin.Context) {
 	conf := FlaresolverrPayload{
-		URL: s.app.Cfg.Sources.Flaresolverr.URL,
+		URL: s.app.Cfg.Metadata.Flaresolverr.URL,
 	}
 
 	c.JSON(http.StatusOK, conf)
@@ -45,7 +45,7 @@ func (s *Server) setFlaresolverrHandler(c *gin.Context) {
 		return
 	}
 
-	s.app.Cfg.Sources.Flaresolverr.URL = req.URL
+	s.app.Cfg.Metadata.Flaresolverr.URL = req.URL
 
 	viper.Set("sources.flaresolverr.url", req.URL)
 	viper.WriteConfig()

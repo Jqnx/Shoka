@@ -20,7 +20,6 @@ import (
 	"Shoka/internal/workers"
 	"Shoka/internal/workers/tasks"
 
-	"github.com/cavaliergopher/grab/v3"
 	"github.com/hibiken/asynq"
 )
 
@@ -61,6 +60,11 @@ func main() {
 	}
 	log.Info("Config Loaded")
 
+	// Load Metadata Sources
+	sources := config.InitSources()
+	sources.EnableDefault(cfg)
+	log.Info("Metadata Sources Loaded")
+
 	// Create necessary directories
 	if err := fsutil.CreateDirs(cfg); err != nil {
 		log.Error("failed to create directories", "error", err)
@@ -99,12 +103,8 @@ func main() {
 	hub := websocket.NewHub(log)
 	log.Info("Initialized new WebSocket Hub.")
 
-	// Initialize grab client
-	grab := grab.NewClient()
-	log.Info("Initialized new Grab client.")
-
 	// Initializing new App
-	app := config.NewApp(repo, log, db, cfg, noti, client, hub, grab)
+	app := config.NewApp(repo, log, db, cfg, noti, client, hub, sources)
 	defer app.Close()
 
 	// dm := downloader.NewDownloadManager(&app)

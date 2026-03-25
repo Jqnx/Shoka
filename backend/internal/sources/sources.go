@@ -12,6 +12,9 @@ import (
 	"Shoka/internal/sources/nhentai"
 )
 
+// TODO: Redo the way sources are defined. Use Source struct per source, with fields: name, file, type(remote/local)
+// TODO: Add handler which returns only remote sources
+
 type Sources interface {
 	Download() // NOTE: Probably doable with gocron instead of asynq
 	GetMetadata() ([]models.Metadata, error)
@@ -24,7 +27,7 @@ type Sources interface {
 func NewSource(cfg *config.Config, source string, method *string) (Sources, error) {
 	switch source {
 	case config.SourceNhentai:
-		if cfg.Sources.Flaresolverr.URL == "" {
+		if cfg.Metadata.Flaresolverr.URL == "" {
 			return nil, fmt.Errorf("this source requires flaresolverr")
 		} else {
 			NHSource, err := nhentai.NewNhentaiSource(cfg, method)

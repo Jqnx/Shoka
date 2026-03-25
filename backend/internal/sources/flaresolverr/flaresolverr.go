@@ -51,10 +51,10 @@ type FlaresolverrBody struct {
 
 func Request(cfg *config.Config, url string) ([]byte, error) {
 	var flaresolverrURL string
-	if !strings.Contains(cfg.Sources.Flaresolverr.URL, "/v1") {
-		flaresolverrURL = fmt.Sprintf("%s/v1", cfg.Sources.Flaresolverr.URL)
+	if !strings.Contains(cfg.Metadata.Flaresolverr.URL, "/v1") {
+		flaresolverrURL = fmt.Sprintf("%s/v1", cfg.Metadata.Flaresolverr.URL)
 	} else {
-		flaresolverrURL = cfg.Sources.Flaresolverr.URL
+		flaresolverrURL = cfg.Metadata.Flaresolverr.URL
 	}
 
 	client := http.Client{}
