@@ -40,6 +40,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 	api := r.Group("/api")
 	{
 		api.GET("/test", s.testHandler)
+		api.GET("/available-sources", s.getAvailableSourcesHandler)
+		api.GET("/all-sources", s.getAllSources)
 		api.GET("/search", s.searchArchiveHandler)
 		archive := api.Group("/a")
 		{
