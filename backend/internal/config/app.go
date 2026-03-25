@@ -6,20 +6,19 @@ import (
 	"Shoka/internal/repository"
 	"Shoka/internal/websocket"
 
-	"github.com/cavaliergopher/grab/v3"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type App struct {
-	Repo   *repository.Queries
-	Log    logger.Logger
-	DB     *pgxpool.Pool
-	Cfg    *Config
-	Noti   notifier.Notifier
-	Client *asynq.Client
-	Hub    *websocket.Hub
-	Grab   *grab.Client
+	Repo    *repository.Queries
+	Log     logger.Logger
+	DB      *pgxpool.Pool
+	Cfg     *Config
+	Noti    notifier.Notifier
+	Client  *asynq.Client
+	Hub     *websocket.Hub
+	Sources *Sources
 }
 
 func NewApp(repo *repository.Queries,
@@ -29,17 +28,17 @@ func NewApp(repo *repository.Queries,
 	noti notifier.Notifier,
 	client *asynq.Client,
 	hub *websocket.Hub,
-	grab *grab.Client,
+	sources *Sources,
 ) App {
 	return App{
-		Repo:   repo,
-		Log:    log,
-		DB:     db,
-		Cfg:    cfg,
-		Noti:   noti,
-		Client: client,
-		Hub:    hub,
-		Grab:   grab,
+		Repo:    repo,
+		Log:     log,
+		DB:      db,
+		Cfg:     cfg,
+		Noti:    noti,
+		Client:  client,
+		Hub:     hub,
+		Sources: sources,
 	}
 }
 
