@@ -1,0 +1,28 @@
+services:
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    container_name: shoka-meilisearch-dev
+    restart: unless-stopped
+    environment:
+      MEILI_ENV: development
+      MEILI_NO_ANALYTICS: true
+    ports:
+      - "7700:7700"
+    volumes:
+      - meili_data_dev:/meili_data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    restart: unless-stopped
+    ports:
+      - "8191:8191"
+    environment:
+      - LOG_LEVEL=info
+
+volumes:
+  meili_data_dev:
