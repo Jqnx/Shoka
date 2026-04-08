@@ -1,0 +1,9 @@
+-- +goose Up
+CREATE TABLE IF NOT EXISTS parody (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    count INTEGER NOT NULL
+);
+
+-- +goose Down
+DROP TABLE IF EXISTS parody;

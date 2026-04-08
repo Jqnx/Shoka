@@ -1,0 +1,8 @@
+-- +goose Up
+CREATE TABLE IF NOT EXISTS group (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL
+);
+
+-- +goose Down
+DROP TABLE IF EXISTS group;
