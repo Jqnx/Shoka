@@ -45,6 +45,7 @@ tailwindcss
 content/
 content-bak/
 backend/thumb/
+backend/data/
 
 # Metadata files
 ComicInfo.xml
