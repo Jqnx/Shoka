@@ -38,17 +38,17 @@ logs/backend: ## Tail backend logs only
 
 # ----- Database -----
 migrate/up: ## Apply all pending migrations
-	cd $(BACKEND) && go run . migrate up
+	cd $(BACKEND) && goose sqlite3 ./data/shoka.db up
  
 migrate/down: ## Roll back the last migration
-	cd $(BACKEND) && go run . migrate down
- 
+	cd $(BACKEND) && goose sqlite3 ./data/shoka.db down
+
 migrate/status: ## Show migration status
-	cd $(BACKEND) && go run . migrate status
+	cd $(BACKEND) && goose sqlite3 ./data/shoka.db status
  
 migrate/create: ## Create a new migration — usage: make migrate/create NAME=add_collections
 	@[ "${NAME}" ] || ( echo "Usage: make migrate/create NAME=your_migration_name"; exit 1 )
-	cd $(BACKEND) && goose -dir internal/db/migrations create $(NAME) sql
+	cd $(BACKEND) && goose sqlite3 ./data/shoka.db -s -dir internal/db/migrations create $(NAME) sql
 
 # ----- Code Generation -----
 sqlc: ## Regenerate sqlc Go code from query files
