@@ -7,7 +7,6 @@ require (
 	github.com/bodgit/plumbing v1.3.0 // indirect
 	github.com/bodgit/sevenzip v1.6.1 // indirect
 	github.com/bodgit/windows v1.0.1 // indirect
-	github.com/davidbyttow/govips v0.0.0-20201026223743-b1b72c7305d9 // indirect
 	github.com/davidbyttow/govips/v2 v2.18.0 // indirect
 	github.com/ebitengine/purego v0.8.4 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
@@ -17,7 +16,6 @@ require (
 	github.com/go-chi/httprate v0.15.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
 	github.com/h2non/bimg v1.1.9 // indirect
-	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/jupiterrider/ffi v0.5.0 // indirect
