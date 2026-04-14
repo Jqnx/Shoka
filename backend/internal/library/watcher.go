@@ -1,25 +1,24 @@
 package library
 
 import (
+	"Shoka/internal/jobs"
 	"context"
 	"log/slog"
 	"time"
-
-	"Shoka/internal/jobs"
 
 	"github.com/fsnotify/fsnotify"
 )
 
 type Watcher struct {
 	queue JobQueue
-	dirs  []string
+	dir   string
 	log   *slog.Logger
 }
 
-func NewWatcher(queue JobQueue, dirs []string, log *slog.Logger) *Watcher {
+func NewWatcher(queue JobQueue, dir string, log *slog.Logger) *Watcher {
 	return &Watcher{
 		queue: queue,
-		dirs:  dirs,
+		dir:   dir,
 		log:   log.With("component", "watcher"),
 	}
 }
@@ -30,12 +29,10 @@ func (w *Watcher) Start(ctx context.Context) error {
 		return err
 	}
 
-	for _, dir := range w.dirs {
-		if err := watcher.Add(dir); err != nil {
-			return err
-		}
-		w.log.Info("watching directory", "dir", dir)
+	if err := watcher.Add(w.dir); err != nil {
+		return err
 	}
+	w.log.Info("watching directory", "dir", w.dir)
 
 	go w.run(ctx, watcher)
 	return nil

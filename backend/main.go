@@ -56,7 +56,7 @@ func main() {
 	queue := jobs.NewQueue(queries, log)
 	worker := jobs.NewWorker(queue, log)
 	scanner := library.NewScanner(queries, queue, log, cfg.LibraryDir)
-	watcher := library.NewWatcher(queue, nil, log)
+	watcher := library.NewWatcher(queue, cfg.LibraryDir, log)
 	images := image.NewProcessor(cfg.CacheDir, log)
 	cache, err := image.NewCache(images, log)
 	if err != nil {
