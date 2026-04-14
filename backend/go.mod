@@ -11,7 +11,6 @@ require (
 	github.com/ebitengine/purego v0.8.4 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.13 // indirect
-	github.com/gen2brain/go-fitz v1.24.15 // indirect
 	github.com/go-chi/chi/v5 v5.2.5 // indirect
 	github.com/go-chi/httprate v0.15.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
