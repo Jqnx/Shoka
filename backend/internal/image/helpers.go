@@ -10,8 +10,12 @@ func (p *Processor) ThumbDir(archiveID string) string {
 	return filepath.Join(p.cacheDir, archiveID, "thumbs")
 }
 
+func (p *Processor) thumbPath(archiveID string, index int) string {
+	return filepath.Join(p.ThumbDir(archiveID), fmt.Sprintf("%03d.webp", index+1))
+}
+
 func (p *Processor) ThumbPath(archiveID string, index int) string {
-	path := filepath.Join(p.ThumbDir(archiveID), fmt.Sprintf("%03d.webp", index+1))
+	path := p.thumbPath(archiveID, index)
 	if _, err := os.Stat(path); err != nil {
 		return ""
 	}

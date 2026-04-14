@@ -1,6 +1,11 @@
 package library
 
 import (
+	"Shoka/internal/config"
+	"Shoka/internal/database"
+	"Shoka/internal/database/sqlc"
+	"Shoka/internal/jobs"
+	"Shoka/internal/util"
 	"context"
 	"fmt"
 	"io/fs"
@@ -10,12 +15,6 @@ import (
 	"slices"
 	"strings"
 	"time"
-
-	"Shoka/internal/config"
-	"Shoka/internal/database"
-	"Shoka/internal/database/sqlc"
-	"Shoka/internal/jobs"
-	"Shoka/internal/util"
 )
 
 var supportedExtensions = []string{".cbz", ".cbr", ".zip", ".rar", ".7z"}
@@ -184,7 +183,7 @@ func (s *Scanner) addArchive(ctx context.Context, path string, info fs.FileInfo)
 	}
 
 	// TODO: Enabled Jobs
-	if err := s.queue.Enqueue(ctx, jobs.JobTypeThumbnail, jobs.ThumbnailPayload{
+	if err := s.queue.Enqueue(ctx, jobs.JobTypeCover, jobs.CoverPayload{
 		ArchiveID: archive.ID,
 		FilePath:  path,
 	}); err != nil {

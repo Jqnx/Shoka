@@ -1,11 +1,6 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"net/http"
-	"os"
-
 	"Shoka/internal/api"
 	"Shoka/internal/config"
 	"Shoka/internal/database"
@@ -15,6 +10,10 @@ import (
 	"Shoka/internal/library"
 	"Shoka/internal/log"
 	"Shoka/internal/util"
+	"context"
+	"fmt"
+	"net/http"
+	"os"
 
 	"github.com/davidbyttow/govips/v2/vips"
 )
@@ -51,6 +50,7 @@ func main() {
 	log.Info("connected to database")
 
 	// Initialize Services
+	vips.LoggingSettings(nil, vips.LogLevelWarning)
 	vips.Startup(nil)
 	defer vips.Shutdown()
 	queue := jobs.NewQueue(queries, log)
@@ -67,12 +67,13 @@ func main() {
 
 	// Register worker handlers
 	worker.Register(jobs.JobTypeScan, jobs.NewScanHandler(scanner, log), 1)
+	worker.Register(jobs.JobTypeCover, jobs.NewCoverHandler(images, log), 5)
 	worker.Register(jobs.JobTypeThumbnail, jobs.NewThumbnailHandler(images, log), 3)
 
 	// Start Workers with cancellable context
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	for range 3 {
+	for range 10 {
 		worker.Start(ctx)
 	}
 

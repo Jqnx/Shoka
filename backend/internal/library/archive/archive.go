@@ -40,8 +40,8 @@ func Open(path string) (Archive, error) {
 		return openRar(path)
 	case mimetype.EqualsAny(mtype.String(), sevenZipMimes...):
 		return openSevenZip(path)
-	case mimetype.EqualsAny(mtype.String(), pdfMimes...):
-		return openPDF(path)
+	// case mimetype.EqualsAny(mtype.String(), pdfMimes...):
+	//	return openPDF(path)
 	default:
 		return nil, fmt.Errorf("unsupported format: %s", mtype.Extension())
 	}

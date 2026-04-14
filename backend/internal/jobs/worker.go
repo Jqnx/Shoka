@@ -24,7 +24,7 @@ func NewWorker(queue *Queue, log *slog.Logger) *Worker {
 		handlers:   make(map[string]Handler),
 		semaphores: make(map[string]chan struct{}),
 		log:        log.With("component", "job_worker"),
-		interval:   2 * time.Second,
+		interval:   time.Second,
 	}
 }
 

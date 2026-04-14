@@ -1,6 +1,7 @@
 package image
 
 import (
+	"Shoka/internal/util"
 	"context"
 	"fmt"
 	"io"
@@ -8,10 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"Shoka/internal/util"
-
 	"github.com/davidbyttow/govips/v2/vips"
-	"github.com/h2non/bimg"
 )
 
 const (
@@ -34,7 +32,7 @@ func NewProcessor(cacheDir string, log *slog.Logger) *Processor {
 }
 
 // processImage() resizes an image and exports it as a webp
-func (p *Processor) processImageGovips(r io.Reader, destPath string, maxWidth int, quality int) error {
+func (p *Processor) processImage(r io.Reader, destPath string, maxWidth int, quality int) error {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return fmt.Errorf("read image data: %w", err)
@@ -66,43 +64,6 @@ func (p *Processor) processImageGovips(r io.Reader, destPath string, maxWidth in
 	}
 
 	if err := os.WriteFile(destPath, bytes, 0o644); err != nil {
-		return fmt.Errorf("write file: %w", err)
-	}
-
-	return nil
-}
-
-func (p *Processor) processImage(r io.Reader, destPath string, maxWidth int, quality int) error {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return fmt.Errorf("read image data: %w", err)
-	}
-	img := bimg.NewImage(data)
-	size, err := img.Size()
-	if err != nil {
-		return fmt.Errorf("read image size: %w", err)
-	}
-
-	opts := bimg.Options{}
-
-	if size.Width > maxWidth {
-		scale := float64(maxWidth) / float64(size.Width)
-		height := float64(size.Height) * scale
-		opts.Width = maxWidth
-		opts.Height = int(height)
-	}
-
-	opts.Quality = quality
-	opts.Lossless = false
-	opts.StripMetadata = true
-	opts.Type = bimg.WEBP
-
-	newImage, err := img.Process(opts)
-	if err != nil {
-		return fmt.Errorf("export webp: %w", err)
-	}
-
-	if err := bimg.Write(destPath, newImage); err != nil {
 		return fmt.Errorf("write file: %w", err)
 	}
 
@@ -151,7 +112,7 @@ func (p *Processor) GenerateThumbnail(ctx context.Context, archiveID string, ind
 		return err
 	}
 
-	dest := p.ThumbPath(archiveID, index)
+	dest := p.thumbPath(archiveID, index)
 	if _, err := os.Stat(dest); err == nil {
 		return nil
 	}
