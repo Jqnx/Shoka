@@ -18,6 +18,14 @@ import (
 	"github.com/davidbyttow/govips/v2/vips"
 )
 
+// @title Shoka API
+// @version 1.0
+// @description Self-hosted doujinshi library manager API
+// @host localhost:8080
+// @BasePath /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
 	// Create new Logger
 	log := log.New()
