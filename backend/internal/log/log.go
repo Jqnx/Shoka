@@ -1,24 +1,24 @@
 package log
 
 import (
+	"Shoka/internal/config"
 	"io"
 	"log/slog"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/rs/zerolog"
 )
 
-func New() *slog.Logger {
+func New(cfg *config.Config) *slog.Logger {
 	var output io.Writer = zerolog.ConsoleWriter{
 		Out:        os.Stdout,
 		TimeFormat: time.RFC3339,
 	}
 
-	logLevel, err := strconv.Atoi(os.Getenv("LOG_LEVEL"))
+	logLevel, err := zerolog.ParseLevel(cfg.LogLevel)
 	if err != nil {
-		logLevel = int(zerolog.InfoLevel)
+		logLevel = zerolog.InfoLevel
 	}
 
 	zl := zerolog.New(output).Level(zerolog.Level(logLevel)).With().Timestamp().Logger()
