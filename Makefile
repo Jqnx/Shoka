@@ -48,7 +48,7 @@ migrate/status: ## Show migration status
  
 migrate/create: ## Create a new migration — usage: make migrate/create NAME=add_collections
 	@[ "${NAME}" ] || ( echo "Usage: make migrate/create NAME=your_migration_name"; exit 1 )
-	cd $(BACKEND) && goose sqlite3 ./data/shoka.db -s -dir internal/db/migrations create $(NAME) sql
+	cd $(BACKEND) && goose sqlite3 ./data/shoka.db -s -dir internal/database/migrations create $(NAME) sql
 
 # ----- Code Generation -----
 sqlc: ## Regenerate sqlc Go code from query files
