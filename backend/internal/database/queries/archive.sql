@@ -106,17 +106,16 @@ select count(*)
 from archive
 ;
 
--- name: UpdateArchive :one
+-- name: UpdateArchive :exec
 update archive
 set title = coalesce(sqlc.narg('title'), title),
     summary = coalesce(sqlc.narg('summary'), summary),
-    language = coalesce(slqc.narg('language'), language),
+    language = coalesce(sqlc.narg('language'), language),
     category = coalesce(sqlc.narg('category'), category),
     page_count = coalesce(sqlc.narg('page_count'), page_count),
-    updated_at = datetime('now'),
-    release_date = coalesce(sqlc.narg('release_date'), release_date)
-where id = ?
-returning *
+    release_date = coalesce(sqlc.narg('release_date'), release_date),
+    updated_at = datetime('now')
+where id = sqlc.arg('id')
 ;
 
 -- name: UpdateArchiveMeta :exec

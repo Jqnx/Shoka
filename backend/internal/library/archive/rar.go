@@ -3,6 +3,8 @@ package archive
 import (
 	"fmt"
 	"io"
+	"path/filepath"
+	"strings"
 
 	"github.com/nwaples/rardecode/v2"
 )
@@ -74,6 +76,31 @@ func (r *rarArchive) Extract(page Page) (io.ReadCloser, error) {
 
 	reader.Close()
 	return nil, fmt.Errorf("page not found in archive: %s", page.Filename)
+}
+
+func (r *rarArchive) ReadFile(file string) ([]byte, error) {
+	lowerFile := strings.ToLower(file)
+
+	reader, err := rardecode.OpenReader(r.path)
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+
+	for {
+		header, err := reader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		if strings.ToLower(filepath.Base(header.Name)) == lowerFile {
+			return io.ReadAll(reader)
+		}
+	}
+
+	return nil, nil
 }
 
 // Close() does nothing, only here to satisfy the Archive interface

@@ -4,6 +4,8 @@ import (
 	"archive/zip"
 	"fmt"
 	"io"
+	"path/filepath"
+	"strings"
 )
 
 // zipArchive implements the Archive interface
@@ -45,6 +47,24 @@ func (z *zipArchive) Extract(page Page) (io.ReadCloser, error) {
 		}
 	}
 	return nil, fmt.Errorf("page not found in archive: %s", page.Filename)
+}
+
+// ReadFile() returns the contents of a file
+func (z *zipArchive) ReadFile(file string) ([]byte, error) {
+	lowerFile := strings.ToLower(file)
+	for _, f := range z.reader.File {
+		name := strings.ToLower(filepath.Base(f.Name))
+		if name == lowerFile {
+			rc, err := f.Open()
+			if err != nil {
+				return nil, err
+			}
+			defer rc.Close()
+			return io.ReadAll(rc)
+		}
+	}
+
+	return nil, nil
 }
 
 // Close() closes the zip file reader

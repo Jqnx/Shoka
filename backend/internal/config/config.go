@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
@@ -18,7 +17,7 @@ var (
 	DataDir    string = "./data"
 )
 
-func LoadConfig(log *slog.Logger) (*Config, error) {
+func LoadConfig() (*Config, error) {
 	setDefaults()
 	// Set config file
 	viper.SetConfigName(filepath.Base(ConfigFile))
@@ -40,6 +39,8 @@ func LoadConfig(log *slog.Logger) (*Config, error) {
 		}
 	}
 
+	viper.WatchConfig()
+
 	var c Config
 	if err := viper.Unmarshal(&c); err != nil {
 		return nil, err
@@ -59,14 +60,18 @@ func LoadConfig(log *slog.Logger) (*Config, error) {
 func setDefaults() {
 	// Directories
 	viper.SetDefault("library_dir", "../content")
-	viper.SetDefault("cache_dir", "../cache")
 	viper.SetDefault("temp_dir", "./tmp")
+	viper.SetDefault("cache.dir", "../cache")
+	viper.SetDefault("cache.lru_size", 128)
 
 	// Images
 	viper.SetDefault("images.retention_period", 14)
 
 	// Sources
-	viper.SetDefault("metadata.enabled_sources", []string{"comicinfo"})
+	viper.SetDefault("metadata.sources.comicinfo.enabled", true)
+	viper.SetDefault("metadata.sources.filename.enabled", false)
+	viper.SetDefault("metadata.sources.e-hentai.enabled", false)
+	viper.SetDefault("metadata.sources.nhentai.enabled", false)
 }
 
 func getEnv(c *Config) error {

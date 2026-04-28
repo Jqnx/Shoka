@@ -9,10 +9,6 @@ insert into archive_parody (archive_id, parody_id)
 values (?, ?)
 ;
 
--- name: BulkAddArchiveParodies :exec
-insert into archive_parody (archive_id, parody_id)
-select ?, value from json_each(sqlc.arg('parodies'))
-;
 
 -- name: EnsureParodyExist :many
 insert into parody (name, count)
@@ -153,4 +149,28 @@ where id = ?
 
 -- name: DeleteAllParody :exec
 delete from parody
+;
+
+-- name: BulkAddArchiveParodies :exec
+insert into archive_parody (archive_id, parody_id)
+select ?, value 
+from json_each(sqlc.arg('parodies'))
+;
+
+-- name: BulkAddParodies :exec
+insert or ignore into parody (name, count)
+select value, 0
+from json_each(sqlc.arg('parodies'))
+;
+
+-- name: BulkGetParodies :many
+select id, name
+from parody
+where name in (sqlc.slice('parodies'))
+;
+
+-- name: BulkRemoveParodiesFromArchive :exec
+delete from archive_parody
+where
+    archive_id = ? and parody_id in (select value from json_each(sqlc.arg('parodies')))
 ;

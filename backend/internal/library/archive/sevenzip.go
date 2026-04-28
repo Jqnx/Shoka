@@ -3,6 +3,8 @@ package archive
 import (
 	"fmt"
 	"io"
+	"path/filepath"
+	"strings"
 
 	"github.com/bodgit/sevenzip"
 )
@@ -46,6 +48,23 @@ func (z *sevenZipArchive) Extract(page Page) (io.ReadCloser, error) {
 		}
 	}
 	return nil, fmt.Errorf("page not found in archive: %s", page.Filename)
+}
+
+// ReadFile() returns the contents of a file
+func (z *sevenZipArchive) ReadFile(file string) ([]byte, error) {
+	for _, f := range z.reader.File {
+		name := strings.ToLower(filepath.Base(f.Name))
+		if name == file {
+			rc, err := f.Open()
+			if err != nil {
+				return nil, err
+			}
+			defer rc.Close()
+			return io.ReadAll(rc)
+		}
+	}
+
+	return nil, nil
 }
 
 // Close() closes the 7zip file reader

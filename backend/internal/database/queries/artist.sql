@@ -14,20 +14,16 @@ insert into artist_url (url, artist_id)
 values (?, ?)
 ;
 
--- name: BulkAddArchiveArtists :exec
-insert into archive_artist (archive_id, artist_id)
-select ?, value
-from json_each(sqlc.arg('artists'))
-;
 
 -- name: EnsureArtistExist :many
-insert into artist (name, count)
-select value, 0
-from json_each(sqlc.arg('artists'))
-on conflict (name) do update
-set name = excluded.name
-returning id, name
+INSERT INTO artist (name, count)
+SELECT value, 0
+FROM json_each(?)
+ON CONFLICT (name) DO UPDATE
+SET name = excluded.name
+RETURNING id, name
 ;
+
 
 -- name: GetAllArtists :many
 select *
@@ -110,10 +106,6 @@ set count = count + 1
 where id in (sqlc.slice('artists'))
 ;
 
--- name: RemoveArtistFromArchive :exec
-delete from archive_artist
-where archive_id = ? and artist_id in (sqlc.slice('artists'))
-;
 
 -- name: RemoveArtistAliases :exec
 delete from artist_alias
@@ -184,4 +176,27 @@ join artist on archive_artist.artist_id = artist.id
 where artist.name in sqlc.slice('artists')
 group by archive.id
 having count(distinct artist.id) = sqlc.arg('amount')
+;
+
+-- name: BulkAddArchiveArtists :exec
+insert or ignore into archive_artist (archive_id, artist_id)
+select ?, value
+from json_each(sqlc.arg('artists'))
+;
+
+-- name: BulkAddArtists :exec
+insert or ignore into artist (name, count)
+select value, 0
+from json_each(sqlc.arg('artists'))
+;
+
+-- name: BulkGetArtists :many
+select id, name
+from artist
+where name in (sqlc.slice('artists'))
+;
+
+-- name: BulkRemoveArtistFromArchive :exec
+delete from archive_artist
+where archive_id = ? and artist_id in (select value from json_each(sqlc.arg('artists')))
 ;

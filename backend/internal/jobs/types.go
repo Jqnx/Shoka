@@ -1,10 +1,7 @@
 package jobs
 
 const (
-	JobTypeMetadata = "metadata"
-	JobTypeIndex    = "index"
+	JobTypeIndex = "index"
 )
-
-type MetadataPayload struct{}
 
 type IndexPayload struct{}

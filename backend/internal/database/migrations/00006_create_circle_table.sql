@@ -1,0 +1,9 @@
+-- +goose Up
+CREATE TABLE IF NOT EXISTS circle (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    count INTEGER NOT NULL
+);
+
+-- +goose Down
+DROP TABLE IF EXISTS circle;

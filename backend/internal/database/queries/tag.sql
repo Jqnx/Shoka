@@ -10,8 +10,21 @@ values (?, ?)
 ;
 
 -- name: BulkAddArchiveTags :exec
-insert into archive_tag (archive_id, tag_id)
-select ?, value from json_each(sqlc.arg('tags'))
+insert or ignore into archive_tag (archive_id, tag_id)
+select ?, value 
+from json_each(sqlc.arg('tags'))
+;
+
+-- name: BulkAddTags :exec
+insert or ignore into tag (name, count)
+select value, 0 
+from json_each(sqlc.arg('tags'))
+;
+
+-- name: BulkGetTags :many
+select id, name
+from tag
+where name in (sqlc.slice('tags'))
 ;
 
 -- name: EnsureTagExist :many
@@ -43,6 +56,11 @@ where name = ?
 -- name: RemoveTagFromArchive :exec
 delete from archive_tag
 where archive_id = ? and tag_id in (sqlc.slice('tags'))
+;
+
+-- name: BulkRemoveTagFromArchive :exec
+delete from archive_tag
+where archive_id = ? and tag_id in (select value from json_each(sqlc.arg('tags')))
 ;
 
 -- name: GetArchiveTag :many

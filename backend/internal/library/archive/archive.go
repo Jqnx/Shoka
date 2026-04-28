@@ -23,6 +23,7 @@ type Page struct {
 type Archive interface {
 	Pages() ([]Page, error)
 	Extract(page Page) (io.ReadCloser, error)
+	ReadFile(file string) ([]byte, error)
 	Close() error
 }
 

@@ -1,11 +1,11 @@
 package api
 
 import (
-	"log/slog"
-
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/image"
 	"Shoka/internal/jobs"
+	"Shoka/internal/metadata"
+	"log/slog"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -17,9 +17,10 @@ type Server struct {
 	Queue     *jobs.Queue
 	Cache     *image.Cache
 	Processor *image.Processor
+	Pipeline  *metadata.Pipeline
 }
 
-func New(queries *sqlc.Queries, logger *slog.Logger, queue *jobs.Queue, cache *image.Cache, processor *image.Processor) *Server {
+func New(queries *sqlc.Queries, logger *slog.Logger, queue *jobs.Queue, cache *image.Cache, processor *image.Processor, pipeline *metadata.Pipeline) *Server {
 	router := chi.NewRouter()
 	server := &Server{
 		Router:    router,
@@ -28,6 +29,7 @@ func New(queries *sqlc.Queries, logger *slog.Logger, queue *jobs.Queue, cache *i
 		Queue:     queue,
 		Cache:     cache,
 		Processor: processor,
+		Pipeline:  pipeline,
 	}
 	server.MountMiddleware()
 	server.MountHandlers()

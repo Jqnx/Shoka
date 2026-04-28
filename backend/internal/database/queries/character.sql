@@ -9,10 +9,6 @@ insert into archive_character (archive_id, character_id)
 values (?, ?)
 ;
 
--- name: BulkAddArchiveCharacters :exec
-insert into archive_character (archive_id, character_id)
-select ?, value from json_each(sqlc.arg('characters'))
-;
 
 -- name: EnsureCharacterExist :many
 insert into character (name, count)
@@ -153,4 +149,29 @@ where id = ?
 
 -- name: DeleteAllCharacter :exec
 delete from character
+;
+
+-- name: BulkAddArchiveCharacters :exec
+insert into archive_character (archive_id, character_id)
+select ?, value 
+from json_each(sqlc.arg('characters'))
+;
+
+-- name: BulkAddCharacters :exec
+insert or ignore into character (name, count)
+select value, 0
+from json_each(sqlc.arg('characters'))
+;
+
+-- name: BulkGetCharacters :many
+select id, name
+from character
+where name in (sqlc.slice('characters'))
+;
+
+-- name: BulkRemoveCharactersFromArchive :exec
+delete from archive_character
+where
+    archive_id = ?
+    and character_id in (select value from json_each(sqlc.arg('characters')))
 ;

@@ -9,6 +9,8 @@ import (
 	"Shoka/internal/jobs"
 	"Shoka/internal/library"
 	"Shoka/internal/log"
+	"Shoka/internal/metadata"
+	"Shoka/internal/metadata/sources"
 	"Shoka/internal/util"
 	"context"
 	"fmt"
@@ -27,21 +29,20 @@ import (
 // @in header
 // @name Authorization
 func main() {
+	// Load configuration
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		fmt.Printf("failed to load configuration: %v", err)
+		os.Exit(1)
+	}
+
 	// Create new Logger
-	log := log.New()
+	log := log.New(cfg)
 
 	if err := util.EnsureDir("./data"); err != nil {
 		log.Error("failed to create data directory", "error", err)
 		os.Exit(1)
 	}
-
-	// Load configuration
-	cfg, err := config.LoadConfig(log)
-	if err != nil {
-		log.Error("failed to load configuration", "error", err)
-		os.Exit(1)
-	}
-	log.Info("config loaded")
 
 	// Connect to database
 	db, err := database.New()
@@ -65,18 +66,26 @@ func main() {
 	worker := jobs.NewWorker(queue, log)
 	scanner := library.NewScanner(queries, queue, log, cfg.LibraryDir)
 	watcher := library.NewWatcher(queue, cfg.LibraryDir, log)
-	images := image.NewProcessor(cfg.CacheDir, log)
+	images := image.NewProcessor(cfg.Cache.Dir, log)
 	cache, err := image.NewCache(images, log)
+	pipeline := metadata.NewPipeline(
+		log,
+		sources.NewComicInfoSource(),
+		sources.NewFilenameSource(),
+		sources.NewEHentaiSource(cfg.Metadata.GetSource("e-hentai").Cookies),
+		sources.NewNHentaiSource(),
+	)
 	if err != nil {
 		log.Error("failed to initialize image cache", "error", err)
 		os.Exit(1)
 	}
-	api := api.New(queries, log, queue, cache, images)
+	api := api.New(queries, log, queue, cache, images, pipeline)
 
 	// Register worker handlers
 	worker.Register(jobs.JobTypeScan, jobs.NewScanHandler(scanner, log), 1)
 	worker.Register(jobs.JobTypeCover, jobs.NewCoverHandler(images, log), 5)
 	worker.Register(jobs.JobTypeThumbnail, jobs.NewThumbnailHandler(images, log), 3)
+	worker.Register(jobs.JobTypeMetadata, jobs.NewMetadataHandler(pipeline, queries, db, log), 1)
 
 	// Start Workers with cancellable context
 	ctx, cancel := context.WithCancel(context.Background())
