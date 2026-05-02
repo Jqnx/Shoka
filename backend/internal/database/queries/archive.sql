@@ -4,9 +4,10 @@ insert into archive (
   title,
   file_path,
   file_size,
-  mod_time
+  mod_time,
+  page_count
 )
-values (?, ?, ?, ?, ?)
+values (?, ?, ?, ?, ?, ?)
 returning *;
 
 
@@ -129,7 +130,9 @@ where id = ?;
 -- name: UpdateFilePath :exec
 update archive
 set file_path = ?,
-    updated_at = ?
+    file_size = ?,
+    mod_time = ?,
+    updated_at = datetime('now')
 where id = ?;
 
 -- name: DeleteArchive :exec

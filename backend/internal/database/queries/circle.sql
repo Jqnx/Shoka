@@ -24,6 +24,14 @@ limit ?
 offset ?
 ;
 
+-- name: GetArchiveCircle :many
+select circle.*
+from archive
+join archive_circle on archive.id = archive_circle.archive_id
+join circle on archive_circle.circle_id = circle.id
+where archive.id = ?
+;
+
 -- name: GetArchiveCircleIDs :many
 select circle.id
 from archive
