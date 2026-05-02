@@ -1,11 +1,6 @@
 package library
 
 import (
-	"Shoka/internal/config"
-	"Shoka/internal/database"
-	"Shoka/internal/database/sqlc"
-	"Shoka/internal/jobs"
-	"Shoka/internal/util"
 	"context"
 	"fmt"
 	"io/fs"
@@ -15,6 +10,13 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"Shoka/internal/config"
+	"Shoka/internal/database"
+	"Shoka/internal/database/sqlc"
+	"Shoka/internal/jobs"
+	"Shoka/internal/library/archive"
+	"Shoka/internal/util"
 )
 
 var supportedExtensions = []string{".cbz", ".cbr", ".zip", ".rar", ".7z"}
@@ -155,7 +157,18 @@ func (s *Scanner) hasChanged(record sqlc.GetAllArchiveFilePathsRow, info fs.File
 
 // addArchive() adds a new archive and queues up necessary jobs
 func (s *Scanner) addArchive(ctx context.Context, path string, info fs.FileInfo) error {
-	var archive sqlc.Archive
+	var arch sqlc.Archive
+
+	a, err := archive.Open(path)
+	if err != nil {
+		return fmt.Errorf("open archive: %w", err)
+	}
+
+	pages, err := a.Pages()
+	a.Close()
+	if err != nil {
+		return fmt.Errorf("list pages: %w", err)
+	}
 
 	for range 5 {
 		id, err := util.GenerateID()
@@ -163,12 +176,13 @@ func (s *Scanner) addArchive(ctx context.Context, path string, info fs.FileInfo)
 			return err
 		}
 
-		archive, err = s.queries.CreateArchive(ctx, sqlc.CreateArchiveParams{
-			ID:       id,
-			Title:    util.StripExtension(filepath.Base(path)),
-			FilePath: path,
-			FileSize: info.Size(),
-			ModTime:  info.ModTime(),
+		arch, err = s.queries.CreateArchive(ctx, sqlc.CreateArchiveParams{
+			ID:        id,
+			Title:     util.StripExtension(filepath.Base(path)),
+			FilePath:  path,
+			FileSize:  info.Size(),
+			ModTime:   info.ModTime(),
+			PageCount: int64(len(pages)),
 		})
 
 		if err == nil {
@@ -183,18 +197,18 @@ func (s *Scanner) addArchive(ctx context.Context, path string, info fs.FileInfo)
 	}
 
 	// TODO: Enabled Jobs
-	if err := s.queue.Enqueue(ctx, jobs.JobTypeCover, jobs.CoverPayload{
-		ArchiveID: archive.ID,
-		FilePath:  path,
-	}); err != nil {
-		return err
-	}
-
-	//if err := s.queue.Enqueue(ctx, jobs.JobTypeMetadata, jobs.MetadataPayload{
-	//	ArchiveID: archive.ID,
+	//if err := s.queue.Enqueue(ctx, jobs.JobTypeCover, jobs.CoverPayload{
+	//	ArchiveID: arch.ID,
+	//	FilePath:  path,
 	//}); err != nil {
 	//	return err
 	//}
+
+	if err := s.queue.Enqueue(ctx, jobs.JobTypeMetadata, jobs.MetadataPayload{
+		ArchiveID: arch.ID,
+	}); err != nil {
+		return err
+	}
 
 	//if err := s.queue.Enqueue(ctx, jobs.JobTypeIndex, jobs.IndexPayload{
 	//	ArchiveID: archive.ID,
@@ -202,7 +216,7 @@ func (s *Scanner) addArchive(ctx context.Context, path string, info fs.FileInfo)
 	//	return err
 	//}
 
-	s.log.Info("archive added", "path", path, "id", archive.ID)
+	s.log.Info("archive added", "path", path, "id", arch.ID)
 	return nil
 }
 
@@ -232,7 +246,7 @@ func (s *Scanner) removeArchive(ctx context.Context, id string, path string) err
 		return err
 	}
 
-	cacheDir := filepath.Join(s.cfg.CacheDir, fmt.Sprintf("%s", id))
+	cacheDir := filepath.Join(s.cfg.Cache.Dir, fmt.Sprintf("%s", id))
 	if err := os.RemoveAll(cacheDir); err != nil {
 		s.log.Warn("failed to remove cache dir", "path", cacheDir, "error", err)
 	}
