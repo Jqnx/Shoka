@@ -22,3 +22,11 @@ func BadRequest(w http.ResponseWriter, msg string) {
 func Unauthorized(w http.ResponseWriter) {
 	JSON(w, http.StatusUnauthorized, Error{Code: "unauthorized", Message: "authentication required"})
 }
+
+func Forbidden(w http.ResponseWriter, msg string) {
+	JSON(w, http.StatusForbidden, Error{Code: "forbidden", Message: msg})
+}
+
+func UnprocessableEntity(w http.ResponseWriter, msg string) {
+	JSON(w, http.StatusUnprocessableEntity, Error{Code: "unsupported", Message: msg})
+}
