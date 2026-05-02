@@ -21,9 +21,11 @@ type Page struct {
 }
 
 type Archive interface {
+	Path() string
 	Pages() ([]Page, error)
 	Extract(page Page) (io.ReadCloser, error)
 	ReadFile(file string) ([]byte, error)
+	WriteFile(name string, data []byte) error
 	Close() error
 }
 
