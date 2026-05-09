@@ -5,12 +5,10 @@ where language is not null
 ;
 
 -- name: GetArchiveByLanguage :many
-select archive.*, reading_progress.page
+select archive.*, progress.page
 from archive
 left join
-    reading_progress
-    on archive.id = reading_progress.archive_id
-    and reading_progress.user_id = sqlc.arg('uid')
+    progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
 where language = ?
 ;
 
@@ -29,12 +27,10 @@ having count(distinct archive.id) = sqlc.arg('amount')
 ;
 
 -- name: GetArchiveByLanguageList :many
-select archive.*, reading_progress.page
+select archive.*, progress.page
 from archive
 left join
-    reading_progress
-    on archive.id = reading_progress.archive_id
-    and reading_progress.user_id = sqlc.arg('uid')
+    progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
 where language = ?
 order by
     case when sqlc.arg('order_by') = 'title_asc' then archive.title end asc,
@@ -51,12 +47,8 @@ order by
     case
         when sqlc.arg('order_by') = 'release_date_desc' then archive.release_date
     end desc,
-    case
-        when sqlc.arg('order_by') = 'last_read_asc' then reading_progress.last_read
-    end asc,
-    case
-        when sqlc.arg('order_by') = 'last_read_desc' then reading_progress.last_read
-    end desc
+    case when sqlc.arg('order_by') = 'last_read_asc' then progress.last_read end asc,
+    case when sqlc.arg('order_by') = 'last_read_desc' then progress.last_read end desc
 limit ?
 offset ?
 ;

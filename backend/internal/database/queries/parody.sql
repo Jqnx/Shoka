@@ -58,14 +58,12 @@ where archive.id = ?
 ;
 
 -- name: GetArchiveByParody :many
-select archive.*, reading_progress.page
+select archive.*, progress.page
 from archive
 join archive_parody on archive.id = archive_parody.archive_id
 join parody on archive_parody.parody_id = parody.id
 left join
-    reading_progress
-    on archive.id = reading_progress.archive_id
-    and reading_progress.user_id = sqlc.arg('uid')
+    progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
 where parody.name = ?
 ;
 
@@ -88,14 +86,12 @@ having count(distinct parody.id) = sqlc.arg('amount')
 ;
 
 -- name: GetArchiveByParodyList :many
-select archive.*, reading_progress.page
+select archive.*, progress.page
 from archive
 join archive_parody on archive.id = archive_parody.archive_id
 join parody on archive_parody.parody_id = parody.id
 left join
-    reading_progress
-    on archive.id = reading_progress.archive_id
-    and reading_progress.user_id = sqlc.arg('uid')
+    progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
 where parody.name = ?
 order by
     case when sqlc.arg('order_by') = 'title_asc' then archive.title end asc,
@@ -112,12 +108,8 @@ order by
     case
         when sqlc.arg('order_by') = 'release_date_desc' then archive.release_date
     end desc,
-    case
-        when sqlc.arg('order_by') = 'last_read_asc' then reading_progress.last_read
-    end asc,
-    case
-        when sqlc.arg('order_by') = 'last_read_desc' then reading_progress.last_read
-    end desc
+    case when sqlc.arg('order_by') = 'last_read_asc' then progress.last_read end asc,
+    case when sqlc.arg('order_by') = 'last_read_desc' then progress.last_read end desc
 limit ?
 offset ?
 ;

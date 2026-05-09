@@ -29,46 +29,30 @@ from archive
 ;
 
 -- name: GetAllArchives :many
-select
-    archive.*,
-    reading_progress.page,
-    reading_progress.last_read,
-    reading_progress.status
+select archive.*, progress.page, progress.last_read, progress.completed
 from archive
 left join
-    reading_progress
-    on archive.id = reading_progress.archive_id
-    and reading_progress.user
-    and reading_progress.user_id = sqlc.arg('uid')
+    progress
+    on archive.id = progress.archive_id
+    and progress.user
+    and progress.user_id = sqlc.arg('uid')
 order by archive.id
 ;
 
 -- name: GetRecentlyReadArchives :many
-select
-    archive.*,
-    reading_progress.page,
-    reading_progress.last_read,
-    reading_progress.status
+select archive.*, progress.page, progress.last_read, progress.completed
 from archive
 left join
-    reading_progress
-    on archive.id = reading_progress.archive_id
-    and reading_progress.user_id = sqlc.arg('uid')
-where reading_progress.last_read is not null
-order by reading_progress.last_read
+    progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
+where progress.last_read is not null
+order by progress.last_read
 ;
 
 -- name: GetArchiveList :many
-select
-    archive.*,
-    reading_progress.page,
-    reading_progress.last_read,
-    reading_progress.status
+select archive.*, progress.page, progress.last_read, progress.completed
 from archive
 left join
-    reading_progress
-    on archive.id = reading_progress.archive_id
-    and reading_progress.user_id = sqlc.arg('uid')
+    progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
 limit ?
 offset ?
 ;

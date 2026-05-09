@@ -1,14 +1,8 @@
 -- name: GetArchiveFilterSortList :many
-select
-    archive.*,
-    reading_progress.page,
-    reading_progress.last_read,
-    reading_progress.status
+select archive.*, progress.page, progress.last_read, progress.completed
 from archive
 left join
-    reading_progress
-    on archive.id = reading_progress.archive_id
-    and reading_progress.user_id = sqlc.arg('uid')
+    progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
 where archive.id in (sqlc.slice('ids'))
 order by
     case when sqlc.arg('order_by') = 'title_asc' then archive.title end asc,
@@ -25,12 +19,8 @@ order by
     case
         when sqlc.arg('order_by') = 'release_date_desc' then archive.release_date
     end desc,
-    case
-        when sqlc.arg('order_by') = 'last_read_asc' then reading_progress.last_read
-    end asc,
-    case
-        when sqlc.arg('order_by') = 'last_read_desc' then reading_progress.last_read
-    end desc
+    case when sqlc.arg('order_by') = 'last_read_asc' then progress.last_read end asc,
+    case when sqlc.arg('order_by') = 'last_read_desc' then progress.last_read end desc
 limit ?
 offset ?
 ;
@@ -44,16 +34,10 @@ offset ?
 ;
 
 -- name: GetArchiveSortList :many
-select
-    archive.*,
-    reading_progress.page,
-    reading_progress.last_read,
-    reading_progress.status
+select archive.*, progress.page, progress.last_read, progress.completed
 from archive
 left join
-    reading_progress
-    on archive.id = reading_progress.archive_id
-    and reading_progress.user_id = sqlc.arg('uid')
+    progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
 order by
     case when sqlc.arg('order_by') = 'title_asc' then title end asc,
     case when sqlc.arg('order_by') = 'title_desc' then title end desc,
@@ -65,27 +49,17 @@ order by
     case when sqlc.arg('order_by') = 'updated_at_desc' then updated_at end desc,
     case when sqlc.arg('order_by') = 'release_date_asc' then release_date end asc,
     case when sqlc.arg('order_by') = 'release_date_desc' then release_date end desc,
-    case
-        when sqlc.arg('order_by') = 'last_read_asc' then reading_progress.last_read
-    end asc,
-    case
-        when sqlc.arg('order_by') = 'last_read_desc' then reading_progress.last_read
-    end desc
+    case when sqlc.arg('order_by') = 'last_read_asc' then progress.last_read end asc,
+    case when sqlc.arg('order_by') = 'last_read_desc' then progress.last_read end desc
 limit ?
 offset ?
 ;
 
 -- name: GetArchiveSort :many
-select
-    archive.*,
-    reading_progress.page,
-    reading_progress.last_read,
-    reading_progress.status
+select archive.*, progress.page, progress.last_read, progress.completed
 from archive
 left join
-    reading_progress
-    on archive.id = reading_progress.archive_id
-    and reading_progress.user_id = sqlc.arg('uid')
+    progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
 order by
     case when sqlc.arg('order_by') = 'title_asc' then title end asc,
     case when sqlc.arg('order_by') = 'title_desc' then title end desc,
@@ -97,12 +71,8 @@ order by
     case when sqlc.arg('order_by') = 'updated_at_desc' then updated_at end desc,
     case when sqlc.arg('order_by') = 'release_date_asc' then release_date end asc,
     case when sqlc.arg('order_by') = 'release_date_desc' then release_date end desc,
-    case
-        when sqlc.arg('order_by') = 'last_read_asc' then reading_progress.last_read
-    end asc,
-    case
-        when sqlc.arg('order_by') = 'last_read_desc' then reading_progress.last_read
-    end desc
+    case when sqlc.arg('order_by') = 'last_read_asc' then progress.last_read end asc,
+    case when sqlc.arg('order_by') = 'last_read_desc' then progress.last_read end desc
 ;
 
 -- name: CountFilteredArchive :one
