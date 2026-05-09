@@ -69,7 +69,7 @@ func setDefaults() {
 
 	// Sources
 	viper.SetDefault("metadata.sources.comicinfo.enabled", true)
-	viper.SetDefault("metadata.sources.filename.enabled", false)
+	viper.SetDefault("metadata.sources.filename.enabled", true)
 	viper.SetDefault("metadata.sources.e-hentai.enabled", false)
 	viper.SetDefault("metadata.sources.nhentai.enabled", false)
 }
