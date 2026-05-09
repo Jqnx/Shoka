@@ -1,6 +1,11 @@
 package main
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+	"os"
+
 	"Shoka/internal/api"
 	"Shoka/internal/config"
 	"Shoka/internal/database"
@@ -12,10 +17,6 @@ import (
 	"Shoka/internal/metadata"
 	"Shoka/internal/metadata/sources"
 	"Shoka/internal/util"
-	"context"
-	"fmt"
-	"net/http"
-	"os"
 
 	"github.com/davidbyttow/govips/v2/vips"
 )
@@ -73,19 +74,20 @@ func main() {
 		sources.NewComicInfoSource(),
 		sources.NewFilenameSource(),
 		sources.NewEHentaiSource(cfg.Metadata.GetSource("e-hentai").Cookies),
-		sources.NewNHentaiSource(),
+		sources.NewNHentaiSource(cfg.Metadata.GetSource("nhentai").APIKey),
 	)
 	if err != nil {
 		log.Error("failed to initialize image cache", "error", err)
 		os.Exit(1)
 	}
-	api := api.New(queries, log, queue, cache, images, pipeline)
+	api := api.New(queries, log, queue, cache, images, pipeline, db)
 
 	// Register worker handlers
 	worker.Register(jobs.JobTypeScan, jobs.NewScanHandler(scanner, log), 1)
 	worker.Register(jobs.JobTypeCover, jobs.NewCoverHandler(images, log), 5)
 	worker.Register(jobs.JobTypeThumbnail, jobs.NewThumbnailHandler(images, log), 3)
-	worker.Register(jobs.JobTypeMetadata, jobs.NewMetadataHandler(pipeline, queries, db, log), 1)
+	worker.Register(jobs.JobTypeMetadata, jobs.NewMetadataHandler(pipeline, queries, db, queue, log), 5)
+	worker.Register(jobs.JobTypeMetadataRemote, jobs.NewRemoteMetadataHandler(pipeline, queries, db, log), 1)
 
 	// Start Workers with cancellable context
 	ctx, cancel := context.WithCancel(context.Background())
