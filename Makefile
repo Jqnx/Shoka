@@ -54,6 +54,9 @@ migrate/create: ## Create a new migration — usage: make migrate/create NAME=ad
 sqlc: ## Regenerate sqlc Go code from query files
 	cd $(BACKEND) && sqlc generate
 
+swag: ## Regenerate swaggo API docs
+	cd $(BACKEND) && swag init --parseDependency --parseInternal
+
 # ----- Code Quality -----
 tidy: ## Tidy Go module dependencies
 	cd $(BACKEND) && go mod tidy
