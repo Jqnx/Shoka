@@ -114,11 +114,11 @@ type Parody struct {
 	Count int64  `json:"count"`
 }
 
-type ReadingProgress struct {
-	ArchiveID *string   `json:"archive_id"`
-	UserID    *string   `json:"user_id"`
+type Progress struct {
+	ArchiveID string    `json:"archive_id"`
+	UserID    string    `json:"user_id"`
 	Page      int64     `json:"page"`
-	Status    string    `json:"status"`
+	Completed bool      `json:"completed"`
 	LastRead  time.Time `json:"last_read"`
 }
 

@@ -56,17 +56,15 @@ func (q *Queries) GetAllCategory(ctx context.Context) ([]*string, error) {
 const getArchiveByCategory = `-- name: GetArchiveByCategory :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, reading_progress.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page
 from archive
 left join
-    reading_progress
-    on archive.id = reading_progress.archive_id
-    and reading_progress.user_id = ?2
+    progress on archive.id = progress.archive_id and progress.user_id = ?2
 where category = ?
 `
 
 type GetArchiveByCategoryParams struct {
-	Uid      *string `json:"uid"`
+	Uid      string  `json:"uid"`
 	Category *string `json:"category"`
 }
 
@@ -126,12 +124,10 @@ func (q *Queries) GetArchiveByCategory(ctx context.Context, arg GetArchiveByCate
 const getArchiveByCategoryList = `-- name: GetArchiveByCategoryList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, reading_progress.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page
 from archive
 left join
-    reading_progress
-    on archive.id = reading_progress.archive_id
-    and reading_progress.user_id = ?4
+    progress on archive.id = progress.archive_id and progress.user_id = ?4
 where category = ?
 order by
     case when sqlc.arg('order_by') = 'title_asc' then archive.title end asc,
@@ -148,18 +144,14 @@ order by
     case
         when sqlc.arg('order_by') = 'release_date_desc' then archive.relase_date
     end desc,
-    case
-        when sqlc.arg('order_by') = 'last_read_asc' then reading_progress.last_read
-    end asc,
-    case
-        when sqlc.arg('order_by') = 'last_read_desc' then reading_progress.last_read
-    end desc
+    case when sqlc.arg('order_by') = 'last_read_asc' then progress.last_read end asc,
+    case when sqlc.arg('order_by') = 'last_read_desc' then progress.last_read end desc
 limit ?
 offset ?
 `
 
 type GetArchiveByCategoryListParams struct {
-	Uid      *string `json:"uid"`
+	Uid      string  `json:"uid"`
 	Category *string `json:"category"`
 	Limit    int64   `json:"limit"`
 	Offset   int64   `json:"offset"`

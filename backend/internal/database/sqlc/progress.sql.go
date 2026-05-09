@@ -7,20 +7,19 @@ package sqlc
 
 import (
 	"context"
-	"database/sql"
 	"time"
 )
 
 const deleteReadingProgress = `-- name: DeleteReadingProgress :exec
 ;
 
-delete from reading_progress
+delete from progress
 where archive_id = ? and user_id = ?
 `
 
 type DeleteReadingProgressParams struct {
-	ArchiveID *string `json:"archive_id"`
-	UserID    *string `json:"user_id"`
+	ArchiveID string `json:"archive_id"`
+	UserID    string `json:"user_id"`
 }
 
 func (q *Queries) DeleteReadingProgress(ctx context.Context, arg DeleteReadingProgressParams) error {
@@ -32,11 +31,11 @@ const getAllLastRead = `-- name: GetAllLastRead :many
 ;
 
 select archive_id, last_read
-from reading_progress
+from progress
 `
 
 type GetAllLastReadRow struct {
-	ArchiveID *string   `json:"archive_id"`
+	ArchiveID string    `json:"archive_id"`
 	LastRead  time.Time `json:"last_read"`
 }
 
@@ -63,47 +62,47 @@ func (q *Queries) GetAllLastRead(ctx context.Context) ([]GetAllLastReadRow, erro
 	return items, nil
 }
 
-const getUserReadingProgress = `-- name: GetUserReadingProgress :one
+const getProgressForArchive = `-- name: GetProgressForArchive :one
 ;
 
-select archive_id, user_id, page, status, last_read
-from reading_progress
+select archive_id, user_id, page, completed, last_read
+from progress
 where archive_id = ? and user_id = ?
 `
 
-type GetUserReadingProgressParams struct {
-	ArchiveID *string `json:"archive_id"`
-	UserID    *string `json:"user_id"`
+type GetProgressForArchiveParams struct {
+	ArchiveID string `json:"archive_id"`
+	UserID    string `json:"user_id"`
 }
 
-func (q *Queries) GetUserReadingProgress(ctx context.Context, arg GetUserReadingProgressParams) (ReadingProgress, error) {
-	row := q.db.QueryRowContext(ctx, getUserReadingProgress, arg.ArchiveID, arg.UserID)
-	var i ReadingProgress
+func (q *Queries) GetProgressForArchive(ctx context.Context, arg GetProgressForArchiveParams) (Progress, error) {
+	row := q.db.QueryRowContext(ctx, getProgressForArchive, arg.ArchiveID, arg.UserID)
+	var i Progress
 	err := row.Scan(
 		&i.ArchiveID,
 		&i.UserID,
 		&i.Page,
-		&i.Status,
+		&i.Completed,
 		&i.LastRead,
 	)
 	return i, err
 }
 
 const insertReadingProgress = `-- name: InsertReadingProgress :exec
-insert into reading_progress (
+insert into progress (
   archive_id,
   user_id,
   page,
-  status,
+  completed,
   last_read
 ) values ( ?, ?, ?, ?, ? )
 `
 
 type InsertReadingProgressParams struct {
-	ArchiveID *string   `json:"archive_id"`
-	UserID    *string   `json:"user_id"`
+	ArchiveID string    `json:"archive_id"`
+	UserID    string    `json:"user_id"`
 	Page      int64     `json:"page"`
-	Status    string    `json:"status"`
+	Completed bool      `json:"completed"`
 	LastRead  time.Time `json:"last_read"`
 }
 
@@ -112,7 +111,7 @@ func (q *Queries) InsertReadingProgress(ctx context.Context, arg InsertReadingPr
 		arg.ArchiveID,
 		arg.UserID,
 		arg.Page,
-		arg.Status,
+		arg.Completed,
 		arg.LastRead,
 	)
 	return err
@@ -121,59 +120,42 @@ func (q *Queries) InsertReadingProgress(ctx context.Context, arg InsertReadingPr
 const updateReadingProgress = `-- name: UpdateReadingProgress :one
 ;
 
-update reading_progress
+update progress
 set page = coalesce(?4, page),
-    status = coalesce(?5, status),
+    completed = coalesce(?5, completed),
     last_read = coalesce(?, last_read)
 where archive_id = ? AND user_id = ?
 returning
   archive_id,
   user_id,
   page,
-  status,
+  completed,
   last_read
 `
 
 type UpdateReadingProgressParams struct {
 	Page      int64     `json:"page"`
-	Status    string    `json:"status"`
+	Completed bool      `json:"completed"`
 	LastRead  time.Time `json:"last_read"`
-	ArchiveID *string   `json:"archive_id"`
-	UserID    *string   `json:"user_id"`
+	ArchiveID string    `json:"archive_id"`
+	UserID    string    `json:"user_id"`
 }
 
-func (q *Queries) UpdateReadingProgress(ctx context.Context, arg UpdateReadingProgressParams) (ReadingProgress, error) {
+func (q *Queries) UpdateReadingProgress(ctx context.Context, arg UpdateReadingProgressParams) (Progress, error) {
 	row := q.db.QueryRowContext(ctx, updateReadingProgress,
 		arg.Page,
-		arg.Status,
+		arg.Completed,
 		arg.LastRead,
 		arg.ArchiveID,
 		arg.UserID,
 	)
-	var i ReadingProgress
+	var i Progress
 	err := row.Scan(
 		&i.ArchiveID,
 		&i.UserID,
 		&i.Page,
-		&i.Status,
+		&i.Completed,
 		&i.LastRead,
 	)
 	return i, err
-}
-
-const userReadingProgressExists = `-- name: UserReadingProgressExists :execresult
-;
-
-select archive_id, user_id, page, status, last_read
-from reading_progress
-where archive_id = ? and user_id = ?
-`
-
-type UserReadingProgressExistsParams struct {
-	ArchiveID *string `json:"archive_id"`
-	UserID    *string `json:"user_id"`
-}
-
-func (q *Queries) UserReadingProgressExists(ctx context.Context, arg UserReadingProgressExistsParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, userReadingProgressExists, arg.ArchiveID, arg.UserID)
 }

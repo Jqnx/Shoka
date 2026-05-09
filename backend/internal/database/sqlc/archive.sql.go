@@ -189,17 +189,13 @@ func (q *Queries) GetAllArchiveFilePaths(ctx context.Context) ([]GetAllArchiveFi
 const getAllArchives = `-- name: GetAllArchives :many
 ;
 
-select
-    archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date,
-    reading_progress.page,
-    reading_progress.last_read,
-    reading_progress.status
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page, progress.last_read, progress.completed
 from archive
 left join
-    reading_progress
-    on archive.id = reading_progress.archive_id
-    and reading_progress.user
-    and reading_progress.user_id = ?1
+    progress
+    on archive.id = progress.archive_id
+    and progress.user
+    and progress.user_id = ?1
 order by archive.id
 `
 
@@ -218,10 +214,10 @@ type GetAllArchivesRow struct {
 	ReleaseDate *time.Time `json:"release_date"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
-	Status      *string    `json:"status"`
+	Completed   *bool      `json:"completed"`
 }
 
-func (q *Queries) GetAllArchives(ctx context.Context, uid *string) ([]GetAllArchivesRow, error) {
+func (q *Queries) GetAllArchives(ctx context.Context, uid string) ([]GetAllArchivesRow, error) {
 	rows, err := q.db.QueryContext(ctx, getAllArchives, uid)
 	if err != nil {
 		return nil, err
@@ -245,7 +241,7 @@ func (q *Queries) GetAllArchives(ctx context.Context, uid *string) ([]GetAllArch
 			&i.ReleaseDate,
 			&i.Page,
 			&i.LastRead,
-			&i.Status,
+			&i.Completed,
 		); err != nil {
 			return nil, err
 		}
@@ -317,24 +313,18 @@ func (q *Queries) GetArchiveByID(ctx context.Context, id string) (Archive, error
 const getArchiveList = `-- name: GetArchiveList :many
 ;
 
-select
-    archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date,
-    reading_progress.page,
-    reading_progress.last_read,
-    reading_progress.status
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page, progress.last_read, progress.completed
 from archive
 left join
-    reading_progress
-    on archive.id = reading_progress.archive_id
-    and reading_progress.user_id = ?3
+    progress on archive.id = progress.archive_id and progress.user_id = ?3
 limit ?
 offset ?
 `
 
 type GetArchiveListParams struct {
-	Uid    *string `json:"uid"`
-	Limit  int64   `json:"limit"`
-	Offset int64   `json:"offset"`
+	Uid    string `json:"uid"`
+	Limit  int64  `json:"limit"`
+	Offset int64  `json:"offset"`
 }
 
 type GetArchiveListRow struct {
@@ -352,7 +342,7 @@ type GetArchiveListRow struct {
 	ReleaseDate *time.Time `json:"release_date"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
-	Status      *string    `json:"status"`
+	Completed   *bool      `json:"completed"`
 }
 
 func (q *Queries) GetArchiveList(ctx context.Context, arg GetArchiveListParams) ([]GetArchiveListRow, error) {
@@ -379,7 +369,7 @@ func (q *Queries) GetArchiveList(ctx context.Context, arg GetArchiveListParams) 
 			&i.ReleaseDate,
 			&i.Page,
 			&i.LastRead,
-			&i.Status,
+			&i.Completed,
 		); err != nil {
 			return nil, err
 		}
@@ -433,18 +423,12 @@ func (q *Queries) GetFilePathByID(ctx context.Context, id string) (string, error
 const getRecentlyReadArchives = `-- name: GetRecentlyReadArchives :many
 ;
 
-select
-    archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date,
-    reading_progress.page,
-    reading_progress.last_read,
-    reading_progress.status
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page, progress.last_read, progress.completed
 from archive
 left join
-    reading_progress
-    on archive.id = reading_progress.archive_id
-    and reading_progress.user_id = ?1
-where reading_progress.last_read is not null
-order by reading_progress.last_read
+    progress on archive.id = progress.archive_id and progress.user_id = ?1
+where progress.last_read is not null
+order by progress.last_read
 `
 
 type GetRecentlyReadArchivesRow struct {
@@ -462,10 +446,10 @@ type GetRecentlyReadArchivesRow struct {
 	ReleaseDate *time.Time `json:"release_date"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
-	Status      *string    `json:"status"`
+	Completed   *bool      `json:"completed"`
 }
 
-func (q *Queries) GetRecentlyReadArchives(ctx context.Context, uid *string) ([]GetRecentlyReadArchivesRow, error) {
+func (q *Queries) GetRecentlyReadArchives(ctx context.Context, uid string) ([]GetRecentlyReadArchivesRow, error) {
 	rows, err := q.db.QueryContext(ctx, getRecentlyReadArchives, uid)
 	if err != nil {
 		return nil, err
@@ -489,7 +473,7 @@ func (q *Queries) GetRecentlyReadArchives(ctx context.Context, uid *string) ([]G
 			&i.ReleaseDate,
 			&i.Page,
 			&i.LastRead,
-			&i.Status,
+			&i.Completed,
 		); err != nil {
 			return nil, err
 		}
