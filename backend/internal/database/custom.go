@@ -2,11 +2,39 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"time"
 
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/metadata"
 )
+
+// GetSession looks up a Better Auth session token and returns the owning user ID.
+// Returns ("", nil) if the token does not exist or has expired.
+func GetSession(ctx context.Context, db *sql.DB, token string) (string, error) {
+	var userID string
+	var expiresAt int64
+
+	err := db.QueryRowContext(ctx, `
+        SELECT user_id, expires_at
+        FROM session
+        WHERE token = ?
+        LIMIT 1
+    `, token).Scan(&userID, &expiresAt)
+
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("session lookup: %w", err)
+	}
+	if time.Now().After(time.UnixMilli(expiresAt)) {
+		return "", nil
+	}
+
+	return userID, nil
+}
 
 func GetArchiveMetadata(ctx context.Context, q *sqlc.Queries, archiveID string) (*metadata.Result, error) {
 	archive, err := q.GetArchiveByID(ctx, archiveID)
