@@ -21,8 +21,9 @@ func NewEHentaiSource(cookies string) *EHentaiSource {
 	}
 }
 
-func (s *EHentaiSource) Name() string  { return "e-hentai" }
-func (s *EHentaiSource) Priority() int { return 11 }
+func (s *EHentaiSource) Name() string    { return "e-hentai" }
+func (s *EHentaiSource) Priority() int   { return 11 }
+func (s *EHentaiSource) IsLocal() bool   { return false }
 
 func (s *EHentaiSource) Fetch(ctx context.Context, input metadata.Input) (*metadata.Result, error) {
 	// search by title

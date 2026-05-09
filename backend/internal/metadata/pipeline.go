@@ -13,6 +13,7 @@ import (
 var (
 	ErrUnknownSource  = errors.New("unknown metadata source")
 	ErrDisabledSource = errors.New("metadata source is disabled")
+	ErrNotSearchable  = errors.New("metadata source does not support search")
 )
 
 type Pipeline struct {
@@ -46,12 +47,26 @@ func (p *Pipeline) IsEnabled(name string) bool {
 }
 
 // Run tries each source in priority order and merges their results.
-// The first source to provide a field wins — later sources only fill gaps.
+// The first source to provide a field wins, later sources only fill gaps.
 func (p *Pipeline) Run(ctx context.Context, input Input) (*Result, error) {
+	return p.run(ctx, input, false)
+}
+
+// RunLocal is like Run but skips remote (network/rate-limited) sources.
+// Used so local sources can be queried quickly without waiting for network sources.
+func (p *Pipeline) RunLocal(ctx context.Context, input Input) (*Result, error) {
+	return p.run(ctx, input, true)
+}
+
+func (p *Pipeline) run(ctx context.Context, input Input, localOnly bool) (*Result, error) {
 	final := &Result{}
 
 	for _, source := range p.sources {
 		if !p.IsEnabled(source.Name()) {
+			continue
+		}
+
+		if localOnly && !source.IsLocal() {
 			continue
 		}
 
@@ -161,6 +176,58 @@ func (p *Pipeline) FetchWithSource(ctx context.Context, name string, input Input
 	}
 
 	return found.Fetch(ctx, input)
+}
+
+// SearchWithSource runs the Search method of a named remote source.
+// Returns ErrNotSearchable if the source doesn't support manual search.
+func (p *Pipeline) SearchWithSource(ctx context.Context, name string, input Input) ([]*SearchResult, error) {
+	var found Source
+	for _, s := range p.sources {
+		if s.Name() == name {
+			found = s
+			break
+		}
+	}
+
+	if found == nil {
+		return nil, fmt.Errorf("%w: %s", ErrUnknownSource, name)
+	}
+	if !p.IsEnabled(name) {
+		return nil, fmt.Errorf("%w: %s", ErrDisabledSource, name)
+	}
+
+	searchable, ok := found.(SearchableSource)
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", ErrNotSearchable, name)
+	}
+
+	return searchable.Search(ctx, input)
+}
+
+// FetchFromSourceByID fetches full metadata from a named remote source
+// using a source-specific ID chosen by the user from search results.
+func (p *Pipeline) FetchFromSourceByID(ctx context.Context, name string, id string) (*Result, error) {
+	var found Source
+	for _, s := range p.sources {
+		if s.Name() == name {
+			found = s
+			break
+		}
+	}
+
+	if found == nil {
+		return nil, fmt.Errorf("%w: %s", ErrUnknownSource, name)
+	}
+	if !p.IsEnabled(name) {
+		return nil, fmt.Errorf("%w: %s", ErrDisabledSource, name)
+	}
+
+	remote, ok := found.(RemoteSource)
+	if !ok {
+		return nil, fmt.Errorf("%w: %s", ErrNotSearchable, name)
+	}
+
+	return remote.FetchByID(ctx, id)
 }
 
 // Sources returns info about all registered sources and their enabled state.

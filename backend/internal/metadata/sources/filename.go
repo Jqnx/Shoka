@@ -77,8 +77,9 @@ func NewFilenameSource() *FilenameSource {
 	return &FilenameSource{}
 }
 
-func (s *FilenameSource) Name() string  { return "filename" }
-func (s *FilenameSource) Priority() int { return 3 }
+func (s *FilenameSource) Name() string    { return "filename" }
+func (s *FilenameSource) Priority() int   { return 3 }
+func (s *FilenameSource) IsLocal() bool   { return true }
 
 func (s *FilenameSource) Fetch(ctx context.Context, input metadata.Input) (*metadata.Result, error) {
 	base := strings.TrimSuffix(filepath.Base(input.FilePath), filepath.Ext(input.FilePath))
