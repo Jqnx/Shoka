@@ -35,9 +35,9 @@ func NewComicInfoSource() *ComicInfoSource {
 	return &ComicInfoSource{}
 }
 
-func (s *ComicInfoSource) Name() string    { return "comicinfo" }
-func (s *ComicInfoSource) Priority() int   { return 1 }
-func (s *ComicInfoSource) IsLocal() bool   { return true }
+func (s *ComicInfoSource) Name() string  { return "comicinfo" }
+func (s *ComicInfoSource) Priority() int { return 1 }
+func (s *ComicInfoSource) IsLocal() bool { return true }
 
 func (s *ComicInfoSource) Fetch(ctx context.Context, input metadata.Input) (*metadata.Result, error) {
 	a, err := archive.Open(input.FilePath)
@@ -92,7 +92,7 @@ func (s *ComicInfoSource) parse(data []byte) (*metadata.Result, error) {
 		result.Characters = splitAndTrim(info.Characters, ",")
 	}
 	if info.Series != "" {
-		result.Parodies = []string{info.Series}
+		result.Parodies = splitAndTrim(info.Series, ",")
 	}
 	if info.Year > 0 {
 		t := time.Date(info.Year, time.Month(info.Month), info.Day, 0, 0, 0, 0, time.UTC)
