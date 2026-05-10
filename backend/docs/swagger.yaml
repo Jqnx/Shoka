@@ -1,5 +1,18 @@
 basePath: /
 definitions:
+  handlers.ArchiveListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/handlers.ArchiveResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
   handlers.ArchiveResponse:
     properties:
       artists:
@@ -176,6 +189,33 @@ paths:
       summary: Enable or disable a metadata source
       tags:
       - admin
+  /api/archives:
+    get:
+      parameters:
+      - default: 1
+        description: Page number (1-based)
+        in: query
+        name: page
+        type: integer
+      - default: 24
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ArchiveListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List archives with pagination
+      tags:
+      - archives
   /archives/{id}:
     get:
       parameters:

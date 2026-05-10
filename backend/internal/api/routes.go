@@ -38,6 +38,7 @@ func (s *Server) MountHandlers() {
 		adminHandler := handlers.NewAdminHandler(s.Queries, s.Log)
 
 		r.Get("/api/metadata/sources", metadataHandler.GetSources)
+		r.Get("/api/archives", archiveHandler.GetArchives)
 		r.Route("/api/archives/{id}", func(r chi.Router) {
 			r.Get("/", archiveHandler.GetArchive)
 		})

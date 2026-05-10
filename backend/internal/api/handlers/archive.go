@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"Shoka/internal/api/response"
@@ -58,6 +59,94 @@ type ProgressResponse struct {
 	CurrentPage int       `json:"current_page"`
 	LastRead    time.Time `json:"last_read"`
 	Completed   bool      `json:"completed"`
+}
+
+type ArchiveListResponse struct {
+	Items []ArchiveResponse `json:"items"`
+	Total int64             `json:"total"`
+	Page  int               `json:"page"`
+	Limit int               `json:"limit"`
+}
+
+// GetArchives godoc
+//
+//	@Summary		List archives with pagination
+//	@Tags			archives
+//	@Produce		json
+//	@Param			page	query		int	false	"Page number (1-based)"	default(1)
+//	@Param			limit	query		int	false	"Items per page"		default(24)
+//	@Success		200	{object}	ArchiveListResponse
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives [get]
+func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
+	userID := auth.UserIDFromContext(r.Context())
+
+	page := 1
+	limit := 24
+
+	if p := r.URL.Query().Get("page"); p != "" {
+		if v, err := strconv.Atoi(p); err == nil && v > 0 {
+			page = v
+		}
+	}
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 100 {
+			limit = v
+		}
+	}
+
+	offset := int64((page - 1) * limit)
+
+	total, err := h.queries.CountArchives(r.Context())
+	if err != nil {
+		h.logger.Error("count archives failed", "error", err)
+		response.InternalError(w, "failed to count archives")
+		return
+	}
+
+	rows, err := h.queries.GetArchiveList(r.Context(), sqlc.GetArchiveListParams{
+		Uid:    userID,
+		Limit:  int64(limit),
+		Offset: offset,
+	})
+	if err != nil {
+		h.logger.Error("list archives failed", "error", err)
+		response.InternalError(w, "failed to list archives")
+		return
+	}
+
+	items := make([]ArchiveResponse, 0, len(rows))
+	for _, row := range rows {
+		resp := ArchiveResponse{
+			ID:          row.ID,
+			Title:       row.Title,
+			Summary:     row.Summary,
+			Language:    row.Language,
+			Category:    row.Category,
+			ReleaseDate: row.ReleaseDate,
+			PageCount:   int(row.PageCount),
+			CreatedAt:   row.CreatedAt,
+			UpdatedAt:   row.UpdatedAt,
+			ThumbsReady: h.processor.ThumbsReady(row.ID, int(row.PageCount)),
+		}
+		if row.Page != nil {
+			resp.Progress = &ProgressResponse{
+				CurrentPage: int(*row.Page),
+				Completed:   row.Completed != nil && *row.Completed,
+			}
+			if row.LastRead != nil {
+				resp.Progress.LastRead = *row.LastRead
+			}
+		}
+		items = append(items, resp)
+	}
+
+	response.JSON(w, http.StatusOK, ArchiveListResponse{
+		Items: items,
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	})
 }
 
 // GetArchive godoc

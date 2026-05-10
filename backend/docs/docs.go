@@ -62,6 +62,47 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/archives": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "archives"
+                ],
+                "summary": "List archives with pagination",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number (1-based)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 24,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ArchiveListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/archives/{id}": {
             "get": {
                 "produces": [
@@ -406,6 +447,26 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "handlers.ArchiveListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.ArchiveResponse"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "handlers.ArchiveResponse": {
             "type": "object",
             "properties": {

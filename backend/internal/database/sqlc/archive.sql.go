@@ -316,15 +316,15 @@ const getArchiveList = `-- name: GetArchiveList :many
 select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page, progress.last_read, progress.completed
 from archive
 left join
-    progress on archive.id = progress.archive_id and progress.user_id = ?3
-limit ?
-offset ?
+    progress on archive.id = progress.archive_id and progress.user_id = ?1
+limit ?3
+offset ?2
 `
 
 type GetArchiveListParams struct {
 	Uid    string `json:"uid"`
-	Limit  int64  `json:"limit"`
 	Offset int64  `json:"offset"`
+	Limit  int64  `json:"limit"`
 }
 
 type GetArchiveListRow struct {
@@ -346,7 +346,7 @@ type GetArchiveListRow struct {
 }
 
 func (q *Queries) GetArchiveList(ctx context.Context, arg GetArchiveListParams) ([]GetArchiveListRow, error) {
-	rows, err := q.db.QueryContext(ctx, getArchiveList, arg.Uid, arg.Limit, arg.Offset)
+	rows, err := q.db.QueryContext(ctx, getArchiveList, arg.Uid, arg.Offset, arg.Limit)
 	if err != nil {
 		return nil, err
 	}

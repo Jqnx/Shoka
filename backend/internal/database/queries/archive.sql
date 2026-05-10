@@ -53,8 +53,8 @@ select archive.*, progress.page, progress.last_read, progress.completed
 from archive
 left join
     progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
-limit ?
-offset ?
+limit sqlc.arg('limit')
+offset sqlc.arg('offset')
 ;
 
 -- name: GetArchiveShuffle :one
