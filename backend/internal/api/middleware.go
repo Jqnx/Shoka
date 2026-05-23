@@ -46,5 +46,7 @@ func extractToken(r *http.Request) (string, error) {
 		return "", nil
 	}
 
-	return cookie.Value, nil
+	cookieToken := strings.Split(cookie.Value, ".")[0]
+
+	return cookieToken, nil
 }
