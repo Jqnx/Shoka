@@ -8,6 +8,13 @@
       "when": 1778277633503,
       "tag": "0000_harsh_silverclaw",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1778516392101,
+      "tag": "0001_dusty_pretty_boy",
+      "breakpoints": true
     }
   ]
 }
