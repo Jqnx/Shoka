@@ -1,12 +1,36 @@
+export type Progress = {
+	current_page: number;
+	last_read: string;
+	completed: boolean;
+};
+
 export type Archive = {
-	id: number;
+	id: string;
 	title: string;
-	artist: string;
-	category: string;
-	language: string;
+	summary: string | null;
+	language: string | null;
+	category: string | null;
+	release_date: string | null;
+	page_count: number;
+	file_path: string;
+	created_at: string;
+	updated_at: string;
+
+	artists: string[];
 	tags: string[];
-	pages: number;
-	coverHue: number;
+	parodies: string[];
+	circles: string[];
+	characters: string[];
+
+	progress: Progress | null;
+	thumbs_ready: boolean;
+};
+
+export type ArchiveListResponse = {
+	items: Archive[];
+	total: number;
+	page: number;
+	limit: number;
 };
 
 export type SortOption = 'latest' | 'title' | 'release';
