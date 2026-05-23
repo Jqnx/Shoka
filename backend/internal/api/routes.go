@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
@@ -17,6 +18,12 @@ func (s *Server) MountMiddleware() {
 	s.Router.Use(middleware.RequestID)
 	s.Router.Use(middleware.Logger)
 	s.Router.Use(middleware.Recoverer)
+	s.Router.Use(cors.Handler(cors.Options{
+		AllowedOrigins: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		MaxAge:         300,
+	}))
 	// s.Router.Use(httprate.LimitByIP(30, time.Minute))
 }
 
@@ -33,14 +40,33 @@ func (s *Server) MountHandlers() {
 		r.Use(authMiddleware(s.DB))
 
 		testHandler := handlers.NewTestHandler(s.Queries, s.Processor, s.Log)
-		archiveHandler := handlers.NewArchiveHandler(s.Queries, s.Log, s.Processor)
+		archiveHandler := handlers.NewArchiveHandler(s.Queries, s.Log, s.Processor, s.Cache)
 		metadataHandler := handlers.NewMetadataHandler(s.Queries, s.DB, s.Pipeline, s.Log)
-		adminHandler := handlers.NewAdminHandler(s.Queries, s.Log)
+		adminHandler := handlers.NewAdminHandler(s.Queries, s.Queue, s.Log)
+		tagHandler := handlers.NewTagHandler(s.Queries, s.Log, s.Processor)
+		characterHandler := handlers.NewCharacterHandler(s.Queries, s.Log, s.Processor)
+		parodyHandler := handlers.NewParodyHandler(s.Queries, s.Log, s.Processor)
 
 		r.Get("/api/metadata/sources", metadataHandler.GetSources)
 		r.Get("/api/archives", archiveHandler.GetArchives)
+		r.Get("/api/tags", tagHandler.GetTags)
+		r.Route("/api/tags/{id}", func(r chi.Router) {
+			r.Patch("/", tagHandler.UpdateTagDescription)
+			r.Delete("/", tagHandler.DeleteTag)
+		})
+		r.Get("/api/tags/{name}", tagHandler.GetArchivesByTag)
+
+		r.Get("/api/characters", characterHandler.GetCharacters)
+		r.Delete("/api/characters/{id}", characterHandler.DeleteCharacter)
+		r.Get("/api/characters/{name}", characterHandler.GetArchivesByCharacter)
+
+		r.Get("/api/parodies", parodyHandler.GetParodies)
+		r.Delete("/api/parodies/{id}", parodyHandler.DeleteParody)
+		r.Get("/api/parodies/{name}", parodyHandler.GetArchivesByParody)
 		r.Route("/api/archives/{id}", func(r chi.Router) {
 			r.Get("/", archiveHandler.GetArchive)
+			r.Get("/cover", archiveHandler.GetCover)
+			r.Get("/pages/{index}", archiveHandler.GetPage)
 		})
 		r.Route("/api/archives/{id}/metadata", func(r chi.Router) {
 			r.Post("/", metadataHandler.FetchMetadata)
@@ -52,6 +78,7 @@ func (s *Server) MountHandlers() {
 
 		r.Route("/api/admin", func(r chi.Router) {
 			r.Patch("/sources/{source}", adminHandler.UpdateSourceEnabled)
+			r.Post("/covers", adminHandler.GenerateCovers)
 		})
 
 		r.Route("/api/test", func(r chi.Router) {
