@@ -13,7 +13,7 @@
 	<!-- Cover -->
 	<div class="relative aspect-[2/3] w-full overflow-hidden bg-muted">
 		<img
-			src="http://localhost:8080/api/archives/{archive.id}/cover"
+			src="/api/archives/{archive.id}/cover"
 			alt={archive.title}
 			class="absolute inset-0 size-full object-cover"
 		/>

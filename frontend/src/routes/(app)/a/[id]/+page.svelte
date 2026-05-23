@@ -28,7 +28,7 @@
 		<div class="w-full shrink-0 md:w-56 lg:w-64">
 			<div class="aspect-[2/3] w-full overflow-hidden rounded-lg border border-border bg-muted">
 				<img
-					src="http://localhost:8080/api/archives/{a.id}/cover"
+					src="/api/archives/{a.id}/cover"
 					alt={a.title}
 					class="size-full object-cover"
 				/>
