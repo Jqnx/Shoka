@@ -1,15 +1,22 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
+	import * as Form from '$lib/components/ui/form/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import SuperDebug, { superForm, type Infer, type SuperValidated } from 'sveltekit-superforms';
+	import { signupSchema, type SignupSchema } from '$lib/schemas/signup';
+	import { zod4Client } from 'sveltekit-superforms/adapters';
+	import Label from './ui/label/label.svelte';
 
-	type FormResult = { error?: string } | null | undefined;
+	let { data }: { data: { form: SuperValidated<Infer<SignupSchema>> } } = $props();
 
-	let { form = null }: { form?: FormResult } = $props();
+	// svelte-ignore state_referenced_locally
+	const form = superForm(data.form, {
+		validators: zod4Client(signupSchema)
+	});
 
-	let loading = $state(false);
+	const { form: formData, enhance } = form;
 </script>
 
 <Card.Root class="mx-auto w-full max-w-sm">
@@ -18,48 +25,50 @@
 		<Card.Description>Enter your information below to create your account</Card.Description>
 	</Card.Header>
 	<Card.Content>
-		<form
-			method="POST"
-			use:enhance={() => {
-				loading = true;
-				return async ({ update }) => {
-					loading = false;
-					await update();
-				};
-			}}
-		>
-			<Field.Group>
-				<Field.Field>
-					<Field.Label for="username">Username</Field.Label>
-					<Input id="username" name="username" type="text" placeholder="johndoe" required />
-				</Field.Field>
-				<Field.Field>
-					<Field.Label for="email">Email</Field.Label>
-					<Input id="email" name="email" type="email" placeholder="m@example.com" required />
-				</Field.Field>
-				<Field.Field>
-					<Field.Label for="password">Password</Field.Label>
-					<Input id="password" name="password" type="password" required />
-					<Field.Description>Must be at least 8 characters long.</Field.Description>
-				</Field.Field>
-				<Field.Field>
-					<Field.Label for="confirm-password">Confirm Password</Field.Label>
-					<Input id="confirm-password" name="confirmPassword" type="password" required />
-				</Field.Field>
-				{#if form?.error}
-					<p class="text-sm text-destructive">{form.error}</p>
-				{/if}
-				<Field.Group>
-					<Field.Field>
-						<Button type="submit" class="w-full" disabled={loading}>
-							{loading ? 'Creating account…' : 'Create Account'}
-						</Button>
-						<Field.Description class="text-center">
-							Already have an account? <a href="/login" class="underline">Sign in</a>
-						</Field.Description>
-					</Field.Field>
-				</Field.Group>
-			</Field.Group>
+		<form method="POST" use:enhance>
+			<Form.Field {form} name="username">
+				<Form.Control>
+					{#snippet children({ props })}
+						<Form.Label>Username</Form.Label>
+						<Input {...props} bind:value={$formData.username} />
+					{/snippet}
+				</Form.Control>
+				<Form.FieldErrors />
+			</Form.Field>
+			<Form.Field {form} name="email">
+				<Form.Control>
+					{#snippet children({ props })}
+						<Form.Label>Email</Form.Label>
+						<Input {...props} bind:value={$formData.email} />
+					{/snippet}
+				</Form.Control>
+				<Form.FieldErrors />
+			</Form.Field>
+			<Form.Field {form} name="password">
+				<Form.Control>
+					{#snippet children({ props })}
+						<Form.Label>Password</Form.Label>
+						<Input {...props} bind:value={$formData.password} type="password" />
+					{/snippet}
+				</Form.Control>
+				<Form.Description>Must be at least 8 characters long.</Form.Description>
+				<Form.FieldErrors />
+			</Form.Field>
+			<Form.Field {form} name="confirmPassword">
+				<Form.Control>
+					{#snippet children({ props })}
+						<Form.Label>Confirm Password</Form.Label>
+						<Input {...props} bind:value={$formData.confirmPassword} type="password" />
+					{/snippet}
+				</Form.Control>
+				<Form.FieldErrors />
+			</Form.Field>
+			<Form.Button class="w-full">Sign Up</Form.Button>
+			<Label
+				class="justify-self-center pt-2 text-center text-sm leading-normal font-normal text-muted-foreground"
+			>
+				Already have an account? <a href="/login" class="underline">Sign in</a>
+			</Label>
 		</form>
 	</Card.Content>
 </Card.Root>

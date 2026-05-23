@@ -1,57 +1,52 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
-	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Field, FieldGroup, FieldLabel, FieldDescription } from '$lib/components/ui/field/index.js';
+	import * as Form from '$lib/components/ui/form/index.js';
+	import SuperDebug, { type SuperValidated, type Infer, superForm } from 'sveltekit-superforms';
+	import { loginSchema, type LoginSchema } from '$lib/schemas/login';
+	import { zod4Client } from 'sveltekit-superforms/adapters';
+	import Label from './ui/label/label.svelte';
 
-	type FormResult = { error?: string } | null | undefined;
+	let { data }: { data: { form: SuperValidated<Infer<LoginSchema>> } } = $props();
 
-	let { form = null }: { form?: FormResult } = $props();
+	// svelte-ignore state_referenced_locally
+	const form = superForm(data.form, {
+		validators: zod4Client(loginSchema)
+	});
 
-	const id = $props.id();
-	let loading = $state(false);
+	const { form: formData, enhance } = form;
 </script>
 
 <Card.Root class="mx-auto w-full max-w-sm">
 	<Card.Header>
 		<Card.Title class="text-2xl">Login</Card.Title>
-		<Card.Description>Enter your email below to login to your account</Card.Description>
 	</Card.Header>
 	<Card.Content>
-		<form
-			method="POST"
-			use:enhance={() => {
-				loading = true;
-				return async ({ update }) => {
-					loading = false;
-					await update();
-				};
-			}}
-		>
-			<FieldGroup>
-				<Field>
-					<FieldLabel for="email-{id}">Email</FieldLabel>
-					<Input id="email-{id}" name="email" type="email" placeholder="m@example.com" required />
-				</Field>
-				<Field>
-					<div class="flex items-center">
-						<FieldLabel for="password-{id}">Password</FieldLabel>
-					</div>
-					<Input id="password-{id}" name="password" type="password" required />
-				</Field>
-				{#if form?.error}
-					<p class="text-sm text-destructive">{form.error}</p>
-				{/if}
-				<Field>
-					<Button type="submit" class="w-full" disabled={loading}>
-						{loading ? 'Signing in…' : 'Login'}
-					</Button>
-					<FieldDescription class="text-center">
-						Don't have an account? <a href="/signup" class="underline">Sign up</a>
-					</FieldDescription>
-				</Field>
-			</FieldGroup>
+		<form method="POST" use:enhance>
+			<Form.Field {form} name="username">
+				<Form.Control>
+					{#snippet children({ props })}
+						<Form.Label>Username</Form.Label>
+						<Input {...props} bind:value={$formData.username} />
+					{/snippet}
+				</Form.Control>
+				<Form.FieldErrors />
+			</Form.Field>
+			<Form.Field {form} name="password">
+				<Form.Control>
+					{#snippet children({ props })}
+						<Form.Label>Password</Form.Label>
+						<Input {...props} bind:value={$formData.password} type="password" />
+					{/snippet}
+				</Form.Control>
+				<Form.FieldErrors />
+			</Form.Field>
+			<Form.Button class="w-full">Login</Form.Button>
+			<Label
+				class="justify-self-center pt-2 text-left text-sm leading-normal font-normal text-muted-foreground"
+			>
+				Don't have an account? <a href="/signup" class="underline">Sign up</a>
+			</Label>
 		</form>
 	</Card.Content>
 </Card.Root>
