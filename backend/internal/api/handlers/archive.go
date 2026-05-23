@@ -13,6 +13,7 @@ import (
 	"Shoka/internal/database"
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/image"
+	"Shoka/internal/language"
 	"Shoka/internal/metadata"
 
 	"github.com/go-chi/chi/v5"
@@ -22,12 +23,14 @@ type ArchiveHandler struct {
 	queries   *sqlc.Queries
 	logger    *slog.Logger
 	processor *image.Processor
+	cache     *image.Cache
 }
 
-func NewArchiveHandler(queries *sqlc.Queries, log *slog.Logger, processor *image.Processor) *ArchiveHandler {
+func NewArchiveHandler(queries *sqlc.Queries, log *slog.Logger, processor *image.Processor, cache *image.Cache) *ArchiveHandler {
 	return &ArchiveHandler{
 		queries:   queries,
 		processor: processor,
+		cache:     cache,
 		logger:    log.With("handler", "archive"),
 	}
 }
@@ -116,12 +119,20 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 	}
 
 	items := make([]ArchiveResponse, 0, len(rows))
+	lc := language.NewLanguageConverter()
 	for _, row := range rows {
+		var lang string
+		if row.Language != nil {
+			lang, err = lc.ToName(*row.Language)
+			if err != nil {
+				lang = *row.Language
+			}
+		}
 		resp := ArchiveResponse{
 			ID:          row.ID,
 			Title:       row.Title,
 			Summary:     row.Summary,
-			Language:    row.Language,
+			Language:    &lang,
 			Category:    row.Category,
 			ReleaseDate: row.ReleaseDate,
 			PageCount:   int(row.PageCount),
@@ -223,11 +234,20 @@ func (h *ArchiveHandler) buildResponse(
 	meta *metadata.Result,
 	progress *sqlc.Progress,
 ) ArchiveResponse {
+	lc := language.NewLanguageConverter()
+	var lang string
+	var err error
+	if archive.Language != nil {
+		lang, err = lc.ToName(*archive.Language)
+		if err != nil {
+			lang = *archive.Language
+		}
+	}
 	resp := ArchiveResponse{
 		ID:          archive.ID,
 		Title:       archive.Title,
 		Summary:     archive.Summary,
-		Language:    archive.Language,
+		Language:    &lang,
 		Category:    archive.Category,
 		ReleaseDate: archive.ReleaseDate,
 		PageCount:   int(archive.PageCount),
@@ -253,4 +273,76 @@ func (h *ArchiveHandler) buildResponse(
 	}
 
 	return resp
+}
+
+// GetCover godoc
+//
+//	@Summary		Get the cover thumbnail for an archive
+//	@Tags			archives
+//	@Produce		image/webp
+//	@Param			id	path	string	true	"Archive ID"
+//	@Success		200
+//	@Failure		404	{object}	response.Error
+//	@Router			/api/archives/{id}/cover [get]
+func (h *ArchiveHandler) GetCover(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	path := h.processor.ThumbPath(id, 0)
+	if path == "" {
+		response.NotFound(w, "cover not ready")
+		return
+	}
+
+	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	http.ServeFile(w, r, path)
+}
+
+// GetPage godoc
+//
+//	@Summary		Get a full-resolution page for an archive
+//	@Tags			archives
+//	@Produce		image/webp
+//	@Param			id		path	string	true	"Archive ID"
+//	@Param			index	path	int		true	"Page index (0-based)"
+//	@Success		200
+//	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/pages/{index} [get]
+func (h *ArchiveHandler) GetPage(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	index, err := strconv.Atoi(chi.URLParam(r, "index"))
+	if err != nil || index < 0 {
+		response.BadRequest(w, "invalid page index")
+		return
+	}
+
+	archive, err := h.queries.GetArchiveByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "archive not found")
+			return
+		}
+		h.logger.Error("get archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
+		return
+	}
+
+	if index >= int(archive.PageCount) {
+		response.NotFound(w, "page not found")
+		return
+	}
+
+	data, err := h.cache.GetPage(id, archive.FilePath, index)
+	if err != nil {
+		h.logger.Error("get page failed", "id", id, "index", index, "error", err)
+		response.InternalError(w, "failed to get page")
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/webp")
+	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
 }
