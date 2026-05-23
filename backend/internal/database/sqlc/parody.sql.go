@@ -124,6 +124,19 @@ func (q *Queries) BulkRemoveParodiesFromArchive(ctx context.Context, arg BulkRem
 	return err
 }
 
+const countParodies = `-- name: CountParodies :one
+;
+
+select count(*) from parody
+`
+
+func (q *Queries) CountParodies(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countParodies)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createParody = `-- name: CreateParody :one
 insert into parody (name, count)
 values (?, ?)
@@ -574,6 +587,89 @@ func (q *Queries) GetArchiveParodyIDs(ctx context.Context, id string) ([]int64, 
 	return items, nil
 }
 
+const getArchivesByParodyName = `-- name: GetArchivesByParodyName :many
+;
+
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page, progress.last_read, progress.completed
+from archive
+join archive_parody on archive.id = archive_parody.archive_id
+join parody on archive_parody.parody_id = parody.id
+left join progress on archive.id = progress.archive_id and progress.user_id = ?1
+where parody.name = ?2
+order by archive.title asc
+limit ?4
+offset ?3
+`
+
+type GetArchivesByParodyNameParams struct {
+	Uid    string `json:"uid"`
+	Name   string `json:"name"`
+	Offset int64  `json:"offset"`
+	Limit  int64  `json:"limit"`
+}
+
+type GetArchivesByParodyNameRow struct {
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int64      `json:"page_count"`
+	FilePath    string     `json:"file_path"`
+	FileSize    int64      `json:"file_size"`
+	ModTime     time.Time  `json:"mod_time"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
+	LastRead    *time.Time `json:"last_read"`
+	Completed   *bool      `json:"completed"`
+}
+
+func (q *Queries) GetArchivesByParodyName(ctx context.Context, arg GetArchivesByParodyNameParams) ([]GetArchivesByParodyNameRow, error) {
+	rows, err := q.db.QueryContext(ctx, getArchivesByParodyName,
+		arg.Uid,
+		arg.Name,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchivesByParodyNameRow
+	for rows.Next() {
+		var i GetArchivesByParodyNameRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.FileSize,
+			&i.ModTime,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+			&i.Page,
+			&i.LastRead,
+			&i.Completed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getParody = `-- name: GetParody :one
 ;
 
@@ -587,6 +683,44 @@ func (q *Queries) GetParody(ctx context.Context, name string) (Parody, error) {
 	var i Parody
 	err := row.Scan(&i.ID, &i.Name, &i.Count)
 	return i, err
+}
+
+const getParodyList = `-- name: GetParodyList :many
+;
+
+select id, name, count
+from parody
+order by name
+limit ?
+offset ?
+`
+
+type GetParodyListParams struct {
+	Limit  int64 `json:"limit"`
+	Offset int64 `json:"offset"`
+}
+
+func (q *Queries) GetParodyList(ctx context.Context, arg GetParodyListParams) ([]Parody, error) {
+	rows, err := q.db.QueryContext(ctx, getParodyList, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Parody
+	for rows.Next() {
+		var i Parody
+		if err := rows.Scan(&i.ID, &i.Name, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const incrementParodyCount = `-- name: IncrementParodyCount :exec

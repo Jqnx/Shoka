@@ -33,7 +33,7 @@ const bulkAddArchiveTags = `-- name: BulkAddArchiveTags :exec
 ;
 
 insert or ignore into archive_tag (archive_id, tag_id)
-select ?, value 
+select ?, value
 from json_each(?2)
 `
 
@@ -51,7 +51,7 @@ const bulkAddTags = `-- name: BulkAddTags :exec
 ;
 
 insert or ignore into tag (name, count)
-select value, 0 
+select value, 0
 from json_each(?1)
 `
 
@@ -121,6 +121,19 @@ type BulkRemoveTagFromArchiveParams struct {
 func (q *Queries) BulkRemoveTagFromArchive(ctx context.Context, arg BulkRemoveTagFromArchiveParams) error {
 	_, err := q.db.ExecContext(ctx, bulkRemoveTagFromArchive, arg.ArchiveID, arg.Tags)
 	return err
+}
+
+const countTags = `-- name: CountTags :one
+;
+
+select count(*) from tag
+`
+
+func (q *Queries) CountTags(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countTags)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const createTag = `-- name: CreateTag :one
@@ -587,6 +600,89 @@ func (q *Queries) GetArchiveTagIDs(ctx context.Context, id string) ([]int64, err
 	return items, nil
 }
 
+const getArchivesByTagName = `-- name: GetArchivesByTagName :many
+;
+
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page, progress.last_read, progress.completed
+from archive
+join archive_tag on archive.id = archive_tag.archive_id
+join tag on archive_tag.tag_id = tag.id
+left join progress on archive.id = progress.archive_id and progress.user_id = ?1
+where tag.name = ?2
+order by archive.title asc
+limit ?4
+offset ?3
+`
+
+type GetArchivesByTagNameParams struct {
+	Uid    string `json:"uid"`
+	Name   string `json:"name"`
+	Offset int64  `json:"offset"`
+	Limit  int64  `json:"limit"`
+}
+
+type GetArchivesByTagNameRow struct {
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int64      `json:"page_count"`
+	FilePath    string     `json:"file_path"`
+	FileSize    int64      `json:"file_size"`
+	ModTime     time.Time  `json:"mod_time"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+	Page        *int64     `json:"page"`
+	LastRead    *time.Time `json:"last_read"`
+	Completed   *bool      `json:"completed"`
+}
+
+func (q *Queries) GetArchivesByTagName(ctx context.Context, arg GetArchivesByTagNameParams) ([]GetArchivesByTagNameRow, error) {
+	rows, err := q.db.QueryContext(ctx, getArchivesByTagName,
+		arg.Uid,
+		arg.Name,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchivesByTagNameRow
+	for rows.Next() {
+		var i GetArchivesByTagNameRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.FileSize,
+			&i.ModTime,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+			&i.Page,
+			&i.LastRead,
+			&i.Completed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getTag = `-- name: GetTag :one
 ;
 
@@ -605,6 +701,49 @@ func (q *Queries) GetTag(ctx context.Context, name string) (Tag, error) {
 		&i.Count,
 	)
 	return i, err
+}
+
+const getTagList = `-- name: GetTagList :many
+;
+
+select id, name, description, count
+from tag
+order by name
+limit ?
+offset ?
+`
+
+type GetTagListParams struct {
+	Limit  int64 `json:"limit"`
+	Offset int64 `json:"offset"`
+}
+
+func (q *Queries) GetTagList(ctx context.Context, arg GetTagListParams) ([]Tag, error) {
+	rows, err := q.db.QueryContext(ctx, getTagList, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Tag
+	for rows.Next() {
+		var i Tag
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Count,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const incrementTagCount = `-- name: IncrementTagCount :exec
@@ -685,4 +824,22 @@ func (q *Queries) TotalArchiveWithTag(ctx context.Context, name string) (int64, 
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const updateTagDescription = `-- name: UpdateTagDescription :exec
+;
+
+update tag
+set description = ?
+where id = ?
+`
+
+type UpdateTagDescriptionParams struct {
+	Description *string `json:"description"`
+	ID          int64   `json:"id"`
+}
+
+func (q *Queries) UpdateTagDescription(ctx context.Context, arg UpdateTagDescriptionParams) error {
+	_, err := q.db.ExecContext(ctx, updateTagDescription, arg.Description, arg.ID)
+	return err
 }

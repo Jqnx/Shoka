@@ -11,13 +11,13 @@ values (?, ?)
 
 -- name: BulkAddArchiveTags :exec
 insert or ignore into archive_tag (archive_id, tag_id)
-select ?, value 
+select ?, value
 from json_each(sqlc.arg('tags'))
 ;
 
 -- name: BulkAddTags :exec
 insert or ignore into tag (name, count)
-select value, 0 
+select value, 0
 from json_each(sqlc.arg('tags'))
 ;
 
@@ -45,6 +45,30 @@ where name = ?
 select *
 from tag
 order by name
+;
+
+-- name: GetArchivesByTagName :many
+select archive.*, progress.page, progress.last_read, progress.completed
+from archive
+join archive_tag on archive.id = archive_tag.archive_id
+join tag on archive_tag.tag_id = tag.id
+left join progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
+where tag.name = sqlc.arg('name')
+order by archive.title asc
+limit sqlc.arg('limit')
+offset sqlc.arg('offset')
+;
+
+-- name: CountTags :one
+select count(*) from tag
+;
+
+-- name: GetTagList :many
+select *
+from tag
+order by name
+limit ?
+offset ?
 ;
 
 -- name: TagExists :execresult
@@ -154,6 +178,12 @@ where id in (sqlc.slice('tags'))
 update tag
 set count = count + 1
 where id in (sqlc.slice('tags'))
+;
+
+-- name: UpdateTagDescription :exec
+update tag
+set description = ?
+where id = ?
 ;
 
 -- name: DeleteTag :exec

@@ -134,6 +134,30 @@ set count = count + 1
 where id in (sqlc.slice('characters'))
 ;
 
+-- name: GetArchivesByCharacterName :many
+select archive.*, progress.page, progress.last_read, progress.completed
+from archive
+join archive_character on archive.id = archive_character.archive_id
+join character on archive_character.character_id = character.id
+left join progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
+where character.name = sqlc.arg('name')
+order by archive.title asc
+limit sqlc.arg('limit')
+offset sqlc.arg('offset')
+;
+
+-- name: CountCharacters :one
+select count(*) from character
+;
+
+-- name: GetCharacterList :many
+select *
+from character
+order by name
+limit ?
+offset ?
+;
+
 -- name: DeleteCharacter :exec
 delete from character
 where id = ?

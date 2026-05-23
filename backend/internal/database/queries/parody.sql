@@ -134,6 +134,30 @@ set count = count + 1
 where id in (sqlc.slice('parodies'))
 ;
 
+-- name: GetArchivesByParodyName :many
+select archive.*, progress.page, progress.last_read, progress.completed
+from archive
+join archive_parody on archive.id = archive_parody.archive_id
+join parody on archive_parody.parody_id = parody.id
+left join progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
+where parody.name = sqlc.arg('name')
+order by archive.title asc
+limit sqlc.arg('limit')
+offset sqlc.arg('offset')
+;
+
+-- name: CountParodies :one
+select count(*) from parody
+;
+
+-- name: GetParodyList :many
+select *
+from parody
+order by name
+limit ?
+offset ?
+;
+
 -- name: DeleteParody :exec
 delete from parody
 where id = ?
