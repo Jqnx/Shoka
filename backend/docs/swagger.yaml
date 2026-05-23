@@ -60,6 +60,50 @@ definitions:
       updated_at:
         type: string
     type: object
+  handlers.CharacterListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/handlers.CharacterResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
+  handlers.CharacterResponse:
+    properties:
+      count:
+        type: integer
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  handlers.ParodyListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/handlers.ParodyResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
+  handlers.ParodyResponse:
+    properties:
+      count:
+        type: integer
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
   handlers.ProgressResponse:
     properties:
       completed:
@@ -69,10 +113,39 @@ definitions:
       last_read:
         type: string
     type: object
+  handlers.TagListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/handlers.TagResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
+  handlers.TagResponse:
+    properties:
+      count:
+        type: integer
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
   handlers.UpdateSourceEnabledRequest:
     properties:
       enabled:
         type: boolean
+    type: object
+  handlers.UpdateTagDescriptionRequest:
+    properties:
+      description:
+        type: string
     type: object
   metadata.Result:
     properties:
@@ -157,6 +230,18 @@ info:
   title: Shoka API
   version: "1.0"
 paths:
+  /api/admin/covers:
+    post:
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Enqueue cover generation for all archives
+      tags:
+      - admin
   /api/admin/sources/{source}:
     patch:
       consumes:
@@ -216,6 +301,331 @@ paths:
       summary: List archives with pagination
       tags:
       - archives
+  /api/archives/{id}/cover:
+    get:
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - image/webp
+      responses:
+        "200":
+          description: OK
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Get the cover thumbnail for an archive
+      tags:
+      - archives
+  /api/archives/{id}/pages/{index}:
+    get:
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Page index (0-based)
+        in: path
+        name: index
+        required: true
+        type: integer
+      produces:
+      - image/webp
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Get a full-resolution page for an archive
+      tags:
+      - archives
+  /api/characters:
+    get:
+      parameters:
+      - default: 1
+        description: Page number (1-based)
+        in: query
+        name: page
+        type: integer
+      - default: 50
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.CharacterListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List characters with pagination
+      tags:
+      - characters
+  /api/characters/{id}:
+    delete:
+      parameters:
+      - description: Character ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Delete a character
+      tags:
+      - characters
+  /api/characters/{name}:
+    get:
+      parameters:
+      - description: Character name
+        in: path
+        name: name
+        required: true
+        type: string
+      - default: 1
+        description: Page number (1-based)
+        in: query
+        name: page
+        type: integer
+      - default: 24
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ArchiveListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List archives for a character
+      tags:
+      - characters
+  /api/parodies:
+    get:
+      parameters:
+      - default: 1
+        description: Page number (1-based)
+        in: query
+        name: page
+        type: integer
+      - default: 50
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ParodyListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List parodies with pagination
+      tags:
+      - parodies
+  /api/parodies/{id}:
+    delete:
+      parameters:
+      - description: Parody ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Delete a parody
+      tags:
+      - parodies
+  /api/parodies/{name}:
+    get:
+      parameters:
+      - description: Parody name
+        in: path
+        name: name
+        required: true
+        type: string
+      - default: 1
+        description: Page number (1-based)
+        in: query
+        name: page
+        type: integer
+      - default: 24
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ArchiveListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List archives for a parody
+      tags:
+      - parodies
+  /api/tags:
+    get:
+      parameters:
+      - default: 1
+        description: Page number (1-based)
+        in: query
+        name: page
+        type: integer
+      - default: 50
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.TagListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List tags with pagination
+      tags:
+      - tags
+  /api/tags/{id}:
+    delete:
+      parameters:
+      - description: Tag ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Delete a tag
+      tags:
+      - tags
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: Tag ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Description
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateTagDescriptionRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Update a tag's description
+      tags:
+      - tags
+  /api/tags/{name}:
+    get:
+      parameters:
+      - description: Tag name
+        in: path
+        name: name
+        required: true
+        type: string
+      - default: 1
+        description: Page number (1-based)
+        in: query
+        name: page
+        type: integer
+      - default: 24
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ArchiveListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List archives for a tag
+      tags:
+      - tags
   /archives/{id}:
     get:
       parameters:
