@@ -1,10 +1,12 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar';
+	import * as Pagination from '$lib/components/ui/pagination';
 	import { Button } from '$lib/components/ui/button';
 	import ArchiveCard from '$lib/components/ArchiveCard.svelte';
 	import ArchivesSidebar from '$lib/components/ArchivesSidebar.svelte';
 	import { Search } from '@lucide/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { goto } from '$app/navigation';
 	import type { SortOption, Category, Language } from '$lib/types';
 
 	let { data } = $props();
@@ -87,7 +89,6 @@
 			</p>
 		</div>
 		<div class="px-4 py-4 sm:px-6">
-
 			{#if filteredArchives.length === 0}
 				<div class="flex flex-col items-center justify-center py-24 text-center">
 					<Search class="mb-3 size-10 text-muted-foreground/40" />
@@ -98,12 +99,43 @@
 					</Button>
 				</div>
 			{:else}
-				<div
-					class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8"
-				>
+				<div class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
 					{#each filteredArchives as archive (archive.id)}
 						<ArchiveCard {archive} />
 					{/each}
+				</div>
+			{/if}
+
+			{#if data.total > data.limit}
+				<div class="mt-8">
+					<Pagination.Root
+						count={data.total}
+						perPage={data.limit}
+						page={data.page}
+						onPageChange={(p) => goto(`?page=${p}`)}
+					>
+						{#snippet children({ pages })}
+							<Pagination.Content>
+								<Pagination.Item>
+									<Pagination.Previous />
+								</Pagination.Item>
+								{#each pages as p (p.key)}
+									{#if p.type === 'ellipsis'}
+										<Pagination.Item>
+											<Pagination.Ellipsis />
+										</Pagination.Item>
+									{:else}
+										<Pagination.Item>
+											<Pagination.Link page={p} isActive={data.page === p.value} />
+										</Pagination.Item>
+									{/if}
+								{/each}
+								<Pagination.Item>
+									<Pagination.Next />
+								</Pagination.Item>
+							</Pagination.Content>
+						{/snippet}
+					</Pagination.Root>
 				</div>
 			{/if}
 		</div>
