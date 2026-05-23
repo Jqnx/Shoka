@@ -85,3 +85,4 @@ make tidy   # Go module cleanup
 ### sqlc pattern
 
 Queries use named parameters (`:param`) and are annotated with `-- name: FuncName :one/:many/:exec`. After editing `.sql` files always run `make sqlc`.
+Use named parameters (`sqlc.arg('param')`) for the sql limit and offset values.
