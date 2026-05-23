@@ -196,13 +196,12 @@ func (s *Scanner) addArchive(ctx context.Context, path string, info fs.FileInfo)
 		s.log.Warn("archive id collision, retrying", "path", path)
 	}
 
-	// TODO: Enabled Jobs
-	//if err := s.queue.Enqueue(ctx, jobs.JobTypeCover, jobs.CoverPayload{
-	//	ArchiveID: arch.ID,
-	//	FilePath:  path,
-	//}); err != nil {
-	//	return err
-	//}
+	if err := s.queue.Enqueue(ctx, jobs.JobTypeCover, jobs.CoverPayload{
+		ArchiveID: arch.ID,
+		FilePath:  path,
+	}); err != nil {
+		return err
+	}
 
 	if err := s.queue.Enqueue(ctx, jobs.JobTypeMetadata, jobs.MetadataPayload{
 		ArchiveID: arch.ID,
@@ -210,6 +209,7 @@ func (s *Scanner) addArchive(ctx context.Context, path string, info fs.FileInfo)
 		return err
 	}
 
+	// TODO: Add Index Job
 	//if err := s.queue.Enqueue(ctx, jobs.JobTypeIndex, jobs.IndexPayload{
 	//	ArchiveID: archive.ID,
 	//}); err != nil {
