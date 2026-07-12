@@ -89,7 +89,7 @@ const docTemplate = `{
                 "tags": [
                     "archives"
                 ],
-                "summary": "List archives with pagination",
+                "summary": "List archives with pagination, filtering, and sorting",
                 "parameters": [
                     {
                         "type": "integer",
@@ -103,6 +103,64 @@ const docTemplate = `{
                         "default": 24,
                         "description": "Items per page",
                         "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order (title_asc, title_desc, release_date_asc, release_date_desc, created_at_asc, created_at_desc, page_count_asc, page_count_desc)",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "Filter by artist name(s); archive must have all",
+                        "name": "artist",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "Filter by tag name(s); archive must have all",
+                        "name": "tag",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "Filter by character name(s); archive must have all",
+                        "name": "character",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "Filter by parody name(s); archive must have all",
+                        "name": "parody",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by language code (e.g. en, ja)",
+                        "name": "language",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by category",
+                        "name": "category",
                         "in": "query"
                     }
                 ],
@@ -244,6 +302,34 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/characters/all": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "characters"
+                ],
+                "summary": "List every character",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handlers.CharacterResponse"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/characters/{id}": {
             "delete": {
                 "tags": [
@@ -367,6 +453,34 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/parodies/all": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "parodies"
+                ],
+                "summary": "List every parody",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handlers.ParodyResponse"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/parodies/{id}": {
             "delete": {
                 "tags": [
@@ -479,6 +593,34 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/handlers.TagListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/tags/all": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tags"
+                ],
+                "summary": "List every tag",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handlers.TagResponse"
+                            }
                         }
                     },
                     "500": {
