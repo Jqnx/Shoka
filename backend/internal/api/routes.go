@@ -40,7 +40,7 @@ func (s *Server) MountHandlers() {
 		r.Use(authMiddleware(s.DB))
 
 		testHandler := handlers.NewTestHandler(s.Queries, s.Processor, s.Log)
-		archiveHandler := handlers.NewArchiveHandler(s.Queries, s.Log, s.Processor, s.Cache)
+		archiveHandler := handlers.NewArchiveHandler(s.Queries, s.DB, s.Log, s.Processor, s.Cache)
 		metadataHandler := handlers.NewMetadataHandler(s.Queries, s.DB, s.Pipeline, s.Log)
 		adminHandler := handlers.NewAdminHandler(s.Queries, s.Queue, s.Log)
 		tagHandler := handlers.NewTagHandler(s.Queries, s.Log, s.Processor)
@@ -50,6 +50,7 @@ func (s *Server) MountHandlers() {
 		r.Get("/api/metadata/sources", metadataHandler.GetSources)
 		r.Get("/api/archives", archiveHandler.GetArchives)
 		r.Get("/api/tags", tagHandler.GetTags)
+		r.Get("/api/tags/all", tagHandler.GetAllTags)
 		r.Route("/api/tags/{id}", func(r chi.Router) {
 			r.Patch("/", tagHandler.UpdateTagDescription)
 			r.Delete("/", tagHandler.DeleteTag)
@@ -57,10 +58,12 @@ func (s *Server) MountHandlers() {
 		r.Get("/api/tags/{name}", tagHandler.GetArchivesByTag)
 
 		r.Get("/api/characters", characterHandler.GetCharacters)
+		r.Get("/api/characters/all", characterHandler.GetAllCharacters)
 		r.Delete("/api/characters/{id}", characterHandler.DeleteCharacter)
 		r.Get("/api/characters/{name}", characterHandler.GetArchivesByCharacter)
 
 		r.Get("/api/parodies", parodyHandler.GetParodies)
+		r.Get("/api/parodies/all", parodyHandler.GetAllParodies)
 		r.Delete("/api/parodies/{id}", parodyHandler.DeleteParody)
 		r.Get("/api/parodies/{name}", parodyHandler.GetArchivesByParody)
 		r.Route("/api/archives/{id}", func(r chi.Router) {

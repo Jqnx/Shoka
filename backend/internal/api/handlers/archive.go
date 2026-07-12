@@ -21,14 +21,16 @@ import (
 
 type ArchiveHandler struct {
 	queries   *sqlc.Queries
+	db        *sql.DB
 	logger    *slog.Logger
 	processor *image.Processor
 	cache     *image.Cache
 }
 
-func NewArchiveHandler(queries *sqlc.Queries, log *slog.Logger, processor *image.Processor, cache *image.Cache) *ArchiveHandler {
+func NewArchiveHandler(queries *sqlc.Queries, db *sql.DB, log *slog.Logger, processor *image.Processor, cache *image.Cache) *ArchiveHandler {
 	return &ArchiveHandler{
 		queries:   queries,
+		db:        db,
 		processor: processor,
 		cache:     cache,
 		logger:    log.With("handler", "archive"),
@@ -73,58 +75,79 @@ type ArchiveListResponse struct {
 
 // GetArchives godoc
 //
-//	@Summary		List archives with pagination
+//	@Summary		List archives with pagination, filtering, and sorting
 //	@Tags			archives
 //	@Produce		json
-//	@Param			page	query		int	false	"Page number (1-based)"	default(1)
-//	@Param			limit	query		int	false	"Items per page"		default(24)
+//	@Param			page		query		int		false	"Page number (1-based)"							default(1)
+//	@Param			limit		query		int		false	"Items per page"								default(24)
+//	@Param			sort		query		string		false	"Sort order (title_asc, title_desc, release_date_asc, release_date_desc, created_at_asc, created_at_desc, page_count_asc, page_count_desc)"
+//	@Param			artist		query		[]string	false	"Filter by artist name(s); archive must have all"
+//	@Param			tag			query		[]string	false	"Filter by tag name(s); archive must have all"
+//	@Param			character	query		[]string	false	"Filter by character name(s); archive must have all"
+//	@Param			parody		query		[]string	false	"Filter by parody name(s); archive must have all"
+//	@Param			language	query		string		false	"Filter by language code (e.g. en, ja)"
+//	@Param			category	query		string		false	"Filter by category"
 //	@Success		200	{object}	ArchiveListResponse
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/archives [get]
 func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
+	q := r.URL.Query()
 
 	page := 1
 	limit := 24
 
-	if p := r.URL.Query().Get("page"); p != "" {
+	if p := q.Get("page"); p != "" {
 		if v, err := strconv.Atoi(p); err == nil && v > 0 {
 			page = v
 		}
 	}
-	if l := r.URL.Query().Get("limit"); l != "" {
+	if l := q.Get("limit"); l != "" {
 		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 100 {
 			limit = v
 		}
 	}
 
-	offset := int64((page - 1) * limit)
-
-	total, err := h.queries.CountArchives(r.Context())
-	if err != nil {
-		h.logger.Error("count archives failed", "error", err)
-		response.InternalError(w, "failed to count archives")
-		return
+	filter := database.ArchiveFilter{
+		Artists:    q["artist"],
+		Tags:       q["tag"],
+		Characters: q["character"],
+		Parodies:   q["parody"],
+		Language:   q.Get("language"),
+		Category:   q.Get("category"),
+		Sort:       q.Get("sort"),
+		Limit:      int64(limit),
+		Offset:     int64((page - 1) * limit),
+		UserID:     userID,
 	}
 
-	rows, err := h.queries.GetArchiveList(r.Context(), sqlc.GetArchiveListParams{
-		Uid:    userID,
-		Limit:  int64(limit),
-		Offset: offset,
-	})
+	rows, total, err := database.ListArchives(r.Context(), h.db, filter)
 	if err != nil {
 		h.logger.Error("list archives failed", "error", err)
 		response.InternalError(w, "failed to list archives")
 		return
 	}
 
-	items := make([]ArchiveResponse, 0, len(rows))
+	ids := make([]string, len(rows))
+	for i, row := range rows {
+		ids[i] = row.ID
+	}
+
+	metaByID, err := database.GetBulkArchiveMetadata(r.Context(), h.db, ids)
+	if err != nil {
+		h.logger.Error("get bulk archive metadata failed", "error", err)
+		response.InternalError(w, "failed to get archive metadata")
+		return
+	}
+
 	lc := language.NewLanguageConverter()
+	items := make([]ArchiveResponse, 0, len(rows))
 	for _, row := range rows {
 		var lang string
 		if row.Language != nil {
-			lang, err = lc.ToName(*row.Language)
-			if err != nil {
+			if name, err := lc.ToName(*row.Language); err == nil {
+				lang = name
+			} else {
 				lang = *row.Language
 			}
 		}
@@ -139,6 +162,13 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:   row.CreatedAt,
 			UpdatedAt:   row.UpdatedAt,
 			ThumbsReady: h.processor.ThumbsReady(row.ID, int(row.PageCount)),
+		}
+		if meta, ok := metaByID[row.ID]; ok {
+			resp.Artists = meta.Artists
+			resp.Tags = meta.Tags
+			resp.Parodies = meta.Parodies
+			resp.Circles = meta.Circles
+			resp.Characters = meta.Characters
 		}
 		if row.Page != nil {
 			resp.Progress = &ProgressResponse{

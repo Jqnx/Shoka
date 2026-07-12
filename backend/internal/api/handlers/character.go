@@ -101,6 +101,34 @@ func (h *CharacterHandler) GetCharacters(w http.ResponseWriter, r *http.Request)
 	})
 }
 
+// GetAllCharacters godoc
+//
+//	@Summary		List every character
+//	@Tags			characters
+//	@Produce		json
+//	@Success		200	{array}		CharacterResponse
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/characters/all [get]
+func (h *CharacterHandler) GetAllCharacters(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.queries.GetAllCharacter(r.Context())
+	if err != nil {
+		h.logger.Error("get all characters failed", "error", err)
+		response.InternalError(w, "failed to get characters")
+		return
+	}
+
+	items := make([]CharacterResponse, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, CharacterResponse{
+			ID:    row.ID,
+			Name:  row.Name,
+			Count: row.Count,
+		})
+	}
+
+	response.JSON(w, http.StatusOK, items)
+}
+
 // GetArchivesByCharacter godoc
 //
 //	@Summary		List archives for a character

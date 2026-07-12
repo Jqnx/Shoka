@@ -101,6 +101,34 @@ func (h *ParodyHandler) GetParodies(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetAllParodies godoc
+//
+//	@Summary		List every parody
+//	@Tags			parodies
+//	@Produce		json
+//	@Success		200	{array}		ParodyResponse
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/parodies/all [get]
+func (h *ParodyHandler) GetAllParodies(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.queries.GetAllParody(r.Context())
+	if err != nil {
+		h.logger.Error("get all parodies failed", "error", err)
+		response.InternalError(w, "failed to get parodies")
+		return
+	}
+
+	items := make([]ParodyResponse, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, ParodyResponse{
+			ID:    row.ID,
+			Name:  row.Name,
+			Count: row.Count,
+		})
+	}
+
+	response.JSON(w, http.StatusOK, items)
+}
+
 // GetArchivesByParody godoc
 //
 //	@Summary		List archives for a parody

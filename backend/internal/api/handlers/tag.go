@@ -104,6 +104,35 @@ func (h *TagHandler) GetTags(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetAllTags godoc
+//
+//	@Summary		List every tag
+//	@Tags			tags
+//	@Produce		json
+//	@Success		200	{array}		TagResponse
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/tags/all [get]
+func (h *TagHandler) GetAllTags(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.queries.GetAllTags(r.Context())
+	if err != nil {
+		h.logger.Error("get all tags failed", "error", err)
+		response.InternalError(w, "failed to get tags")
+		return
+	}
+
+	items := make([]TagResponse, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, TagResponse{
+			ID:          row.ID,
+			Name:        row.Name,
+			Description: row.Description,
+			Count:       row.Count,
+		})
+	}
+
+	response.JSON(w, http.StatusOK, items)
+}
+
 // GetArchivesByTag godoc
 //
 //	@Summary		List archives for a tag
