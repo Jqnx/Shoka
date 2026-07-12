@@ -86,3 +86,12 @@ make tidy   # Go module cleanup
 
 Queries use named parameters (`:param`) and are annotated with `-- name: FuncName :one/:many/:exec`. After editing `.sql` files always run `make sqlc`.
 Use named parameters (`sqlc.arg('param')`) for the sql limit and offset values.
+
+### Frontend Authentication
+
+Prefer using server-side actions over a client-side client.
+
+### Smoke-test the dev server
+
+The dev server should be running at `localhost:5173` by default.
+Check if it is running first before starting the dev server.

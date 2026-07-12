@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
@@ -9,14 +10,22 @@
 
 	function formatDate(iso: string | null) {
 		if (!iso) return null;
-		return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+		return new Date(iso).toLocaleDateString(undefined, {
+			year: 'numeric',
+			month: 'long',
+			day: 'numeric'
+		});
 	}
 </script>
+
+<svelte:head>
+	<title>{a.title} | Shoka</title>
+</svelte:head>
 
 <div class="mx-auto max-w-screen-xl px-4 py-8 sm:px-6">
 	<!-- Back -->
 	<a
-		href="/a"
+		href={resolve('/a')}
 		class="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
 	>
 		<ChevronLeft class="size-4" />
@@ -27,11 +36,7 @@
 		<!-- Cover -->
 		<div class="w-full shrink-0 md:w-56 lg:w-64">
 			<div class="aspect-[2/3] w-full overflow-hidden rounded-lg border border-border bg-muted">
-				<img
-					src="/api/archives/{a.id}/cover"
-					alt={a.title}
-					class="size-full object-cover"
-				/>
+				<img src="/api/archives/{a.id}/cover" alt={a.title} class="size-full object-cover" />
 			</div>
 
 			<Button class="mt-4 w-full gap-2" size="lg">
@@ -59,8 +64,8 @@
 		</div>
 
 		<!-- Metadata -->
-		<div class="flex-1 min-w-0">
-			<h1 class="text-2xl font-bold leading-tight">{a.title}</h1>
+		<div class="min-w-0 flex-1">
+			<h1 class="text-2xl leading-tight font-bold">{a.title}</h1>
 
 			{#if a.artists?.length}
 				<p class="mt-1 text-base text-muted-foreground">{a.artists.join(', ')}</p>
@@ -80,7 +85,7 @@
 			</div>
 
 			{#if a.summary}
-				<p class="mt-4 text-sm text-muted-foreground leading-relaxed">{a.summary}</p>
+				<p class="mt-4 text-sm leading-relaxed text-muted-foreground">{a.summary}</p>
 			{/if}
 
 			<Separator class="my-5" />
@@ -113,7 +118,9 @@
 							<dt class="text-xs text-muted-foreground">Parody</dt>
 							<dd class="flex flex-wrap gap-x-1">
 								{#each a.parodies as parody, i (parody)}
-									<a href="/parody/{encodeURIComponent(parody)}" class="hover:underline">{parody}{i < a.parodies.length - 1 ? ',' : ''}</a>
+									<a href={resolve(`/parody/${encodeURIComponent(parody)}`)} class="hover:underline"
+										>{parody}{i < a.parodies.length - 1 ? ',' : ''}</a
+									>
 								{/each}
 							</dd>
 						</div>
@@ -127,7 +134,10 @@
 							<dt class="text-xs text-muted-foreground">Characters</dt>
 							<dd class="flex flex-wrap gap-x-1">
 								{#each a.characters as character, i (character)}
-									<a href="/character/{encodeURIComponent(character)}" class="hover:underline">{character}{i < a.characters.length - 1 ? ',' : ''}</a>
+									<a
+										href={resolve(`/character/${encodeURIComponent(character)}`)}
+										class="hover:underline">{character}{i < a.characters.length - 1 ? ',' : ''}</a
+									>
 								{/each}
 							</dd>
 						</div>
@@ -143,8 +153,10 @@
 					</div>
 					<div class="flex flex-wrap gap-1.5">
 						{#each a.tags as tag (tag)}
-							<a href="/tag/{encodeURIComponent(tag)}">
-								<Badge variant="secondary" class="cursor-pointer text-xs hover:bg-secondary/80">{tag}</Badge>
+							<a href={resolve(`/tag/${encodeURIComponent(tag)}`)}>
+								<Badge variant="secondary" class="cursor-pointer text-xs hover:bg-secondary/80"
+									>{tag}</Badge
+								>
 							</a>
 						{/each}
 					</div>
