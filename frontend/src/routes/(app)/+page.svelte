@@ -2,39 +2,20 @@
 	import * as Carousel from '$lib/components/ui/carousel';
 	import ArchiveCard from '$lib/components/ArchiveCard.svelte';
 	import { Clock, BookPlus, CalendarDays } from '@lucide/svelte';
+	import { resolve } from '$app/paths';
 
 	let { data } = $props();
 
-	const recentlyRead = $derived(
-		data.archives
-			.filter((a) => a.progress !== null)
-			.sort((a, b) => {
-				const da = a.progress ? new Date(a.progress.last_read).getTime() : 0;
-				const db = b.progress ? new Date(b.progress.last_read).getTime() : 0;
-				return db - da;
-			})
-			.slice(0, 10)
-	);
-
-	const recentlyAdded = $derived(
-		[...data.archives]
-			.sort((a, b) => b.created_at.localeCompare(a.created_at))
-			.slice(0, 10)
-	);
-
-	const recentlyReleased = $derived(
-		data.archives
-			.filter((a) => a.release_date !== null)
-			.sort((a, b) => {
-				const da = new Date(a.release_date!).getTime();
-				const db = new Date(b.release_date!).getTime();
-				return db - da;
-			})
-			.slice(0, 10)
-	);
+	const recentlyRead = $derived(data.recentlyRead);
+	const recentlyAdded = $derived(data.recentlyAdded);
+	const recentlyReleased = $derived(data.recentlyReleased);
 
 	const carouselOpts = { align: 'start' as const, dragFree: true, loop: true };
 </script>
+
+<svelte:head>
+	<title>Shoka</title>
+</svelte:head>
 
 <div class="mx-auto max-w-screen-2xl space-y-10 px-4 py-8 sm:px-6">
 	<!-- Recently Read -->
@@ -45,7 +26,10 @@
 					<Clock class="size-4 text-muted-foreground" />
 					<h2 class="text-sm font-semibold">Recently Read</h2>
 				</div>
-				<a href="/a" class="text-xs text-muted-foreground transition-colors hover:text-foreground">
+				<a
+					href={resolve('/a')}
+					class="text-xs text-muted-foreground transition-colors hover:text-foreground"
+				>
 					View all →
 				</a>
 			</div>
@@ -71,7 +55,10 @@
 					<BookPlus class="size-4 text-muted-foreground" />
 					<h2 class="text-sm font-semibold">Recently Added</h2>
 				</div>
-				<a href="/a" class="text-xs text-muted-foreground transition-colors hover:text-foreground">
+				<a
+					href="{resolve('/a')}?sort=created_at_desc"
+					class="text-xs text-muted-foreground transition-colors hover:text-foreground"
+				>
 					View all →
 				</a>
 			</div>
@@ -97,7 +84,10 @@
 					<CalendarDays class="size-4 text-muted-foreground" />
 					<h2 class="text-sm font-semibold">Recently Released</h2>
 				</div>
-				<a href="/a" class="text-xs text-muted-foreground transition-colors hover:text-foreground">
+				<a
+					href="{resolve('/a')}?sort=release_date_desc"
+					class="text-xs text-muted-foreground transition-colors hover:text-foreground"
+				>
 					View all →
 				</a>
 			</div>

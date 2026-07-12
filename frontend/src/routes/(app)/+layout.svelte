@@ -1,60 +1,46 @@
 <script lang="ts">
-	import { BookOpen, House, Library, Settings } from '@lucide/svelte';
-	import * as Avatar from '$lib/components/ui/avatar';
+	import AppSidebar from '$lib/components/app-sidebar.svelte';
+	import * as Sidebar from '$lib/components/ui/sidebar';
+	import { Input } from '$lib/components/ui/input';
+	import { Label } from '$lib/components/ui/label';
+	import { Search } from '@lucide/svelte';
 	import { page } from '$app/state';
-	import ModeToggle from '$lib/components/ModeToggle.svelte';
 
-	let { children } = $props();
-
-	const navLinks = [
-		{ path: '/', label: 'Home', icon: House },
-		{ path: '/a', label: 'Archives', icon: Library },
-		{ path: '/admin', label: 'Admin', icon: Settings }
-	];
+	let { data, children } = $props();
 </script>
 
-<div class="flex min-h-screen flex-col bg-muted/40">
-	<!-- Sticky top navbar -->
-	<header
-		class="sticky top-0 z-50 h-14 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
-	>
-		<div class="mx-auto flex h-full max-w-screen-2xl items-center gap-6 px-4 sm:px-6">
-			<!-- Logo -->
-			<a href="/" class="flex shrink-0 items-center gap-2">
-				<BookOpen class="size-5 text-foreground" />
-				<span class="text-base font-bold tracking-tight">Shoka</span>
-			</a>
+<Sidebar.Provider>
+	<AppSidebar user={data.user} />
+	<Sidebar.Inset class="bg-muted/40">
+		<header
+			class="sticky top-0 z-50 flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/80 sm:px-6"
+		>
+			<Sidebar.Trigger class="-ms-1" />
 
-			<div class="h-5 w-px bg-border"></div>
+			<div class="flex flex-1 justify-center">
+				<form method="GET" action="/a" class="w-full max-w-lg">
+					<Label for="search" class="sr-only">Search</Label>
+					<div class="relative">
+						<Search
+							class="pointer-events-none absolute inset-s-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+						/>
+						<Input
+							id="search"
+							name="q"
+							type="search"
+							placeholder="Search"
+							value={page.url.searchParams.get('q') ?? ''}
+							class="h-10 ps-9"
+						/>
+					</div>
+				</form>
+			</div>
 
-			<!-- Nav links -->
-			<nav class="flex items-center gap-1">
-				{#each navLinks as link (link.path)}
-					{@const isActive = page.url.pathname === link.path}
-					<a
-						href={link.path}
-						class="inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors
-							{isActive
-							? 'bg-muted text-foreground'
-							: 'text-muted-foreground hover:bg-muted hover:text-foreground'}"
-					>
-						{link.label}
-					</a>
-				{/each}
-			</nav>
+			<div class="w-6" aria-hidden="true"></div>
+		</header>
 
-			<div class="flex-1"></div>
-
-			<Avatar.Root class="size-8">
-				<Avatar.Image src="" alt="User avatar" />
-				<Avatar.Fallback>U</Avatar.Fallback>
-			</Avatar.Root>
-			<ModeToggle />
-		</div>
-	</header>
-
-	<!-- Page content -->
-	<main class="flex-1">
-		{@render children()}
-	</main>
-</div>
+		<main class="flex-1">
+			{@render children()}
+		</main>
+	</Sidebar.Inset>
+</Sidebar.Provider>
