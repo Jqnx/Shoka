@@ -26,12 +26,6 @@
 				{archive.page_count}p
 			</span>
 		</div>
-
-		<div
-			class="absolute inset-x-0 bottom-0 translate-y-1 p-2 opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100"
-		>
-			<p class="line-clamp-2 text-xs leading-tight font-semibold text-white">{archive.title}</p>
-		</div>
 	</div>
 
 	<!-- Card body -->
