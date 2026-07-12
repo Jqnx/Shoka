@@ -1,106 +1,87 @@
 <script lang="ts">
-	import * as Sidebar from '$lib/components/ui/sidebar';
 	import * as Pagination from '$lib/components/ui/pagination';
-	import { Button } from '$lib/components/ui/button';
+	import * as Sidebar from '$lib/components/ui/sidebar';
+	import * as Select from '$lib/components/ui/select';
 	import ArchiveCard from '$lib/components/ArchiveCard.svelte';
 	import ArchivesSidebar from '$lib/components/ArchivesSidebar.svelte';
+	import FiltersTrigger from '$lib/components/FiltersTrigger.svelte';
 	import { Search } from '@lucide/svelte';
-	import { SvelteSet } from 'svelte/reactivity';
-	import { goto } from '$app/navigation';
-	import type { SortOption, Category, Language } from '$lib/types';
+	import { goto, afterNavigate } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+
+	afterNavigate((nav) => {
+		if (nav.type === 'goto') window.scrollTo({ top: 0, behavior: 'smooth' });
+	});
 
 	let { data } = $props();
 
-	const allTags = $derived([...new Set(data.archives.flatMap((a) => a.tags))].sort());
+	const SORT_OPTIONS = [
+		{ value: 'created_at_desc', label: 'Latest' },
+		{ value: 'created_at_asc', label: 'Oldest' },
+		{ value: 'title_asc', label: 'Title (A–Z)' },
+		{ value: 'title_desc', label: 'Title (Z–A)' },
+		{ value: 'release_date_desc', label: 'Release date (newest)' },
+		{ value: 'release_date_asc', label: 'Release date (oldest)' },
+		{ value: 'page_count_desc', label: 'Page count (most)' },
+		{ value: 'page_count_asc', label: 'Page count (least)' }
+	];
 
-	// --- Filter state ---
-	let artistQuery = $state('');
-	let selectedTags = new SvelteSet<string>();
-	let selectedCategories = new SvelteSet<Category>();
-	let selectedLanguages = new SvelteSet<Language>();
-	let sortBy = $state<SortOption>('latest');
-
-	function clearFilters() {
-		artistQuery = '';
-		selectedTags.clear();
-		selectedCategories.clear();
-		selectedLanguages.clear();
-		sortBy = 'latest';
-	}
-
-	const hasActiveFilters = $derived(
-		artistQuery.trim() !== '' ||
-			selectedTags.size > 0 ||
-			selectedCategories.size > 0 ||
-			selectedLanguages.size > 0 ||
-			sortBy !== 'latest'
+	const sortValue = $derived(data.filters.sort || 'created_at_desc');
+	const sortLabel = $derived(
+		SORT_OPTIONS.find((opt) => opt.value === sortValue)?.label ?? 'Latest'
 	);
 
-	const filteredArchives = $derived.by(() => {
-		let results = data.archives;
-
-		if (artistQuery.trim()) {
-			const q = artistQuery.toLowerCase();
-			results = results.filter((a) => a.artists.some((artist) => artist.toLowerCase().includes(q)));
-		}
-
-		if (selectedTags.size > 0) {
-			results = results.filter((a) => [...selectedTags].every((t) => a.tags.includes(t)));
-		}
-
-		if (selectedCategories.size > 0) {
-			results = results.filter((a) => a.category !== null && selectedCategories.has(a.category as Category));
-		}
-
-		if (selectedLanguages.size > 0) {
-			results = results.filter((a) => a.language !== null && selectedLanguages.has(a.language as Language));
-		}
-
-		return [...results].sort((a, b) => {
-			if (sortBy === 'title') return a.title.localeCompare(b.title);
-			if (sortBy === 'release') {
-				const da = a.release_date ? new Date(a.release_date).getTime() : 0;
-				const db = b.release_date ? new Date(b.release_date).getTime() : 0;
-				return db - da;
-			}
-			return b.created_at.localeCompare(a.created_at);
-		});
-	});
+	function updateParam(name: string, value: string) {
+		const params = new URLSearchParams(page.url.searchParams);
+		params.set(name, value);
+		params.delete('page');
+		goto(`${resolve('/a')}?${params}`, { noScroll: true, keepFocus: true });
+	}
 </script>
 
-<Sidebar.Provider>
-	<ArchivesSidebar
-		bind:artistQuery
-		bind:sortBy
-		{selectedTags}
-		{selectedCategories}
-		{selectedLanguages}
-		{allTags}
-		{hasActiveFilters}
-		{clearFilters}
-	/>
+<svelte:head>
+	<title>Archives | Shoka</title>
+</svelte:head>
 
-	<Sidebar.Inset>
-		<div class="sticky top-14 z-10 flex items-center gap-2 border-b border-border bg-background/95 px-4 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:px-6">
-			<Sidebar.Trigger />
+<Sidebar.Provider open={false}>
+	<Sidebar.Inset class="bg-transparent">
+		<div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6">
 			<p class="text-sm text-muted-foreground">
-				{filteredArchives.length}
-				{filteredArchives.length === 1 ? 'archive' : 'archives'}
+				{data.total}
+				{data.total === 1 ? 'archive' : 'archives'} found
 			</p>
+
+			<div class="flex items-center gap-2">
+				<Select.Root type="single" value={sortValue} onValueChange={(v) => updateParam('sort', v)}>
+					<Select.Trigger class="h-8 w-[190px]">
+						{sortLabel}
+					</Select.Trigger>
+					<Select.Content>
+						<Select.Group>
+							<Select.Label>Sort</Select.Label>
+							{#each SORT_OPTIONS as opt (opt.value)}
+								<Select.Item value={opt.value} label={opt.label}>{opt.label}</Select.Item>
+							{/each}
+						</Select.Group>
+					</Select.Content>
+				</Select.Root>
+
+				<FiltersTrigger />
+			</div>
 		</div>
+
 		<div class="px-4 py-4 sm:px-6">
-			{#if filteredArchives.length === 0}
+			{#if data.archives.length === 0}
 				<div class="flex flex-col items-center justify-center py-24 text-center">
 					<Search class="mb-3 size-10 text-muted-foreground/40" />
 					<p class="text-base font-medium text-foreground">No archives found</p>
-					<p class="mt-1 text-sm text-muted-foreground">Try adjusting your filters</p>
-					<Button variant="outline" size="sm" onclick={clearFilters} class="mt-4">
-						Clear filters
-					</Button>
 				</div>
 			{:else}
-				<div class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8">
-					{#each filteredArchives as archive (archive.id)}
+				<div
+					class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8"
+				>
+					{#each data.archives as archive (archive.id)}
 						<ArchiveCard {archive} />
 					{/each}
 				</div>
@@ -112,7 +93,11 @@
 						count={data.total}
 						perPage={data.limit}
 						page={data.page}
-						onPageChange={(p) => goto(`?page=${p}`)}
+						onPageChange={(p) => {
+							const params = new URLSearchParams(page.url.searchParams);
+							params.set('page', String(p));
+							goto(`${resolve('/a')}?${params}`, { noScroll: true });
+						}}
 					>
 						{#snippet children({ pages })}
 							<Pagination.Content>
@@ -140,4 +125,11 @@
 			{/if}
 		</div>
 	</Sidebar.Inset>
+
+	<ArchivesSidebar
+		filters={data.filters}
+		tags={data.tags}
+		characters={data.characters}
+		parodies={data.parodies}
+	/>
 </Sidebar.Provider>

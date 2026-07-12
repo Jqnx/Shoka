@@ -1,62 +1,102 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar';
-	import { Badge } from '$lib/components/ui/badge';
+	import { Combobox, MultiCombobox } from '$lib/components/ui/combobox';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
-	import { ChevronDown, ChevronUp, X } from '@lucide/svelte';
-	import { SvelteSet } from 'svelte/reactivity';
-	import type { SortOption, Category, Language } from '$lib/types';
+	import { X } from '@lucide/svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
+	import type { Category, Character, Language, Parody, Tag } from '$lib/types';
 
 	const CATEGORIES: Category[] = ['Doujinshi', 'Manga', 'Artist CG', 'Game CG', 'Other'];
 	const LANGUAGES: Language[] = ['English', 'Japanese'];
-	const SORT_OPTIONS: { value: SortOption; label: string }[] = [
-		{ value: 'latest', label: 'Latest' },
-		{ value: 'title', label: 'Title (A–Z)' },
-		{ value: 'release', label: 'Release Date' }
-	];
+	const ANY = 'any';
+
+	type Filters = {
+		category: string;
+		language: string;
+		tag: string[];
+		character: string[];
+		parody: string[];
+		artist: string;
+	};
 
 	let {
-		artistQuery = $bindable(''),
-		sortBy = $bindable<SortOption>('latest'),
-		selectedTags,
-		selectedCategories,
-		selectedLanguages,
-		allTags,
-		hasActiveFilters,
-		clearFilters
+		filters,
+		tags,
+		characters,
+		parodies
 	}: {
-		artistQuery?: string;
-		sortBy?: SortOption;
-		selectedTags: SvelteSet<string>;
-		selectedCategories: SvelteSet<Category>;
-		selectedLanguages: SvelteSet<Language>;
-		allTags: string[];
-		hasActiveFilters: boolean;
-		clearFilters: () => void;
+		filters: Filters;
+		tags: Tag[];
+		characters: Character[];
+		parodies: Parody[];
 	} = $props();
 
-	let tagsExpanded = $state(true);
-	let categoriesExpanded = $state(true);
-	let languagesExpanded = $state(true);
-	let sortExpanded = $state(true);
+	// svelte-ignore state_referenced_locally
+	let artistInput = $state(filters.artist);
 
-	function toggleTag(tag: string) {
-		if (selectedTags.has(tag)) selectedTags.delete(tag);
-		else selectedTags.add(tag);
+	const hasActiveFilters = $derived(
+		filters.category !== '' ||
+			filters.language !== '' ||
+			filters.artist !== '' ||
+			filters.tag.length > 0 ||
+			filters.character.length > 0 ||
+			filters.parody.length > 0
+	);
+
+	const categoryOptions = [
+		{ value: ANY, label: 'Any category' },
+		...CATEGORIES.map((cat) => ({ value: cat, label: cat }))
+	];
+	const languageOptions = [
+		{ value: ANY, label: 'Any language' },
+		...LANGUAGES.map((lang) => ({ value: lang, label: lang }))
+	];
+
+	const tagOptions = $derived(tags.map((tag) => ({ value: tag.name, label: tag.name })));
+	const characterOptions = $derived(
+		characters.map((character) => ({ value: character.name, label: character.name }))
+	);
+	const parodyOptions = $derived(
+		parodies.map((parody) => ({ value: parody.name, label: parody.name }))
+	);
+
+	function setParam(name: string, value: string) {
+		const params = new URLSearchParams(page.url.searchParams);
+		if (value && value !== ANY) params.set(name, value);
+		else params.delete(name);
+		params.delete('page');
+		goto(`${resolve('/a')}?${params}`, { noScroll: true, keepFocus: true });
 	}
 
-	function toggleCategory(cat: Category) {
-		if (selectedCategories.has(cat)) selectedCategories.delete(cat);
-		else selectedCategories.add(cat);
+	function setMultiParam(name: string, values: string[]) {
+		const params = new URLSearchParams(page.url.searchParams);
+		params.delete(name);
+		for (const value of values) {
+			if (value) params.append(name, value);
+		}
+		params.delete('page');
+		goto(`${resolve('/a')}?${params}`, { noScroll: true, keepFocus: true });
 	}
 
-	function toggleLanguage(lang: Language) {
-		if (selectedLanguages.has(lang)) selectedLanguages.delete(lang);
-		else selectedLanguages.add(lang);
+	function submitArtist(e: SubmitEvent) {
+		e.preventDefault();
+		setParam('artist', artistInput.trim());
+	}
+
+	function clearFilters() {
+		const params = new URLSearchParams(page.url.searchParams);
+		for (const key of ['category', 'language', 'tag', 'character', 'parody', 'artist', 'page']) {
+			params.delete(key);
+		}
+		artistInput = '';
+		goto(`${resolve('/a')}?${params}`, { noScroll: true });
 	}
 </script>
 
-<Sidebar.Root collapsible="offcanvas" class="top-14 h-[calc(100svh_-_3.5rem)]">
+<Sidebar.Root side="right" collapsible="offcanvas" class="top-14 h-[calc(100svh-3.5rem)]">
 	{#if hasActiveFilters}
 		<Sidebar.Header class="p-3">
 			<Button
@@ -71,131 +111,98 @@
 		</Sidebar.Header>
 	{/if}
 
-	<Sidebar.Content class="px-3 py-2">
-		<!-- Tags -->
-		<Sidebar.Group class="p-0">
-			<button
-				onclick={() => (tagsExpanded = !tagsExpanded)}
-				class="flex w-full items-center justify-between py-1.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase transition-colors hover:text-foreground"
-			>
-				Tags
-				{#if tagsExpanded}<ChevronUp class="size-3.5" />{:else}<ChevronDown class="size-3.5" />{/if}
-			</button>
-			{#if tagsExpanded}
-				<Sidebar.GroupContent class="mt-1.5 flex flex-wrap gap-1.5">
-					{#each allTags as tag (tag)}
-						{@const active = selectedTags.has(tag)}
-						<button onclick={() => toggleTag(tag)}>
-							<Badge
-								variant={active ? 'default' : 'outline'}
-								class="cursor-pointer transition-all {active ? '' : 'hover:bg-muted'}"
-							>
-								{tag}
-							</Badge>
-						</button>
-					{/each}
-				</Sidebar.GroupContent>
-			{/if}
-		</Sidebar.Group>
-
-		<Separator class="my-2" />
-
+	<Sidebar.Content class="gap-4 px-3 py-2">
 		<!-- Artist -->
 		<Sidebar.Group class="p-0">
-			<span class="py-1.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-				Artist
-			</span>
-			<Sidebar.GroupContent class="mt-1.5">
-				<Sidebar.Input
-					type="text"
-					placeholder="Filter by artist..."
-					bind:value={artistQuery}
+			<Sidebar.GroupLabel class="px-0">Artist</Sidebar.GroupLabel>
+			<Sidebar.GroupContent class="mt-1">
+				<form onsubmit={submitArtist}>
+					<Sidebar.Input type="text" placeholder="Exact artist name..." bind:value={artistInput} />
+				</form>
+			</Sidebar.GroupContent>
+		</Sidebar.Group>
+
+		<Separator />
+
+		<!-- Category -->
+		<Sidebar.Group class="p-0">
+			<Sidebar.GroupLabel class="px-0">Category</Sidebar.GroupLabel>
+			<Sidebar.GroupContent class="mt-1">
+				<Combobox
+					options={categoryOptions}
+					value={filters.category || ANY}
+					onValueChange={(v) => setParam('category', v)}
+					placeholder="Any category"
+					searchPlaceholder="Search category..."
 				/>
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
 
-		<Separator class="my-2" />
-
-		<!-- Category -->
-		<Sidebar.Group class="p-0">
-			<button
-				onclick={() => (categoriesExpanded = !categoriesExpanded)}
-				class="flex w-full items-center justify-between py-1.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase transition-colors hover:text-foreground"
-			>
-				Category
-				{#if categoriesExpanded}<ChevronUp class="size-3.5" />{:else}<ChevronDown class="size-3.5" />{/if}
-			</button>
-			{#if categoriesExpanded}
-				<Sidebar.GroupContent class="mt-1 flex flex-col gap-0.5">
-					{#each CATEGORIES as cat (cat)}
-						{@const active = selectedCategories.has(cat)}
-						<Button
-							variant={active ? 'default' : 'ghost'}
-							size="sm"
-							onclick={() => toggleCategory(cat)}
-							class="justify-start"
-						>
-							{cat}
-						</Button>
-					{/each}
-				</Sidebar.GroupContent>
-			{/if}
-		</Sidebar.Group>
-
-		<Separator class="my-2" />
+		<Separator />
 
 		<!-- Language -->
 		<Sidebar.Group class="p-0">
-			<button
-				onclick={() => (languagesExpanded = !languagesExpanded)}
-				class="flex w-full items-center justify-between py-1.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase transition-colors hover:text-foreground"
-			>
-				Language
-				{#if languagesExpanded}<ChevronUp class="size-3.5" />{:else}<ChevronDown class="size-3.5" />{/if}
-			</button>
-			{#if languagesExpanded}
-				<Sidebar.GroupContent class="mt-1 flex gap-1.5">
-					{#each LANGUAGES as lang (lang)}
-						{@const active = selectedLanguages.has(lang)}
-						<Button
-							variant={active ? 'default' : 'outline'}
-							size="sm"
-							onclick={() => toggleLanguage(lang)}
-							class="flex-1"
-						>
-							{lang}
-						</Button>
-					{/each}
-				</Sidebar.GroupContent>
-			{/if}
+			<Sidebar.GroupLabel class="px-0">Language</Sidebar.GroupLabel>
+			<Sidebar.GroupContent class="mt-1">
+				<Combobox
+					options={languageOptions}
+					value={filters.language || ANY}
+					onValueChange={(v) => setParam('language', v)}
+					placeholder="Any language"
+					searchPlaceholder="Search language..."
+				/>
+			</Sidebar.GroupContent>
 		</Sidebar.Group>
 
-		<Separator class="my-2" />
+		<Separator />
 
-		<!-- Sort -->
+		<!-- Tags -->
 		<Sidebar.Group class="p-0">
-			<button
-				onclick={() => (sortExpanded = !sortExpanded)}
-				class="flex w-full items-center justify-between py-1.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase transition-colors hover:text-foreground"
-			>
-				Sort by
-				{#if sortExpanded}<ChevronUp class="size-3.5" />{:else}<ChevronDown class="size-3.5" />{/if}
-			</button>
-			{#if sortExpanded}
-				<Sidebar.GroupContent class="mt-1 flex flex-col gap-0.5">
-					{#each SORT_OPTIONS as opt (opt.value)}
-						{@const active = sortBy === opt.value}
-						<Button
-							variant={active ? 'default' : 'ghost'}
-							size="sm"
-							onclick={() => (sortBy = opt.value)}
-							class="justify-start"
-						>
-							{opt.label}
-						</Button>
-					{/each}
-				</Sidebar.GroupContent>
-			{/if}
+			<Sidebar.GroupLabel class="px-0">Tags</Sidebar.GroupLabel>
+			<Sidebar.GroupContent class="mt-1">
+				<MultiCombobox
+					options={tagOptions}
+					value={filters.tag}
+					onValueChange={(v) => setMultiParam('tag', v)}
+					placeholder="Add tag..."
+					searchPlaceholder="Search tags..."
+					emptyText="No tags found."
+				/>
+			</Sidebar.GroupContent>
+		</Sidebar.Group>
+
+		<Separator />
+
+		<!-- Characters -->
+		<Sidebar.Group class="p-0">
+			<Sidebar.GroupLabel class="px-0">Characters</Sidebar.GroupLabel>
+			<Sidebar.GroupContent class="mt-1">
+				<MultiCombobox
+					options={characterOptions}
+					value={filters.character}
+					onValueChange={(v) => setMultiParam('character', v)}
+					placeholder="Add character..."
+					searchPlaceholder="Search characters..."
+					emptyText="No characters found."
+				/>
+			</Sidebar.GroupContent>
+		</Sidebar.Group>
+
+		<Separator />
+
+		<!-- Parodies -->
+		<Sidebar.Group class="p-0">
+			<Sidebar.GroupLabel class="px-0">Parodies</Sidebar.GroupLabel>
+			<Sidebar.GroupContent class="mt-1">
+				<MultiCombobox
+					options={parodyOptions}
+					value={filters.parody}
+					onValueChange={(v) => setMultiParam('parody', v)}
+					placeholder="Add parody..."
+					searchPlaceholder="Search parodies..."
+					emptyText="No parodies found."
+				/>
+			</Sidebar.GroupContent>
 		</Sidebar.Group>
 	</Sidebar.Content>
 </Sidebar.Root>

@@ -36,3 +36,43 @@ export type ArchiveListResponse = {
 export type SortOption = 'latest' | 'title' | 'release';
 export type Category = 'Doujinshi' | 'Manga' | 'Artist CG' | 'Game CG' | 'Other';
 export type Language = 'English' | 'Japanese';
+
+export type Tag = {
+	id: number;
+	name: string;
+	description: string | null;
+	count: number;
+};
+
+export type TagListResponse = {
+	items: Tag[];
+	total: number;
+	page: number;
+	limit: number;
+};
+
+export type Character = {
+	id: number;
+	name: string;
+	count: number;
+};
+
+export type CharacterListResponse = {
+	items: Character[];
+	total: number;
+	page: number;
+	limit: number;
+};
+
+export type Parody = {
+	id: number;
+	name: string;
+	count: number;
+};
+
+export type ParodyListResponse = {
+	items: Parody[];
+	total: number;
+	page: number;
+	limit: number;
+};
