@@ -4,6 +4,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
+	import PageThumbnailGallery from '$lib/components/PageThumbnailGallery.svelte';
 	import { BookOpen, ChevronLeft, Calendar, FileText, Tag, Users, Tv, Sword } from '@lucide/svelte';
 
 	let { data } = $props();
@@ -189,4 +190,8 @@
 			</p>
 		</div>
 	</div>
+
+	<Separator class="my-8" />
+
+	<PageThumbnailGallery archiveId={a.id} pageCount={a.page_count} thumbsReady={a.thumbs_ready} />
 </div>
