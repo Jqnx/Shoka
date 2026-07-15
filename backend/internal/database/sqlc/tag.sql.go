@@ -282,7 +282,7 @@ func (q *Queries) GetAllTags(ctx context.Context) ([]Tag, error) {
 const getArchiveByTag = `-- name: GetArchiveByTag :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page
 from archive
 join archive_tag on archive.id = archive_tag.archive_id
 join tag on archive_tag.tag_id = tag.id
@@ -309,6 +309,7 @@ type GetArchiveByTagRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 }
 
@@ -334,6 +335,7 @@ func (q *Queries) GetArchiveByTag(ctx context.Context, arg GetArchiveByTagParams
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 		); err != nil {
 			return nil, err
@@ -352,7 +354,7 @@ func (q *Queries) GetArchiveByTag(ctx context.Context, arg GetArchiveByTagParams
 const getArchiveByTagList = `-- name: GetArchiveByTagList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page
 from archive
 join archive_tag on archive.id = archive_tag.archive_id
 join tag on archive_tag.tag_id = tag.id
@@ -400,6 +402,7 @@ type GetArchiveByTagListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 }
 
@@ -430,6 +433,7 @@ func (q *Queries) GetArchiveByTagList(ctx context.Context, arg GetArchiveByTagLi
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 		); err != nil {
 			return nil, err
@@ -603,7 +607,7 @@ func (q *Queries) GetArchiveTagIDs(ctx context.Context, id string) ([]int64, err
 const getArchivesByTagName = `-- name: GetArchivesByTagName :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page, progress.last_read, progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page, progress.last_read, progress.completed
 from archive
 join archive_tag on archive.id = archive_tag.archive_id
 join tag on archive_tag.tag_id = tag.id
@@ -634,6 +638,7 @@ type GetArchivesByTagNameRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
 	Completed   *bool      `json:"completed"`
@@ -666,6 +671,7 @@ func (q *Queries) GetArchivesByTagName(ctx context.Context, arg GetArchivesByTag
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 			&i.LastRead,
 			&i.Completed,

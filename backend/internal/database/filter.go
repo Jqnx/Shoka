@@ -11,6 +11,7 @@ import (
 )
 
 type ArchiveFilter struct {
+	LibraryID  string
 	Artists    []string
 	Tags       []string
 	Characters []string
@@ -23,20 +24,40 @@ type ArchiveFilter struct {
 	UserID     string
 }
 
-var sortClauses = map[string]string{
-	"title_asc":         "archive.title ASC",
-	"title_desc":        "archive.title DESC",
-	"release_date_asc":  "archive.release_date ASC",
-	"release_date_desc": "archive.release_date DESC",
-	"created_at_asc":    "archive.created_at ASC",
-	"created_at_desc":   "archive.created_at DESC",
-	"page_count_asc":    "archive.page_count ASC",
-	"page_count_desc":   "archive.page_count DESC",
+// SortOption is one valid value for ArchiveFilter.Sort. SortOptions is the
+// single source of truth for what the "sort" query param on GET
+// /api/archives accepts — both resolveSort and the /api/archives/sort-options
+// endpoint (see handlers.GetArchiveSortOptions) read from it, so adding a
+// new sort only requires a change here.
+type SortOption struct {
+	Value       string
+	DisplayName string
+	clause      string
 }
 
+var SortOptions = []SortOption{
+	{"title_asc", "Title (A–Z)", "archive.title ASC"},
+	{"title_desc", "Title (Z–A)", "archive.title DESC"},
+	{"release_date_desc", "Release Date (Newest)", "archive.release_date DESC"},
+	{"release_date_asc", "Release Date (Oldest)", "archive.release_date ASC"},
+	{"created_at_desc", "Date Added (Newest)", "archive.created_at DESC"},
+	{"created_at_asc", "Date Added (Oldest)", "archive.created_at ASC"},
+	{"page_count_desc", "Page Count (High–Low)", "archive.page_count DESC"},
+	{"page_count_asc", "Page Count (Low–High)", "archive.page_count ASC"},
+}
+
+const defaultSort = "created_at_desc"
+
 func resolveSort(s string) string {
-	if clause, ok := sortClauses[s]; ok {
-		return clause
+	for _, opt := range SortOptions {
+		if opt.Value == s {
+			return opt.clause
+		}
+	}
+	for _, opt := range SortOptions {
+		if opt.Value == defaultSort {
+			return opt.clause
+		}
 	}
 	return "archive.created_at DESC"
 }
@@ -58,6 +79,10 @@ func buildWhere(f ArchiveFilter) (string, []any) {
 	var args []any
 
 	sb.WriteString("WHERE 1=1 ")
+
+	// library scoping is mandatory: the app has no unified cross-library view.
+	sb.WriteString("AND archive.library_id = ? ")
+	args = append(args, f.LibraryID)
 
 	addRelationFilterNames(&sb, &args, "archive_artist", "artist", "artist_id", f.Artists)
 	addRelationFilterNames(&sb, &args, "archive_tag", "tag", "tag_id", f.Tags)

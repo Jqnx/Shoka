@@ -26,40 +26,52 @@ type JobQueue interface {
 	EnqueueOnce(ctx context.Context, jobType string, payload any) error
 }
 
-type Scanner struct {
-	cfg        *config.Config
-	queries    *sqlc.Queries
-	queue      JobQueue
-	log        *slog.Logger
-	libraryDir string
+// Scanner scans a single library's root directory and reconciles it with
+// the database. Different library types (doujinshi, audio, ...) get their
+// own Scanner implementation, selected by the LibraryManager based on
+// library.Type.
+type Scanner interface {
+	Scan(ctx context.Context, lib sqlc.Library) error
 }
 
-func NewScanner(queries *sqlc.Queries, queue JobQueue, log *slog.Logger, libraryDir string) *Scanner {
-	return &Scanner{
-		queries:    queries,
-		queue:      queue,
-		log:        log.With("component", "scanner"),
-		libraryDir: libraryDir,
+// ArchiveScanner is the Scanner implementation for libraries of type
+// "doujinshi" — image archives (cbz/cbr/zip/rar/7z).
+type ArchiveScanner struct {
+	cfg     *config.Config
+	queries *sqlc.Queries
+	queue   JobQueue
+	log     *slog.Logger
+}
+
+func NewArchiveScanner(cfg *config.Config, queries *sqlc.Queries, queue JobQueue, log *slog.Logger) *ArchiveScanner {
+	return &ArchiveScanner{
+		cfg:     cfg,
+		queries: queries,
+		queue:   queue,
+		log:     log.With("component", "scanner"),
 	}
 }
 
-// Scan() scans the library directories and queues up new jobs for any new or updated files.
-func (s *Scanner) Scan(ctx context.Context) error {
-	s.log.Info("library scan started")
+// Scan scans lib's root directory and queues up new jobs for any new or
+// updated files, scoping all comparisons to this library so other
+// libraries' archives are never touched.
+func (s *ArchiveScanner) Scan(ctx context.Context, lib sqlc.Library) error {
+	s.log.Info("library scan started", "library_id", lib.ID, "library", lib.Name)
 	start := time.Now()
 
 	found := make(map[string]fs.FileInfo) // path → FileInfo
 
-	if err := s.walk(ctx, s.libraryDir, found); err != nil {
-		s.log.Error("walk failed", "dir", s.libraryDir, "error", err)
+	if err := s.walk(ctx, lib.Path, found); err != nil {
+		s.log.Error("walk failed", "dir", lib.Path, "error", err)
 	}
 
-	added, updated, removed, err := s.process(ctx, found)
+	added, updated, removed, err := s.process(ctx, lib, found)
 	if err != nil {
 		return err
 	}
 
 	s.log.Info("library scan complete",
+		"library_id", lib.ID,
 		"duration", time.Since(start),
 		"added", added,
 		"updated", updated,
@@ -69,7 +81,7 @@ func (s *Scanner) Scan(ctx context.Context) error {
 }
 
 // walk() recursively walks a directory and adds any files it finds to the found map
-func (s *Scanner) walk(ctx context.Context, root string, found map[string]fs.FileInfo) error {
+func (s *ArchiveScanner) walk(ctx context.Context, root string, found map[string]fs.FileInfo) error {
 	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			s.log.Warn("could not access path", "path", path, "error", err)
@@ -101,15 +113,17 @@ func (s *Scanner) walk(ctx context.Context, root string, found map[string]fs.Fil
 	})
 }
 
-// process() processes the found files, adding, updating or removing them
-func (s *Scanner) process(ctx context.Context, found map[string]fs.FileInfo) (added, updated, removed int, err error) {
-	existing, err := s.queries.GetAllArchiveFilePaths(ctx)
+// process() processes the found files, adding, updating or removing them.
+// The diff is scoped to lib's archives only — files belonging to other
+// libraries are never considered "missing" here.
+func (s *ArchiveScanner) process(ctx context.Context, lib sqlc.Library, found map[string]fs.FileInfo) (added, updated, removed int, err error) {
+	existing, err := s.queries.GetArchiveFilePathsByLibrary(ctx, lib.ID)
 	if err != nil {
 		return 0, 0, 0, err
 	}
 
 	// build a lookup map: path → db record
-	inDB := make(map[string]sqlc.GetAllArchiveFilePathsRow, len(existing))
+	inDB := make(map[string]sqlc.GetArchiveFilePathsByLibraryRow, len(existing))
 	for _, a := range existing {
 		inDB[a.FilePath] = a
 	}
@@ -119,7 +133,7 @@ func (s *Scanner) process(ctx context.Context, found map[string]fs.FileInfo) (ad
 		record, known := inDB[path]
 
 		if !known {
-			if err := s.addArchive(ctx, path, info); err != nil {
+			if err := s.addArchive(ctx, lib, path, info); err != nil {
 				s.log.Error("failed to add archive", "path", path, "error", err)
 				continue
 			}
@@ -150,13 +164,13 @@ func (s *Scanner) process(ctx context.Context, found map[string]fs.FileInfo) (ad
 }
 
 // hasChanged() checks if an archive has changed
-func (s *Scanner) hasChanged(record sqlc.GetAllArchiveFilePathsRow, info fs.FileInfo) bool {
+func (s *ArchiveScanner) hasChanged(record sqlc.GetArchiveFilePathsByLibraryRow, info fs.FileInfo) bool {
 	return record.FileSize != info.Size() ||
 		!record.ModTime.Equal(info.ModTime())
 }
 
 // addArchive() adds a new archive and queues up necessary jobs
-func (s *Scanner) addArchive(ctx context.Context, path string, info fs.FileInfo) error {
+func (s *ArchiveScanner) addArchive(ctx context.Context, lib sqlc.Library, path string, info fs.FileInfo) error {
 	var arch sqlc.Archive
 
 	a, err := archive.Open(path)
@@ -178,6 +192,7 @@ func (s *Scanner) addArchive(ctx context.Context, path string, info fs.FileInfo)
 
 		arch, err = s.queries.CreateArchive(ctx, sqlc.CreateArchiveParams{
 			ID:        id,
+			LibraryID: lib.ID,
 			Title:     util.StripExtension(filepath.Base(path)),
 			FilePath:  path,
 			FileSize:  info.Size(),
@@ -216,12 +231,12 @@ func (s *Scanner) addArchive(ctx context.Context, path string, info fs.FileInfo)
 	//	return err
 	//}
 
-	s.log.Info("archive added", "path", path, "id", arch.ID)
+	s.log.Info("archive added", "path", path, "id", arch.ID, "library_id", lib.ID)
 	return nil
 }
 
 // updateArchive() updates an existing archive and queues up necessary jobs
-func (s *Scanner) updateArchive(ctx context.Context, id string, info fs.FileInfo) error {
+func (s *ArchiveScanner) updateArchive(ctx context.Context, id string, info fs.FileInfo) error {
 	if err := s.queries.UpdateArchiveMeta(ctx, sqlc.UpdateArchiveMetaParams{
 		ID:       id,
 		FileSize: info.Size(),
@@ -241,12 +256,12 @@ func (s *Scanner) updateArchive(ctx context.Context, id string, info fs.FileInfo
 }
 
 // removeArchive() removes an archive and its cache directory
-func (s *Scanner) removeArchive(ctx context.Context, id string, path string) error {
+func (s *ArchiveScanner) removeArchive(ctx context.Context, id string, path string) error {
 	if err := s.queries.DeleteArchive(ctx, id); err != nil {
 		return err
 	}
 
-	cacheDir := filepath.Join(s.cfg.Cache.Dir, fmt.Sprintf("%s", id))
+	cacheDir := filepath.Join(s.cfg.Cache.Dir, id)
 	if err := os.RemoveAll(cacheDir); err != nil {
 		s.log.Warn("failed to remove cache dir", "path", cacheDir, "error", err)
 	}

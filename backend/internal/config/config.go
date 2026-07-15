@@ -59,19 +59,12 @@ func LoadConfig() (*Config, error) {
 
 func setDefaults() {
 	// Directories
-	viper.SetDefault("library_dir", "../content")
 	viper.SetDefault("temp_dir", "./tmp")
 	viper.SetDefault("cache.dir", "../cache")
 	viper.SetDefault("cache.lru_size", 128)
 
 	// Images
 	viper.SetDefault("images.retention_period", 14)
-
-	// Sources
-	viper.SetDefault("metadata.sources.comicinfo.enabled", true)
-	viper.SetDefault("metadata.sources.filename.enabled", true)
-	viper.SetDefault("metadata.sources.e-hentai.enabled", false)
-	viper.SetDefault("metadata.sources.nhentai.enabled", false)
 }
 
 func getEnv(c *Config) error {

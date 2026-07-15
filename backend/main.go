@@ -65,25 +65,25 @@ func main() {
 	defer vips.Shutdown()
 	queue := jobs.NewQueue(queries, log)
 	worker := jobs.NewWorker(queue, log)
-	scanner := library.NewScanner(queries, queue, log, cfg.LibraryDir)
-	watcher := library.NewWatcher(queue, cfg.LibraryDir, log)
+	libraries := library.NewManager(cfg, queries, queue, log)
 	images := image.NewProcessor(cfg.Cache.Dir, log)
 	cache, err := image.NewCache(images, log)
 	pipeline := metadata.NewPipeline(
 		log,
+		queries,
 		sources.NewComicInfoSource(),
 		sources.NewFilenameSource(),
-		sources.NewEHentaiSource(cfg.Metadata.GetSource("e-hentai").Cookies),
-		sources.NewNHentaiSource(cfg.Metadata.GetSource("nhentai").APIKey),
+		sources.NewEHentaiSource(),
+		sources.NewNHentaiSource(),
 	)
 	if err != nil {
 		log.Error("failed to initialize image cache", "error", err)
 		os.Exit(1)
 	}
-	api := api.New(queries, log, queue, cache, images, pipeline, db)
+	api := api.New(queries, log, queue, cache, images, pipeline, libraries, db)
 
 	// Register worker handlers
-	worker.Register(jobs.JobTypeScan, jobs.NewScanHandler(scanner, log), 1)
+	worker.Register(jobs.JobTypeScan, jobs.NewScanHandler(libraries, log), 1)
 	worker.Register(jobs.JobTypeCover, jobs.NewCoverHandler(images, log), 5)
 	worker.Register(jobs.JobTypeThumbnail, jobs.NewThumbnailHandler(images, log), 3)
 	worker.Register(jobs.JobTypeMetadata, jobs.NewMetadataHandler(pipeline, queries, db, queue, log), 5)
@@ -96,11 +96,13 @@ func main() {
 		worker.Start(ctx)
 	}
 
-	// Start Initial Scan and File Watcher
-	if err := queue.EnqueueOnce(ctx, jobs.JobTypeScan, jobs.ScanPayload{}); err != nil {
-		log.Error("failed to enqueue initial scan", "error", err)
+	// Start watching every enabled library and enqueue an initial scan for each
+	if err := libraries.Start(ctx); err != nil {
+		log.Error("failed to start library watchers", "error", err)
 	}
-	watcher.Start(ctx)
+	if err := libraries.EnqueueInitialScans(ctx); err != nil {
+		log.Error("failed to enqueue initial scans", "error", err)
+	}
 
 	// Start API Server
 	host := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)

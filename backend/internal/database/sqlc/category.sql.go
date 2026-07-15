@@ -56,7 +56,7 @@ func (q *Queries) GetAllCategory(ctx context.Context) ([]*string, error) {
 const getArchiveByCategory = `-- name: GetArchiveByCategory :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page
 from archive
 left join
     progress on archive.id = progress.archive_id and progress.user_id = ?2
@@ -81,6 +81,7 @@ type GetArchiveByCategoryRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 }
 
@@ -106,6 +107,7 @@ func (q *Queries) GetArchiveByCategory(ctx context.Context, arg GetArchiveByCate
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 		); err != nil {
 			return nil, err
@@ -124,7 +126,7 @@ func (q *Queries) GetArchiveByCategory(ctx context.Context, arg GetArchiveByCate
 const getArchiveByCategoryList = `-- name: GetArchiveByCategoryList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page
 from archive
 left join
     progress on archive.id = progress.archive_id and progress.user_id = ?4
@@ -170,6 +172,7 @@ type GetArchiveByCategoryListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 }
 
@@ -200,6 +203,7 @@ func (q *Queries) GetArchiveByCategoryList(ctx context.Context, arg GetArchiveBy
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 		); err != nil {
 			return nil, err

@@ -37,13 +37,21 @@ func NewMetadataHandler(queries *sqlc.Queries, db *sql.DB, pipeline *metadata.Pi
 // GetSources godoc
 //
 //	@Summary		List metadata sources
-//	@Description	Returns all registered metadata sources and their enabled state
+//	@Description	Returns all registered metadata sources and their enabled state for a library
 //	@Tags			metadata
 //	@Produce		json
+//	@Param			library_id	query		string	true	"Library ID"
 //	@Success		200	{array}		metadata.SourceInfo
+//	@Failure		400	{object}	response.Error
 //	@Router			/metadata/sources [get]
 func (h *MetadataHandler) GetSources(w http.ResponseWriter, r *http.Request) {
-	response.JSON(w, http.StatusOK, h.pipeline.Sources())
+	libraryID := r.URL.Query().Get("library_id")
+	if libraryID == "" {
+		response.BadRequest(w, "library_id is required")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, h.pipeline.Sources(r.Context(), libraryID))
 }
 
 // FetchMetadata godoc
@@ -68,6 +76,7 @@ func (h *MetadataHandler) FetchMetadata(w http.ResponseWriter, r *http.Request) 
 
 	result, err := h.pipeline.Run(r.Context(), metadata.Input{
 		ArchiveID: archive.ID,
+		LibraryID: archive.LibraryID,
 		FilePath:  archive.FilePath,
 		Title:     archive.Title,
 	})
@@ -104,6 +113,7 @@ func (h *MetadataHandler) FetchMetadataFromSource(w http.ResponseWriter, r *http
 
 	result, err := h.pipeline.FetchWithSource(r.Context(), sourceName, metadata.Input{
 		ArchiveID: archive.ID,
+		LibraryID: archive.LibraryID,
 		FilePath:  archive.FilePath,
 		Title:     archive.Title,
 	})
@@ -216,6 +226,7 @@ func (h *MetadataHandler) SearchMetadataSource(w http.ResponseWriter, r *http.Re
 
 	results, err := h.pipeline.SearchWithSource(r.Context(), sourceName, metadata.Input{
 		ArchiveID: archive.ID,
+		LibraryID: archive.LibraryID,
 		FilePath:  archive.FilePath,
 		Title:     query,
 	})
@@ -253,13 +264,18 @@ func (h *MetadataHandler) ApplyMetadataFromSource(w http.ResponseWriter, r *http
 	sourceName := chi.URLParam(r, "source")
 	sourceID := chi.URLParam(r, "source_id")
 
-	_, err := h.queries.GetArchiveByID(r.Context(), id)
+	archive, err := h.queries.GetArchiveByID(r.Context(), id)
 	if err != nil {
 		response.NotFound(w, "archive not found")
 		return
 	}
 
-	result, err := h.pipeline.FetchFromSourceByID(r.Context(), sourceName, sourceID)
+	result, err := h.pipeline.FetchFromSourceByID(r.Context(), sourceName, metadata.Input{
+		ArchiveID: archive.ID,
+		LibraryID: archive.LibraryID,
+		FilePath:  archive.FilePath,
+		Title:     archive.Title,
+	}, sourceID)
 	if err != nil {
 		switch {
 		case errors.Is(err, metadata.ErrUnknownSource):

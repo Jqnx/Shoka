@@ -2,13 +2,15 @@
 	import * as Carousel from '$lib/components/ui/carousel';
 	import ArchiveCard from '$lib/components/ArchiveCard.svelte';
 	import { Clock, BookPlus, CalendarDays } from '@lucide/svelte';
-	import { resolve } from '$app/paths';
 
 	let { data } = $props();
 
 	const recentlyRead = $derived(data.recentlyRead);
 	const recentlyAdded = $derived(data.recentlyAdded);
 	const recentlyReleased = $derived(data.recentlyReleased);
+
+	// Same "default to the first library" fallback as the carousels' own data.
+	const archivesHref = $derived(data.libraries[0] ? `/${data.libraries[0].id}` : '/');
 
 	const carouselOpts = { align: 'start' as const, dragFree: true, loop: true };
 </script>
@@ -27,7 +29,7 @@
 					<h2 class="text-sm font-semibold">Recently Read</h2>
 				</div>
 				<a
-					href={resolve('/a')}
+					href={archivesHref}
 					class="text-xs text-muted-foreground transition-colors hover:text-foreground"
 				>
 					View all →
@@ -56,7 +58,7 @@
 					<h2 class="text-sm font-semibold">Recently Added</h2>
 				</div>
 				<a
-					href="{resolve('/a')}?sort=created_at_desc"
+					href="{archivesHref}?sort=created_at_desc"
 					class="text-xs text-muted-foreground transition-colors hover:text-foreground"
 				>
 					View all →
@@ -85,7 +87,7 @@
 					<h2 class="text-sm font-semibold">Recently Released</h2>
 				</div>
 				<a
-					href="{resolve('/a')}?sort=release_date_desc"
+					href="{archivesHref}?sort=release_date_desc"
 					class="text-xs text-muted-foreground transition-colors hover:text-foreground"
 				>
 					View all →

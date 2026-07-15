@@ -73,11 +73,37 @@ type ArchiveListResponse struct {
 	Limit int               `json:"limit"`
 }
 
+type SortOptionResponse struct {
+	Value       string `json:"value"`
+	DisplayName string `json:"display_name"`
+}
+
+// GetArchiveSortOptions godoc
+//
+//	@Summary		List archive sort options
+//	@Description	Returns every valid value for the "sort" query param on GET /api/archives, with a display name for UI dropdowns
+//	@Tags			archives
+//	@Produce		json
+//	@Success		200	{array}		SortOptionResponse
+//	@Router			/api/archives/sort-options [get]
+func (h *ArchiveHandler) GetArchiveSortOptions(w http.ResponseWriter, r *http.Request) {
+	items := make([]SortOptionResponse, 0, len(database.SortOptions))
+	for _, opt := range database.SortOptions {
+		items = append(items, SortOptionResponse{
+			Value:       opt.Value,
+			DisplayName: opt.DisplayName,
+		})
+	}
+
+	response.JSON(w, http.StatusOK, items)
+}
+
 // GetArchives godoc
 //
 //	@Summary		List archives with pagination, filtering, and sorting
 //	@Tags			archives
 //	@Produce		json
+//	@Param			library_id	query		string		true	"Library ID to list archives from"
 //	@Param			page		query		int		false	"Page number (1-based)"							default(1)
 //	@Param			limit		query		int		false	"Items per page"								default(24)
 //	@Param			sort		query		string		false	"Sort order (title_asc, title_desc, release_date_asc, release_date_desc, created_at_asc, created_at_desc, page_count_asc, page_count_desc)"
@@ -94,6 +120,12 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
 	q := r.URL.Query()
 
+	libraryID := q.Get("library_id")
+	if libraryID == "" {
+		response.BadRequest(w, "library_id is required")
+		return
+	}
+
 	page := 1
 	limit := 24
 
@@ -109,6 +141,7 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filter := database.ArchiveFilter{
+		LibraryID:  libraryID,
 		Artists:    q["artist"],
 		Tags:       q["tag"],
 		Characters: q["character"],

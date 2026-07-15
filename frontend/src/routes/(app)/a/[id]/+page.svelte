@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
@@ -7,6 +8,21 @@
 
 	let { data } = $props();
 	const a = $derived(data.archive);
+
+	// ArchiveCard links here with a `from` param carrying the exact list page
+	// (library + sort/filters/pagination) the user came from, so "back" can
+	// return there as left. The single-archive endpoint doesn't say which
+	// library this archive belongs to, so without `from` we can't know which
+	// one to link/label with either - fall back to the first library, same
+	// as the rest of the app until that's exposed.
+	const fromParam = $derived(page.url.searchParams.get('from'));
+	const fromLibraryId = $derived(fromParam?.match(/^\/([^/?]+)/)?.[1]);
+
+	const archivesHref = $derived(fromParam ?? (data.libraries[0] ? `/${data.libraries[0].id}` : '/'));
+	const archivesLabel = $derived(
+		data.libraries.find((l) => l.id === (fromLibraryId ?? data.libraries[0]?.id))?.name ??
+			'Archives'
+	);
 
 	function formatDate(iso: string | null) {
 		if (!iso) return null;
@@ -25,11 +41,11 @@
 <div class="mx-auto max-w-screen-xl px-4 py-8 sm:px-6">
 	<!-- Back -->
 	<a
-		href={resolve('/a')}
+		href={archivesHref}
 		class="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
 	>
 		<ChevronLeft class="size-4" />
-		Archives
+		{archivesLabel}
 	</a>
 
 	<div class="flex flex-col gap-8 md:flex-row">

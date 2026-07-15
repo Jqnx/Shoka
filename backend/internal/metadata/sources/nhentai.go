@@ -75,21 +75,19 @@ type NhentaiError struct {
 
 type NHentaiSource struct {
 	client  *http.Client
-	apiKey  string
 	limiter *rate.Limiter
 }
 
-func NewNHentaiSource(apiKey string) *NHentaiSource {
+func NewNHentaiSource() *NHentaiSource {
 	return &NHentaiSource{
 		client:  &http.Client{Timeout: 15 * time.Second},
-		apiKey:  apiKey,
 		limiter: rate.NewLimiter(rate.Every(nhentaiRateInterval), 1),
 	}
 }
 
-func (s *NHentaiSource) Name() string    { return "nhentai" }
-func (s *NHentaiSource) Priority() int   { return 10 }
-func (s *NHentaiSource) IsLocal() bool   { return false }
+func (s *NHentaiSource) Name() string  { return "nhentai" }
+func (s *NHentaiSource) Priority() int { return 10 }
+func (s *NHentaiSource) IsLocal() bool { return false }
 
 // Search implements SearchableSource, returns all results for manual selection.
 func (s *NHentaiSource) Search(ctx context.Context, input metadata.Input) ([]*metadata.SearchResult, error) {
@@ -97,7 +95,7 @@ func (s *NHentaiSource) Search(ctx context.Context, input metadata.Input) ([]*me
 	params.Set("query", input.Title)
 	params.Set("sort", "date")
 
-	resp, err := s.doRequest(ctx, nhentaiSearchURL+"?"+params.Encode())
+	resp, err := s.doRequest(ctx, nhentaiSearchURL+"?"+params.Encode(), input.SourceConfig.APIKey)
 	if err != nil {
 		return nil, fmt.Errorf("search request: %w", err)
 	}
@@ -124,34 +122,34 @@ func (s *NHentaiSource) Search(ctx context.Context, input metadata.Input) ([]*me
 }
 
 // FetchByID implements RemoteSource, fetches full details for a specific gallery ID.
-func (s *NHentaiSource) FetchByID(ctx context.Context, id string) (*metadata.Result, error) {
+func (s *NHentaiSource) FetchByID(ctx context.Context, input metadata.Input, id string) (*metadata.Result, error) {
 	galleryID, err := strconv.Atoi(id)
 	if err != nil {
 		return nil, fmt.Errorf("invalid nhentai gallery id: %s", id)
 	}
-	return s.fetchGallery(ctx, galleryID)
+	return s.fetchGallery(ctx, galleryID, input.SourceConfig.APIKey)
 }
 
 // Fetch implements Source, picks the first result automatically.
 func (s *NHentaiSource) Fetch(ctx context.Context, input metadata.Input) (*metadata.Result, error) {
-	galleryID, err := s.search(ctx, input.Title)
+	galleryID, err := s.search(ctx, input.Title, input.SourceConfig.APIKey)
 	if err != nil {
 		return nil, err
 	}
 	if galleryID == 0 {
 		return nil, nil
 	}
-	return s.fetchGallery(ctx, galleryID)
+	return s.fetchGallery(ctx, galleryID, input.SourceConfig.APIKey)
 }
 
 // search queries nhentai search API for a gallery ID.
 // Returns the first result.
-func (s *NHentaiSource) search(ctx context.Context, title string) (int, error) {
+func (s *NHentaiSource) search(ctx context.Context, title, apiKey string) (int, error) {
 	params := url.Values{}
 	params.Set("query", title)
 	params.Set("sort", "date")
 
-	resp, err := s.doRequest(ctx, nhentaiSearchURL+"?"+params.Encode())
+	resp, err := s.doRequest(ctx, nhentaiSearchURL+"?"+params.Encode(), apiKey)
 	if err != nil {
 		return 0, fmt.Errorf("search request: %w", err)
 	}
@@ -177,8 +175,8 @@ func (s *NHentaiSource) search(ctx context.Context, title string) (int, error) {
 }
 
 // fetchGallery queries nhentai gallery API for a specific gallery's metadata.
-func (s *NHentaiSource) fetchGallery(ctx context.Context, id int) (*metadata.Result, error) {
-	resp, err := s.doRequest(ctx, fmt.Sprintf("%s/%d", nhentaiGalleryURL, id))
+func (s *NHentaiSource) fetchGallery(ctx context.Context, id int, apiKey string) (*metadata.Result, error) {
+	resp, err := s.doRequest(ctx, fmt.Sprintf("%s/%d", nhentaiGalleryURL, id), apiKey)
 	if err != nil {
 		return nil, fmt.Errorf("gallery request: %w", err)
 	}
@@ -267,13 +265,13 @@ func (s *NHentaiSource) toResult(g *nhentaiGalleryDetail) *metadata.Result {
 
 // doRequest waits for the rate limiter, executes the request, and retries once
 // on HTTP 429 after honouring the Retry-After header (default 60 s).
-func (s *NHentaiSource) doRequest(ctx context.Context, rawURL string) (*http.Response, error) {
+func (s *NHentaiSource) doRequest(ctx context.Context, rawURL, apiKey string) (*http.Response, error) {
 	build := func() (*http.Request, error) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
 		if err != nil {
 			return nil, err
 		}
-		s.setHeaders(req)
+		s.setHeaders(req, apiKey)
 		return req, nil
 	}
 
@@ -314,10 +312,10 @@ func (s *NHentaiSource) doRequest(ctx context.Context, rawURL string) (*http.Res
 }
 
 // setHeaders sets the user agent and API key headers for the request
-func (s *NHentaiSource) setHeaders(req *http.Request) {
+func (s *NHentaiSource) setHeaders(req *http.Request, apiKey string) {
 	req.Header.Set("User-Agent", nhentaiUserAgent)
-	if s.apiKey != "" {
-		req.Header.Set("Authorization", "Key "+s.apiKey)
+	if apiKey != "" {
+		req.Header.Set("Authorization", "Key "+apiKey)
 	}
 }
 

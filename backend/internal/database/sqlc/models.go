@@ -21,6 +21,7 @@ type Archive struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 }
 
 type ArchiveArtist struct {
@@ -106,6 +107,26 @@ type Job struct {
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	RunAfter    time.Time `json:"run_after"`
+}
+
+type Library struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Path      string    `json:"path"`
+	Type      string    `json:"type"`
+	Enabled   int64     `json:"enabled"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type LibrarySource struct {
+	LibraryID         string  `json:"library_id"`
+	Source            string  `json:"source"`
+	Enabled           int64   `json:"enabled"`
+	Cookies           *string `json:"cookies"`
+	ApiKey            *string `json:"api_key"`
+	MagazineBlocklist string  `json:"magazine_blocklist"`
+	MiscBlocklist     string  `json:"misc_blocklist"`
 }
 
 type Parody struct {

@@ -1,13 +1,20 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { Badge } from '$lib/components/ui/badge';
 	import type { Archive } from '$lib/types';
 
 	let { archive }: { archive: Archive } = $props();
+
+	// Carries the current list page (sort/filters/pagination and all) through
+	// to the archive detail page, so its "back" link can return here exactly
+	// as left, instead of a bare library link.
+	const from = $derived(page.url.pathname + page.url.search);
+	const href = $derived(`${resolve(`/a/${archive.id}`)}?from=${encodeURIComponent(from)}`);
 </script>
 
 <a
-	href={resolve(`/a/${archive.id}`)}
+	{href}
 	class="group relative flex cursor-pointer flex-col overflow-hidden rounded-lg border border-border bg-card transition-all hover:-translate-y-0.5 hover:shadow-md"
 >
 	<!-- Cover -->

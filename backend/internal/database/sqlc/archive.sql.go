@@ -52,18 +52,20 @@ func (q *Queries) CountArchives(ctx context.Context) (int64, error) {
 const createArchive = `-- name: CreateArchive :one
 insert into archive (
   id,
+  library_id,
   title,
   file_path,
   file_size,
   mod_time,
   page_count
 )
-values (?, ?, ?, ?, ?, ?)
-returning id, title, summary, language, category, page_count, file_path, file_size, mod_time, created_at, updated_at, release_date
+values (?, ?, ?, ?, ?, ?, ?)
+returning id, title, summary, language, category, page_count, file_path, file_size, mod_time, created_at, updated_at, release_date, library_id
 `
 
 type CreateArchiveParams struct {
 	ID        string    `json:"id"`
+	LibraryID string    `json:"library_id"`
 	Title     string    `json:"title"`
 	FilePath  string    `json:"file_path"`
 	FileSize  int64     `json:"file_size"`
@@ -74,6 +76,7 @@ type CreateArchiveParams struct {
 func (q *Queries) CreateArchive(ctx context.Context, arg CreateArchiveParams) (Archive, error) {
 	row := q.db.QueryRowContext(ctx, createArchive,
 		arg.ID,
+		arg.LibraryID,
 		arg.Title,
 		arg.FilePath,
 		arg.FileSize,
@@ -94,6 +97,7 @@ func (q *Queries) CreateArchive(ctx context.Context, arg CreateArchiveParams) (A
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ReleaseDate,
+		&i.LibraryID,
 	)
 	return i, err
 }
@@ -158,6 +162,8 @@ type GetAllArchiveFilePathsRow struct {
 	ModTime  time.Time `json:"mod_time"`
 }
 
+// returns file paths for every archive across all libraries; used for
+// cross-library maintenance actions (e.g. regenerating all covers).
 func (q *Queries) GetAllArchiveFilePaths(ctx context.Context) ([]GetAllArchiveFilePathsRow, error) {
 	rows, err := q.db.QueryContext(ctx, getAllArchiveFilePaths)
 	if err != nil {
@@ -189,15 +195,21 @@ func (q *Queries) GetAllArchiveFilePaths(ctx context.Context) ([]GetAllArchiveFi
 const getAllArchives = `-- name: GetAllArchives :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page, progress.last_read, progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page, progress.last_read, progress.completed
 from archive
 left join
     progress
     on archive.id = progress.archive_id
     and progress.user
     and progress.user_id = ?1
+where archive.library_id = ?2
 order by archive.id
 `
+
+type GetAllArchivesParams struct {
+	Uid       string `json:"uid"`
+	LibraryID string `json:"library_id"`
+}
 
 type GetAllArchivesRow struct {
 	ID          string     `json:"id"`
@@ -212,13 +224,14 @@ type GetAllArchivesRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
 	Completed   *bool      `json:"completed"`
 }
 
-func (q *Queries) GetAllArchives(ctx context.Context, uid string) ([]GetAllArchivesRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllArchives, uid)
+func (q *Queries) GetAllArchives(ctx context.Context, arg GetAllArchivesParams) ([]GetAllArchivesRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllArchives, arg.Uid, arg.LibraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -239,6 +252,7 @@ func (q *Queries) GetAllArchives(ctx context.Context, uid string) ([]GetAllArchi
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 			&i.LastRead,
 			&i.Completed,
@@ -259,7 +273,7 @@ func (q *Queries) GetAllArchives(ctx context.Context, uid string) ([]GetAllArchi
 const getArchiveByFilePath = `-- name: GetArchiveByFilePath :one
 ;
 
-select id, title, summary, language, category, page_count, file_path, file_size, mod_time, created_at, updated_at, release_date
+select id, title, summary, language, category, page_count, file_path, file_size, mod_time, created_at, updated_at, release_date, library_id
 from archive
 where file_path = ?
 `
@@ -280,12 +294,13 @@ func (q *Queries) GetArchiveByFilePath(ctx context.Context, filePath string) (Ar
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ReleaseDate,
+		&i.LibraryID,
 	)
 	return i, err
 }
 
 const getArchiveByID = `-- name: GetArchiveByID :one
-select id, title, summary, language, category, page_count, file_path, file_size, mod_time, created_at, updated_at, release_date
+select id, title, summary, language, category, page_count, file_path, file_size, mod_time, created_at, updated_at, release_date, library_id
 from archive
 where id = ?
 `
@@ -306,25 +321,73 @@ func (q *Queries) GetArchiveByID(ctx context.Context, id string) (Archive, error
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ReleaseDate,
+		&i.LibraryID,
 	)
 	return i, err
+}
+
+const getArchiveFilePathsByLibrary = `-- name: GetArchiveFilePathsByLibrary :many
+;
+
+select id, file_path, file_size, mod_time
+from archive
+where library_id = ?
+`
+
+type GetArchiveFilePathsByLibraryRow struct {
+	ID       string    `json:"id"`
+	FilePath string    `json:"file_path"`
+	FileSize int64     `json:"file_size"`
+	ModTime  time.Time `json:"mod_time"`
+}
+
+// scoped to a single library so the scanner never mistakes another
+// library's archives for files that were removed from disk.
+func (q *Queries) GetArchiveFilePathsByLibrary(ctx context.Context, libraryID string) ([]GetArchiveFilePathsByLibraryRow, error) {
+	rows, err := q.db.QueryContext(ctx, getArchiveFilePathsByLibrary, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchiveFilePathsByLibraryRow
+	for rows.Next() {
+		var i GetArchiveFilePathsByLibraryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.FilePath,
+			&i.FileSize,
+			&i.ModTime,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getArchiveList = `-- name: GetArchiveList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page, progress.last_read, progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page, progress.last_read, progress.completed
 from archive
 left join
     progress on archive.id = progress.archive_id and progress.user_id = ?1
-limit ?3
-offset ?2
+where archive.library_id = ?2
+limit ?4
+offset ?3
 `
 
 type GetArchiveListParams struct {
-	Uid    string `json:"uid"`
-	Offset int64  `json:"offset"`
-	Limit  int64  `json:"limit"`
+	Uid       string `json:"uid"`
+	LibraryID string `json:"library_id"`
+	Offset    int64  `json:"offset"`
+	Limit     int64  `json:"limit"`
 }
 
 type GetArchiveListRow struct {
@@ -340,13 +403,19 @@ type GetArchiveListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
 	Completed   *bool      `json:"completed"`
 }
 
 func (q *Queries) GetArchiveList(ctx context.Context, arg GetArchiveListParams) ([]GetArchiveListRow, error) {
-	rows, err := q.db.QueryContext(ctx, getArchiveList, arg.Uid, arg.Offset, arg.Limit)
+	rows, err := q.db.QueryContext(ctx, getArchiveList,
+		arg.Uid,
+		arg.LibraryID,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -367,6 +436,7 @@ func (q *Queries) GetArchiveList(ctx context.Context, arg GetArchiveListParams) 
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 			&i.LastRead,
 			&i.Completed,
@@ -389,17 +459,19 @@ const getArchiveShuffle = `-- name: GetArchiveShuffle :one
 
 select id
 from archive
+where library_id = ?
 limit ?
 offset ?
 `
 
 type GetArchiveShuffleParams struct {
-	Limit  int64 `json:"limit"`
-	Offset int64 `json:"offset"`
+	LibraryID string `json:"library_id"`
+	Limit     int64  `json:"limit"`
+	Offset    int64  `json:"offset"`
 }
 
 func (q *Queries) GetArchiveShuffle(ctx context.Context, arg GetArchiveShuffleParams) (string, error) {
-	row := q.db.QueryRowContext(ctx, getArchiveShuffle, arg.Limit, arg.Offset)
+	row := q.db.QueryRowContext(ctx, getArchiveShuffle, arg.LibraryID, arg.Limit, arg.Offset)
 	var id string
 	err := row.Scan(&id)
 	return id, err
@@ -423,13 +495,19 @@ func (q *Queries) GetFilePathByID(ctx context.Context, id string) (string, error
 const getRecentlyReadArchives = `-- name: GetRecentlyReadArchives :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page, progress.last_read, progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page, progress.last_read, progress.completed
 from archive
 left join
     progress on archive.id = progress.archive_id and progress.user_id = ?1
 where progress.last_read is not null
+    and archive.library_id = ?2
 order by progress.last_read
 `
+
+type GetRecentlyReadArchivesParams struct {
+	Uid       string `json:"uid"`
+	LibraryID string `json:"library_id"`
+}
 
 type GetRecentlyReadArchivesRow struct {
 	ID          string     `json:"id"`
@@ -444,13 +522,14 @@ type GetRecentlyReadArchivesRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
 	Completed   *bool      `json:"completed"`
 }
 
-func (q *Queries) GetRecentlyReadArchives(ctx context.Context, uid string) ([]GetRecentlyReadArchivesRow, error) {
-	rows, err := q.db.QueryContext(ctx, getRecentlyReadArchives, uid)
+func (q *Queries) GetRecentlyReadArchives(ctx context.Context, arg GetRecentlyReadArchivesParams) ([]GetRecentlyReadArchivesRow, error) {
+	rows, err := q.db.QueryContext(ctx, getRecentlyReadArchives, arg.Uid, arg.LibraryID)
 	if err != nil {
 		return nil, err
 	}
@@ -471,6 +550,7 @@ func (q *Queries) GetRecentlyReadArchives(ctx context.Context, uid string) ([]Ge
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 			&i.LastRead,
 			&i.Completed,

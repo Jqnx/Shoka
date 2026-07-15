@@ -1,13 +1,14 @@
 -- name: CreateArchive :one
 insert into archive (
   id,
+  library_id,
   title,
   file_path,
   file_size,
   mod_time,
   page_count
 )
-values (?, ?, ?, ?, ?, ?)
+values (?, ?, ?, ?, ?, ?, ?)
 returning *;
 
 
@@ -24,8 +25,18 @@ where file_path = ?
 ;
 
 -- name: GetAllArchiveFilePaths :many
+-- returns file paths for every archive across all libraries; used for
+-- cross-library maintenance actions (e.g. regenerating all covers).
 select id, file_path, file_size, mod_time
 from archive
+;
+
+-- name: GetArchiveFilePathsByLibrary :many
+-- scoped to a single library so the scanner never mistakes another
+-- library's archives for files that were removed from disk.
+select id, file_path, file_size, mod_time
+from archive
+where library_id = ?
 ;
 
 -- name: GetAllArchives :many
@@ -36,6 +47,7 @@ left join
     on archive.id = progress.archive_id
     and progress.user
     and progress.user_id = sqlc.arg('uid')
+where archive.library_id = sqlc.arg('library_id')
 order by archive.id
 ;
 
@@ -45,6 +57,7 @@ from archive
 left join
     progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
 where progress.last_read is not null
+    and archive.library_id = sqlc.arg('library_id')
 order by progress.last_read
 ;
 
@@ -53,6 +66,7 @@ select archive.*, progress.page, progress.last_read, progress.completed
 from archive
 left join
     progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
+where archive.library_id = sqlc.arg('library_id')
 limit sqlc.arg('limit')
 offset sqlc.arg('offset')
 ;
@@ -60,6 +74,7 @@ offset sqlc.arg('offset')
 -- name: GetArchiveShuffle :one
 select id
 from archive
+where library_id = ?
 limit ?
 offset ?
 ;

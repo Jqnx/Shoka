@@ -6,7 +6,6 @@
 	import { X } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { resolve } from '$app/paths';
 	import type { Category, Character, Language, Parody, Tag } from '$lib/types';
 
 	const CATEGORIES: Category[] = ['Doujinshi', 'Manga', 'Artist CG', 'Game CG', 'Other'];
@@ -68,7 +67,7 @@
 		if (value && value !== ANY) params.set(name, value);
 		else params.delete(name);
 		params.delete('page');
-		goto(`${resolve('/a')}?${params}`, { noScroll: true, keepFocus: true });
+		goto(`${page.url.pathname}?${params}`, { noScroll: true, keepFocus: true });
 	}
 
 	function setMultiParam(name: string, values: string[]) {
@@ -78,7 +77,7 @@
 			if (value) params.append(name, value);
 		}
 		params.delete('page');
-		goto(`${resolve('/a')}?${params}`, { noScroll: true, keepFocus: true });
+		goto(`${page.url.pathname}?${params}`, { noScroll: true, keepFocus: true });
 	}
 
 	function submitArtist(e: SubmitEvent) {
@@ -92,7 +91,7 @@
 			params.delete(key);
 		}
 		artistInput = '';
-		goto(`${resolve('/a')}?${params}`, { noScroll: true });
+		goto(`${page.url.pathname}?${params}`, { noScroll: true });
 	}
 </script>
 

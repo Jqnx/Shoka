@@ -76,3 +76,32 @@ export type ParodyListResponse = {
 	page: number;
 	limit: number;
 };
+
+export type Library = {
+	id: string;
+	name: string;
+	path: string;
+	type: string;
+	enabled: boolean;
+	created_at: string;
+	updated_at: string;
+};
+
+export type LibrarySource = {
+	source: string;
+	enabled: boolean;
+	cookies?: string;
+	api_key?: string;
+	magazine_blocklist: string[];
+	misc_blocklist: string[];
+};
+
+export type LibraryType = {
+	type: string;
+	supported: boolean;
+};
+
+export type ArchiveSortOption = {
+	value: string;
+	display_name: string;
+};

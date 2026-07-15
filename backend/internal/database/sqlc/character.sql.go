@@ -287,7 +287,7 @@ func (q *Queries) GetAllCharacter(ctx context.Context) ([]Character, error) {
 const getArchiveByCharacter = `-- name: GetArchiveByCharacter :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page
 from archive
 join archive_character on archive.id = archive_character.archive_id
 join character on archive_character.character_id = character.id
@@ -314,6 +314,7 @@ type GetArchiveByCharacterRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 }
 
@@ -339,6 +340,7 @@ func (q *Queries) GetArchiveByCharacter(ctx context.Context, arg GetArchiveByCha
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 		); err != nil {
 			return nil, err
@@ -357,7 +359,7 @@ func (q *Queries) GetArchiveByCharacter(ctx context.Context, arg GetArchiveByCha
 const getArchiveByCharacterList = `-- name: GetArchiveByCharacterList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page
 from archive
 join archive_character on archive.id = archive_character.archive_id
 join character on archive_character.character_id = character.id
@@ -405,6 +407,7 @@ type GetArchiveByCharacterListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 }
 
@@ -435,6 +438,7 @@ func (q *Queries) GetArchiveByCharacterList(ctx context.Context, arg GetArchiveB
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 		); err != nil {
 			return nil, err
@@ -603,7 +607,7 @@ func (q *Queries) GetArchiveIDsByCharacters(ctx context.Context, arg GetArchiveI
 const getArchivesByCharacterName = `-- name: GetArchivesByCharacterName :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page, progress.last_read, progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page, progress.last_read, progress.completed
 from archive
 join archive_character on archive.id = archive_character.archive_id
 join character on archive_character.character_id = character.id
@@ -634,6 +638,7 @@ type GetArchivesByCharacterNameRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
 	Completed   *bool      `json:"completed"`
@@ -666,6 +671,7 @@ func (q *Queries) GetArchivesByCharacterName(ctx context.Context, arg GetArchive
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 			&i.LastRead,
 			&i.Completed,

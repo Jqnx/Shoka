@@ -8,8 +8,6 @@ import (
 
 	"Shoka/internal/language"
 	"Shoka/internal/metadata"
-
-	"github.com/spf13/viper"
 )
 
 var knownMagazinePrefixes = []string{
@@ -129,7 +127,7 @@ func (s *FilenameSource) Fetch(ctx context.Context, input metadata.Input) (*meta
 	if len(parens) > 0 {
 		for _, m := range parens {
 			candidate := strings.ToLower(strings.TrimSpace(m[1]))
-			if !s.isMagazine(candidate) && !s.isMiscString(candidate) {
+			if !s.isMagazine(candidate, input.SourceConfig.MagazineBlocklist) && !s.isMiscString(candidate, input.SourceConfig.MiscBlocklist) {
 				result.Parodies = []string{candidate}
 				break
 			}
@@ -148,7 +146,7 @@ func (s *FilenameSource) Fetch(ctx context.Context, input metadata.Input) (*meta
 	return result, nil
 }
 
-func (s *FilenameSource) isMagazine(name string) bool {
+func (s *FilenameSource) isMagazine(name string, blocklist []string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(name))
 
 	for _, prefix := range knownMagazinePrefixes {
@@ -157,7 +155,7 @@ func (s *FilenameSource) isMagazine(name string) bool {
 		}
 	}
 
-	for _, m := range viper.GetStringSlice("metadata.sources.filename.magazine_blocklist") {
+	for _, m := range blocklist {
 		prefix := strings.ToLower(strings.TrimSpace(m))
 		if strings.HasPrefix(normalized, prefix) {
 			return true
@@ -167,7 +165,7 @@ func (s *FilenameSource) isMagazine(name string) bool {
 	return false
 }
 
-func (s *FilenameSource) isMiscString(name string) bool {
+func (s *FilenameSource) isMiscString(name string, blocklist []string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(name))
 
 	for _, misc := range miscStrings {
@@ -176,7 +174,7 @@ func (s *FilenameSource) isMiscString(name string) bool {
 		}
 	}
 
-	for _, misc := range viper.GetStringSlice("metadata.sources.filename.misc_blocklist") {
+	for _, misc := range blocklist {
 		contain := strings.ToLower(strings.TrimSpace(misc))
 		if strings.Contains(normalized, contain) {
 			return true

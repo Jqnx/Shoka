@@ -44,7 +44,7 @@ func (q *Queries) GetAllLanguage(ctx context.Context) ([]*string, error) {
 const getArchiveByLanguage = `-- name: GetArchiveByLanguage :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page
 from archive
 left join
     progress on archive.id = progress.archive_id and progress.user_id = ?2
@@ -69,6 +69,7 @@ type GetArchiveByLanguageRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 }
 
@@ -94,6 +95,7 @@ func (q *Queries) GetArchiveByLanguage(ctx context.Context, arg GetArchiveByLang
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 		); err != nil {
 			return nil, err
@@ -112,7 +114,7 @@ func (q *Queries) GetArchiveByLanguage(ctx context.Context, arg GetArchiveByLang
 const getArchiveByLanguageList = `-- name: GetArchiveByLanguageList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page
 from archive
 left join
     progress on archive.id = progress.archive_id and progress.user_id = ?4
@@ -158,6 +160,7 @@ type GetArchiveByLanguageListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 }
 
@@ -188,6 +191,7 @@ func (q *Queries) GetArchiveByLanguageList(ctx context.Context, arg GetArchiveBy
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 		); err != nil {
 			return nil, err

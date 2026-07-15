@@ -397,7 +397,7 @@ func (q *Queries) GetArchiveArtists(ctx context.Context, id string) ([]Artist, e
 const getArchiveByArtist = `-- name: GetArchiveByArtist :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id
 from archive
 join archive_artist on archive.id = archive_artist.archive_id
 join artist on archive_artist.artist_id = artist.id
@@ -426,6 +426,7 @@ func (q *Queries) GetArchiveByArtist(ctx context.Context, name string) ([]Archiv
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 		); err != nil {
 			return nil, err
 		}
@@ -443,7 +444,7 @@ func (q *Queries) GetArchiveByArtist(ctx context.Context, name string) ([]Archiv
 const getArchiveByArtistList = `-- name: GetArchiveByArtistList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id
 from archive
 join archive_artist on archive.id = archive_artist.archive_id
 join artist on archive_artist.artist_id = artist.id
@@ -480,6 +481,7 @@ func (q *Queries) GetArchiveByArtistList(ctx context.Context, arg GetArchiveByAr
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 		); err != nil {
 			return nil, err
 		}

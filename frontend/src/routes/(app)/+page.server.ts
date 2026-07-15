@@ -3,13 +3,22 @@ import type { ArchiveListResponse } from '$lib/types';
 
 const CAROUSEL_LIMIT = 10;
 
-export const load: PageServerLoad = async ({ fetch }) => {
+export const load: PageServerLoad = async ({ fetch, parent }) => {
+	const { libraries } = await parent();
+	// GetArchives is scoped to a single library; default to the first one
+	// until there's a "current library" concept for the home page to draw from.
+	const libraryId = libraries[0]?.id;
+
+	if (!libraryId) {
+		return { recentlyAdded: [], recentlyReleased: [], recentlyRead: [] };
+	}
+
 	const [addedRes, releasedRes, readRes] = await Promise.all([
-		fetch(`/api/archives?sort=created_at_desc&limit=${CAROUSEL_LIMIT}`),
-		fetch(`/api/archives?sort=release_date_desc&limit=${CAROUSEL_LIMIT}`),
+		fetch(`/api/archives?library_id=${libraryId}&sort=created_at_desc&limit=${CAROUSEL_LIMIT}`),
+		fetch(`/api/archives?library_id=${libraryId}&sort=release_date_desc&limit=${CAROUSEL_LIMIT}`),
 		// No backend endpoint/sort exists yet for "has progress, ordered by last read" -
 		// fetch a broader page and filter/sort for reading progress client-side.
-		fetch('/api/archives?limit=100')
+		fetch(`/api/archives?library_id=${libraryId}&limit=100`)
 	]);
 
 	const addedData: ArchiveListResponse = addedRes.ok

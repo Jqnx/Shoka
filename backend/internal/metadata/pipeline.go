@@ -2,12 +2,14 @@ package metadata
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"sort"
 
-	"github.com/spf13/viper"
+	"Shoka/internal/database/sqlc"
 )
 
 var (
@@ -18,6 +20,7 @@ var (
 
 type Pipeline struct {
 	sources []Source
+	queries *sqlc.Queries
 	logger  *slog.Logger
 }
 
@@ -27,9 +30,10 @@ type SourceInfo struct {
 	Enabled  bool   `json:"enabled"`
 }
 
-func NewPipeline(logger *slog.Logger, sources ...Source) *Pipeline {
+func NewPipeline(logger *slog.Logger, queries *sqlc.Queries, sources ...Source) *Pipeline {
 	p := &Pipeline{
 		sources: sources,
+		queries: queries,
 		logger:  logger.With("component", "metadata_pipeline"),
 	}
 
@@ -40,10 +44,44 @@ func NewPipeline(logger *slog.Logger, sources ...Source) *Pipeline {
 	return p
 }
 
-// IsEnabled checks if a given source is enabled in the config.
-func (p *Pipeline) IsEnabled(name string) bool {
-	key := fmt.Sprintf("metadata.sources.%s.enabled", name)
-	return viper.GetBool(key)
+// resolveSettings loads a source's per-library configuration from the
+// library_source table. A missing row (source never configured for this
+// library) is treated as present-but-disabled, not an error.
+func (p *Pipeline) resolveSettings(ctx context.Context, libraryID, name string) (SourceSettings, error) {
+	row, err := p.queries.GetLibrarySource(ctx, sqlc.GetLibrarySourceParams{
+		LibraryID: libraryID,
+		Source:    name,
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return SourceSettings{}, nil
+		}
+		return SourceSettings{}, err
+	}
+
+	settings := SourceSettings{
+		Enabled:           row.Enabled != 0,
+		MagazineBlocklist: unmarshalStringSlice(row.MagazineBlocklist),
+		MiscBlocklist:     unmarshalStringSlice(row.MiscBlocklist),
+	}
+	if row.Cookies != nil {
+		settings.Cookies = *row.Cookies
+	}
+	if row.ApiKey != nil {
+		settings.APIKey = *row.ApiKey
+	}
+
+	return settings, nil
+}
+
+// IsEnabled checks if a given source is enabled for a library.
+func (p *Pipeline) IsEnabled(ctx context.Context, libraryID, name string) bool {
+	settings, err := p.resolveSettings(ctx, libraryID, name)
+	if err != nil {
+		p.logger.Warn("failed to resolve source settings", "library_id", libraryID, "source", name, "error", err)
+		return false
+	}
+	return settings.Enabled
 }
 
 // Run tries each source in priority order and merges their results.
@@ -62,7 +100,12 @@ func (p *Pipeline) run(ctx context.Context, input Input, localOnly bool) (*Resul
 	final := &Result{}
 
 	for _, source := range p.sources {
-		if !p.IsEnabled(source.Name()) {
+		settings, err := p.resolveSettings(ctx, input.LibraryID, source.Name())
+		if err != nil {
+			p.logger.Warn("failed to resolve source settings", "source", source.Name(), "archive_id", input.ArchiveID, "error", err)
+			continue
+		}
+		if !settings.Enabled {
 			continue
 		}
 
@@ -79,7 +122,10 @@ func (p *Pipeline) run(ctx context.Context, input Input, localOnly bool) (*Resul
 			"archive_id", input.ArchiveID,
 		)
 
-		result, err := source.Fetch(ctx, input)
+		sourceInput := input
+		sourceInput.SourceConfig = settings
+
+		result, err := source.Fetch(ctx, sourceInput)
 		if err != nil {
 			p.logger.Warn("metadata source failed",
 				"source", source.Name(),
@@ -171,9 +217,14 @@ func (p *Pipeline) FetchWithSource(ctx context.Context, name string, input Input
 		return nil, fmt.Errorf("%w: %s", ErrUnknownSource, name)
 	}
 
-	if !p.IsEnabled(name) {
+	settings, err := p.resolveSettings(ctx, input.LibraryID, name)
+	if err != nil {
+		return nil, fmt.Errorf("resolve source settings: %w", err)
+	}
+	if !settings.Enabled {
 		return nil, fmt.Errorf("%w: %s", ErrDisabledSource, name)
 	}
+	input.SourceConfig = settings
 
 	return found.Fetch(ctx, input)
 }
@@ -192,9 +243,15 @@ func (p *Pipeline) SearchWithSource(ctx context.Context, name string, input Inpu
 	if found == nil {
 		return nil, fmt.Errorf("%w: %s", ErrUnknownSource, name)
 	}
-	if !p.IsEnabled(name) {
+
+	settings, err := p.resolveSettings(ctx, input.LibraryID, name)
+	if err != nil {
+		return nil, fmt.Errorf("resolve source settings: %w", err)
+	}
+	if !settings.Enabled {
 		return nil, fmt.Errorf("%w: %s", ErrDisabledSource, name)
 	}
+	input.SourceConfig = settings
 
 	searchable, ok := found.(SearchableSource)
 	if !ok {
@@ -206,7 +263,9 @@ func (p *Pipeline) SearchWithSource(ctx context.Context, name string, input Inpu
 
 // FetchFromSourceByID fetches full metadata from a named remote source
 // using a source-specific ID chosen by the user from search results.
-func (p *Pipeline) FetchFromSourceByID(ctx context.Context, name string, id string) (*Result, error) {
+// input identifies the archive/library the result will be applied to, so
+// the correct per-library source settings (cookies/API key) can be used.
+func (p *Pipeline) FetchFromSourceByID(ctx context.Context, name string, input Input, id string) (*Result, error) {
 	var found Source
 	for _, s := range p.sources {
 		if s.Name() == name {
@@ -218,28 +277,46 @@ func (p *Pipeline) FetchFromSourceByID(ctx context.Context, name string, id stri
 	if found == nil {
 		return nil, fmt.Errorf("%w: %s", ErrUnknownSource, name)
 	}
-	if !p.IsEnabled(name) {
+
+	settings, err := p.resolveSettings(ctx, input.LibraryID, name)
+	if err != nil {
+		return nil, fmt.Errorf("resolve source settings: %w", err)
+	}
+	if !settings.Enabled {
 		return nil, fmt.Errorf("%w: %s", ErrDisabledSource, name)
 	}
+	input.SourceConfig = settings
 
 	remote, ok := found.(RemoteSource)
 	if !ok {
 		return nil, fmt.Errorf("%w: %s", ErrNotSearchable, name)
 	}
 
-	return remote.FetchByID(ctx, id)
+	return remote.FetchByID(ctx, input, id)
 }
 
-// Sources returns info about all registered sources and their enabled state.
-func (p *Pipeline) Sources() []SourceInfo {
+// Sources returns info about all registered sources and their enabled
+// state for the given library.
+func (p *Pipeline) Sources(ctx context.Context, libraryID string) []SourceInfo {
 	info := make([]SourceInfo, len(p.sources))
 	for i, s := range p.sources {
 		info[i] = SourceInfo{
 			Name:     s.Name(),
 			Priority: s.Priority(),
-			Enabled:  p.IsEnabled(s.Name()),
+			Enabled:  p.IsEnabled(ctx, libraryID, s.Name()),
 		}
 	}
 
 	return info
+}
+
+func unmarshalStringSlice(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	var out []string
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil
+	}
+	return out
 }

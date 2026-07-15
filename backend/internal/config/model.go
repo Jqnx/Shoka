@@ -1,12 +1,13 @@
 package config
 
 type Config struct {
-	Server     ServerConfig
-	LogLevel   string
-	LibraryDir string         `mapstructure:"library_dir"`
-	Cache      CacheConfig    `mapstructure:"cache"`
-	Images     ImageConfig    `mapstructure:"images"`
-	Metadata   MetadataConfig `mapstructure:"metadata"`
+	Server   ServerConfig
+	LogLevel string
+	// NOTE: library roots are no longer configured here — they live in the
+	// `library` DB table and are managed via the admin API (see internal/library).
+	Cache    CacheConfig    `mapstructure:"cache"`
+	Images   ImageConfig    `mapstructure:"images"`
+	Metadata MetadataConfig `mapstructure:"metadata"`
 }
 
 type ServerConfig struct {
@@ -23,31 +24,13 @@ type ImageConfig struct {
 	RetentionPeriod int16 `mapstructure:"retention_period"`
 }
 
+// MetadataConfig only holds infra-level settings shared by every library.
+// Per-source enablement/cookies/api keys/blocklists are per-library now —
+// see the library_source DB table and internal/metadata.SourceSettings.
 type MetadataConfig struct {
-	Flaresolverr Flaresolverr            `mapstructure:"flaresolverr"`
-	Sources      map[string]SourceConfig `mapstructure:"sources"`
-}
-
-type SourceConfig struct {
-	Enabled           bool     `mapstructure:"enabled"`
-	Cookies           string   `mapstructure:"cookies"`
-	APIKey            string   `mapstructure:"api_key"`
-	MagazineBlocklist []string `mapstructure:"magazine_blocklist"`
-	MiscBlocklist     []string `mapstructure:"misc_blocklist"`
+	Flaresolverr Flaresolverr `mapstructure:"flaresolverr"`
 }
 
 type Flaresolverr struct {
 	URL string `mapstructure:"url"`
-}
-
-func (m *MetadataConfig) IsEnabled(name string) bool {
-	sc, ok := m.Sources[name]
-	if !ok {
-		return false
-	}
-	return sc.Enabled
-}
-
-func (m *MetadataConfig) GetSource(name string) SourceConfig {
-	return m.Sources[name]
 }

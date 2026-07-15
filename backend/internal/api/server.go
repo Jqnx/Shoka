@@ -7,6 +7,7 @@ import (
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/image"
 	"Shoka/internal/jobs"
+	"Shoka/internal/library"
 	"Shoka/internal/metadata"
 
 	"github.com/go-chi/chi/v5"
@@ -20,10 +21,11 @@ type Server struct {
 	Cache     *image.Cache
 	Processor *image.Processor
 	Pipeline  *metadata.Pipeline
+	Libraries *library.Manager
 	DB        *sql.DB
 }
 
-func New(queries *sqlc.Queries, logger *slog.Logger, queue *jobs.Queue, cache *image.Cache, processor *image.Processor, pipeline *metadata.Pipeline, db *sql.DB) *Server {
+func New(queries *sqlc.Queries, logger *slog.Logger, queue *jobs.Queue, cache *image.Cache, processor *image.Processor, pipeline *metadata.Pipeline, libraries *library.Manager, db *sql.DB) *Server {
 	router := chi.NewRouter()
 	server := &Server{
 		Router:    router,
@@ -33,6 +35,7 @@ func New(queries *sqlc.Queries, logger *slog.Logger, queue *jobs.Queue, cache *i
 		Cache:     cache,
 		Processor: processor,
 		Pipeline:  pipeline,
+		Libraries: libraries,
 		DB:        db,
 	}
 	server.MountMiddleware()

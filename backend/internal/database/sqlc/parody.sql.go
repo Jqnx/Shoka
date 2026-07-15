@@ -274,7 +274,7 @@ func (q *Queries) GetAllParody(ctx context.Context) ([]Parody, error) {
 const getArchiveByParody = `-- name: GetArchiveByParody :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page
 from archive
 join archive_parody on archive.id = archive_parody.archive_id
 join parody on archive_parody.parody_id = parody.id
@@ -301,6 +301,7 @@ type GetArchiveByParodyRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 }
 
@@ -326,6 +327,7 @@ func (q *Queries) GetArchiveByParody(ctx context.Context, arg GetArchiveByParody
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 		); err != nil {
 			return nil, err
@@ -344,7 +346,7 @@ func (q *Queries) GetArchiveByParody(ctx context.Context, arg GetArchiveByParody
 const getArchiveByParodyList = `-- name: GetArchiveByParodyList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page
 from archive
 join archive_parody on archive.id = archive_parody.archive_id
 join parody on archive_parody.parody_id = parody.id
@@ -392,6 +394,7 @@ type GetArchiveByParodyListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 }
 
@@ -422,6 +425,7 @@ func (q *Queries) GetArchiveByParodyList(ctx context.Context, arg GetArchiveByPa
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 		); err != nil {
 			return nil, err
@@ -590,7 +594,7 @@ func (q *Queries) GetArchiveParodyIDs(ctx context.Context, id string) ([]int64, 
 const getArchivesByParodyName = `-- name: GetArchivesByParodyName :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page, progress.last_read, progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page, progress.last_read, progress.completed
 from archive
 join archive_parody on archive.id = archive_parody.archive_id
 join parody on archive_parody.parody_id = parody.id
@@ -621,6 +625,7 @@ type GetArchivesByParodyNameRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
 	Completed   *bool      `json:"completed"`
@@ -653,6 +658,7 @@ func (q *Queries) GetArchivesByParodyName(ctx context.Context, arg GetArchivesBy
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 			&i.LastRead,
 			&i.Completed,

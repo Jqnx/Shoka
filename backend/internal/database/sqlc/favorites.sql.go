@@ -146,7 +146,7 @@ func (q *Queries) GetFavoriteArchiveFilter(ctx context.Context, arg GetFavoriteA
 const getFavoriteArchiveFilterSortList = `-- name: GetFavoriteArchiveFilterSortList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, rp.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, rp.page
 from archive
 join favorite_archive as fa on archive.id = fa.archive_id
 left join progress as rp on archive.id = rp.archive_id and rp.user_id = ?3
@@ -199,6 +199,7 @@ type GetFavoriteArchiveFilterSortListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 }
 
@@ -237,6 +238,7 @@ func (q *Queries) GetFavoriteArchiveFilterSortList(ctx context.Context, arg GetF
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 		); err != nil {
 			return nil, err
@@ -255,7 +257,7 @@ func (q *Queries) GetFavoriteArchiveFilterSortList(ctx context.Context, arg GetF
 const getFavoriteArchiveSortList = `-- name: GetFavoriteArchiveSortList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, rp.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, rp.page
 from archive
 join favorite_archive as fa on archive.id = fa.archive_id
 left join progress as rp on archive.id = rp.archive_id and rp.user_id = ?3
@@ -300,6 +302,7 @@ type GetFavoriteArchiveSortListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 }
 
@@ -325,6 +328,7 @@ func (q *Queries) GetFavoriteArchiveSortList(ctx context.Context, arg GetFavorit
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 		); err != nil {
 			return nil, err
@@ -343,7 +347,7 @@ func (q *Queries) GetFavoriteArchiveSortList(ctx context.Context, arg GetFavorit
 const getUserFavoriteArchiveAll = `-- name: GetUserFavoriteArchiveAll :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id
 from archive
 join favorite_archive as fa on archive.id = fa.archive_id
 left join progress as rp on archive.id = rp.archive_id and rp.user_id = fa.user_id
@@ -373,6 +377,7 @@ func (q *Queries) GetUserFavoriteArchiveAll(ctx context.Context, uid *string) ([
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 		); err != nil {
 			return nil, err
 		}
@@ -390,7 +395,7 @@ func (q *Queries) GetUserFavoriteArchiveAll(ctx context.Context, uid *string) ([
 const getUserFavoriteArchiveList = `-- name: GetUserFavoriteArchiveList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, rp.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, rp.page
 from archive
 join favorite_archive as fa on archive.id = fa.archive_id
 left join progress as rp on archive.id = rp.archive_id and rp.user_id = fa.user_id
@@ -418,6 +423,7 @@ type GetUserFavoriteArchiveListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 }
 
@@ -443,6 +449,7 @@ func (q *Queries) GetUserFavoriteArchiveList(ctx context.Context, arg GetUserFav
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 		); err != nil {
 			return nil, err

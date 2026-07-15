@@ -7,7 +7,6 @@
 	import FiltersTrigger from '$lib/components/FiltersTrigger.svelte';
 	import { Search } from '@lucide/svelte';
 	import { goto, afterNavigate } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 
 	afterNavigate((nav) => {
@@ -16,41 +15,35 @@
 
 	let { data } = $props();
 
-	const SORT_OPTIONS = [
-		{ value: 'created_at_desc', label: 'Latest' },
-		{ value: 'created_at_asc', label: 'Oldest' },
-		{ value: 'title_asc', label: 'Title (A–Z)' },
-		{ value: 'title_desc', label: 'Title (Z–A)' },
-		{ value: 'release_date_desc', label: 'Release date (newest)' },
-		{ value: 'release_date_asc', label: 'Release date (oldest)' },
-		{ value: 'page_count_desc', label: 'Page count (most)' },
-		{ value: 'page_count_asc', label: 'Page count (least)' }
-	];
+	const DEFAULT_SORT = 'created_at_desc';
 
-	const sortValue = $derived(data.filters.sort || 'created_at_desc');
+	const sortValue = $derived(data.filters.sort || DEFAULT_SORT);
 	const sortLabel = $derived(
-		SORT_OPTIONS.find((opt) => opt.value === sortValue)?.label ?? 'Latest'
+		data.sortOptions.find((opt) => opt.value === sortValue)?.display_name ?? 'Sort'
 	);
 
 	function updateParam(name: string, value: string) {
 		const params = new URLSearchParams(page.url.searchParams);
 		params.set(name, value);
 		params.delete('page');
-		goto(`${resolve('/a')}?${params}`, { noScroll: true, keepFocus: true });
+		goto(`${page.url.pathname}?${params}`, { noScroll: true, keepFocus: true });
 	}
 </script>
 
 <svelte:head>
-	<title>Archives | Shoka</title>
+	<title>{data.library.name} | Shoka</title>
 </svelte:head>
 
 <Sidebar.Provider open={false}>
 	<Sidebar.Inset class="bg-transparent">
 		<div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6">
-			<p class="text-sm text-muted-foreground">
-				{data.total}
-				{data.total === 1 ? 'archive' : 'archives'} found
-			</p>
+			<div>
+				<h1 class="text-base font-semibold">{data.library.name}</h1>
+				<p class="text-sm text-muted-foreground">
+					{data.total}
+					{data.total === 1 ? 'archive' : 'archives'} found
+				</p>
+			</div>
 
 			<div class="flex items-center gap-2">
 				<Select.Root type="single" value={sortValue} onValueChange={(v) => updateParam('sort', v)}>
@@ -60,8 +53,10 @@
 					<Select.Content>
 						<Select.Group>
 							<Select.Label>Sort</Select.Label>
-							{#each SORT_OPTIONS as opt (opt.value)}
-								<Select.Item value={opt.value} label={opt.label}>{opt.label}</Select.Item>
+							{#each data.sortOptions as opt (opt.value)}
+								<Select.Item value={opt.value} label={opt.display_name}>
+									{opt.display_name}
+								</Select.Item>
 							{/each}
 						</Select.Group>
 					</Select.Content>
@@ -96,7 +91,7 @@
 						onPageChange={(p) => {
 							const params = new URLSearchParams(page.url.searchParams);
 							params.set('page', String(p));
-							goto(`${resolve('/a')}?${params}`, { noScroll: true });
+							goto(`${page.url.pathname}?${params}`, { noScroll: true });
 						}}
 					>
 						{#snippet children({ pages })}

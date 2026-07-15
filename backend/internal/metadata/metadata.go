@@ -29,14 +29,26 @@ type Result struct {
 // Input is what every source receives to identify the archive.
 type Input struct {
 	ArchiveID string
+	LibraryID string
 	FilePath  string
 	Title     string // filename-derived title, useful for search-based sources
+
+	// SourceConfig holds the resolved per-library settings for whichever
+	// source is currently being invoked. The Pipeline populates this field
+	// fresh for each source before calling Fetch/Search, since each source
+	// has its own settings row in the library_source table.
+	SourceConfig SourceSettings
 }
 
-// SourceConfig wraps a source with its enabled state.
-type SourceConfig struct {
-	Source  Source
-	Enabled bool
+// SourceSettings is a source's per-library configuration, resolved from the
+// library_source table. Not every source uses every field (e.g. ComicInfo
+// uses none of them, filename uses only the blocklists).
+type SourceSettings struct {
+	Enabled           bool
+	Cookies           string
+	APIKey            string
+	MagazineBlocklist []string
+	MiscBlocklist     []string
 }
 
 // Source is the interface every metadata provider must implement.
@@ -79,7 +91,10 @@ type SearchResult struct {
 
 type RemoteSource interface {
 	SearchableSource
-	FetchByID(ctx context.Context, id string) (*Result, error)
+	// FetchByID fetches full metadata for a source-specific ID chosen by the
+	// user from search results. input carries the resolved SourceConfig for
+	// this source (cookies/API key) since fetching may need authentication.
+	FetchByID(ctx context.Context, input Input, id string) (*Result, error)
 }
 
 func ApplyMetadata(ctx context.Context, queries *sqlc.Queries, db *sql.DB, archiveID string, result *Result) error {

@@ -72,7 +72,7 @@ func (q *Queries) GetArchiveFilter(ctx context.Context, arg GetArchiveFilterPara
 }
 
 const getArchiveFilterSortList = `-- name: GetArchiveFilterSortList :many
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page, progress.last_read, progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page, progress.last_read, progress.completed
 from archive
 left join
     progress on archive.id = progress.archive_id and progress.user_id = ?3
@@ -118,6 +118,7 @@ type GetArchiveFilterSortListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
 	Completed   *bool      `json:"completed"`
@@ -158,6 +159,7 @@ func (q *Queries) GetArchiveFilterSortList(ctx context.Context, arg GetArchiveFi
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 			&i.LastRead,
 			&i.Completed,
@@ -178,7 +180,7 @@ func (q *Queries) GetArchiveFilterSortList(ctx context.Context, arg GetArchiveFi
 const getArchiveSort = `-- name: GetArchiveSort :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page, progress.last_read, progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page, progress.last_read, progress.completed
 from archive
 left join
     progress on archive.id = progress.archive_id and progress.user_id = ?1
@@ -210,6 +212,7 @@ type GetArchiveSortRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
 	Completed   *bool      `json:"completed"`
@@ -237,6 +240,7 @@ func (q *Queries) GetArchiveSort(ctx context.Context, uid string) ([]GetArchiveS
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 			&i.LastRead,
 			&i.Completed,
@@ -257,7 +261,7 @@ func (q *Queries) GetArchiveSort(ctx context.Context, uid string) ([]GetArchiveS
 const getArchiveSortList = `-- name: GetArchiveSortList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, progress.page, progress.last_read, progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page, progress.last_read, progress.completed
 from archive
 left join
     progress on archive.id = progress.archive_id and progress.user_id = ?3
@@ -297,6 +301,7 @@ type GetArchiveSortListRow struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
 	Completed   *bool      `json:"completed"`
@@ -324,6 +329,7 @@ func (q *Queries) GetArchiveSortList(ctx context.Context, arg GetArchiveSortList
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ReleaseDate,
+			&i.LibraryID,
 			&i.Page,
 			&i.LastRead,
 			&i.Completed,

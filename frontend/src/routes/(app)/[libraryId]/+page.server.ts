@@ -1,10 +1,15 @@
+import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import type { ArchiveListResponse, Character, Parody, Tag } from '$lib/types';
+import type { ArchiveListResponse, ArchiveSortOption, Character, Parody, Tag } from '$lib/types';
 
 const DEFAULT_LIMIT = 40;
 const MAX_LIMIT = 100;
 
-export const load: PageServerLoad = async ({ fetch, url }) => {
+export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
+	const { libraries } = await parent();
+	const library = libraries.find((l) => l.id === params.libraryId);
+	if (!library) error(404, 'Library not found');
+
 	const page = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'));
 	const limit = Math.min(
 		MAX_LIMIT,
@@ -21,7 +26,11 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
 		artist: url.searchParams.get('artist') ?? ''
 	};
 
-	const archiveParams = new URLSearchParams({ page: String(page), limit: String(limit) });
+	const archiveParams = new URLSearchParams({
+		library_id: library.id,
+		page: String(page),
+		limit: String(limit)
+	});
 	if (filters.sort) archiveParams.set('sort', filters.sort);
 	if (filters.category) archiveParams.set('category', filters.category);
 	if (filters.language) archiveParams.set('language', filters.language);
@@ -30,11 +39,12 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
 	for (const character of filters.character) archiveParams.append('character', character);
 	for (const parody of filters.parody) archiveParams.append('parody', parody);
 
-	const [archivesRes, tagsRes, charactersRes, parodiesRes] = await Promise.all([
+	const [archivesRes, tagsRes, charactersRes, parodiesRes, sortOptionsRes] = await Promise.all([
 		fetch(`/api/archives?${archiveParams}`),
 		fetch('/api/tags/all'),
 		fetch('/api/characters/all'),
-		fetch('/api/parodies/all')
+		fetch('/api/parodies/all'),
+		fetch('/api/archives/sort-options')
 	]);
 
 	const archivesData: ArchiveListResponse = archivesRes.ok
@@ -43,8 +53,10 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
 	const tags: Tag[] = tagsRes.ok ? await tagsRes.json() : [];
 	const characters: Character[] = charactersRes.ok ? await charactersRes.json() : [];
 	const parodies: Parody[] = parodiesRes.ok ? await parodiesRes.json() : [];
+	const sortOptions: ArchiveSortOption[] = sortOptionsRes.ok ? await sortOptionsRes.json() : [];
 
 	return {
+		library,
 		archives: archivesData.items ?? [],
 		total: Number(archivesData.total),
 		page,
@@ -52,6 +64,7 @@ export const load: PageServerLoad = async ({ fetch, url }) => {
 		filters,
 		tags,
 		characters,
-		parodies
+		parodies,
+		sortOptions
 	};
 };

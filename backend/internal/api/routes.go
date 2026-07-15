@@ -43,12 +43,16 @@ func (s *Server) MountHandlers() {
 		archiveHandler := handlers.NewArchiveHandler(s.Queries, s.DB, s.Log, s.Processor, s.Cache)
 		metadataHandler := handlers.NewMetadataHandler(s.Queries, s.DB, s.Pipeline, s.Log)
 		adminHandler := handlers.NewAdminHandler(s.Queries, s.Queue, s.Log)
+		libraryHandler := handlers.NewLibraryHandler(s.Queries, s.Queue, s.Libraries, s.Log)
 		tagHandler := handlers.NewTagHandler(s.Queries, s.Log, s.Processor)
 		characterHandler := handlers.NewCharacterHandler(s.Queries, s.Log, s.Processor)
 		parodyHandler := handlers.NewParodyHandler(s.Queries, s.Log, s.Processor)
 
 		r.Get("/api/metadata/sources", metadataHandler.GetSources)
+		r.Get("/api/libraries", libraryHandler.GetLibraries)
+		r.Get("/api/libraries/types", libraryHandler.GetLibraryTypes)
 		r.Get("/api/archives", archiveHandler.GetArchives)
+		r.Get("/api/archives/sort-options", archiveHandler.GetArchiveSortOptions)
 		r.Get("/api/tags", tagHandler.GetTags)
 		r.Get("/api/tags/all", tagHandler.GetAllTags)
 		r.Route("/api/tags/{id}", func(r chi.Router) {
@@ -80,8 +84,18 @@ func (s *Server) MountHandlers() {
 		})
 
 		r.Route("/api/admin", func(r chi.Router) {
-			r.Patch("/sources/{source}", adminHandler.UpdateSourceEnabled)
 			r.Post("/covers", adminHandler.GenerateCovers)
+
+			r.Route("/libraries", func(r chi.Router) {
+				r.Post("/", libraryHandler.CreateLibrary)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Patch("/", libraryHandler.UpdateLibrary)
+					r.Delete("/", libraryHandler.DeleteLibrary)
+					r.Post("/scan", libraryHandler.ScanLibrary)
+					r.Get("/sources", libraryHandler.GetLibrarySources)
+					r.Patch("/sources/{source}", libraryHandler.UpdateLibrarySource)
+				})
+			})
 		})
 
 		r.Route("/api/test", func(r chi.Router) {

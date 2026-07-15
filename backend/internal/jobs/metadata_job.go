@@ -35,6 +35,7 @@ func NewMetadataHandler(pipeline *metadata.Pipeline, queries *sqlc.Queries, db *
 
 		input := metadata.Input{
 			ArchiveID: archive.ID,
+			LibraryID: archive.LibraryID,
 			FilePath:  archive.FilePath,
 			Title:     archive.Title,
 		}
@@ -69,6 +70,7 @@ func NewRemoteMetadataHandler(pipeline *metadata.Pipeline, queries *sqlc.Queries
 
 		result, err := pipeline.Run(ctx, metadata.Input{
 			ArchiveID: archive.ID,
+			LibraryID: archive.LibraryID,
 			FilePath:  archive.FilePath,
 			Title:     archive.Title,
 		})
