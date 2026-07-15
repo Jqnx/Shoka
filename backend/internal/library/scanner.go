@@ -218,6 +218,11 @@ func (s *ArchiveScanner) addArchive(ctx context.Context, lib sqlc.Library, path 
 		return err
 	}
 
+	// Per-page thumbnails are generated on demand (see the
+	// POST /api/archives/{id}/thumbnails endpoint), not eagerly at scan
+	// time — a library scan can touch thousands of archives at once and
+	// most of them won't be opened for a while, if ever.
+
 	if err := s.queue.Enqueue(ctx, jobs.JobTypeMetadata, jobs.MetadataPayload{
 		ArchiveID: arch.ID,
 	}); err != nil {

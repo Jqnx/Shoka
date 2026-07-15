@@ -28,18 +28,36 @@ func (q *Queue) Enqueue(ctx context.Context, jobType string, payload any) error 
 		return err
 	}
 
-	if err := q.queries.EnqueueJob(ctx, sqlc.EnqueueJobParams{
-		Type:    jobType,
-		Payload: string(b),
-	}); err != nil {
-		q.log.Error("failed to enqueue job", "type", jobType, "error", err)
-	}
-
-	return err
+	return q.enqueue(ctx, jobType, string(b))
 }
 
+func (q *Queue) enqueue(ctx context.Context, jobType, payload string) error {
+	if err := q.queries.EnqueueJob(ctx, sqlc.EnqueueJobParams{
+		Type:    jobType,
+		Payload: payload,
+	}); err != nil {
+		q.log.Error("failed to enqueue job", "type", jobType, "error", err)
+		return err
+	}
+
+	return nil
+}
+
+// EnqueueOnce enqueues a job unless one with the same type AND payload is
+// already pending or running — e.g. two triggers to scan the same library,
+// or to generate thumbnails for the same archive, shouldn't both queue up.
+// Jobs with a different payload (a different library/archive/etc.) are
+// never suppressed by this check.
 func (q *Queue) EnqueueOnce(ctx context.Context, jobType string, payload any) error {
-	exists, err := q.queries.HasPendingJob(ctx, jobType)
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	exists, err := q.queries.HasPendingJob(ctx, sqlc.HasPendingJobParams{
+		Type:    jobType,
+		Payload: string(b),
+	})
 	if err != nil {
 		return err
 	}
@@ -47,7 +65,8 @@ func (q *Queue) EnqueueOnce(ctx context.Context, jobType string, payload any) er
 		q.log.Info("job already queued, skipping", "type", jobType)
 		return nil
 	}
-	return q.Enqueue(ctx, jobType, payload)
+
+	return q.enqueue(ctx, jobType, string(b))
 }
 
 func (q *Queue) EnqueueAfter(ctx context.Context, jobType string, payload any, delay time.Duration) error {

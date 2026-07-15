@@ -44,8 +44,16 @@ set status = 'pending',
 where id = ?;
 
 -- name: HasPendingJob :one
+-- Scoped to type AND payload: two jobs of the same type but for different
+-- targets (e.g. a scan for library A vs library B, or a thumbnail job for
+-- archive X vs archive Y) must not suppress each other.
 select
-    exists (select 1 from job where type = ? and status in ('pending', 'running')) = 1
+    exists (
+        select 1 from job
+        where type = sqlc.arg('type')
+        and payload = sqlc.arg('payload')
+        and status in ('pending', 'running')
+    ) = 1
 ;
 
 -- name: GetJobsByStatus :many

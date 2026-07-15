@@ -40,7 +40,7 @@ func (s *Server) MountHandlers() {
 		r.Use(authMiddleware(s.DB))
 
 		testHandler := handlers.NewTestHandler(s.Queries, s.Processor, s.Log)
-		archiveHandler := handlers.NewArchiveHandler(s.Queries, s.DB, s.Log, s.Processor, s.Cache)
+		archiveHandler := handlers.NewArchiveHandler(s.Queries, s.DB, s.Log, s.Processor, s.Cache, s.Queue, s.Thumbnails)
 		metadataHandler := handlers.NewMetadataHandler(s.Queries, s.DB, s.Pipeline, s.Log)
 		adminHandler := handlers.NewAdminHandler(s.Queries, s.Queue, s.Log)
 		libraryHandler := handlers.NewLibraryHandler(s.Queries, s.Queue, s.Libraries, s.Log)
@@ -74,6 +74,9 @@ func (s *Server) MountHandlers() {
 			r.Get("/", archiveHandler.GetArchive)
 			r.Get("/cover", archiveHandler.GetCover)
 			r.Get("/pages/{index}", archiveHandler.GetPage)
+			r.Get("/pages/{index}/thumbnail", archiveHandler.GetPageThumbnail)
+			r.Post("/thumbnails", archiveHandler.GenerateThumbnails)
+			r.Get("/thumbnails/events", archiveHandler.StreamThumbnailEvents)
 		})
 		r.Route("/api/archives/{id}/metadata", func(r chi.Router) {
 			r.Post("/", metadataHandler.FetchMetadata)

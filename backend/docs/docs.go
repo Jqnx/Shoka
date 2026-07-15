@@ -508,6 +508,133 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/archives/{id}/pages/{index}/thumbnail": {
+            "get": {
+                "description": "Read-only — serves a thumbnail only if it has already been generated. Does not trigger generation; call POST .../thumbnails for that.",
+                "produces": [
+                    "image/webp"
+                ],
+                "tags": [
+                    "archives"
+                ],
+                "summary": "Get a page's thumbnail for an archive",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Archive ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page index (0-based)",
+                        "name": "index",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/archives/{id}/thumbnails": {
+            "post": {
+                "description": "Enqueues background generation of this archive's per-page thumbnails and returns immediately. Safe to call repeatedly — a job already pending/running for this archive is not duplicated. This is the only thing that triggers thumbnail generation; the GET endpoints only ever serve what already exists, so simply fetching a thumbnail URL (e.g. from curl/Postman) can't spin up generation work. Intended to be called by the frontend when a user opens an archive.",
+                "tags": [
+                    "archives"
+                ],
+                "summary": "Trigger thumbnail generation for an archive",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Archive ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "generation started"
+                    },
+                    "204": {
+                        "description": "thumbnails already ready"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/archives/{id}/thumbnails/events": {
+            "get": {
+                "description": "Server-Sent Events. Emits a \"ready\" event ({\"index\": N}) for each page thumbnail as it becomes available — including an immediate snapshot of pages already ready when the connection opens — followed by a terminal \"done\" event ({\"done\": true} on success, {\"done\": true, \"error\": \"...\"} if generation permanently failed after exhausting retries). Read-only: does not trigger generation, call POST .../thumbnails for that.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "archives"
+                ],
+                "summary": "Stream thumbnail generation progress",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Archive ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/characters": {
             "get": {
                 "produces": [

@@ -10,6 +10,7 @@ import (
 	"Shoka/internal/config"
 	"Shoka/internal/database"
 	"Shoka/internal/database/sqlc"
+	"Shoka/internal/events"
 	"Shoka/internal/image"
 	"Shoka/internal/jobs"
 	"Shoka/internal/library"
@@ -66,6 +67,7 @@ func main() {
 	queue := jobs.NewQueue(queries, log)
 	worker := jobs.NewWorker(queue, log)
 	libraries := library.NewManager(cfg, queries, queue, log)
+	thumbnails := events.NewThumbnailBroadcaster()
 	images := image.NewProcessor(cfg.Cache.Dir, log)
 	cache, err := image.NewCache(images, log)
 	pipeline := metadata.NewPipeline(
@@ -80,12 +82,12 @@ func main() {
 		log.Error("failed to initialize image cache", "error", err)
 		os.Exit(1)
 	}
-	api := api.New(queries, log, queue, cache, images, pipeline, libraries, db)
+	api := api.New(queries, log, queue, cache, images, pipeline, libraries, thumbnails, db)
 
 	// Register worker handlers
 	worker.Register(jobs.JobTypeScan, jobs.NewScanHandler(libraries, log), 1)
 	worker.Register(jobs.JobTypeCover, jobs.NewCoverHandler(images, log), 5)
-	worker.Register(jobs.JobTypeThumbnail, jobs.NewThumbnailHandler(images, log), 3)
+	worker.Register(jobs.JobTypeThumbnail, jobs.NewThumbnailHandler(images, thumbnails, log), 3)
 	worker.Register(jobs.JobTypeMetadata, jobs.NewMetadataHandler(pipeline, queries, db, queue, log), 5)
 	worker.Register(jobs.JobTypeMetadataRemote, jobs.NewRemoteMetadataHandler(pipeline, queries, db, log), 1)
 

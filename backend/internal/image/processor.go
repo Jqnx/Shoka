@@ -63,11 +63,7 @@ func (p *Processor) processImage(r io.Reader, destPath string, maxWidth int, qua
 		return fmt.Errorf("export webp: %w", err)
 	}
 
-	if err := os.WriteFile(destPath, bytes, 0o644); err != nil {
-		return fmt.Errorf("write file: %w", err)
-	}
-
-	return nil
+	return writeFileAtomic(destPath, bytes)
 }
 
 // ProcessToBytes processes an image from a reader and returns WebP bytes

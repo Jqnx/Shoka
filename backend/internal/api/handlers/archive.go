@@ -12,7 +12,9 @@ import (
 	"Shoka/internal/auth"
 	"Shoka/internal/database"
 	"Shoka/internal/database/sqlc"
+	"Shoka/internal/events"
 	"Shoka/internal/image"
+	"Shoka/internal/jobs"
 	"Shoka/internal/language"
 	"Shoka/internal/metadata"
 
@@ -20,20 +22,24 @@ import (
 )
 
 type ArchiveHandler struct {
-	queries   *sqlc.Queries
-	db        *sql.DB
-	logger    *slog.Logger
-	processor *image.Processor
-	cache     *image.Cache
+	queries     *sqlc.Queries
+	db          *sql.DB
+	logger      *slog.Logger
+	processor   *image.Processor
+	cache       *image.Cache
+	queue       *jobs.Queue
+	broadcaster *events.ThumbnailBroadcaster
 }
 
-func NewArchiveHandler(queries *sqlc.Queries, db *sql.DB, log *slog.Logger, processor *image.Processor, cache *image.Cache) *ArchiveHandler {
+func NewArchiveHandler(queries *sqlc.Queries, db *sql.DB, log *slog.Logger, processor *image.Processor, cache *image.Cache, queue *jobs.Queue, broadcaster *events.ThumbnailBroadcaster) *ArchiveHandler {
 	return &ArchiveHandler{
-		queries:   queries,
-		db:        db,
-		processor: processor,
-		cache:     cache,
-		logger:    log.With("handler", "archive"),
+		queries:     queries,
+		db:          db,
+		processor:   processor,
+		cache:       cache,
+		queue:       queue,
+		broadcaster: broadcaster,
+		logger:      log.With("handler", "archive"),
 	}
 }
 
@@ -408,4 +414,178 @@ func (h *ArchiveHandler) GetPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	w.WriteHeader(http.StatusOK)
 	w.Write(data)
+}
+
+// GetPageThumbnail godoc
+//
+//	@Summary		Get a page's thumbnail for an archive
+//	@Description	Read-only — serves a thumbnail only if it has already been generated. Does not trigger generation; call POST .../thumbnails for that.
+//	@Tags			archives
+//	@Produce		image/webp
+//	@Param			id		path	string	true	"Archive ID"
+//	@Param			index	path	int		true	"Page index (0-based)"
+//	@Success		200
+//	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/pages/{index}/thumbnail [get]
+func (h *ArchiveHandler) GetPageThumbnail(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	index, err := strconv.Atoi(chi.URLParam(r, "index"))
+	if err != nil || index < 0 {
+		response.BadRequest(w, "invalid page index")
+		return
+	}
+
+	archive, err := h.queries.GetArchiveByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "archive not found")
+			return
+		}
+		h.logger.Error("get archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
+		return
+	}
+
+	if index >= int(archive.PageCount) {
+		response.NotFound(w, "page not found")
+		return
+	}
+
+	path := h.processor.ThumbPath(id, index)
+	if path == "" {
+		response.NotFound(w, "thumbnail not ready")
+		return
+	}
+
+	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	http.ServeFile(w, r, path)
+}
+
+// GenerateThumbnails godoc
+//
+//	@Summary		Trigger thumbnail generation for an archive
+//	@Description	Enqueues background generation of this archive's per-page thumbnails and returns immediately. Safe to call repeatedly — a job already pending/running for this archive is not duplicated. This is the only thing that triggers thumbnail generation; the GET endpoints only ever serve what already exists, so simply fetching a thumbnail URL (e.g. from curl/Postman) can't spin up generation work. Intended to be called by the frontend when a user opens an archive.
+//	@Tags			archives
+//	@Param			id	path	string	true	"Archive ID"
+//	@Success		202	{object}	nil	"generation started"
+//	@Success		204	{object}	nil	"thumbnails already ready"
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/thumbnails [post]
+func (h *ArchiveHandler) GenerateThumbnails(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	archive, err := h.queries.GetArchiveByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "archive not found")
+			return
+		}
+		h.logger.Error("get archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
+		return
+	}
+
+	if h.processor.ThumbsReady(archive.ID, int(archive.PageCount)) {
+		response.NoContent(w)
+		return
+	}
+
+	if err := h.queue.EnqueueOnce(r.Context(), jobs.JobTypeThumbnail, jobs.ThumbnailPayload{
+		ArchiveID: archive.ID,
+		FilePath:  archive.FilePath,
+	}); err != nil {
+		h.logger.Error("enqueue thumbnail job failed", "id", id, "error", err)
+		response.InternalError(w, "failed to trigger thumbnail generation")
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+}
+
+// thumbnailDoneEvent is the payload of the terminal "done" SSE event. Error
+// is omitted on success and set when generation permanently failed (all
+// retries exhausted) — see NewThumbnailHandler in internal/jobs.
+type thumbnailDoneEvent struct {
+	Done  bool   `json:"done"`
+	Error string `json:"error,omitempty"`
+}
+
+// StreamThumbnailEvents godoc
+//
+//	@Summary		Stream thumbnail generation progress
+//	@Description	Server-Sent Events. Emits a "ready" event ({"index": N}) for each page thumbnail as it becomes available — including an immediate snapshot of pages already ready when the connection opens — followed by a terminal "done" event ({"done": true} on success, {"done": true, "error": "..."} if generation permanently failed after exhausting retries). Read-only: does not trigger generation, call POST .../thumbnails for that.
+//	@Tags			archives
+//	@Produce		text/event-stream
+//	@Param			id	path	string	true	"Archive ID"
+//	@Success		200
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/thumbnails/events [get]
+func (h *ArchiveHandler) StreamThumbnailEvents(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	archive, err := h.queries.GetArchiveByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "archive not found")
+			return
+		}
+		h.logger.Error("get archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		response.InternalError(w, "streaming unsupported")
+		return
+	}
+
+	// Subscribe before reading the on-disk snapshot below so an event
+	// published in the gap between them can't be missed — worst case it's
+	// reported twice (once in the snapshot, once live), which is harmless.
+	ch, cancel := h.broadcaster.Subscribe(archive.ID)
+	defer cancel()
+
+	response.SSEHeaders(w)
+
+	pageCount := int(archive.PageCount)
+	allReady := true
+	for i := 0; i < pageCount; i++ {
+		if h.processor.ThumbPath(archive.ID, i) != "" {
+			response.SSEEvent(w, "ready", map[string]int{"index": i})
+		} else {
+			allReady = false
+		}
+	}
+	flusher.Flush()
+
+	if allReady {
+		response.SSEEvent(w, "done", thumbnailDoneEvent{Done: true})
+		flusher.Flush()
+		return
+	}
+
+	ctx := r.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case event, ok := <-ch:
+			if !ok {
+				return
+			}
+			if event.Done {
+				response.SSEEvent(w, "done", thumbnailDoneEvent{Done: true, Error: event.Error})
+				flusher.Flush()
+				return
+			}
+			response.SSEEvent(w, "ready", map[string]int{"index": event.Index})
+			flusher.Flush()
+		}
+	}
 }

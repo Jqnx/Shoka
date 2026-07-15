@@ -185,11 +185,24 @@ func (q *Queries) GetJobsByStatus(ctx context.Context, status string) ([]GetJobs
 
 const hasPendingJob = `-- name: HasPendingJob :one
 select
-    exists (select 1 from job where type = ? and status in ('pending', 'running')) = 1
+    exists (
+        select 1 from job
+        where type = ?1
+        and payload = ?2
+        and status in ('pending', 'running')
+    ) = 1
 `
 
-func (q *Queries) HasPendingJob(ctx context.Context, type_ string) (bool, error) {
-	row := q.db.QueryRowContext(ctx, hasPendingJob, type_)
+type HasPendingJobParams struct {
+	Type    string `json:"type"`
+	Payload string `json:"payload"`
+}
+
+// Scoped to type AND payload: two jobs of the same type but for different
+// targets (e.g. a scan for library A vs library B, or a thumbnail job for
+// archive X vs archive Y) must not suppress each other.
+func (q *Queries) HasPendingJob(ctx context.Context, arg HasPendingJobParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, hasPendingJob, arg.Type, arg.Payload)
 	var column_1 bool
 	err := row.Scan(&column_1)
 	return column_1, err
