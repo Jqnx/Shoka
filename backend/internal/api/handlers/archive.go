@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"Shoka/internal/api/response"
@@ -296,6 +298,111 @@ func (h *ArchiveHandler) GetArchive(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.JSON(w, http.StatusOK, h.buildResponse(archive, res.meta, res.progress))
+}
+
+// UpdateArchiveRequest is a partial update: omitted fields are left
+// unchanged. For list fields (artists/tags/parodies/circles/characters),
+// omit the key to leave it unchanged, send an empty array to clear it, or
+// send a full list to replace it — there's no way to add/remove a single
+// value, this always replaces the whole relation.
+//
+// page_count is deliberately not editable here — it's a structural fact
+// about the archive file (used for pagination/thumbnail bounds checks
+// elsewhere), not curated metadata.
+type UpdateArchiveRequest struct {
+	Title       *string    `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	ReleaseDate *time.Time `json:"release_date"`
+	Artists     []string   `json:"artists"`
+	Tags        []string   `json:"tags"`
+	Parodies    []string   `json:"parodies"`
+	Circles     []string   `json:"circles"`
+	Characters  []string   `json:"characters"`
+}
+
+// UpdateArchive godoc
+//
+//	@Summary		Update an archive
+//	@Description	Partial update of an archive's metadata, including relations (artists/tags/parodies/circles/characters). This is a direct manual edit, not a metadata source — a subsequent "fetch metadata" call can still overwrite these values, there is currently no per-field locking.
+//	@Tags			archives
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path		string					true	"Archive ID"
+//	@Param			body	body		UpdateArchiveRequest	true	"Fields to update"
+//	@Success		200	{object}	ArchiveResponse
+//	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id} [patch]
+func (h *ArchiveHandler) UpdateArchive(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	userID := auth.UserIDFromContext(r.Context())
+
+	if _, err := h.queries.GetArchiveByID(r.Context(), id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "archive not found")
+			return
+		}
+		h.logger.Error("get archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
+		return
+	}
+
+	var body UpdateArchiveRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if body.Title != nil && strings.TrimSpace(*body.Title) == "" {
+		response.BadRequest(w, "title cannot be empty")
+		return
+	}
+
+	if err := metadata.ApplyMetadata(r.Context(), h.queries, h.db, id, &metadata.Result{
+		Title:       body.Title,
+		Summary:     body.Summary,
+		Language:    body.Language,
+		Category:    body.Category,
+		ReleaseDate: body.ReleaseDate,
+		Artists:     body.Artists,
+		Tags:        body.Tags,
+		Parodies:    body.Parodies,
+		Circles:     body.Circles,
+		Characters:  body.Characters,
+	}); err != nil {
+		h.logger.Error("update archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to update archive")
+		return
+	}
+
+	archive, err := h.queries.GetArchiveByID(r.Context(), id)
+	if err != nil {
+		h.logger.Error("get updated archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get updated archive")
+		return
+	}
+
+	meta, err := database.GetArchiveMetadata(r.Context(), h.queries, id)
+	if err != nil {
+		h.logger.Error("get archive metadata failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get updated archive")
+		return
+	}
+
+	var progress *sqlc.Progress
+	if p, err := h.queries.GetProgressForArchive(r.Context(), sqlc.GetProgressForArchiveParams{
+		ArchiveID: id,
+		UserID:    userID,
+	}); err == nil {
+		progress = &p
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		h.logger.Error("get progress failed", "id", id, "error", err)
+	}
+
+	response.JSON(w, http.StatusOK, h.buildResponse(archive, meta, progress))
 }
 
 func (h *ArchiveHandler) buildResponse(

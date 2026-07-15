@@ -119,32 +119,36 @@ func ApplyMetadata(ctx context.Context, queries *sqlc.Queries, db *sql.DB, archi
 		return fmt.Errorf("update archive metadata: %w", err)
 	}
 
-	// Relational fields
-	if len(result.Artists) > 0 {
+	// Relational fields. Checking != nil rather than len() > 0 is
+	// deliberate: it lets a caller clear a relation entirely by passing a
+	// non-nil empty slice (e.g. a manual edit removing all tags), while a
+	// nil slice (the zero value — what pipeline sources leave a field at
+	// when they have nothing to contribute) still means "don't touch this."
+	if result.Artists != nil {
 		if err := applyArtists(ctx, qtx, archiveID, result.Artists); err != nil {
 			return err
 		}
 	}
 
-	if len(result.Circles) > 0 {
+	if result.Circles != nil {
 		if err := applyCircles(ctx, qtx, archiveID, result.Circles); err != nil {
 			return err
 		}
 	}
 
-	if len(result.Tags) > 0 {
+	if result.Tags != nil {
 		if err := applyTags(ctx, qtx, archiveID, result.Tags); err != nil {
 			return err
 		}
 	}
 
-	if len(result.Parodies) > 0 {
+	if result.Parodies != nil {
 		if err := applyParodies(ctx, qtx, archiveID, result.Parodies); err != nil {
 			return err
 		}
 	}
 
-	if len(result.Characters) > 0 {
+	if result.Characters != nil {
 		if err := applyCharacters(ctx, qtx, archiveID, result.Characters); err != nil {
 			return err
 		}

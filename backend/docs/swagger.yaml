@@ -196,6 +196,39 @@ definitions:
       name:
         type: string
     type: object
+  handlers.UpdateArchiveRequest:
+    properties:
+      artists:
+        items:
+          type: string
+        type: array
+      category:
+        type: string
+      characters:
+        items:
+          type: string
+        type: array
+      circles:
+        items:
+          type: string
+        type: array
+      language:
+        type: string
+      parodies:
+        items:
+          type: string
+        type: array
+      release_date:
+        type: string
+      summary:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+    type: object
   handlers.UpdateLibraryRequest:
     properties:
       enabled:
@@ -565,6 +598,48 @@ paths:
           schema:
             $ref: '#/definitions/response.Error'
       summary: List archives with pagination, filtering, and sorting
+      tags:
+      - archives
+  /api/archives/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: Partial update of an archive's metadata, including relations (artists/tags/parodies/circles/characters).
+        This is a direct manual edit, not a metadata source — a subsequent "fetch
+        metadata" call can still overwrite these values, there is currently no per-field
+        locking.
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateArchiveRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ArchiveResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Update an archive
       tags:
       - archives
   /api/archives/{id}/cover:

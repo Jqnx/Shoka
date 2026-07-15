@@ -72,6 +72,7 @@ func (s *Server) MountHandlers() {
 		r.Get("/api/parodies/{name}", parodyHandler.GetArchivesByParody)
 		r.Route("/api/archives/{id}", func(r chi.Router) {
 			r.Get("/", archiveHandler.GetArchive)
+			r.Patch("/", archiveHandler.UpdateArchive)
 			r.Get("/cover", archiveHandler.GetCover)
 			r.Get("/pages/{index}", archiveHandler.GetPage)
 			r.Get("/pages/{index}/thumbnail", archiveHandler.GetPageThumbnail)
