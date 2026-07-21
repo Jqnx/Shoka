@@ -1,14 +1,42 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { enhance } from '$app/forms';
+	import { cn } from '$lib/utils.js';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import PageThumbnailGallery from '$lib/components/PageThumbnailGallery.svelte';
-	import { BookOpen, ChevronLeft, Calendar, FileText, Tag, Users, Tv, Sword } from '@lucide/svelte';
+	import EditArchiveSheet from '$lib/components/EditArchiveSheet.svelte';
+	import {
+		BookOpen,
+		ChevronLeft,
+		Calendar,
+		FileText,
+		Tag,
+		Users,
+		Tv,
+		Sword,
+		Ellipsis,
+		RotateCcw,
+		Check
+	} from '@lucide/svelte';
 
-	let { data } = $props();
+	let { data, form } = $props();
 	const a = $derived(data.archive);
+
+	let markingRead = $state(false);
+	let markingUnread = $state(false);
+
+	// Archive.artists is just names (matching everywhere else metadata is
+	// stored free-text) - resolve to the matching artist's id, if any, from
+	// the already-loaded full list so the name can link to its detail page.
+	// An artist not found there (e.g. a brand new one not yet reflected in
+	// allArtists) just renders as plain text instead of a broken link.
+	function artistId(name: string) {
+		return data.allArtists.find((artist) => artist.name === name)?.id;
+	}
 
 	// ArchiveCard links here with a `from` param carrying the exact list page
 	// (library + sort/filters/pagination) the user came from, so "back" can
@@ -18,11 +46,14 @@
 	// as the rest of the app until that's exposed.
 	const fromParam = $derived(page.url.searchParams.get('from'));
 	const fromLibraryId = $derived(fromParam?.match(/^\/([^/?]+)/)?.[1]);
+	// Same resolved id used for both the back-link label and, further down,
+	// which library's metadata source settings the edit sheet's fetch dialog
+	// should respect (see MetadataFetchDialog's disabled-source picker).
+	const libraryId = $derived(fromLibraryId ?? data.libraries[0]?.id ?? '');
 
 	const archivesHref = $derived(fromParam ?? (data.libraries[0] ? `/${data.libraries[0].id}` : '/'));
 	const archivesLabel = $derived(
-		data.libraries.find((l) => l.id === (fromLibraryId ?? data.libraries[0]?.id))?.name ??
-			'Archives'
+		data.libraries.find((l) => l.id === libraryId)?.name ?? 'Archives'
 	);
 
 	function formatDate(iso: string | null) {
@@ -33,6 +64,17 @@
 			day: 'numeric'
 		});
 	}
+
+	// Resume from the saved position (current_page is 0-based, same as the
+	// reader's own indexing; the URL segment is 1-based) rather than always
+	// starting over - unless it's already finished, where starting over from
+	// the last page read would be a worse default than the beginning.
+	const readHref = $derived(
+		`/a/${a.id}/${a.progress && !a.progress.completed ? a.progress.current_page + 1 : 1}`
+	);
+	const readLabel = $derived(
+		!a.progress ? 'Read' : a.progress.completed ? 'Read again' : 'Continue reading'
+	);
 </script>
 
 <svelte:head>
@@ -52,40 +94,119 @@
 	<div class="flex flex-col gap-8 md:flex-row">
 		<!-- Cover -->
 		<div class="w-full shrink-0 md:w-56 lg:w-64">
-			<div class="aspect-[2/3] w-full overflow-hidden rounded-lg border border-border bg-muted">
+			<div class="relative aspect-[2/3] w-full overflow-hidden rounded-lg border border-border bg-muted">
 				<img src="/api/archives/{a.id}/cover" alt={a.title} class="size-full object-cover" />
-			</div>
-
-			<Button class="mt-4 w-full gap-2" size="lg">
-				<BookOpen class="size-4" />
-				Read
-			</Button>
-
-			{#if a.progress}
-				<div class="mt-3 rounded-md border border-border bg-card p-3 text-sm">
-					<p class="font-medium">Reading progress</p>
-					<p class="mt-1 text-muted-foreground">
-						Page {a.progress.current_page} of {a.page_count}
-					</p>
-					<div class="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+				{#if a.progress}
+					<div class="absolute inset-x-0 top-0 h-1.5">
 						<div
-							class="h-full rounded-full bg-primary transition-all"
+							class="h-full bg-primary transition-all"
 							style="width: {Math.round((a.progress.current_page / a.page_count) * 100)}%"
 						></div>
 					</div>
-					{#if a.progress.completed}
-						<p class="mt-1.5 text-xs text-muted-foreground">Completed</p>
-					{/if}
-				</div>
+				{/if}
+			</div>
+
+			<Button href={readHref} class="mt-4 w-full gap-2" size="lg">
+				<BookOpen class="size-4" />
+				{readLabel}
+			</Button>
+
+			{#if (form?.action === 'markRead' || form?.action === 'markUnread') && form.error}
+				<p class="mt-1.5 text-center text-xs text-destructive">{form.error}</p>
 			{/if}
 		</div>
 
 		<!-- Metadata -->
 		<div class="min-w-0 flex-1">
-			<h1 class="text-2xl leading-tight font-bold">{a.title}</h1>
+			<div class="flex items-start justify-between gap-3">
+				<h1 class="text-2xl leading-tight font-bold">{a.title}</h1>
+				<div class="flex shrink-0 items-center gap-1.5">
+					<EditArchiveSheet
+						archive={a}
+						{libraryId}
+						categories={data.categories}
+						languages={data.languages}
+						allArtists={data.allArtists}
+						allTags={data.allTags}
+						allCharacters={data.allCharacters}
+						allParodies={data.allParodies}
+					/>
+					<DropdownMenu.Root>
+						<DropdownMenu.Trigger>
+							{#snippet child({ props })}
+								<Button {...props} variant="outline" size="icon" aria-label="More actions">
+									<Ellipsis class="size-4" />
+								</Button>
+							{/snippet}
+						</DropdownMenu.Trigger>
+						<DropdownMenu.Content align="end">
+							<form
+								method="POST"
+								action="?/markRead"
+								use:enhance={() => {
+									markingRead = true;
+									return async ({ update }) => {
+										markingRead = false;
+										await update();
+									};
+								}}
+							>
+								<input type="hidden" name="page_count" value={a.page_count} />
+								<DropdownMenu.Item disabled={a.progress?.completed || markingRead}>
+									{#snippet child({ props })}
+										<button
+											type="submit"
+											{...props}
+											class={cn(props.class as string, 'w-full')}
+										>
+											<Check />
+											{markingRead ? 'Marking…' : 'Mark as read'}
+										</button>
+									{/snippet}
+								</DropdownMenu.Item>
+							</form>
+							<form
+								method="POST"
+								action="?/markUnread"
+								use:enhance={() => {
+									markingUnread = true;
+									return async ({ update }) => {
+										markingUnread = false;
+										await update();
+									};
+								}}
+							>
+								<DropdownMenu.Item disabled={!a.progress || markingUnread}>
+									{#snippet child({ props })}
+										<button
+											type="submit"
+											{...props}
+											class={cn(props.class as string, 'w-full')}
+										>
+											<RotateCcw />
+											{markingUnread ? 'Marking…' : 'Mark as unread'}
+										</button>
+									{/snippet}
+								</DropdownMenu.Item>
+							</form>
+						</DropdownMenu.Content>
+					</DropdownMenu.Root>
+				</div>
+			</div>
 
 			{#if a.artists?.length}
-				<p class="mt-1 text-base text-muted-foreground">{a.artists.join(', ')}</p>
+				<p class="mt-1 text-base text-muted-foreground">
+					{#each a.artists as artist, i (artist)}
+						{@const id = artistId(artist)}
+						{#if id !== undefined}
+							<a href={resolve(`/artist/${id}`)} class="hover:text-foreground hover:underline"
+								>{artist}</a
+							>
+						{:else}
+							{artist}
+						{/if}{i < a.artists.length - 1 ? ', ' : ''}
+					{/each}
+				</p>
 			{/if}
 
 			<div class="mt-3 flex flex-wrap gap-2">

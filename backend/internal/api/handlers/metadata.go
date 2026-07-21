@@ -9,8 +9,10 @@ import (
 	"os"
 
 	"Shoka/internal/api/response"
+	"Shoka/internal/auth"
 	"Shoka/internal/database"
 	"Shoka/internal/database/sqlc"
+	"Shoka/internal/image"
 	"Shoka/internal/library/archive"
 	"Shoka/internal/metadata"
 	"Shoka/internal/metadata/sources"
@@ -19,18 +21,20 @@ import (
 )
 
 type MetadataHandler struct {
-	queries  *sqlc.Queries
-	pipeline *metadata.Pipeline
-	logger   *slog.Logger
-	db       *sql.DB
+	queries   *sqlc.Queries
+	pipeline  *metadata.Pipeline
+	logger    *slog.Logger
+	db        *sql.DB
+	processor *image.Processor
 }
 
-func NewMetadataHandler(queries *sqlc.Queries, db *sql.DB, pipeline *metadata.Pipeline, logger *slog.Logger) *MetadataHandler {
+func NewMetadataHandler(queries *sqlc.Queries, db *sql.DB, pipeline *metadata.Pipeline, processor *image.Processor, logger *slog.Logger) *MetadataHandler {
 	return &MetadataHandler{
-		queries:  queries,
-		db:       db,
-		pipeline: pipeline,
-		logger:   logger.With("handler", "metadata"),
+		queries:   queries,
+		db:        db,
+		pipeline:  pipeline,
+		processor: processor,
+		logger:    logger.With("handler", "metadata"),
 	}
 }
 
@@ -249,13 +253,14 @@ func (h *MetadataHandler) SearchMetadataSource(w http.ResponseWriter, r *http.Re
 
 // ApplyMetadataFromSource godoc
 //
-//	@Summary		Apply metadata from a specific source result
-//	@Description	Fetches full metadata by source-specific ID and applies it to the archive
+//	@Summary		Preview metadata from a specific source result
+//	@Description	Fetches full metadata by source-specific ID and returns a preview of the archive as it would look with that metadata applied — it does NOT save anything. Use PATCH /api/archives/{id} to actually persist the (possibly user-edited) values.
 //	@Tags			metadata
+//	@Produce		json
 //	@Param			id		path	string	true	"Archive ID"
 //	@Param			source	path	string	true	"Source name"
 //	@Param			source_id	path	string	true	"Source-specific result ID"
-//	@Success		204
+//	@Success		200	{object}	ArchiveResponse
 //	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/archives/{id}/metadata/{source}/{source_id} [post]
@@ -295,11 +300,18 @@ func (h *MetadataHandler) ApplyMetadataFromSource(w http.ResponseWriter, r *http
 		return
 	}
 
-	if err := metadata.ApplyMetadata(r.Context(), h.queries, h.db, id, result); err != nil {
-		h.logger.Error("failed to apply metadata", "archive_id", id, "error", err)
-		response.InternalError(w, "failed to apply metadata")
-		return
+	userID := auth.UserIDFromContext(r.Context())
+	var progress *sqlc.ReadingProgress
+	if p, err := h.queries.GetProgressForArchive(r.Context(), sqlc.GetProgressForArchiveParams{
+		ArchiveID: id,
+		UserID:    userID,
+	}); err == nil {
+		progress = &p
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		h.logger.Error("get progress failed", "id", id, "error", err)
 	}
 
-	response.NoContent(w)
+	preview := overlayResult(archive, result)
+
+	response.JSON(w, http.StatusOK, buildArchiveResponse(h.processor, preview, result, progress))
 }

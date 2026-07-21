@@ -5,6 +5,7 @@
 <script lang="ts">
 	import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
 	import XIcon from '@lucide/svelte/icons/x';
+	import PlusIcon from '@lucide/svelte/icons/plus';
 	import * as Command from '$lib/components/ui/command/index.js';
 	import * as Popover from '$lib/components/ui/popover/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
@@ -17,6 +18,12 @@
 		placeholder = 'Select...',
 		searchPlaceholder = 'Search...',
 		emptyText = 'No results found.',
+		// When set, typing a value with no matching option offers a "Create"
+		// item that adds the raw typed text instead of only allowing picks
+		// from `options` - for fields where the caller can introduce brand
+		// new values (e.g. editing an archive's tags) rather than just
+		// filtering by ones that already exist (e.g. the sidebar's filters).
+		creatable = false,
 		class: className
 	}: {
 		options: ComboboxOption[];
@@ -25,10 +32,12 @@
 		placeholder?: string;
 		searchPlaceholder?: string;
 		emptyText?: string;
+		creatable?: boolean;
 		class?: string;
 	} = $props();
 
 	let open = $state(false);
+	let search = $state('');
 	let triggerRef = $state<HTMLDivElement>(null!);
 
 	function labelFor(v: string) {
@@ -47,9 +56,30 @@
 		e?.stopPropagation();
 		onValueChange(value.filter((v) => v !== optionValue));
 	}
+
+	const trimmedSearch = $derived(search.trim());
+	const showCreate = $derived.by(() => {
+		if (!creatable || !trimmedSearch) return false;
+		const norm = trimmedSearch.toLowerCase();
+		if (options.some((o) => o.label.toLowerCase() === norm)) return false;
+		if (value.some((v) => labelFor(v).toLowerCase() === norm)) return false;
+		return true;
+	});
+
+	function create(text: string) {
+		const trimmed = text.trim();
+		if (!trimmed || value.includes(trimmed)) return;
+		onValueChange([...value, trimmed]);
+		search = '';
+	}
 </script>
 
-<Popover.Root bind:open>
+<Popover.Root
+	bind:open
+	onOpenChange={(isOpen) => {
+		if (!isOpen) search = '';
+	}}
+>
 	<Popover.Trigger bind:ref={triggerRef}>
 		{#snippet child({ props })}
 			<div
@@ -85,9 +115,19 @@
 	</Popover.Trigger>
 	<Popover.Content class="w-(--bits-popover-anchor-width) min-w-48 p-0">
 		<Command.Root>
-			<Command.Input placeholder={searchPlaceholder} />
+			<Command.Input bind:value={search} placeholder={searchPlaceholder} />
 			<Command.List>
-				<Command.Empty>{emptyText}</Command.Empty>
+				{#if !showCreate}
+					<Command.Empty>{emptyText}</Command.Empty>
+				{/if}
+				{#if showCreate}
+					<Command.Group>
+						<Command.Item value={trimmedSearch} onSelect={() => create(trimmedSearch)}>
+							<PlusIcon class="size-4" />
+							Create "{trimmedSearch}"
+						</Command.Item>
+					</Command.Group>
+				{/if}
 				<Command.Group>
 					{#each options as option (option.value)}
 						<Command.Item
