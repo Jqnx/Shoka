@@ -8,6 +8,7 @@
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { enhance } from '$app/forms';
+	import { flushSync } from 'svelte';
 	import { SlidersHorizontal } from '@lucide/svelte';
 	import { sourceInfo } from '$lib/metadata-sources';
 	import type { LibrarySource } from '$lib/types';
@@ -44,8 +45,13 @@
 	const hasFields = $derived(info.fields.length > 0);
 
 	// The switch has no separate Save button — it submits itself immediately.
+	// requestSubmit() reads the hidden "enabled" input's DOM value
+	// synchronously, but Svelte's reactive DOM updates are batched into a
+	// microtask - without flushSync, the form would still see the *previous*
+	// value at submit time, one toggle behind what was actually clicked.
 	function handleEnabledChange(value: boolean) {
 		enabled = value;
+		flushSync();
 		formEl?.requestSubmit();
 	}
 </script>
