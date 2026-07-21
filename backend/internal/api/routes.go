@@ -41,18 +41,23 @@ func (s *Server) MountHandlers() {
 
 		testHandler := handlers.NewTestHandler(s.Queries, s.Processor, s.Log)
 		archiveHandler := handlers.NewArchiveHandler(s.Queries, s.DB, s.Log, s.Processor, s.Cache, s.Queue, s.Thumbnails)
-		metadataHandler := handlers.NewMetadataHandler(s.Queries, s.DB, s.Pipeline, s.Log)
+		metadataHandler := handlers.NewMetadataHandler(s.Queries, s.DB, s.Pipeline, s.Processor, s.Log)
 		adminHandler := handlers.NewAdminHandler(s.Queries, s.Queue, s.Log)
 		libraryHandler := handlers.NewLibraryHandler(s.Queries, s.Queue, s.Libraries, s.Log)
 		tagHandler := handlers.NewTagHandler(s.Queries, s.Log, s.Processor)
 		characterHandler := handlers.NewCharacterHandler(s.Queries, s.Log, s.Processor)
 		parodyHandler := handlers.NewParodyHandler(s.Queries, s.Log, s.Processor)
+		artistHandler := handlers.NewArtistHandler(s.Queries, s.DB, s.Log, s.Processor)
+		readerSettingsHandler := handlers.NewReaderSettingsHandler(s.Queries, s.Log)
 
 		r.Get("/api/metadata/sources", metadataHandler.GetSources)
 		r.Get("/api/libraries", libraryHandler.GetLibraries)
 		r.Get("/api/libraries/types", libraryHandler.GetLibraryTypes)
 		r.Get("/api/archives", archiveHandler.GetArchives)
 		r.Get("/api/archives/sort-options", archiveHandler.GetArchiveSortOptions)
+		r.Get("/api/archives/categories", archiveHandler.GetCategories)
+		r.Get("/api/archives/languages", archiveHandler.GetLanguages)
+		r.Get("/api/archives/recently-read", archiveHandler.GetRecentlyRead)
 		r.Get("/api/tags", tagHandler.GetTags)
 		r.Get("/api/tags/all", tagHandler.GetAllTags)
 		r.Route("/api/tags/{id}", func(r chi.Router) {
@@ -70,6 +75,21 @@ func (s *Server) MountHandlers() {
 		r.Get("/api/parodies/all", parodyHandler.GetAllParodies)
 		r.Delete("/api/parodies/{id}", parodyHandler.DeleteParody)
 		r.Get("/api/parodies/{name}", parodyHandler.GetArchivesByParody)
+
+		r.Route("/api/reader-settings", func(r chi.Router) {
+			r.Get("/", readerSettingsHandler.GetReaderSettings)
+			r.Patch("/", readerSettingsHandler.UpdateReaderSettings)
+		})
+
+		r.Get("/api/artists", artistHandler.GetArtists)
+		r.Post("/api/artists", artistHandler.CreateArtist)
+		r.Get("/api/artists/all", artistHandler.GetAllArtists)
+		r.Route("/api/artists/{id}", func(r chi.Router) {
+			r.Get("/", artistHandler.GetArtist)
+			r.Patch("/", artistHandler.UpdateArtist)
+			r.Delete("/", artistHandler.DeleteArtist)
+			r.Get("/archives", artistHandler.GetArchivesByArtist)
+		})
 		r.Route("/api/archives/{id}", func(r chi.Router) {
 			r.Get("/", archiveHandler.GetArchive)
 			r.Patch("/", archiveHandler.UpdateArchive)
@@ -78,6 +98,8 @@ func (s *Server) MountHandlers() {
 			r.Get("/pages/{index}/thumbnail", archiveHandler.GetPageThumbnail)
 			r.Post("/thumbnails", archiveHandler.GenerateThumbnails)
 			r.Get("/thumbnails/events", archiveHandler.StreamThumbnailEvents)
+			r.Put("/progress", archiveHandler.UpdateProgress)
+			r.Delete("/progress", archiveHandler.DeleteProgress)
 		})
 		r.Route("/api/archives/{id}/metadata", func(r chi.Router) {
 			r.Post("/", metadataHandler.FetchMetadata)
