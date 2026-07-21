@@ -123,8 +123,11 @@
 
 	<ArchivesSidebar
 		filters={data.filters}
+		artists={data.artists}
 		tags={data.tags}
 		characters={data.characters}
 		parodies={data.parodies}
+		categories={data.categories}
+		languages={data.languages}
 	/>
 </Sidebar.Provider>
