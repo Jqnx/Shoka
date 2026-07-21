@@ -6,10 +6,8 @@
 	import { X } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import type { Category, Character, Language, Parody, Tag } from '$lib/types';
+	import type { Artist, ArchiveLanguage, Character, Parody, Tag } from '$lib/types';
 
-	const CATEGORIES: Category[] = ['Doujinshi', 'Manga', 'Artist CG', 'Game CG', 'Other'];
-	const LANGUAGES: Language[] = ['English', 'Japanese'];
 	const ANY = 'any';
 
 	type Filters = {
@@ -18,42 +16,49 @@
 		tag: string[];
 		character: string[];
 		parody: string[];
-		artist: string;
+		artist: string[];
 	};
 
 	let {
 		filters,
+		artists,
 		tags,
 		characters,
-		parodies
+		parodies,
+		categories,
+		languages
 	}: {
 		filters: Filters;
+		artists: Artist[];
 		tags: Tag[];
 		characters: Character[];
 		parodies: Parody[];
+		categories: string[];
+		languages: ArchiveLanguage[];
 	} = $props();
-
-	// svelte-ignore state_referenced_locally
-	let artistInput = $state(filters.artist);
 
 	const hasActiveFilters = $derived(
 		filters.category !== '' ||
 			filters.language !== '' ||
-			filters.artist !== '' ||
+			filters.artist.length > 0 ||
 			filters.tag.length > 0 ||
 			filters.character.length > 0 ||
 			filters.parody.length > 0
 	);
 
-	const categoryOptions = [
+	const categoryOptions = $derived([
 		{ value: ANY, label: 'Any category' },
-		...CATEGORIES.map((cat) => ({ value: cat, label: cat }))
-	];
-	const languageOptions = [
+		...categories.map((cat) => ({ value: cat, label: cat }))
+	]);
+	// The filter matches the raw stored language code exactly (see
+	// ArchiveFilter.Language in the backend), so the option value must be the
+	// code - only the label is the human-readable name.
+	const languageOptions = $derived([
 		{ value: ANY, label: 'Any language' },
-		...LANGUAGES.map((lang) => ({ value: lang, label: lang }))
-	];
+		...languages.map((lang) => ({ value: lang.code, label: lang.name }))
+	]);
 
+	const artistOptions = $derived(artists.map((artist) => ({ value: artist.name, label: artist.name })));
 	const tagOptions = $derived(tags.map((tag) => ({ value: tag.name, label: tag.name })));
 	const characterOptions = $derived(
 		characters.map((character) => ({ value: character.name, label: character.name }))
@@ -80,17 +85,11 @@
 		goto(`${page.url.pathname}?${params}`, { noScroll: true, keepFocus: true });
 	}
 
-	function submitArtist(e: SubmitEvent) {
-		e.preventDefault();
-		setParam('artist', artistInput.trim());
-	}
-
 	function clearFilters() {
 		const params = new URLSearchParams(page.url.searchParams);
 		for (const key of ['category', 'language', 'tag', 'character', 'parody', 'artist', 'page']) {
 			params.delete(key);
 		}
-		artistInput = '';
 		goto(`${page.url.pathname}?${params}`, { noScroll: true });
 	}
 </script>
@@ -115,9 +114,14 @@
 		<Sidebar.Group class="p-0">
 			<Sidebar.GroupLabel class="px-0">Artist</Sidebar.GroupLabel>
 			<Sidebar.GroupContent class="mt-1">
-				<form onsubmit={submitArtist}>
-					<Sidebar.Input type="text" placeholder="Exact artist name..." bind:value={artistInput} />
-				</form>
+				<MultiCombobox
+					options={artistOptions}
+					value={filters.artist}
+					onValueChange={(v) => setMultiParam('artist', v)}
+					placeholder="Add artist..."
+					searchPlaceholder="Search artists..."
+					emptyText="No artists found."
+				/>
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
 

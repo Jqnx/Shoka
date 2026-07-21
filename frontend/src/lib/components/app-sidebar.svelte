@@ -2,7 +2,16 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import UserMenu from '$lib/components/user-menu.svelte';
 	import { page } from '$app/state';
-	import { BookOpen, Drama, House, Library, Settings, Tags, Users } from '@lucide/svelte';
+	import {
+		BookOpen,
+		Drama,
+		House,
+		Library,
+		Paintbrush,
+		Settings,
+		Tags,
+		Users
+	} from '@lucide/svelte';
 	import type { User } from 'better-auth';
 	import type { Library as LibraryType } from '$lib/types';
 	import type { ComponentProps } from 'svelte';
@@ -19,6 +28,7 @@
 	const adminLinks = [{ path: '/admin', label: 'Admin', icon: Settings }];
 
 	const metadataLinks = [
+		{ path: '/artist', label: 'Artists', icon: Paintbrush },
 		{ path: '/tag', label: 'Tags', icon: Tags },
 		{ path: '/character', label: 'Characters', icon: Users },
 		{ path: '/parody', label: 'Parodies', icon: Drama }
