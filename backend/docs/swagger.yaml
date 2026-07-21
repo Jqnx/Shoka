@@ -60,6 +60,36 @@ definitions:
       updated_at:
         type: string
     type: object
+  handlers.ArtistListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/handlers.ArtistResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
+  handlers.ArtistResponse:
+    properties:
+      aliases:
+        items:
+          type: string
+        type: array
+      count:
+        type: integer
+      id:
+        type: integer
+      name:
+        type: string
+      urls:
+        items:
+          type: string
+        type: array
+    type: object
   handlers.CharacterListResponse:
     properties:
       items:
@@ -82,6 +112,19 @@ definitions:
       name:
         type: string
     type: object
+  handlers.CreateArtistRequest:
+    properties:
+      aliases:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      urls:
+        items:
+          type: string
+        type: array
+    type: object
   handlers.CreateLibraryRequest:
     properties:
       name:
@@ -89,6 +132,13 @@ definitions:
       path:
         type: string
       type:
+        type: string
+    type: object
+  handlers.LanguageResponse:
+    properties:
+      code:
+        type: string
+      name:
         type: string
     type: object
   handlers.LibraryResponse:
@@ -165,6 +215,19 @@ definitions:
       last_read:
         type: string
     type: object
+  handlers.ReaderSettingsResponse:
+    properties:
+      background:
+        type: string
+      fit_mode:
+        type: string
+      page_layout:
+        type: string
+      reading_direction:
+        type: string
+      view_mode:
+        type: string
+    type: object
   handlers.SortOptionResponse:
     properties:
       display_name:
@@ -229,6 +292,22 @@ definitions:
       title:
         type: string
     type: object
+  handlers.UpdateArtistRequest:
+    properties:
+      aliases:
+        description: |-
+          Aliases/URLs: omit to leave unchanged, send [] to clear, or send a
+          full list to replace it entirely.
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      urls:
+        items:
+          type: string
+        type: array
+    type: object
   handlers.UpdateLibraryRequest:
     properties:
       enabled:
@@ -252,6 +331,30 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  handlers.UpdateProgressRequest:
+    properties:
+      completed:
+        description: |-
+          Completed: omit to auto-derive (true once page reaches the archives
+          last page), or set explicitly to override that (e.g. letting a user
+          mark something finished/unfinished regardless of page position).
+        type: boolean
+      page:
+        type: integer
+    type: object
+  handlers.UpdateReaderSettingsRequest:
+    properties:
+      background:
+        type: string
+      fit_mode:
+        type: string
+      page_layout:
+        type: string
+      reading_direction:
+        type: string
+      view_mode:
+        type: string
     type: object
   handlers.UpdateTagDescriptionRequest:
     properties:
@@ -730,6 +833,65 @@ paths:
       summary: Get a page's thumbnail for an archive
       tags:
       - archives
+  /api/archives/{id}/progress:
+    delete:
+      description: Removes the current users reading progress for this archive entirely
+        (as opposed to setting page back to 0, which would still count as "in progress").
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Reset reading progress for an archive
+      tags:
+      - archives
+    put:
+      consumes:
+      - application/json
+      description: Upserts the current users reading progress. Idempotent - safe to
+        call on every page turn with the new absolute page number.
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Progress
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateProgressRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ProgressResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Record reading progress for an archive
+      tags:
+      - archives
   /api/archives/{id}/thumbnails:
     post:
       description: Enqueues background generation of this archive's per-page thumbnails
@@ -790,6 +952,79 @@ paths:
       summary: Stream thumbnail generation progress
       tags:
       - archives
+  /api/archives/categories:
+    get:
+      description: Returns every distinct category currently in use across all libraries,
+        sorted. Purely reflects what's actually been scanned/tagged — nothing is seeded
+        ahead of time.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              type: string
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List all archive categories
+      tags:
+      - archives
+  /api/archives/languages:
+    get:
+      description: Returns every distinct language code currently in use across all
+        libraries, paired with a display name (see language.LanguageConverter; falls
+        back to the raw code if unrecognized). Purely reflects what's actually been
+        scanned/tagged — nothing is seeded ahead of time.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.LanguageResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List all languages
+      tags:
+      - archives
+  /api/archives/recently-read:
+    get:
+      description: Returns archives with reading progress for the current user, most
+        recently read first. Deliberately NOT scoped to a library - this is a continue-reading
+        feed spanning the whole collection.
+      parameters:
+      - default: 1
+        description: Page number (1-based)
+        in: query
+        name: page
+        type: integer
+      - default: 24
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ArchiveListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List recently read archives across all libraries
+      tags:
+      - archives
   /api/archives/sort-options:
     get:
       description: Returns every valid value for the "sort" query param on GET /api/archives,
@@ -806,6 +1041,217 @@ paths:
       summary: List archive sort options
       tags:
       - archives
+  /api/artists:
+    get:
+      parameters:
+      - default: 1
+        description: Page number (1-based)
+        in: query
+        name: page
+        type: integer
+      - default: 50
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ArtistListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List artists with pagination
+      tags:
+      - artists
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Artist to create
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateArtistRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.ArtistResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Create an artist
+      tags:
+      - artists
+  /api/artists/{id}:
+    delete:
+      description: Cascade-deletes the artist's aliases, URLs, and circle memberships,
+        and unlinks it from every archive. Archive metadata/files are untouched.
+      parameters:
+      - description: Artist ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Delete an artist
+      tags:
+      - artists
+    get:
+      description: Includes the artist's aliases and URLs, unlike the list endpoints.
+      parameters:
+      - description: Artist ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ArtistResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Get a single artist
+      tags:
+      - artists
+    patch:
+      consumes:
+      - application/json
+      description: 'Partial update. Omit a field to leave it unchanged. For aliases/urls:
+        omit to leave unchanged, send an empty array to clear, or send a full list
+        to replace it — there''s no way to add/remove a single value.'
+      parameters:
+      - description: Artist ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateArtistRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ArtistResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Update an artist
+      tags:
+      - artists
+  /api/artists/{id}/archives:
+    get:
+      parameters:
+      - description: Artist ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - default: 1
+        description: Page number (1-based)
+        in: query
+        name: page
+        type: integer
+      - default: 24
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ArchiveListResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List archives for an artist
+      tags:
+      - artists
+  /api/artists/all:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.ArtistResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List every artist
+      tags:
+      - artists
   /api/characters:
     get:
       parameters:
@@ -1039,6 +1485,53 @@ paths:
       summary: List every parody
       tags:
       - parodies
+  /api/reader-settings:
+    get:
+      description: Returns default values if the user hasn't customized anything yet.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ReaderSettingsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Get the current user's reader settings
+      tags:
+      - reader-settings
+    patch:
+      consumes:
+      - application/json
+      description: Partial update - omitted fields keep their current (or default)
+        value. Creates the row on first call.
+      parameters:
+      - description: Fields to change
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateReaderSettingsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ReaderSettingsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Update the current user's reader settings
+      tags:
+      - reader-settings
   /api/tags:
     get:
       parameters:
@@ -1255,8 +1748,10 @@ paths:
       - metadata
   /archives/{id}/metadata/{source}/{source_id}:
     post:
-      description: Fetches full metadata by source-specific ID and applies it to the
-        archive
+      description: Fetches full metadata by source-specific ID and returns a preview
+        of the archive as it would look with that metadata applied — it does NOT save
+        anything. Use PATCH /api/archives/{id} to actually persist the (possibly user-edited)
+        values.
       parameters:
       - description: Archive ID
         in: path
@@ -1273,9 +1768,13 @@ paths:
         name: source_id
         required: true
         type: string
+      produces:
+      - application/json
       responses:
-        "204":
-          description: No Content
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ArchiveResponse'
         "404":
           description: Not Found
           schema:
@@ -1284,7 +1783,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.Error'
-      summary: Apply metadata from a specific source result
+      summary: Preview metadata from a specific source result
       tags:
       - metadata
   /archives/{id}/metadata/{source}/search:
