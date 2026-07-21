@@ -28,6 +28,15 @@
 			class="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100"
 		></div>
 
+		{#if archive.progress}
+			<div class="absolute inset-x-0 top-0 h-1.5">
+				<div
+					class="h-full bg-primary transition-all"
+					style="width: {Math.round((archive.progress.current_page / archive.page_count) * 100)}%"
+				></div>
+			</div>
+		{/if}
+
 		<div class="absolute top-1.5 right-1.5">
 			<span class="rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white/90">
 				{archive.page_count}p
