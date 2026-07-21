@@ -30,3 +30,7 @@ func Forbidden(w http.ResponseWriter, msg string) {
 func UnprocessableEntity(w http.ResponseWriter, msg string) {
 	JSON(w, http.StatusUnprocessableEntity, Error{Code: "unsupported", Message: msg})
 }
+
+func Conflict(w http.ResponseWriter, msg string) {
+	JSON(w, http.StatusConflict, Error{Code: "conflict", Message: msg})
+}

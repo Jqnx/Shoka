@@ -1,9 +1,6 @@
-/** Extracts the `message` field from a backend `response.Error` JSON body, falling back if the body isn't JSON or doesn't have one. */
-export async function errorMessage(res: Response, fallback: string): Promise<string> {
-	try {
-		const body = await res.json();
-		return typeof body?.message === 'string' ? body.message : fallback;
-	} catch {
-		return fallback;
-	}
-}
+// Re-exported so existing server-side callers (+page.server.ts / actions)
+// don't need to change their import path. The implementation itself has no
+// server-only dependencies, so it also lives at $lib/api.ts for components
+// that need it directly (SvelteKit forbids importing $lib/server/* from
+// client code).
+export { errorMessage } from '$lib/api';
