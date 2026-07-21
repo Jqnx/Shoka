@@ -4,14 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"Shoka/internal/language"
 	"Shoka/internal/metadata"
+
 	"golang.org/x/time/rate"
 )
 
@@ -21,10 +24,15 @@ const (
 	nhentaiBaseURL    = "https://nhentai.net"
 	nhentaiSearchURL  = "https://nhentai.net/api/v2/search"
 	nhentaiGalleryURL = "https://nhentai.net/api/v2/galleries"
+	nhentaiCDNURL     = "https://nhentai.net/api/v2/cdn"
 	nhentaiUserAgent  = "Shoka/1.0 (https://github.com/Jqnx/Shoka)"
 
 	// Anonymous search endpoint: 10 requests/minute per IP
 	nhentaiRateInterval = 6 * time.Second
+
+	// The list of CDN servers rarely changes; avoid hitting /api/v2/cdn on
+	// every single search.
+	nhentaiCDNCacheTTL = time.Hour
 )
 
 type nhentaiSearchResult struct {
@@ -73,9 +81,26 @@ type NhentaiError struct {
 	Error string `json:"error"`
 }
 
+// nhentaiCDNServers is the response shape of GET /api/v2/cdn, e.g.
+// {"image_servers":["https://i1.nhentai.net",...],"thumb_servers":["https://t1.nhentai.net",...]}
+type nhentaiCDNServers struct {
+	ImageServers []string `json:"image_servers"`
+	ThumbServers []string `json:"thumb_servers"`
+}
+
 type NHentaiSource struct {
 	client  *http.Client
 	limiter *rate.Limiter
+
+	cdnMu        sync.Mutex
+	thumbServers []string
+	cdnFetchedAt time.Time
+}
+
+var nhentaiLanguageTagIDs = map[int]string{
+	12227: "en",
+	6346:  "ja",
+	29963: "zh",
 }
 
 func NewNHentaiSource() *NHentaiSource {
@@ -113,9 +138,11 @@ func (s *NHentaiSource) Search(ctx context.Context, input metadata.Input) ([]*me
 		return nil, fmt.Errorf("decode search response: %w", err)
 	}
 
+	thumbServer := s.thumbServer(ctx, input.SourceConfig.APIKey)
+
 	candidates := make([]*metadata.SearchResult, 0, len(result.Result))
 	for _, item := range result.Result {
-		candidates = append(candidates, s.listItemToSearchResult(&item))
+		candidates = append(candidates, s.listItemToSearchResult(&item, thumbServer))
 	}
 
 	return candidates, nil
@@ -320,7 +347,7 @@ func (s *NHentaiSource) setHeaders(req *http.Request, apiKey string) {
 }
 
 // listItemToSearchResult converts a nhentaiSearchResultItem to a SearchResult
-func (s *NHentaiSource) listItemToSearchResult(item *nhentaiSearchResultItem) *metadata.SearchResult {
+func (s *NHentaiSource) listItemToSearchResult(item *nhentaiSearchResultItem, thumbServer string) *metadata.SearchResult {
 	title := item.EnglishTitle
 	if title == "" {
 		title = item.JapaneseTitle
@@ -329,7 +356,84 @@ func (s *NHentaiSource) listItemToSearchResult(item *nhentaiSearchResultItem) *m
 	return &metadata.SearchResult{
 		ID:        strconv.Itoa(item.ID),
 		Title:     title,
-		CoverURL:  item.Thumbnail,
+		CoverURL:  resolveThumbURL(thumbServer, item.Thumbnail),
 		PageCount: item.NumPages,
+		Language:  s.tagIDsToLanguage(item.TagIDs),
 	}
+}
+
+// resolveThumbURL joins a CDN thumb server base URL (e.g.
+// "https://t1.nhentai.net") with the relative thumbnail path nhentai's
+// search API returns (e.g. "galleries/4059499/thumb.webp") into an
+// absolute URL the frontend can load directly. Falls back to the raw
+// relative path if no thumb server is available, rather than returning
+// nothing.
+func resolveThumbURL(thumbServer, relativePath string) string {
+	if thumbServer == "" || relativePath == "" {
+		return relativePath
+	}
+	return strings.TrimRight(thumbServer, "/") + "/" + strings.TrimLeft(relativePath, "/")
+}
+
+// thumbServer returns a thumb CDN base URL, refreshing the cached server
+// list from nhentai's CDN discovery endpoint when it's empty or stale.
+// Picks randomly among the available servers to spread load across them.
+// Returns "" if no server list could be obtained (callers should fall back
+// to relative URLs rather than fail outright over this).
+func (s *NHentaiSource) thumbServer(ctx context.Context, apiKey string) string {
+	s.cdnMu.Lock()
+	defer s.cdnMu.Unlock()
+
+	if len(s.thumbServers) == 0 || time.Since(s.cdnFetchedAt) > nhentaiCDNCacheTTL {
+		if servers, err := s.fetchCDNServers(ctx, apiKey); err == nil {
+			s.thumbServers = servers
+			s.cdnFetchedAt = time.Now()
+		}
+		// on error, fall through and use whatever's cached — possibly
+		// stale, possibly still empty — rather than failing the caller.
+	}
+
+	if len(s.thumbServers) == 0 {
+		return ""
+	}
+
+	return s.thumbServers[rand.Intn(len(s.thumbServers))]
+}
+
+// fetchCDNServers queries nhentai's CDN discovery endpoint
+// (GET /api/v2/cdn) for the current list of thumbnail image servers.
+func (s *NHentaiSource) fetchCDNServers(ctx context.Context, apiKey string) ([]string, error) {
+	resp, err := s.doRequest(ctx, nhentaiCDNURL, apiKey)
+	if err != nil {
+		return nil, fmt.Errorf("cdn request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("nhentai cdn returned %d", resp.StatusCode)
+	}
+
+	var cdn nhentaiCDNServers
+	if err := json.NewDecoder(resp.Body).Decode(&cdn); err != nil {
+		return nil, fmt.Errorf("decode cdn response: %w", err)
+	}
+
+	if len(cdn.ThumbServers) == 0 {
+		return nil, fmt.Errorf("no thumb servers in cdn response")
+	}
+
+	return cdn.ThumbServers, nil
+}
+
+// tagIDsToLanguage looks up the search item's tag_ids against
+// nhentaiLanguageTagIDs and returns the matching language's ISO code.
+// Returns "" if none of the tag_ids are a known language tag.
+func (s *NHentaiSource) tagIDsToLanguage(tagIDs []int) string {
+	for _, id := range tagIDs {
+		if iso, ok := nhentaiLanguageTagIDs[id]; ok {
+			return iso
+		}
+	}
+
+	return ""
 }
