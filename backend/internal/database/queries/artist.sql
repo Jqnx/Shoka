@@ -28,7 +28,7 @@ RETURNING id, name
 -- name: GetAllArtists :many
 select *
 from artist
-order by id
+order by name
 ;
 
 -- name: GetArtistByName :one
@@ -37,10 +37,16 @@ from artist
 where name = ?
 ;
 
+-- name: GetArtistByID :one
+select *
+from artist
+where id = ?
+;
+
 -- name: GetArtistList :many
 select *
 from artist
-order by ?
+order by name
 limit ?
 offset ?
 ;
@@ -57,6 +63,20 @@ select artist_alias.id, artist_alias.alias
 from artist
 join artist_alias on artist.id = artist_alias.artist_id
 where name = ?
+;
+
+-- name: GetArtistUrlsByID :many
+select id, url
+from artist_url
+where artist_id = ?
+order by url
+;
+
+-- name: GetArtistAliasesByID :many
+select id, alias
+from artist_alias
+where artist_id = ?
+order by alias
 ;
 
 -- name: ArtistExists :execresult
@@ -82,6 +102,14 @@ select count(id)
 from artist
 ;
 
+-- name: TotalArchiveWithArtist :one
+select count(archive.id)
+from archive
+join archive_artist on archive.id = archive_artist.archive_id
+join artist on archive_artist.artist_id = artist.id
+where artist.id = ?
+;
+
 -- name: AddArtistToArchive :exec
 insert into archive_artist (archive_id, artist_id)
 values (?, ?)
@@ -91,6 +119,13 @@ values (?, ?)
 update artist
 set name = ?
 where name = sqlc.arg('old_name')
+returning *
+;
+
+-- name: UpdateArtistByID :one
+update artist
+set name = ?
+where id = sqlc.arg('id')
 returning *
 ;
 
@@ -124,6 +159,18 @@ where id = ?
 
 -- name: DeleteAllArtist :exec
 delete from artist
+;
+
+-- name: GetArchivesByArtistID :many
+select archive.*, reading_progress.page, reading_progress.last_read, reading_progress.completed
+from archive
+join archive_artist on archive.id = archive_artist.archive_id
+join artist on archive_artist.artist_id = artist.id
+left join reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = sqlc.arg('uid')
+where artist.id = sqlc.arg('id')
+order by archive.title asc
+limit sqlc.arg('limit')
+offset sqlc.arg('offset')
 ;
 
 -- name: GetArchiveArtists :many

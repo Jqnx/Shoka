@@ -135,7 +135,16 @@ type Parody struct {
 	Count int64  `json:"count"`
 }
 
-type Progress struct {
+type ReaderSetting struct {
+	UserID           string `json:"user_id"`
+	ReadingDirection string `json:"reading_direction"`
+	PageLayout       string `json:"page_layout"`
+	FitMode          string `json:"fit_mode"`
+	Background       string `json:"background"`
+	ViewMode         string `json:"view_mode"`
+}
+
+type ReadingProgress struct {
 	ArchiveID string    `json:"archive_id"`
 	UserID    string    `json:"user_id"`
 	Page      int64     `json:"page"`

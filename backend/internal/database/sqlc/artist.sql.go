@@ -9,6 +9,7 @@ import (
 	"context"
 	"database/sql"
 	"strings"
+	"time"
 )
 
 const addArtistToArchive = `-- name: AddArtistToArchive :exec
@@ -302,7 +303,7 @@ const getAllArtists = `-- name: GetAllArtists :many
 
 select id, name, count
 from artist
-order by id
+order by name
 `
 
 func (q *Queries) GetAllArtists(ctx context.Context) ([]Artist, error) {
@@ -580,6 +581,91 @@ func (q *Queries) GetArchiveIDsByArtists(ctx context.Context, arg GetArchiveIDsB
 	return items, nil
 }
 
+const getArchivesByArtistID = `-- name: GetArchivesByArtistID :many
+;
+
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, reading_progress.page, reading_progress.last_read, reading_progress.completed
+from archive
+join archive_artist on archive.id = archive_artist.archive_id
+join artist on archive_artist.artist_id = artist.id
+left join reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = ?1
+where artist.id = ?2
+order by archive.title asc
+limit ?4
+offset ?3
+`
+
+type GetArchivesByArtistIDParams struct {
+	Uid    string `json:"uid"`
+	ID     int64  `json:"id"`
+	Offset int64  `json:"offset"`
+	Limit  int64  `json:"limit"`
+}
+
+type GetArchivesByArtistIDRow struct {
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int64      `json:"page_count"`
+	FilePath    string     `json:"file_path"`
+	FileSize    int64      `json:"file_size"`
+	ModTime     time.Time  `json:"mod_time"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
+	Page        *int64     `json:"page"`
+	LastRead    *time.Time `json:"last_read"`
+	Completed   *bool      `json:"completed"`
+}
+
+func (q *Queries) GetArchivesByArtistID(ctx context.Context, arg GetArchivesByArtistIDParams) ([]GetArchivesByArtistIDRow, error) {
+	rows, err := q.db.QueryContext(ctx, getArchivesByArtistID,
+		arg.Uid,
+		arg.ID,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchivesByArtistIDRow
+	for rows.Next() {
+		var i GetArchivesByArtistIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.FileSize,
+			&i.ModTime,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+			&i.LibraryID,
+			&i.Page,
+			&i.LastRead,
+			&i.Completed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArtistAliases = `-- name: GetArtistAliases :many
 ;
 
@@ -617,6 +703,58 @@ func (q *Queries) GetArtistAliases(ctx context.Context, name string) ([]GetArtis
 	return items, nil
 }
 
+const getArtistAliasesByID = `-- name: GetArtistAliasesByID :many
+;
+
+select id, alias
+from artist_alias
+where artist_id = ?
+order by alias
+`
+
+type GetArtistAliasesByIDRow struct {
+	ID    int64  `json:"id"`
+	Alias string `json:"alias"`
+}
+
+func (q *Queries) GetArtistAliasesByID(ctx context.Context, artistID int64) ([]GetArtistAliasesByIDRow, error) {
+	rows, err := q.db.QueryContext(ctx, getArtistAliasesByID, artistID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArtistAliasesByIDRow
+	for rows.Next() {
+		var i GetArtistAliasesByIDRow
+		if err := rows.Scan(&i.ID, &i.Alias); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArtistByID = `-- name: GetArtistByID :one
+;
+
+select id, name, count
+from artist
+where id = ?
+`
+
+func (q *Queries) GetArtistByID(ctx context.Context, id int64) (Artist, error) {
+	row := q.db.QueryRowContext(ctx, getArtistByID, id)
+	var i Artist
+	err := row.Scan(&i.ID, &i.Name, &i.Count)
+	return i, err
+}
+
 const getArtistByName = `-- name: GetArtistByName :one
 ;
 
@@ -637,7 +775,7 @@ const getArtistList = `-- name: GetArtistList :many
 
 select id, name, count
 from artist
-order by ?
+order by name
 limit ?
 offset ?
 `
@@ -707,6 +845,43 @@ func (q *Queries) GetArtistUrls(ctx context.Context, name string) ([]GetArtistUr
 	return items, nil
 }
 
+const getArtistUrlsByID = `-- name: GetArtistUrlsByID :many
+;
+
+select id, url
+from artist_url
+where artist_id = ?
+order by url
+`
+
+type GetArtistUrlsByIDRow struct {
+	ID  int64  `json:"id"`
+	Url string `json:"url"`
+}
+
+func (q *Queries) GetArtistUrlsByID(ctx context.Context, artistID int64) ([]GetArtistUrlsByIDRow, error) {
+	rows, err := q.db.QueryContext(ctx, getArtistUrlsByID, artistID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArtistUrlsByIDRow
+	for rows.Next() {
+		var i GetArtistUrlsByIDRow
+		if err := rows.Scan(&i.ID, &i.Url); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const incrementArtistCount = `-- name: IncrementArtistCount :exec
 ;
 
@@ -755,6 +930,23 @@ func (q *Queries) RemoveArtistUrls(ctx context.Context, artistID int64) error {
 	return err
 }
 
+const totalArchiveWithArtist = `-- name: TotalArchiveWithArtist :one
+;
+
+select count(archive.id)
+from archive
+join archive_artist on archive.id = archive_artist.archive_id
+join artist on archive_artist.artist_id = artist.id
+where artist.id = ?
+`
+
+func (q *Queries) TotalArchiveWithArtist(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, totalArchiveWithArtist, id)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const totalArtists = `-- name: TotalArtists :one
 ;
 
@@ -785,6 +977,27 @@ type UpdateArtistParams struct {
 
 func (q *Queries) UpdateArtist(ctx context.Context, arg UpdateArtistParams) (Artist, error) {
 	row := q.db.QueryRowContext(ctx, updateArtist, arg.Name, arg.OldName)
+	var i Artist
+	err := row.Scan(&i.ID, &i.Name, &i.Count)
+	return i, err
+}
+
+const updateArtistByID = `-- name: UpdateArtistByID :one
+;
+
+update artist
+set name = ?
+where id = ?2
+returning id, name, count
+`
+
+type UpdateArtistByIDParams struct {
+	Name string `json:"name"`
+	ID   int64  `json:"id"`
+}
+
+func (q *Queries) UpdateArtistByID(ctx context.Context, arg UpdateArtistByIDParams) (Artist, error) {
+	row := q.db.QueryRowContext(ctx, updateArtistByID, arg.Name, arg.ID)
 	var i Artist
 	err := row.Scan(&i.ID, &i.Name, &i.Count)
 	return i, err

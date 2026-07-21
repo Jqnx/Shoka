@@ -7,7 +7,7 @@ values (?, ?, ?)
 select archive.*, rp.page
 from archive
 join favorite_archive as fa on archive.id = fa.archive_id
-left join progress as rp on archive.id = rp.archive_id and rp.user_id = fa.user_id
+left join reading_progress as rp on archive.id = rp.archive_id and rp.user_id = fa.user_id
 where fa.user_id = sqlc.arg('uid')
 limit ?
 offset ?
@@ -26,7 +26,7 @@ offset ?
 select archive.*
 from archive
 join favorite_archive as fa on archive.id = fa.archive_id
-left join progress as rp on archive.id = rp.archive_id and rp.user_id = fa.user_id
+left join reading_progress as rp on archive.id = rp.archive_id and rp.user_id = fa.user_id
 where fa.user_id = sqlc.arg('uid')
 order by fa.favorited_at desc
 ;
@@ -35,7 +35,7 @@ order by fa.favorited_at desc
 select archive.*, rp.page
 from archive
 join favorite_archive as fa on archive.id = fa.archive_id
-left join progress as rp on archive.id = rp.archive_id and rp.user_id = sqlc.arg('uid')
+left join reading_progress as rp on archive.id = rp.archive_id and rp.user_id = sqlc.arg('uid')
 where
     archive.id in (sqlc.slice('ids'))
     and archive.id in (
@@ -98,7 +98,7 @@ where
 select archive.*, rp.page
 from archive
 join favorite_archive as fa on archive.id = fa.archive_id
-left join progress as rp on archive.id = rp.archive_id and rp.user_id = sqlc.arg('uid')
+left join reading_progress as rp on archive.id = rp.archive_id and rp.user_id = sqlc.arg('uid')
 where fa.user_id = sqlc.arg('uid')
 order by
     case when sqlc.arg('order_by') = 'title_asc' then archive.title end asc,

@@ -106,6 +106,72 @@ func (h *ArchiveHandler) GetArchiveSortOptions(w http.ResponseWriter, r *http.Re
 	response.JSON(w, http.StatusOK, items)
 }
 
+// GetCategories godoc
+//
+//	@Summary		List all archive categories
+//	@Description	Returns every distinct category currently in use across all libraries, sorted. Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.
+//	@Tags			archives
+//	@Produce		json
+//	@Success		200	{array}		string
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/categories [get]
+func (h *ArchiveHandler) GetCategories(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.queries.GetAllCategory(r.Context())
+	if err != nil {
+		h.logger.Error("get categories failed", "error", err)
+		response.InternalError(w, "failed to get categories")
+		return
+	}
+
+	categories := make([]string, 0, len(rows))
+	for _, c := range rows {
+		if c != nil {
+			categories = append(categories, *c)
+		}
+	}
+
+	response.JSON(w, http.StatusOK, categories)
+}
+
+type LanguageResponse struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
+// GetLanguages godoc
+//
+//	@Summary		List all languages
+//	@Description	Returns every distinct language code currently in use across all libraries, paired with a display name (see language.LanguageConverter; falls back to the raw code if unrecognized). Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.
+//	@Tags			archives
+//	@Produce		json
+//	@Success		200	{array}		LanguageResponse
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/languages [get]
+func (h *ArchiveHandler) GetLanguages(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.queries.GetAllLanguage(r.Context())
+	if err != nil {
+		h.logger.Error("get languages failed", "error", err)
+		response.InternalError(w, "failed to get languages")
+		return
+	}
+
+	lc := language.NewLanguageConverter()
+
+	languages := make([]LanguageResponse, 0, len(rows))
+	for _, code := range rows {
+		if code == nil {
+			continue
+		}
+		name, err := lc.ToName(*code)
+		if err != nil {
+			name = *code
+		}
+		languages = append(languages, LanguageResponse{Code: *code, Name: name})
+	}
+
+	response.JSON(w, http.StatusOK, languages)
+}
+
 // GetArchives godoc
 //
 //	@Summary		List archives with pagination, filtering, and sorting
@@ -231,6 +297,82 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetRecentlyRead godoc
+//
+//	@Summary		List recently read archives across all libraries
+//	@Description	Returns archives with reading progress for the current user, most recently read first. Deliberately NOT scoped to a library - this is a continue-reading feed spanning the whole collection.
+//	@Tags			archives
+//	@Produce		json
+//	@Param			page	query		int	false	"Page number (1-based)"	default(1)
+//	@Param			limit	query		int	false	"Items per page"		default(24)
+//	@Success		200	{object}	ArchiveListResponse
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/recently-read [get]
+func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request) {
+	userID := auth.UserIDFromContext(r.Context())
+
+	page := 1
+	limit := 24
+	if p := r.URL.Query().Get("page"); p != "" {
+		if v, err := strconv.Atoi(p); err == nil && v > 0 {
+			page = v
+		}
+	}
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 100 {
+			limit = v
+		}
+	}
+	offset := int64((page - 1) * limit)
+
+	total, err := h.queries.CountRecentlyReadArchives(r.Context(), userID)
+	if err != nil {
+		h.logger.Error("count recently read archives failed", "error", err)
+		response.InternalError(w, "failed to count recently read archives")
+		return
+	}
+
+	rows, err := h.queries.GetRecentlyReadArchives(r.Context(), sqlc.GetRecentlyReadArchivesParams{
+		Uid:    userID,
+		Limit:  int64(limit),
+		Offset: offset,
+	})
+	if err != nil {
+		h.logger.Error("get recently read archives failed", "error", err)
+		response.InternalError(w, "failed to get recently read archives")
+		return
+	}
+
+	items := make([]ArchiveResponse, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, ArchiveResponse{
+			ID:          row.ID,
+			Title:       row.Title,
+			Summary:     row.Summary,
+			Language:    row.Language,
+			Category:    row.Category,
+			ReleaseDate: row.ReleaseDate,
+			PageCount:   int(row.PageCount),
+			FilePath:    row.FilePath,
+			CreatedAt:   row.CreatedAt,
+			UpdatedAt:   row.UpdatedAt,
+			ThumbsReady: h.processor.ThumbsReady(row.ID, int(row.PageCount)),
+			Progress: &ProgressResponse{
+				CurrentPage: int(row.Page),
+				LastRead:    row.LastRead,
+				Completed:   row.Completed,
+			},
+		})
+	}
+
+	response.JSON(w, http.StatusOK, ArchiveListResponse{
+		Items: items,
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	})
+}
+
 // GetArchive godoc
 //
 //	@Summary		Get a single archive
@@ -259,7 +401,7 @@ func (h *ArchiveHandler) GetArchive(w http.ResponseWriter, r *http.Request) {
 	// fetch relational metadata and progress concurrently
 	type result struct {
 		meta     *metadata.Result
-		progress *sqlc.Progress
+		progress *sqlc.ReadingProgress
 		metaErr  error
 		progErr  error
 	}
@@ -392,7 +534,7 @@ func (h *ArchiveHandler) UpdateArchive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var progress *sqlc.Progress
+	var progress *sqlc.ReadingProgress
 	if p, err := h.queries.GetProgressForArchive(r.Context(), sqlc.GetProgressForArchiveParams{
 		ArchiveID: id,
 		UserID:    userID,
@@ -405,10 +547,121 @@ func (h *ArchiveHandler) UpdateArchive(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, h.buildResponse(archive, meta, progress))
 }
 
+type UpdateProgressRequest struct {
+	Page int `json:"page"`
+	// Completed: omit to auto-derive (true once page reaches the archives
+	// last page), or set explicitly to override that (e.g. letting a user
+	// mark something finished/unfinished regardless of page position).
+	Completed *bool `json:"completed"`
+}
+
+// UpdateProgress godoc
+//
+//	@Summary		Record reading progress for an archive
+//	@Description	Upserts the current users reading progress. Idempotent - safe to call on every page turn with the new absolute page number.
+//	@Tags			archives
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path		string					true	"Archive ID"
+//	@Param			body	body		UpdateProgressRequest	true	"Progress"
+//	@Success		200	{object}	ProgressResponse
+//	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/progress [put]
+func (h *ArchiveHandler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	userID := auth.UserIDFromContext(r.Context())
+
+	archive, err := h.queries.GetArchiveByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "archive not found")
+			return
+		}
+		h.logger.Error("get archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
+		return
+	}
+
+	var body UpdateProgressRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if archive.PageCount > 0 && (body.Page < 0 || body.Page >= int(archive.PageCount)) {
+		response.BadRequest(w, "page out of range")
+		return
+	}
+
+	completed := archive.PageCount > 0 && body.Page >= int(archive.PageCount)-1
+	if body.Completed != nil {
+		completed = *body.Completed
+	}
+
+	row, err := h.queries.UpsertReadingProgress(r.Context(), sqlc.UpsertReadingProgressParams{
+		ArchiveID: id,
+		UserID:    userID,
+		Page:      int64(body.Page),
+		Completed: completed,
+	})
+	if err != nil {
+		h.logger.Error("upsert reading progress failed", "id", id, "error", err)
+		response.InternalError(w, "failed to update progress")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, ProgressResponse{
+		CurrentPage: int(row.Page),
+		LastRead:    row.LastRead,
+		Completed:   row.Completed,
+	})
+}
+
+// DeleteProgress godoc
+//
+//	@Summary		Reset reading progress for an archive
+//	@Description	Removes the current users reading progress for this archive entirely (as opposed to setting page back to 0, which would still count as "in progress").
+//	@Tags			archives
+//	@Param			id	path	string	true	"Archive ID"
+//	@Success		204
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/progress [delete]
+func (h *ArchiveHandler) DeleteProgress(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	userID := auth.UserIDFromContext(r.Context())
+
+	if err := h.queries.DeleteReadingProgress(r.Context(), sqlc.DeleteReadingProgressParams{
+		ArchiveID: id,
+		UserID:    userID,
+	}); err != nil {
+		h.logger.Error("delete reading progress failed", "id", id, "error", err)
+		response.InternalError(w, "failed to reset progress")
+		return
+	}
+
+	response.NoContent(w)
+}
+
 func (h *ArchiveHandler) buildResponse(
 	archive sqlc.Archive,
 	meta *metadata.Result,
-	progress *sqlc.Progress,
+	progress *sqlc.ReadingProgress,
+) ArchiveResponse {
+	return buildArchiveResponse(h.processor, archive, meta, progress)
+}
+
+// buildArchiveResponse is the shared ArchiveResponse builder — a
+// package-level function (rather than an ArchiveHandler method) so other
+// handlers that hold their own *image.Processor can build the same
+// response shape, e.g. MetadataHandler previewing a fetched metadata
+// result without persisting it.
+func buildArchiveResponse(
+	processor *image.Processor,
+	archive sqlc.Archive,
+	meta *metadata.Result,
+	progress *sqlc.ReadingProgress,
 ) ArchiveResponse {
 	lc := language.NewLanguageConverter()
 	var lang string
@@ -429,7 +682,7 @@ func (h *ArchiveHandler) buildResponse(
 		PageCount:   int(archive.PageCount),
 		CreatedAt:   archive.CreatedAt,
 		UpdatedAt:   archive.UpdatedAt,
-		ThumbsReady: h.processor.ThumbsReady(archive.ID, int(archive.PageCount)),
+		ThumbsReady: processor.ThumbsReady(archive.ID, int(archive.PageCount)),
 	}
 
 	if meta != nil {
@@ -449,6 +702,33 @@ func (h *ArchiveHandler) buildResponse(
 	}
 
 	return resp
+}
+
+// overlayResult returns a copy of archive with any non-nil scalar fields
+// from result overlaid on top. Used to preview what an archive would look
+// like with a fetched metadata result applied, without writing anything to
+// the database — the real archive row is never mutated by this.
+func overlayResult(archive sqlc.Archive, result *metadata.Result) sqlc.Archive {
+	preview := archive
+	if result.Title != nil {
+		preview.Title = *result.Title
+	}
+	if result.Summary != nil {
+		preview.Summary = result.Summary
+	}
+	if result.Language != nil {
+		preview.Language = result.Language
+	}
+	if result.Category != nil {
+		preview.Category = result.Category
+	}
+	if result.ReleaseDate != nil {
+		preview.ReleaseDate = result.ReleaseDate
+	}
+	if result.PageCount != nil {
+		preview.PageCount = *result.PageCount
+	}
+	return preview
 }
 
 // GetCover godoc

@@ -149,7 +149,7 @@ const getFavoriteArchiveFilterSortList = `-- name: GetFavoriteArchiveFilterSortL
 select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, rp.page
 from archive
 join favorite_archive as fa on archive.id = fa.archive_id
-left join progress as rp on archive.id = rp.archive_id and rp.user_id = ?3
+left join reading_progress as rp on archive.id = rp.archive_id and rp.user_id = ?3
 where
     archive.id in (/*SLICE:ids*/?)
     and archive.id in (
@@ -260,7 +260,7 @@ const getFavoriteArchiveSortList = `-- name: GetFavoriteArchiveSortList :many
 select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, rp.page
 from archive
 join favorite_archive as fa on archive.id = fa.archive_id
-left join progress as rp on archive.id = rp.archive_id and rp.user_id = ?3
+left join reading_progress as rp on archive.id = rp.archive_id and rp.user_id = ?3
 where fa.user_id = ?3
 order by
     case when sqlc.arg('order_by') = 'title_asc' then archive.title end asc,
@@ -350,7 +350,7 @@ const getUserFavoriteArchiveAll = `-- name: GetUserFavoriteArchiveAll :many
 select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id
 from archive
 join favorite_archive as fa on archive.id = fa.archive_id
-left join progress as rp on archive.id = rp.archive_id and rp.user_id = fa.user_id
+left join reading_progress as rp on archive.id = rp.archive_id and rp.user_id = fa.user_id
 where fa.user_id = ?1
 order by fa.favorited_at desc
 `
@@ -398,7 +398,7 @@ const getUserFavoriteArchiveList = `-- name: GetUserFavoriteArchiveList :many
 select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, rp.page
 from archive
 join favorite_archive as fa on archive.id = fa.archive_id
-left join progress as rp on archive.id = rp.archive_id and rp.user_id = fa.user_id
+left join reading_progress as rp on archive.id = rp.archive_id and rp.user_id = fa.user_id
 where fa.user_id = ?3
 limit ?
 offset ?

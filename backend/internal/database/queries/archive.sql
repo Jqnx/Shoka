@@ -40,32 +40,21 @@ where library_id = ?
 ;
 
 -- name: GetAllArchives :many
-select archive.*, progress.page, progress.last_read, progress.completed
+select archive.*, reading_progress.page, reading_progress.last_read, reading_progress.completed
 from archive
 left join
-    progress
-    on archive.id = progress.archive_id
-    and progress.user
-    and progress.user_id = sqlc.arg('uid')
+    reading_progress
+    on archive.id = reading_progress.archive_id
+    and reading_progress.user_id = sqlc.arg('uid')
 where archive.library_id = sqlc.arg('library_id')
 order by archive.id
 ;
 
--- name: GetRecentlyReadArchives :many
-select archive.*, progress.page, progress.last_read, progress.completed
-from archive
-left join
-    progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
-where progress.last_read is not null
-    and archive.library_id = sqlc.arg('library_id')
-order by progress.last_read
-;
-
 -- name: GetArchiveList :many
-select archive.*, progress.page, progress.last_read, progress.completed
+select archive.*, reading_progress.page, reading_progress.last_read, reading_progress.completed
 from archive
 left join
-    progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
+    reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = sqlc.arg('uid')
 where archive.library_id = sqlc.arg('library_id')
 limit sqlc.arg('limit')
 offset sqlc.arg('offset')

@@ -195,13 +195,12 @@ func (q *Queries) GetAllArchiveFilePaths(ctx context.Context) ([]GetAllArchiveFi
 const getAllArchives = `-- name: GetAllArchives :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page, progress.last_read, progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, reading_progress.page, reading_progress.last_read, reading_progress.completed
 from archive
 left join
-    progress
-    on archive.id = progress.archive_id
-    and progress.user
-    and progress.user_id = ?1
+    reading_progress
+    on archive.id = reading_progress.archive_id
+    and reading_progress.user_id = ?1
 where archive.library_id = ?2
 order by archive.id
 `
@@ -374,10 +373,10 @@ func (q *Queries) GetArchiveFilePathsByLibrary(ctx context.Context, libraryID st
 const getArchiveList = `-- name: GetArchiveList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page, progress.last_read, progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, reading_progress.page, reading_progress.last_read, reading_progress.completed
 from archive
 left join
-    progress on archive.id = progress.archive_id and progress.user_id = ?1
+    reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = ?1
 where archive.library_id = ?2
 limit ?4
 offset ?3
@@ -490,82 +489,6 @@ func (q *Queries) GetFilePathByID(ctx context.Context, id string) (string, error
 	var file_path string
 	err := row.Scan(&file_path)
 	return file_path, err
-}
-
-const getRecentlyReadArchives = `-- name: GetRecentlyReadArchives :many
-;
-
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page, progress.last_read, progress.completed
-from archive
-left join
-    progress on archive.id = progress.archive_id and progress.user_id = ?1
-where progress.last_read is not null
-    and archive.library_id = ?2
-order by progress.last_read
-`
-
-type GetRecentlyReadArchivesParams struct {
-	Uid       string `json:"uid"`
-	LibraryID string `json:"library_id"`
-}
-
-type GetRecentlyReadArchivesRow struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	Summary     *string    `json:"summary"`
-	Language    *string    `json:"language"`
-	Category    *string    `json:"category"`
-	PageCount   int64      `json:"page_count"`
-	FilePath    string     `json:"file_path"`
-	FileSize    int64      `json:"file_size"`
-	ModTime     time.Time  `json:"mod_time"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ReleaseDate *time.Time `json:"release_date"`
-	LibraryID   string     `json:"library_id"`
-	Page        *int64     `json:"page"`
-	LastRead    *time.Time `json:"last_read"`
-	Completed   *bool      `json:"completed"`
-}
-
-func (q *Queries) GetRecentlyReadArchives(ctx context.Context, arg GetRecentlyReadArchivesParams) ([]GetRecentlyReadArchivesRow, error) {
-	rows, err := q.db.QueryContext(ctx, getRecentlyReadArchives, arg.Uid, arg.LibraryID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetRecentlyReadArchivesRow
-	for rows.Next() {
-		var i GetRecentlyReadArchivesRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Summary,
-			&i.Language,
-			&i.Category,
-			&i.PageCount,
-			&i.FilePath,
-			&i.FileSize,
-			&i.ModTime,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ReleaseDate,
-			&i.LibraryID,
-			&i.Page,
-			&i.LastRead,
-			&i.Completed,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const updateArchive = `-- name: UpdateArchive :exec

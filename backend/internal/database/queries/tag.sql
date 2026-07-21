@@ -48,11 +48,11 @@ order by name
 ;
 
 -- name: GetArchivesByTagName :many
-select archive.*, progress.page, progress.last_read, progress.completed
+select archive.*, reading_progress.page, reading_progress.last_read, reading_progress.completed
 from archive
 join archive_tag on archive.id = archive_tag.archive_id
 join tag on archive_tag.tag_id = tag.id
-left join progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
+left join reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = sqlc.arg('uid')
 where tag.name = sqlc.arg('name')
 order by archive.title asc
 limit sqlc.arg('limit')
@@ -104,12 +104,12 @@ where archive.id = ?
 ;
 
 -- name: GetArchiveByTag :many
-select archive.*, progress.page
+select archive.*, reading_progress.page
 from archive
 join archive_tag on archive.id = archive_tag.archive_id
 join tag on archive_tag.tag_id = tag.id
 left join
-    progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
+    reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = sqlc.arg('uid')
 where tag.name = ?
 ;
 
@@ -132,12 +132,12 @@ having count(distinct tag.id) = sqlc.arg('amount')
 ;
 
 -- name: GetArchiveByTagList :many
-select archive.*, progress.page
+select archive.*, reading_progress.page
 from archive
 join archive_tag on archive.id = archive_tag.archive_id
 join tag on archive_tag.tag_id = tag.id
 left join
-    progress on archive.id = progress.archive_id and progress.user_id = sqlc.arg('uid')
+    reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = sqlc.arg('uid')
 where tag.name = ?
 order by
     case when sqlc.arg('order_by') = 'title_asc' then archive.title end asc,
@@ -154,8 +154,8 @@ order by
     case
         when sqlc.arg('order_by') = 'release_date_desc' then archive.release_date
     end desc,
-    case when sqlc.arg('order_by') = 'last_read_asc' then progress.last_read end asc,
-    case when sqlc.arg('order_by') = 'last_read_desc' then progress.last_read end desc
+    case when sqlc.arg('order_by') = 'last_read_asc' then reading_progress.last_read end asc,
+    case when sqlc.arg('order_by') = 'last_read_desc' then reading_progress.last_read end desc
 limit ?
 offset ?
 ;

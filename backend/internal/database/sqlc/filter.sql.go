@@ -72,10 +72,10 @@ func (q *Queries) GetArchiveFilter(ctx context.Context, arg GetArchiveFilterPara
 }
 
 const getArchiveFilterSortList = `-- name: GetArchiveFilterSortList :many
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page, progress.last_read, progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, reading_progress.page, reading_progress.last_read, reading_progress.completed
 from archive
 left join
-    progress on archive.id = progress.archive_id and progress.user_id = ?3
+    reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = ?3
 where archive.id in (/*SLICE:ids*/?)
 order by
     case when sqlc.arg('order_by') = 'title_asc' then archive.title end asc,
@@ -92,8 +92,8 @@ order by
     case
         when sqlc.arg('order_by') = 'release_date_desc' then archive.release_date
     end desc,
-    case when sqlc.arg('order_by') = 'last_read_asc' then progress.last_read end asc,
-    case when sqlc.arg('order_by') = 'last_read_desc' then progress.last_read end desc
+    case when sqlc.arg('order_by') = 'last_read_asc' then reading_progress.last_read end asc,
+    case when sqlc.arg('order_by') = 'last_read_desc' then reading_progress.last_read end desc
 limit ?
 offset ?
 `
@@ -180,10 +180,10 @@ func (q *Queries) GetArchiveFilterSortList(ctx context.Context, arg GetArchiveFi
 const getArchiveSort = `-- name: GetArchiveSort :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page, progress.last_read, progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, reading_progress.page, reading_progress.last_read, reading_progress.completed
 from archive
 left join
-    progress on archive.id = progress.archive_id and progress.user_id = ?1
+    reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = ?1
 order by
     case when sqlc.arg('order_by') = 'title_asc' then title end asc,
     case when sqlc.arg('order_by') = 'title_desc' then title end desc,
@@ -195,8 +195,8 @@ order by
     case when sqlc.arg('order_by') = 'updated_at_desc' then updated_at end desc,
     case when sqlc.arg('order_by') = 'release_date_asc' then release_date end asc,
     case when sqlc.arg('order_by') = 'release_date_desc' then release_date end desc,
-    case when sqlc.arg('order_by') = 'last_read_asc' then progress.last_read end asc,
-    case when sqlc.arg('order_by') = 'last_read_desc' then progress.last_read end desc
+    case when sqlc.arg('order_by') = 'last_read_asc' then reading_progress.last_read end asc,
+    case when sqlc.arg('order_by') = 'last_read_desc' then reading_progress.last_read end desc
 `
 
 type GetArchiveSortRow struct {
@@ -261,10 +261,10 @@ func (q *Queries) GetArchiveSort(ctx context.Context, uid string) ([]GetArchiveS
 const getArchiveSortList = `-- name: GetArchiveSortList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, progress.page, progress.last_read, progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, reading_progress.page, reading_progress.last_read, reading_progress.completed
 from archive
 left join
-    progress on archive.id = progress.archive_id and progress.user_id = ?3
+    reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = ?3
 order by
     case when sqlc.arg('order_by') = 'title_asc' then title end asc,
     case when sqlc.arg('order_by') = 'title_desc' then title end desc,
@@ -276,8 +276,8 @@ order by
     case when sqlc.arg('order_by') = 'updated_at_desc' then updated_at end desc,
     case when sqlc.arg('order_by') = 'release_date_asc' then release_date end asc,
     case when sqlc.arg('order_by') = 'release_date_desc' then release_date end desc,
-    case when sqlc.arg('order_by') = 'last_read_asc' then progress.last_read end asc,
-    case when sqlc.arg('order_by') = 'last_read_desc' then progress.last_read end desc
+    case when sqlc.arg('order_by') = 'last_read_asc' then reading_progress.last_read end asc,
+    case when sqlc.arg('order_by') = 'last_read_desc' then reading_progress.last_read end desc
 limit ?
 offset ?
 `

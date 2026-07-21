@@ -114,9 +114,9 @@ func ListArchives(ctx context.Context, db *sql.DB, f ArchiveFilter) ([]sqlc.GetA
 	selectSQL := `SELECT archive.id, archive.title, archive.summary, archive.language, archive.category,
 		archive.page_count, archive.file_path, archive.file_size, archive.mod_time,
 		archive.created_at, archive.updated_at, archive.release_date,
-		progress.page, progress.last_read, progress.completed
+		reading_progress.page, reading_progress.last_read, reading_progress.completed
 	FROM archive
-	LEFT JOIN progress ON archive.id = progress.archive_id AND progress.user_id = ?
+	LEFT JOIN reading_progress ON archive.id = reading_progress.archive_id AND reading_progress.user_id = ?
 	` + whereSQL + " ORDER BY " + orderBy + " LIMIT ? OFFSET ?"
 
 	selectArgs := append([]any{f.UserID}, whereArgs...)
