@@ -17,7 +17,6 @@ import (
 	"Shoka/internal/log"
 	"Shoka/internal/metadata"
 	"Shoka/internal/metadata/sources"
-	"Shoka/internal/util"
 
 	"github.com/davidbyttow/govips/v2/vips"
 )
@@ -40,11 +39,6 @@ func main() {
 
 	// Create new Logger
 	log := log.New(cfg)
-
-	if err := util.EnsureDir("./data"); err != nil {
-		log.Error("failed to create data directory", "error", err)
-		os.Exit(1)
-	}
 
 	// Connect to database
 	db, err := database.New()

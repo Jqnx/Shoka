@@ -1,6 +1,7 @@
 package config
 
 import (
+	"Shoka/internal/util"
 	"fmt"
 	"net"
 	"os"
@@ -18,6 +19,10 @@ var (
 )
 
 func LoadConfig() (*Config, error) {
+	if err := util.EnsureDir(DataDir); err != nil {
+		return nil, err
+	}
+
 	setDefaults()
 	// Set config file
 	viper.SetConfigName(filepath.Base(ConfigFile))
@@ -68,9 +73,7 @@ func setDefaults() {
 }
 
 func getEnv(c *Config) error {
-	if err := godotenv.Load(); err != nil {
-		return err
-	}
+	godotenv.Load()
 
 	if os.Getenv("HOST") == "" {
 		c.Server.Host = "localhost"
