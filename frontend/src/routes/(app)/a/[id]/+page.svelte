@@ -20,7 +20,8 @@
 		Sword,
 		Ellipsis,
 		RotateCcw,
-		Check
+		Check,
+		Heart
 	} from '@lucide/svelte';
 
 	let { data, form } = $props();
@@ -28,6 +29,7 @@
 
 	let markingRead = $state(false);
 	let markingUnread = $state(false);
+	let favoriting = $state(false);
 
 	// Archive.artists is just names (matching everywhere else metadata is
 	// stored free-text) - resolve to the matching artist's id, if any, from
@@ -111,7 +113,7 @@
 				{readLabel}
 			</Button>
 
-			{#if (form?.action === 'markRead' || form?.action === 'markUnread') && form.error}
+			{#if (form?.action === 'markRead' || form?.action === 'markUnread' || form?.action === 'toggleFavorite') && form.error}
 				<p class="mt-1.5 text-center text-xs text-destructive">{form.error}</p>
 			{/if}
 		</div>
@@ -121,6 +123,30 @@
 			<div class="flex items-start justify-between gap-3">
 				<h1 class="text-2xl leading-tight font-bold">{a.title}</h1>
 				<div class="flex shrink-0 items-center gap-1.5">
+					<form
+						method="POST"
+						action="?/toggleFavorite"
+						use:enhance={() => {
+							favoriting = true;
+							return async ({ update }) => {
+								favoriting = false;
+								await update();
+							};
+						}}
+					>
+						<input type="hidden" name="favorited" value={a.is_favorited} />
+						<Button
+							type="submit"
+							variant="outline"
+							size="icon"
+							disabled={favoriting}
+							aria-label={a.is_favorited ? 'Remove from favorites' : 'Add to favorites'}
+						>
+							<Heart
+								class={cn('size-4', a.is_favorited && 'fill-red-500 stroke-red-500')}
+							/>
+						</Button>
+					</form>
 					<EditArchiveSheet
 						archive={a}
 						{libraryId}

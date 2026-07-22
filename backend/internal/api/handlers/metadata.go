@@ -311,7 +311,15 @@ func (h *MetadataHandler) ApplyMetadataFromSource(w http.ResponseWriter, r *http
 		h.logger.Error("get progress failed", "id", id, "error", err)
 	}
 
+	isFavorited, err := h.queries.ArchiveIsFavorited(r.Context(), sqlc.ArchiveIsFavoritedParams{
+		ArchiveID: id,
+		Uid:       userID,
+	})
+	if err != nil {
+		h.logger.Error("get favorite status failed", "id", id, "error", err)
+	}
+
 	preview := overlayResult(archive, result)
 
-	response.JSON(w, http.StatusOK, buildArchiveResponse(h.processor, preview, result, progress))
+	response.JSON(w, http.StatusOK, buildArchiveResponse(h.processor, preview, result, progress, isFavorited))
 }

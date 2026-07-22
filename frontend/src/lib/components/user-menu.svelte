@@ -5,7 +5,7 @@
 	import { cn } from '$lib/utils.js';
 	import { toggleMode, mode } from 'mode-watcher';
 	import { enhance } from '$app/forms';
-	import { ChevronsUpDown, LogOut, Moon, Settings, Sun } from '@lucide/svelte';
+	import { ChevronsUpDown, Heart, LogOut, Moon, Settings, Sun } from '@lucide/svelte';
 	import type { User } from 'better-auth';
 
 	let { user }: { user: User } = $props();
@@ -60,6 +60,14 @@
 					</div>
 				</DropdownMenu.Label>
 				<DropdownMenu.Separator />
+				<DropdownMenu.Item>
+					{#snippet child({ props })}
+						<a href="/favorites" {...props}>
+							<Heart />
+							Favorites
+						</a>
+					{/snippet}
+				</DropdownMenu.Item>
 				<DropdownMenu.Item>
 					{#snippet child({ props })}
 						<a href="/settings" {...props}>

@@ -111,5 +111,26 @@ export const actions: Actions = {
 		}
 
 		return { action: 'markUnread' as const, success: true };
+	},
+
+	toggleFavorite: async ({ request, fetch, params }) => {
+		const form = await request.formData();
+		// Whether it *was* favorited before this submit - PUT/favorite is
+		// idempotent and so is DELETE/unfavorite, so this only decides which
+		// direction to flip, not whether the call is safe to make.
+		const wasFavorited = form.get('favorited') === 'true';
+
+		const res = await fetch(`/api/archives/${params.id}/favorite`, {
+			method: wasFavorited ? 'DELETE' : 'PUT'
+		});
+
+		if (!res.ok) {
+			return fail(res.status, {
+				action: 'toggleFavorite' as const,
+				error: await errorMessage(res, 'Failed to update favorite.')
+			});
+		}
+
+		return { action: 'toggleFavorite' as const, success: true };
 	}
 };

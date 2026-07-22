@@ -91,8 +91,8 @@ type Circle struct {
 }
 
 type FavoriteArchive struct {
-	ArchiveID   *string   `json:"archive_id"`
-	UserID      *string   `json:"user_id"`
+	ArchiveID   string    `json:"archive_id"`
+	UserID      string    `json:"user_id"`
 	FavoritedAt time.Time `json:"favorited_at"`
 }
 

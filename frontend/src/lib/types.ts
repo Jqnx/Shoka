@@ -29,6 +29,7 @@ export type Archive = {
 
 	progress: Progress | null;
 	thumbs_ready: boolean;
+	is_favorited: boolean;
 };
 
 export type ArchiveListResponse = {

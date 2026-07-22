@@ -58,6 +58,7 @@ func (s *Server) MountHandlers() {
 		r.Get("/api/archives/categories", archiveHandler.GetCategories)
 		r.Get("/api/archives/languages", archiveHandler.GetLanguages)
 		r.Get("/api/archives/recently-read", archiveHandler.GetRecentlyRead)
+		r.Get("/api/archives/favorites", archiveHandler.GetFavorites)
 		r.Get("/api/tags", tagHandler.GetTags)
 		r.Get("/api/tags/all", tagHandler.GetAllTags)
 		r.Route("/api/tags/{id}", func(r chi.Router) {
@@ -100,6 +101,8 @@ func (s *Server) MountHandlers() {
 			r.Get("/thumbnails/events", archiveHandler.StreamThumbnailEvents)
 			r.Put("/progress", archiveHandler.UpdateProgress)
 			r.Delete("/progress", archiveHandler.DeleteProgress)
+			r.Put("/favorite", archiveHandler.AddFavorite)
+			r.Delete("/favorite", archiveHandler.RemoveFavorite)
 		})
 		r.Route("/api/archives/{id}/metadata", func(r chi.Router) {
 			r.Post("/", metadataHandler.FetchMetadata)

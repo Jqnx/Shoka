@@ -7,204 +7,78 @@ package sqlc
 
 import (
 	"context"
-	"database/sql"
 	"strings"
 	"time"
 )
 
 const addFavoriteArchive = `-- name: AddFavoriteArchive :exec
 insert into favorite_archive (archive_id, user_id, favorited_at)
-values (?, ?, ?)
+values (?, ?, datetime('now'))
+on conflict (archive_id, user_id) do nothing
 `
 
 type AddFavoriteArchiveParams struct {
-	ArchiveID   *string   `json:"archive_id"`
-	UserID      *string   `json:"user_id"`
-	FavoritedAt time.Time `json:"favorited_at"`
+	ArchiveID string `json:"archive_id"`
+	UserID    string `json:"user_id"`
 }
 
 func (q *Queries) AddFavoriteArchive(ctx context.Context, arg AddFavoriteArchiveParams) error {
-	_, err := q.db.ExecContext(ctx, addFavoriteArchive, arg.ArchiveID, arg.UserID, arg.FavoritedAt)
+	_, err := q.db.ExecContext(ctx, addFavoriteArchive, arg.ArchiveID, arg.UserID)
 	return err
 }
 
-const archiveIsFavorited = `-- name: ArchiveIsFavorited :execresult
+const archiveIsFavorited = `-- name: ArchiveIsFavorited :one
 ;
 
-select archive_id
-from favorite_archive
-where user_id = ?2 and archive_id = ?
+select exists (
+    select 1 from favorite_archive where archive_id = ? and user_id = ?2
+) = 1
 `
 
 type ArchiveIsFavoritedParams struct {
-	Uid       *string `json:"uid"`
-	ArchiveID *string `json:"archive_id"`
+	ArchiveID string `json:"archive_id"`
+	Uid       string `json:"uid"`
 }
 
-func (q *Queries) ArchiveIsFavorited(ctx context.Context, arg ArchiveIsFavoritedParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, archiveIsFavorited, arg.Uid, arg.ArchiveID)
-}
-
-const countFavoriteFilteredArchive = `-- name: CountFavoriteFilteredArchive :one
-;
-
-select count(archive.id)
-from archive
-where
-    archive.id in (/*SLICE:ids*/?)
-    and archive.id in (
-        select archive.id
-        from archive
-        join favorite_archive as fa on archive.id = fa.archive_id
-        where fa.user_id = ?2
-    )
-`
-
-type CountFavoriteFilteredArchiveParams struct {
-	Ids []string `json:"ids"`
-	Uid *string  `json:"uid"`
-}
-
-func (q *Queries) CountFavoriteFilteredArchive(ctx context.Context, arg CountFavoriteFilteredArchiveParams) (int64, error) {
-	query := countFavoriteFilteredArchive
-	var queryParams []interface{}
-	if len(arg.Ids) > 0 {
-		for _, v := range arg.Ids {
-			queryParams = append(queryParams, v)
-		}
-		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
-	} else {
-		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
-	}
-	queryParams = append(queryParams, arg.Uid)
-	row := q.db.QueryRowContext(ctx, query, queryParams...)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
+func (q *Queries) ArchiveIsFavorited(ctx context.Context, arg ArchiveIsFavoritedParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, archiveIsFavorited, arg.ArchiveID, arg.Uid)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const countUserFavoriteArchive = `-- name: CountUserFavoriteArchive :one
 ;
 
-select count(archive_id)
+select count(*)
 from favorite_archive
-where user_id = ?1
+where user_id = ?
 `
 
-func (q *Queries) CountUserFavoriteArchive(ctx context.Context, uid *string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countUserFavoriteArchive, uid)
+func (q *Queries) CountUserFavoriteArchive(ctx context.Context, userID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUserFavoriteArchive, userID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
 }
 
-const getFavoriteArchiveFilter = `-- name: GetFavoriteArchiveFilter :one
+const getFavoritedArchiveIDs = `-- name: GetFavoritedArchiveIDs :many
 ;
 
-select archive.id
-from archive
-join favorite_archive as fa on archive.id = fa.archive_id
-where
-    archive.id in (/*SLICE:ids*/?)
-    and archive.id in (
-        select archive.id
-        from archive
-        join favorite_archive as fa on archive.id = fa.archive_id
-        where fa.user_id = ?4
-    )
-limit ?
-offset ?
+select archive_id
+from favorite_archive
+where user_id = ?1 and archive_id in (/*SLICE:ids*/?)
 `
 
-type GetFavoriteArchiveFilterParams struct {
-	Ids    []string `json:"ids"`
-	Uid    *string  `json:"uid"`
-	Limit  int64    `json:"limit"`
-	Offset int64    `json:"offset"`
+type GetFavoritedArchiveIDsParams struct {
+	Uid string   `json:"uid"`
+	Ids []string `json:"ids"`
 }
 
-func (q *Queries) GetFavoriteArchiveFilter(ctx context.Context, arg GetFavoriteArchiveFilterParams) (string, error) {
-	query := getFavoriteArchiveFilter
-	var queryParams []interface{}
-	if len(arg.Ids) > 0 {
-		for _, v := range arg.Ids {
-			queryParams = append(queryParams, v)
-		}
-		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
-	} else {
-		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
-	}
-	queryParams = append(queryParams, arg.Uid)
-	queryParams = append(queryParams, arg.Limit)
-	queryParams = append(queryParams, arg.Offset)
-	row := q.db.QueryRowContext(ctx, query, queryParams...)
-	var id string
-	err := row.Scan(&id)
-	return id, err
-}
-
-const getFavoriteArchiveFilterSortList = `-- name: GetFavoriteArchiveFilterSortList :many
-;
-
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, rp.page
-from archive
-join favorite_archive as fa on archive.id = fa.archive_id
-left join reading_progress as rp on archive.id = rp.archive_id and rp.user_id = ?3
-where
-    archive.id in (/*SLICE:ids*/?)
-    and archive.id in (
-        select archive.id
-        from archive
-        join favorite_archive as fa on archive.id = fa.archive_id
-        where fa.user_id = ?3
-    )
-order by
-    case when sqlc.arg('order_by') = 'title_asc' then archive.title end asc,
-    case when sqlc.arg('order_by') = 'title_desc' then archive.title end desc,
-    case when sqlc.arg('order_by') = 'page_count_asc' then archive.page_count end asc,
-    case when sqlc.arg('order_by') = 'page_count_desc' then archive.page_count end desc,
-    case when sqlc.arg('order_by') = 'created_at_asc' then archive.created_at end asc,
-    case when sqlc.arg('order_by') = 'created_at_desc' then archive.created_at end desc,
-    case when sqlc.arg('order_by') = 'updated_at_asc' then archive.updated_at end asc,
-    case when sqlc.arg('order_by') = 'updated_at_desc' then archive.updated_at end desc,
-    case
-        when sqlc.arg('order_by') = 'release_date_asc' then archive.release_date
-    end asc,
-    case
-        when sqlc.arg('order_by') = 'release_date_desc' then archive.release_date
-    end desc,
-    case when sqlc.arg('order_by') = 'favorited_at_asc' then fa.favorited_at end asc,
-    case when sqlc.arg('order_by') = 'favorited_at_desc' then fa.favorited_at end desc
-limit ?
-offset ?
-`
-
-type GetFavoriteArchiveFilterSortListParams struct {
-	Uid    string   `json:"uid"`
-	Ids    []string `json:"ids"`
-	Limit  int64    `json:"limit"`
-	Offset int64    `json:"offset"`
-}
-
-type GetFavoriteArchiveFilterSortListRow struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	Summary     *string    `json:"summary"`
-	Language    *string    `json:"language"`
-	Category    *string    `json:"category"`
-	PageCount   int64      `json:"page_count"`
-	FilePath    string     `json:"file_path"`
-	FileSize    int64      `json:"file_size"`
-	ModTime     time.Time  `json:"mod_time"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ReleaseDate *time.Time `json:"release_date"`
-	LibraryID   string     `json:"library_id"`
-	Page        *int64     `json:"page"`
-}
-
-func (q *Queries) GetFavoriteArchiveFilterSortList(ctx context.Context, arg GetFavoriteArchiveFilterSortListParams) ([]GetFavoriteArchiveFilterSortListRow, error) {
-	query := getFavoriteArchiveFilterSortList
+// Bulk existence check used to attach IsFavorited to archive list responses
+// without an N+1 query per archive.
+func (q *Queries) GetFavoritedArchiveIDs(ctx context.Context, arg GetFavoritedArchiveIDsParams) ([]string, error) {
+	query := getFavoritedArchiveIDs
 	var queryParams []interface{}
 	queryParams = append(queryParams, arg.Uid)
 	if len(arg.Ids) > 0 {
@@ -215,173 +89,18 @@ func (q *Queries) GetFavoriteArchiveFilterSortList(ctx context.Context, arg GetF
 	} else {
 		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
 	}
-	queryParams = append(queryParams, arg.Limit)
-	queryParams = append(queryParams, arg.Offset)
 	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetFavoriteArchiveFilterSortListRow
+	var items []string
 	for rows.Next() {
-		var i GetFavoriteArchiveFilterSortListRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Summary,
-			&i.Language,
-			&i.Category,
-			&i.PageCount,
-			&i.FilePath,
-			&i.FileSize,
-			&i.ModTime,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ReleaseDate,
-			&i.LibraryID,
-			&i.Page,
-		); err != nil {
+		var archive_id string
+		if err := rows.Scan(&archive_id); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getFavoriteArchiveSortList = `-- name: GetFavoriteArchiveSortList :many
-;
-
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, rp.page
-from archive
-join favorite_archive as fa on archive.id = fa.archive_id
-left join reading_progress as rp on archive.id = rp.archive_id and rp.user_id = ?3
-where fa.user_id = ?3
-order by
-    case when sqlc.arg('order_by') = 'title_asc' then archive.title end asc,
-    case when sqlc.arg('order_by') = 'title_desc' then archive.title end desc,
-    case when sqlc.arg('order_by') = 'page_count_asc' then archive.page_count end asc,
-    case when sqlc.arg('order_by') = 'page_count_desc' then archive.page_count end desc,
-    case when sqlc.arg('order_by') = 'created_at_asc' then archive.created_at end asc,
-    case when sqlc.arg('order_by') = 'created_at_desc' then archive.created_at end desc,
-    case when sqlc.arg('order_by') = 'updated_at_asc' then archive.updated_at end asc,
-    case when sqlc.arg('order_by') = 'updated_at_desc' then archive.updated_at end desc,
-    case
-        when sqlc.arg('order_by') = 'release_date_asc' then archive.release_date
-    end asc,
-    case
-        when sqlc.arg('order_by') = 'release_date_desc' then archive.release_date
-    end desc,
-    case when sqlc.arg('order_by') = 'favorited_at_asc' then fa.favorited_at end asc,
-    case when sqlc.arg('order_by') = 'favorited_at_desc' then fa.favorited_at end desc
-limit ?
-offset ?
-`
-
-type GetFavoriteArchiveSortListParams struct {
-	Uid    string `json:"uid"`
-	Limit  int64  `json:"limit"`
-	Offset int64  `json:"offset"`
-}
-
-type GetFavoriteArchiveSortListRow struct {
-	ID          string     `json:"id"`
-	Title       string     `json:"title"`
-	Summary     *string    `json:"summary"`
-	Language    *string    `json:"language"`
-	Category    *string    `json:"category"`
-	PageCount   int64      `json:"page_count"`
-	FilePath    string     `json:"file_path"`
-	FileSize    int64      `json:"file_size"`
-	ModTime     time.Time  `json:"mod_time"`
-	CreatedAt   time.Time  `json:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at"`
-	ReleaseDate *time.Time `json:"release_date"`
-	LibraryID   string     `json:"library_id"`
-	Page        *int64     `json:"page"`
-}
-
-func (q *Queries) GetFavoriteArchiveSortList(ctx context.Context, arg GetFavoriteArchiveSortListParams) ([]GetFavoriteArchiveSortListRow, error) {
-	rows, err := q.db.QueryContext(ctx, getFavoriteArchiveSortList, arg.Uid, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetFavoriteArchiveSortListRow
-	for rows.Next() {
-		var i GetFavoriteArchiveSortListRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Summary,
-			&i.Language,
-			&i.Category,
-			&i.PageCount,
-			&i.FilePath,
-			&i.FileSize,
-			&i.ModTime,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ReleaseDate,
-			&i.LibraryID,
-			&i.Page,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getUserFavoriteArchiveAll = `-- name: GetUserFavoriteArchiveAll :many
-;
-
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id
-from archive
-join favorite_archive as fa on archive.id = fa.archive_id
-left join reading_progress as rp on archive.id = rp.archive_id and rp.user_id = fa.user_id
-where fa.user_id = ?1
-order by fa.favorited_at desc
-`
-
-func (q *Queries) GetUserFavoriteArchiveAll(ctx context.Context, uid *string) ([]Archive, error) {
-	rows, err := q.db.QueryContext(ctx, getUserFavoriteArchiveAll, uid)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Archive
-	for rows.Next() {
-		var i Archive
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Summary,
-			&i.Language,
-			&i.Category,
-			&i.PageCount,
-			&i.FilePath,
-			&i.FileSize,
-			&i.ModTime,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ReleaseDate,
-			&i.LibraryID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
+		items = append(items, archive_id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -395,19 +114,21 @@ func (q *Queries) GetUserFavoriteArchiveAll(ctx context.Context, uid *string) ([
 const getUserFavoriteArchiveList = `-- name: GetUserFavoriteArchiveList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, rp.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, reading_progress.page, reading_progress.last_read, reading_progress.completed
 from archive
 join favorite_archive as fa on archive.id = fa.archive_id
-left join reading_progress as rp on archive.id = rp.archive_id and rp.user_id = fa.user_id
-where fa.user_id = ?3
-limit ?
-offset ?
+left join
+    reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = ?1
+where fa.user_id = ?1
+order by fa.favorited_at desc
+limit ?3
+offset ?2
 `
 
 type GetUserFavoriteArchiveListParams struct {
-	Uid    *string `json:"uid"`
-	Limit  int64   `json:"limit"`
-	Offset int64   `json:"offset"`
+	Uid    string `json:"uid"`
+	Offset int64  `json:"offset"`
+	Limit  int64  `json:"limit"`
 }
 
 type GetUserFavoriteArchiveListRow struct {
@@ -425,10 +146,12 @@ type GetUserFavoriteArchiveListRow struct {
 	ReleaseDate *time.Time `json:"release_date"`
 	LibraryID   string     `json:"library_id"`
 	Page        *int64     `json:"page"`
+	LastRead    *time.Time `json:"last_read"`
+	Completed   *bool      `json:"completed"`
 }
 
 func (q *Queries) GetUserFavoriteArchiveList(ctx context.Context, arg GetUserFavoriteArchiveListParams) ([]GetUserFavoriteArchiveListRow, error) {
-	rows, err := q.db.QueryContext(ctx, getUserFavoriteArchiveList, arg.Uid, arg.Limit, arg.Offset)
+	rows, err := q.db.QueryContext(ctx, getUserFavoriteArchiveList, arg.Uid, arg.Offset, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -451,6 +174,8 @@ func (q *Queries) GetUserFavoriteArchiveList(ctx context.Context, arg GetUserFav
 			&i.ReleaseDate,
 			&i.LibraryID,
 			&i.Page,
+			&i.LastRead,
+			&i.Completed,
 		); err != nil {
 			return nil, err
 		}
@@ -465,30 +190,6 @@ func (q *Queries) GetUserFavoriteArchiveList(ctx context.Context, arg GetUserFav
 	return items, nil
 }
 
-const getUserFavoriteArchiveShuffle = `-- name: GetUserFavoriteArchiveShuffle :one
-;
-
-select archive.id
-from archive
-join favorite_archive as fa on archive.id = fa.archive_id
-where fa.user_id = ?3
-limit ?
-offset ?
-`
-
-type GetUserFavoriteArchiveShuffleParams struct {
-	Uid    *string `json:"uid"`
-	Limit  int64   `json:"limit"`
-	Offset int64   `json:"offset"`
-}
-
-func (q *Queries) GetUserFavoriteArchiveShuffle(ctx context.Context, arg GetUserFavoriteArchiveShuffleParams) (string, error) {
-	row := q.db.QueryRowContext(ctx, getUserFavoriteArchiveShuffle, arg.Uid, arg.Limit, arg.Offset)
-	var id string
-	err := row.Scan(&id)
-	return id, err
-}
-
 const removeFavoriteArchive = `-- name: RemoveFavoriteArchive :exec
 ;
 
@@ -497,8 +198,8 @@ where archive_id = ? and user_id = ?2
 `
 
 type RemoveFavoriteArchiveParams struct {
-	ArchiveID *string `json:"archive_id"`
-	Uid       *string `json:"uid"`
+	ArchiveID string `json:"archive_id"`
+	Uid       string `json:"uid"`
 }
 
 func (q *Queries) RemoveFavoriteArchive(ctx context.Context, arg RemoveFavoriteArchiveParams) error {

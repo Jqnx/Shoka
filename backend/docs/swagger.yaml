@@ -35,6 +35,8 @@ definitions:
         type: string
       id:
         type: string
+      is_favorited:
+        type: boolean
       language:
         type: string
       page_count:
@@ -765,6 +767,49 @@ paths:
       summary: Get the cover thumbnail for an archive
       tags:
       - archives
+  /api/archives/{id}/favorite:
+    delete:
+      description: Removes the archive from the current users favorites. No-op if
+        it wasn't favorited.
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Unfavorite an archive
+      tags:
+      - archives
+    put:
+      description: Idempotent - adds the archive to the current users favorites. No-op
+        if already favorited.
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Favorite an archive
+      tags:
+      - archives
   /api/archives/{id}/pages/{index}:
     get:
       parameters:
@@ -971,6 +1016,36 @@ paths:
           schema:
             $ref: '#/definitions/response.Error'
       summary: List all archive categories
+      tags:
+      - archives
+  /api/archives/favorites:
+    get:
+      description: Returns archives the current user has favorited, most recently
+        favorited first. Deliberately NOT scoped to a library - this is a favorites
+        feed spanning the whole collection.
+      parameters:
+      - default: 1
+        description: Page number (1-based)
+        in: query
+        name: page
+        type: integer
+      - default: 24
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ArchiveListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List favorited archives across all libraries
       tags:
       - archives
   /api/archives/languages:

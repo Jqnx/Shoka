@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -66,6 +67,7 @@ type ArchiveResponse struct {
 	Progress *ProgressResponse `json:"progress"`
 
 	ThumbsReady bool `json:"thumbs_ready"`
+	IsFavorited bool `json:"is_favorited"`
 }
 
 type ProgressResponse struct {
@@ -84,6 +86,23 @@ type ArchiveListResponse struct {
 type SortOptionResponse struct {
 	Value       string `json:"value"`
 	DisplayName string `json:"display_name"`
+}
+
+// favoritedSet fetches, for a set of archive ids, which ones the given user
+// has favorited — one query instead of one ArchiveIsFavorited call per row.
+func (h *ArchiveHandler) favoritedSet(ctx context.Context, userID string, ids []string) (map[string]bool, error) {
+	favoritedIDs, err := h.queries.GetFavoritedArchiveIDs(ctx, sqlc.GetFavoritedArchiveIDsParams{
+		Uid: userID,
+		Ids: ids,
+	})
+	if err != nil {
+		return nil, err
+	}
+	favorited := make(map[string]bool, len(favoritedIDs))
+	for _, id := range favoritedIDs {
+		favorited[id] = true
+	}
+	return favorited, nil
 }
 
 // GetArchiveSortOptions godoc
@@ -247,6 +266,13 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	favorited, err := h.favoritedSet(r.Context(), userID, ids)
+	if err != nil {
+		h.logger.Error("get favorited archive ids failed", "error", err)
+		response.InternalError(w, "failed to get favorite status")
+		return
+	}
+
 	lc := language.NewLanguageConverter()
 	items := make([]ArchiveResponse, 0, len(rows))
 	for _, row := range rows {
@@ -269,6 +295,7 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:   row.CreatedAt,
 			UpdatedAt:   row.UpdatedAt,
 			ThumbsReady: h.processor.ThumbsReady(row.ID, int(row.PageCount)),
+			IsFavorited: favorited[row.ID],
 		}
 		if meta, ok := metaByID[row.ID]; ok {
 			resp.Artists = meta.Artists
@@ -343,6 +370,18 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	ids := make([]string, len(rows))
+	for i, row := range rows {
+		ids[i] = row.ID
+	}
+
+	favorited, err := h.favoritedSet(r.Context(), userID, ids)
+	if err != nil {
+		h.logger.Error("get favorited archive ids failed", "error", err)
+		response.InternalError(w, "failed to get favorite status")
+		return
+	}
+
 	items := make([]ArchiveResponse, 0, len(rows))
 	for _, row := range rows {
 		items = append(items, ArchiveResponse{
@@ -357,12 +396,95 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 			CreatedAt:   row.CreatedAt,
 			UpdatedAt:   row.UpdatedAt,
 			ThumbsReady: h.processor.ThumbsReady(row.ID, int(row.PageCount)),
+			IsFavorited: favorited[row.ID],
 			Progress: &ProgressResponse{
 				CurrentPage: int(row.Page),
 				LastRead:    row.LastRead,
 				Completed:   row.Completed,
 			},
 		})
+	}
+
+	response.JSON(w, http.StatusOK, ArchiveListResponse{
+		Items: items,
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	})
+}
+
+// GetFavorites godoc
+//
+//	@Summary		List favorited archives across all libraries
+//	@Description	Returns archives the current user has favorited, most recently favorited first. Deliberately NOT scoped to a library - this is a favorites feed spanning the whole collection.
+//	@Tags			archives
+//	@Produce		json
+//	@Param			page	query		int	false	"Page number (1-based)"	default(1)
+//	@Param			limit	query		int	false	"Items per page"		default(24)
+//	@Success		200	{object}	ArchiveListResponse
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/favorites [get]
+func (h *ArchiveHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
+	userID := auth.UserIDFromContext(r.Context())
+
+	page := 1
+	limit := 24
+	if p := r.URL.Query().Get("page"); p != "" {
+		if v, err := strconv.Atoi(p); err == nil && v > 0 {
+			page = v
+		}
+	}
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 100 {
+			limit = v
+		}
+	}
+	offset := int64((page - 1) * limit)
+
+	total, err := h.queries.CountUserFavoriteArchive(r.Context(), userID)
+	if err != nil {
+		h.logger.Error("count favorite archives failed", "error", err)
+		response.InternalError(w, "failed to count favorite archives")
+		return
+	}
+
+	rows, err := h.queries.GetUserFavoriteArchiveList(r.Context(), sqlc.GetUserFavoriteArchiveListParams{
+		Uid:    userID,
+		Limit:  int64(limit),
+		Offset: offset,
+	})
+	if err != nil {
+		h.logger.Error("get favorite archives failed", "error", err)
+		response.InternalError(w, "failed to get favorite archives")
+		return
+	}
+
+	items := make([]ArchiveResponse, 0, len(rows))
+	for _, row := range rows {
+		resp := ArchiveResponse{
+			ID:          row.ID,
+			Title:       row.Title,
+			Summary:     row.Summary,
+			Language:    row.Language,
+			Category:    row.Category,
+			ReleaseDate: row.ReleaseDate,
+			PageCount:   int(row.PageCount),
+			FilePath:    row.FilePath,
+			CreatedAt:   row.CreatedAt,
+			UpdatedAt:   row.UpdatedAt,
+			ThumbsReady: h.processor.ThumbsReady(row.ID, int(row.PageCount)),
+			IsFavorited: true,
+		}
+		if row.Page != nil {
+			resp.Progress = &ProgressResponse{
+				CurrentPage: int(*row.Page),
+				Completed:   row.Completed != nil && *row.Completed,
+			}
+			if row.LastRead != nil {
+				resp.Progress.LastRead = *row.LastRead
+			}
+		}
+		items = append(items, resp)
 	}
 
 	response.JSON(w, http.StatusOK, ArchiveListResponse{
@@ -400,10 +522,12 @@ func (h *ArchiveHandler) GetArchive(w http.ResponseWriter, r *http.Request) {
 
 	// fetch relational metadata and progress concurrently
 	type result struct {
-		meta     *metadata.Result
-		progress *sqlc.ReadingProgress
-		metaErr  error
-		progErr  error
+		meta        *metadata.Result
+		progress    *sqlc.ReadingProgress
+		isFavorited bool
+		metaErr     error
+		progErr     error
+		favErr      error
 	}
 
 	ch := make(chan result, 1)
@@ -422,6 +546,11 @@ func (h *ArchiveHandler) GetArchive(w http.ResponseWriter, r *http.Request) {
 			res.progress = &progress
 			res.progErr = err
 		}
+
+		res.isFavorited, res.favErr = h.queries.ArchiveIsFavorited(r.Context(), sqlc.ArchiveIsFavoritedParams{
+			ArchiveID: archive.ID,
+			Uid:       userID,
+		})
 		ch <- res
 	}()
 
@@ -439,7 +568,13 @@ func (h *ArchiveHandler) GetArchive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, h.buildResponse(archive, res.meta, res.progress))
+	if res.favErr != nil {
+		h.logger.Error("get favorite status failed", "id", id, "error", res.favErr)
+		response.InternalError(w, "failed to get favorite status")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, h.buildResponse(archive, res.meta, res.progress, res.isFavorited))
 }
 
 // UpdateArchiveRequest is a partial update: omitted fields are left
@@ -544,7 +679,17 @@ func (h *ArchiveHandler) UpdateArchive(w http.ResponseWriter, r *http.Request) {
 		h.logger.Error("get progress failed", "id", id, "error", err)
 	}
 
-	response.JSON(w, http.StatusOK, h.buildResponse(archive, meta, progress))
+	isFavorited, err := h.queries.ArchiveIsFavorited(r.Context(), sqlc.ArchiveIsFavoritedParams{
+		ArchiveID: id,
+		Uid:       userID,
+	})
+	if err != nil {
+		h.logger.Error("get favorite status failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get updated archive")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, h.buildResponse(archive, meta, progress, isFavorited))
 }
 
 type UpdateProgressRequest struct {
@@ -644,12 +789,74 @@ func (h *ArchiveHandler) DeleteProgress(w http.ResponseWriter, r *http.Request) 
 	response.NoContent(w)
 }
 
+// AddFavorite godoc
+//
+//	@Summary		Favorite an archive
+//	@Description	Idempotent - adds the archive to the current users favorites. No-op if already favorited.
+//	@Tags			archives
+//	@Param			id	path	string	true	"Archive ID"
+//	@Success		204
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/favorite [put]
+func (h *ArchiveHandler) AddFavorite(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	userID := auth.UserIDFromContext(r.Context())
+
+	if _, err := h.queries.GetArchiveByID(r.Context(), id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "archive not found")
+			return
+		}
+		h.logger.Error("get archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
+		return
+	}
+
+	if err := h.queries.AddFavoriteArchive(r.Context(), sqlc.AddFavoriteArchiveParams{
+		ArchiveID: id,
+		UserID:    userID,
+	}); err != nil {
+		h.logger.Error("add favorite archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to favorite archive")
+		return
+	}
+
+	response.NoContent(w)
+}
+
+// RemoveFavorite godoc
+//
+//	@Summary		Unfavorite an archive
+//	@Description	Removes the archive from the current users favorites. No-op if it wasn't favorited.
+//	@Tags			archives
+//	@Param			id	path	string	true	"Archive ID"
+//	@Success		204
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/favorite [delete]
+func (h *ArchiveHandler) RemoveFavorite(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	userID := auth.UserIDFromContext(r.Context())
+
+	if err := h.queries.RemoveFavoriteArchive(r.Context(), sqlc.RemoveFavoriteArchiveParams{
+		ArchiveID: id,
+		Uid:       userID,
+	}); err != nil {
+		h.logger.Error("remove favorite archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to unfavorite archive")
+		return
+	}
+
+	response.NoContent(w)
+}
+
 func (h *ArchiveHandler) buildResponse(
 	archive sqlc.Archive,
 	meta *metadata.Result,
 	progress *sqlc.ReadingProgress,
+	isFavorited bool,
 ) ArchiveResponse {
-	return buildArchiveResponse(h.processor, archive, meta, progress)
+	return buildArchiveResponse(h.processor, archive, meta, progress, isFavorited)
 }
 
 // buildArchiveResponse is the shared ArchiveResponse builder — a
@@ -662,6 +869,7 @@ func buildArchiveResponse(
 	archive sqlc.Archive,
 	meta *metadata.Result,
 	progress *sqlc.ReadingProgress,
+	isFavorited bool,
 ) ArchiveResponse {
 	lc := language.NewLanguageConverter()
 	var lang string
@@ -683,6 +891,7 @@ func buildArchiveResponse(
 		CreatedAt:   archive.CreatedAt,
 		UpdatedAt:   archive.UpdatedAt,
 		ThumbsReady: processor.ThumbsReady(archive.ID, int(archive.PageCount)),
+		IsFavorited: isFavorited,
 	}
 
 	if meta != nil {
