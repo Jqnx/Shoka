@@ -39,8 +39,8 @@ var defaultReaderSettings = ReaderSettingsResponse{
 var (
 	// Scroll-vs-paged lives entirely in ViewMode now - ReadingDirection only
 	// picks which physical side is "next" while paged (it's irrelevant in
-	// continuous mode, which always scrolls top-to-bottom).
-	validViewModes         = []string{"paged", "continuous"}
+	// scroll mode, which always scrolls top-to-bottom).
+	validViewModes         = []string{"paged", "scroll"}
 	validReadingDirections = []string{"ltr", "rtl"}
 	validPageLayouts       = []string{"single", "double"}
 	validFitModes          = []string{"width", "height", "original"}

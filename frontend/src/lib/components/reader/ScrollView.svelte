@@ -25,7 +25,7 @@
 
 	// Jump straight to wherever paged mode left off - this only needs to run
 	// once, right after this view is created (Reader.svelte recreates it from
-	// scratch each time view_mode switches to "continuous", so there's no
+	// scratch each time view_mode switches to "scroll", so there's no
 	// stale-prop risk from reading initialPage just on mount).
 	$effect(() => {
 		pageEls[initialPage]?.scrollIntoView({ block: 'start' });

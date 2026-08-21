@@ -48,7 +48,7 @@
 		settings.view_mode,
 		[
 			{ value: 'paged', label: 'Paged' },
-			{ value: 'continuous', label: 'Continuous' }
+			{ value: 'scroll', label: 'Scroll' }
 		],
 		(v) => onChange({ view_mode: v as ViewMode })
 	)}

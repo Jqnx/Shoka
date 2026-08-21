@@ -4,7 +4,7 @@
 	import { browser } from '$app/environment';
 	import { replaceState } from '$app/navigation';
 	import PagedView from './PagedView.svelte';
-	import ContinuousView from './ContinuousView.svelte';
+	import ScrollView from './ScrollView.svelte';
 	import ReaderToolbar from './ReaderToolbar.svelte';
 	import { backgroundClass } from './reader-utils';
 
@@ -80,7 +80,7 @@
 		toolbarVisible = !toolbarVisible;
 	}
 
-	function handleContinuousPageChange(index: number) {
+	function handleScrollPageChange(index: number) {
 		currentPage = index;
 	}
 
@@ -240,13 +240,13 @@
 		onSettingsChange={updateSettings}
 	/>
 
-	{#if settings.view_mode === 'continuous'}
-		<ContinuousView
+	{#if settings.view_mode === 'scroll'}
+		<ScrollView
 			{archiveId}
 			{pageCount}
 			{settings}
 			initialPage={currentPage}
-			onCurrentPageChange={handleContinuousPageChange}
+			onCurrentPageChange={handleScrollPageChange}
 			onToggleToolbar={toggleToolbar}
 		/>
 	{:else}
