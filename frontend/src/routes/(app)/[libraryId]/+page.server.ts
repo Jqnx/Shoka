@@ -25,6 +25,7 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 	);
 
 	const filters = {
+		q: url.searchParams.get('q') ?? '',
 		sort: url.searchParams.get('sort') ?? '',
 		category: url.searchParams.get('category') ?? '',
 		language: url.searchParams.get('language') ?? '',
@@ -39,6 +40,7 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 		page: String(page),
 		limit: String(limit)
 	});
+	if (filters.q) archiveParams.set('q', filters.q);
 	if (filters.sort) archiveParams.set('sort', filters.sort);
 	if (filters.category) archiveParams.set('category', filters.category);
 	if (filters.language) archiveParams.set('language', filters.language);

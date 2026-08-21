@@ -229,12 +229,8 @@ func (s *ArchiveScanner) addArchive(ctx context.Context, lib sqlc.Library, path 
 		return err
 	}
 
-	// TODO: Add Index Job
-	//if err := s.queue.Enqueue(ctx, jobs.JobTypeIndex, jobs.IndexPayload{
-	//	ArchiveID: archive.ID,
-	//}); err != nil {
-	//	return err
-	//}
+	// Search indexing needs no job of its own - archive_fts is kept in sync
+	// by SQL triggers on insert/update/delete (see migration 00028).
 
 	s.log.Info("archive added", "path", path, "id", arch.ID, "library_id", lib.ID)
 	return nil
@@ -250,11 +246,11 @@ func (s *ArchiveScanner) updateArchive(ctx context.Context, id string, info fs.F
 		return err
 	}
 
-	// re-scrape metadata and re-index since the file changed
-	// no need to regenerate thumbnails unless you want to
+	// re-scrape metadata since the file changed - no need to regenerate
+	// thumbnails unless you want to. Search indexing needs no action here
+	// either, same as addArchive above.
 
 	// s.queue.Enqueue(ctx, jobs.JobTypeMetadata, jobs.MetadataPayload{ArchiveID: id})
-	// s.queue.Enqueue(ctx, jobs.JobTypeIndex, jobs.IndexPayload{ArchiveID: id})
 
 	s.log.Info("archive updated", "id", id)
 	return nil

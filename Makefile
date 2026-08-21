@@ -6,8 +6,8 @@ FRONTEND   := ./frontend
 
 # ----- Development -----
 dev: ## Start full stack in dev mode
-	@echo "Starting Meilisearch..."
-	docker compose -f docker-compose.dev.yml up -d meilisearch
+	@echo "Starting FlareSolverr..."
+	docker compose -f docker-compose.dev.yml up -d flaresolverr
 	@echo "Starting backend with Air..."
 	cd $(BACKEND) && air &
 	@echo "Starting frontend..."

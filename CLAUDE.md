@@ -4,17 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Shoka is a self-hosted doujinshi library manager. It consists of a Go backend REST API and a SvelteKit frontend, with SQLite for storage and Meilisearch for full-text search.
+Shoka is a self-hosted doujinshi library manager. It consists of a Go backend REST API and a SvelteKit frontend, with SQLite for storage and search (FTS5 virtual tables using the trigram tokenizer — no external search service).
 
 ## Common Commands
 
 ### Development
 
 ```bash
-make dev              # Start full stack (backend + frontend + Meilisearch)
+make dev              # Start full stack (backend + frontend + FlareResolver)
 make dev/backend      # Backend only with Air hot-reload
 make dev/frontend     # Frontend dev server
-make dev/services     # Background services only (Meilisearch, FlareResolver)
+make dev/services     # Background services only (FlareResolver)
 ```
 
 ### Database
@@ -45,6 +45,8 @@ make tidy   # Go module cleanup
   - Generated Go code in `internal/database/sqlc/` — never edit these files directly
   - Migrations in `internal/database/migrations/` managed by Goose
   - Database files in `data/` - shared with frontend
+- **Search**: SQLite FTS5 with the `trigram` tokenizer (`archive_fts` virtual table, see `internal/database/migrations/`) — substring/fuzzy matching over title, summary, and denormalized artist/tag/parody/circle/character names, kept in sync automatically via SQL triggers (on `archive` and each `archive_*` join table) rather than an application-level reindex step. No external search service.
+  - **Requires the `sqlite_fts5` Go build tag** — the `mattn/go-sqlite3` driver only compiles in FTS5 support when built with `-tags sqlite_fts5`. This applies to every *compiled/run* Go binary that touches this database: `go build`, `go vet`, `go test`, Air (`backend/.air.toml`'s `cmd` already includes it), and any locally-installed `goose` CLI used for `make migrate/*` — install/reinstall it with `go install -tags sqlite_fts5 github.com/pressly/goose/v3/cmd/goose@latest`, otherwise `make migrate/up` fails with "no such module: fts5" the moment it hits the FTS5 migration. Omitting the tag doesn't fail the build itself — it silently produces a binary that only errors at runtime, the first time it touches `archive_fts`, so don't skip it. `sqlc generate` is the one exception: it parses `.sql` files statically and doesn't need the tag.
 - **Job system**: `internal/jobs/` — async workers (10 concurrent) for scan, cover generation, thumbnails, and metadata extraction
 - **Image processing**: `govips/v2` for fast image manipulation; cache in `../cache/`
 - **Library scanner**: `internal/library/` — watches the filesystem, handles ZIP/7Z/RAR/PDF archives
@@ -63,7 +65,6 @@ make tidy   # Go module cleanup
 
 ### External Services
 
-- **Meilisearch**: full-text search for archives (run via Docker)
 - **FlareResolver**: Cloudflare bypass for scraping metadata sources (run via Docker)
 
 ## Key Workflows

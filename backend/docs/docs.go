@@ -316,6 +316,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
+                        "type": "string",
+                        "description": "Full-text search over title, summary, artists, tags, parodies, circles, characters, category (substring match, min 3 characters - shorter values are ignored)",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "default": 1,
                         "description": "Page number (1-based)",

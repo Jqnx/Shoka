@@ -650,6 +650,12 @@ paths:
         name: library_id
         required: true
         type: string
+      - description: Full-text search over title, summary, artists, tags, parodies,
+          circles, characters, category (substring match, min 3 characters - shorter
+          values are ignored)
+        in: query
+        name: q
+        type: string
       - default: 1
         description: Page number (1-based)
         in: query

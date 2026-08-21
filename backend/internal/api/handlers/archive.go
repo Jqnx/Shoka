@@ -217,6 +217,7 @@ func (h *ArchiveHandler) GetLanguages(w http.ResponseWriter, r *http.Request) {
 //	@Tags			archives
 //	@Produce		json
 //	@Param			library_id	query		string		true	"Library ID to list archives from"
+//	@Param			q			query		string		false	"Full-text search over title, summary, artists, tags, parodies, circles, characters, category (substring match, min 3 characters - shorter values are ignored)"
 //	@Param			page		query		int		false	"Page number (1-based)"							default(1)
 //	@Param			limit		query		int		false	"Items per page"								default(24)
 //	@Param			sort		query		string		false	"Sort order (title_asc, title_desc, release_date_asc, release_date_desc, created_at_asc, created_at_desc, page_count_asc, page_count_desc, rating_asc, rating_desc)"
@@ -255,6 +256,7 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 
 	filter := database.ArchiveFilter{
 		LibraryID:  libraryID,
+		Query:      q.Get("q"),
 		Artists:    q["artist"],
 		Tags:       q["tag"],
 		Characters: q["character"],

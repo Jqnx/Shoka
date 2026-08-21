@@ -39,6 +39,18 @@ type ArchiveCircle struct {
 	CircleID  *int64  `json:"circle_id"`
 }
 
+type ArchiveFt struct {
+	ArchiveID  string `json:"archive_id"`
+	Title      string `json:"title"`
+	Summary    string `json:"summary"`
+	Artists    string `json:"artists"`
+	Tags       string `json:"tags"`
+	Parodies   string `json:"parodies"`
+	Circles    string `json:"circles"`
+	Characters string `json:"characters"`
+	Category   string `json:"category"`
+}
+
 type ArchiveParody struct {
 	ArchiveID *string `json:"archive_id"`
 	ParodyID  *int64  `json:"parody_id"`

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/metadata"
@@ -12,6 +13,7 @@ import (
 
 type ArchiveFilter struct {
 	LibraryID  string
+	Query      string
 	Artists    []string
 	Tags       []string
 	Characters []string
@@ -64,6 +66,16 @@ func resolveSort(s string) string {
 	return "archive.created_at DESC"
 }
 
+// ftsQuery turns raw user input into a single quoted FTS5 string literal, so
+// the whole input is matched as one literal phrase (a trigram-tokenized
+// substring match) rather than being parsed as FTS5's own query syntax
+// (AND/OR/NOT, column filters, "-" prefix, etc.) - untrusted search input
+// has no business being interpreted as a query language. Embedded double
+// quotes are escaped by doubling, same as SQL string literals.
+func ftsQuery(raw string) string {
+	return `"` + strings.ReplaceAll(raw, `"`, `""`) + `"`
+}
+
 // addRelationFilterNames appends one "AND EXISTS (...)" clause per value in names,
 // requiring the archive to be associated with every named row (AND semantics).
 func addRelationFilterNames(sb *strings.Builder, args *[]any, joinTable, entityTable, joinCol string, names []string) {
@@ -98,6 +110,14 @@ func buildWhere(f ArchiveFilter) (string, []any) {
 	if f.Category != "" {
 		sb.WriteString("AND archive.category = ? ")
 		args = append(args, f.Category)
+	}
+
+	// The trigram tokenizer can't form a trigram from fewer than 3
+	// codepoints, so a shorter query would just silently match nothing -
+	// treat it as no search filter instead of a confusing empty result set.
+	if query := strings.TrimSpace(f.Query); utf8.RuneCountInString(query) >= 3 {
+		sb.WriteString("AND archive.id IN (SELECT archive_id FROM archive_fts WHERE archive_fts MATCH ?) ")
+		args = append(args, ftsQuery(query))
 	}
 
 	return sb.String(), args
