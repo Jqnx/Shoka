@@ -91,7 +91,7 @@
 						<Sidebar.MenuItem>
 							<Sidebar.MenuButton {isActive}>
 								{#snippet child({ props })}
-									<a href="/{library.id}" {...props}>
+									<a href="/{library.id}" data-sveltekit-preload-data="tap" {...props}>
 										<Library />
 										<span>{library.name}</span>
 									</a>

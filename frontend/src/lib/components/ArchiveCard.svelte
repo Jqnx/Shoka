@@ -15,6 +15,7 @@
 
 <a
 	{href}
+	data-sveltekit-preload-data="tap"
 	class="group relative flex cursor-pointer flex-col overflow-hidden rounded-lg border border-border bg-card transition-all hover:-translate-y-0.5 hover:shadow-md"
 >
 	<!-- Cover -->
