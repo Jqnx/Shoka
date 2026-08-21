@@ -1,4 +1,4 @@
-import { error, fail } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { Archive, ArchiveLanguage, Artist, Character, Parody, Tag } from '$lib/types';
 import { errorMessage } from '$lib/server/api';
@@ -132,5 +132,62 @@ export const actions: Actions = {
 		}
 
 		return { action: 'toggleFavorite' as const, success: true };
+	},
+
+	setRating: async ({ request, fetch, params }) => {
+		const form = await request.formData();
+		const rating = Number(form.get('rating'));
+		if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+			return fail(400, { action: 'setRating' as const, error: 'Rating must be between 1 and 5.' });
+		}
+
+		const res = await fetch(`/api/archives/${params.id}/rating`, {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ rating })
+		});
+
+		if (!res.ok) {
+			return fail(res.status, {
+				action: 'setRating' as const,
+				error: await errorMessage(res, 'Failed to set rating.')
+			});
+		}
+
+		return { action: 'setRating' as const, success: true };
+	},
+
+	clearRating: async ({ fetch, params }) => {
+		const res = await fetch(`/api/archives/${params.id}/rating`, { method: 'DELETE' });
+
+		if (!res.ok) {
+			return fail(res.status, {
+				action: 'clearRating' as const,
+				error: await errorMessage(res, 'Failed to clear rating.')
+			});
+		}
+
+		return { action: 'clearRating' as const, success: true };
+	},
+
+	deleteArchive: async ({ request, fetch, params, url }) => {
+		const form = await request.formData();
+		const deleteFile = form.get('delete_file') === 'true';
+
+		const res = await fetch(`/api/archives/${params.id}?delete_file=${deleteFile}`, {
+			method: 'DELETE'
+		});
+
+		if (!res.ok) {
+			return fail(res.status, {
+				action: 'deleteArchive' as const,
+				error: await errorMessage(res, 'Failed to delete archive.')
+			});
+		}
+
+		// The archive is gone, so there's nothing left at /a/{id} to redisplay -
+		// send the user back to wherever they came from (same `from` param the
+		// back link and EditArchiveSheet already use), or home if there isn't one.
+		redirect(303, url.searchParams.get('from') ?? '/');
 	}
 };

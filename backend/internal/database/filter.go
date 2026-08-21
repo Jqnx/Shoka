@@ -44,6 +44,8 @@ var SortOptions = []SortOption{
 	{"created_at_asc", "Date Added (Oldest)", "archive.created_at ASC"},
 	{"page_count_desc", "Page Count (High–Low)", "archive.page_count DESC"},
 	{"page_count_asc", "Page Count (Low–High)", "archive.page_count ASC"},
+	{"rating_desc", "Rating (High–Low)", "archive_rating.rating IS NULL, archive_rating.rating DESC"},
+	{"rating_asc", "Rating (Low–High)", "archive_rating.rating IS NULL, archive_rating.rating ASC"},
 }
 
 const defaultSort = "created_at_desc"
@@ -117,9 +119,10 @@ func ListArchives(ctx context.Context, db *sql.DB, f ArchiveFilter) ([]sqlc.GetA
 		reading_progress.page, reading_progress.last_read, reading_progress.completed
 	FROM archive
 	LEFT JOIN reading_progress ON archive.id = reading_progress.archive_id AND reading_progress.user_id = ?
+	LEFT JOIN archive_rating ON archive.id = archive_rating.archive_id AND archive_rating.user_id = ?
 	` + whereSQL + " ORDER BY " + orderBy + " LIMIT ? OFFSET ?"
 
-	selectArgs := append([]any{f.UserID}, whereArgs...)
+	selectArgs := append([]any{f.UserID, f.UserID}, whereArgs...)
 	selectArgs = append(selectArgs, f.Limit, f.Offset)
 
 	rows, err := db.QueryContext(ctx, selectSQL, selectArgs...)

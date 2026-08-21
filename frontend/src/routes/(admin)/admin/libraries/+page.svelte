@@ -1,17 +1,12 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
+	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 	import AddLibraryDialog from '$lib/components/add-library-dialog.svelte';
 	import { enhance } from '$app/forms';
 	import { FolderOpen, RefreshCw, Settings, Trash2 } from '@lucide/svelte';
 
 	let { data, form } = $props();
-
-	function confirmDelete(e: SubmitEvent, name: string) {
-		if (!confirm(`Delete library "${name}"? This removes all its archives from Shoka, but not from disk.`)) {
-			e.preventDefault();
-		}
-	}
 
 	function typeLabel(type: string) {
 		return type.charAt(0).toUpperCase() + type.slice(1);
@@ -89,18 +84,33 @@
 							</Button>
 						</form>
 
-						<form
-							method="POST"
-							action="?/delete"
-							use:enhance
-							onsubmit={(e) => confirmDelete(e, library.name)}
-						>
-							<input type="hidden" name="id" value={library.id} />
-							<Button type="submit" variant="destructive" size="icon-sm">
-								<Trash2 />
-								<span class="sr-only">Delete</span>
-							</Button>
-						</form>
+						<AlertDialog.Root>
+							<AlertDialog.Trigger>
+								{#snippet child({ props })}
+									<Button {...props} variant="destructive" size="icon-sm">
+										<Trash2 />
+										<span class="sr-only">Delete</span>
+									</Button>
+								{/snippet}
+							</AlertDialog.Trigger>
+							<AlertDialog.Content>
+								<AlertDialog.Header>
+									<AlertDialog.Title>Delete library "{library.name}"?</AlertDialog.Title>
+									<AlertDialog.Description>
+										This removes all its archives from Shoka, but not from disk.
+									</AlertDialog.Description>
+								</AlertDialog.Header>
+								<form method="POST" action="?/delete" use:enhance>
+									<input type="hidden" name="id" value={library.id} />
+									<AlertDialog.Footer>
+										<AlertDialog.Cancel type="button">Cancel</AlertDialog.Cancel>
+										<AlertDialog.Action type="submit" variant="destructive">
+											Delete
+										</AlertDialog.Action>
+									</AlertDialog.Footer>
+								</form>
+							</AlertDialog.Content>
+						</AlertDialog.Root>
 					</div>
 				</div>
 			{/each}

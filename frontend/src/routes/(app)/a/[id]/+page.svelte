@@ -1,12 +1,15 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { enhance } from '$app/forms';
+	import { enhance, applyAction } from '$app/forms';
 	import { cn } from '$lib/utils.js';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Label } from '$lib/components/ui/label';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import PageThumbnailGallery from '$lib/components/PageThumbnailGallery.svelte';
 	import EditArchiveSheet from '$lib/components/EditArchiveSheet.svelte';
 	import {
@@ -21,7 +24,9 @@
 		Ellipsis,
 		RotateCcw,
 		Check,
-		Heart
+		Heart,
+		Star,
+		Trash2
 	} from '@lucide/svelte';
 
 	let { data, form } = $props();
@@ -30,6 +35,11 @@
 	let markingRead = $state(false);
 	let markingUnread = $state(false);
 	let favoriting = $state(false);
+	let settingRating = $state(false);
+	let hoveredStar = $state<number | null>(null);
+	let deleteDialogOpen = $state(false);
+	let deletingArchive = $state(false);
+	let deleteFileToo = $state(false);
 
 	// Archive.artists is just names (matching everywhere else metadata is
 	// stored free-text) - resolve to the matching artist's id, if any, from
@@ -113,7 +123,7 @@
 				{readLabel}
 			</Button>
 
-			{#if (form?.action === 'markRead' || form?.action === 'markUnread' || form?.action === 'toggleFavorite') && form.error}
+			{#if (form?.action === 'markRead' || form?.action === 'markUnread' || form?.action === 'toggleFavorite' || form?.action === 'setRating' || form?.action === 'clearRating' || form?.action === 'deleteArchive') && form.error}
 				<p class="mt-1.5 text-center text-xs text-destructive">{form.error}</p>
 			{/if}
 		</div>
@@ -215,8 +225,58 @@
 									{/snippet}
 								</DropdownMenu.Item>
 							</form>
+							<DropdownMenu.Separator />
+							<DropdownMenu.Item
+								variant="destructive"
+								onSelect={() => {
+									deleteFileToo = false;
+									deleteDialogOpen = true;
+								}}
+							>
+								<Trash2 />
+								Delete
+							</DropdownMenu.Item>
 						</DropdownMenu.Content>
 					</DropdownMenu.Root>
+
+					<AlertDialog.Root bind:open={deleteDialogOpen}>
+						<AlertDialog.Content>
+							<AlertDialog.Header>
+								<AlertDialog.Title>Delete "{a.title}"?</AlertDialog.Title>
+								<AlertDialog.Description>
+									This removes the archive from Shoka, including its reading progress, favorite,
+									and rating.
+								</AlertDialog.Description>
+							</AlertDialog.Header>
+							<form
+								method="POST"
+								action="?/deleteArchive"
+								use:enhance={() => {
+									deletingArchive = true;
+									return async ({ result }) => {
+										deletingArchive = false;
+										await applyAction(result);
+									};
+								}}
+							>
+								<input type="hidden" name="delete_file" value={String(deleteFileToo)} />
+								<div class="flex items-center gap-2 py-2">
+									<Checkbox id="delete-file-checkbox" bind:checked={deleteFileToo} />
+									<Label for="delete-file-checkbox">Also delete the file from disk</Label>
+								</div>
+								<AlertDialog.Footer>
+									<AlertDialog.Cancel type="button">Cancel</AlertDialog.Cancel>
+									<AlertDialog.Action
+										type="submit"
+										variant="destructive"
+										disabled={deletingArchive}
+									>
+										{deletingArchive ? 'Deleting…' : 'Delete'}
+									</AlertDialog.Action>
+								</AlertDialog.Footer>
+							</form>
+						</AlertDialog.Content>
+					</AlertDialog.Root>
 				</div>
 			</div>
 
@@ -234,6 +294,47 @@
 					{/each}
 				</p>
 			{/if}
+
+			<div
+				role="group"
+				aria-label="Rating"
+				class="mt-2 flex items-center gap-0.5"
+				onmouseleave={() => (hoveredStar = null)}
+			>
+				{#each [1, 2, 3, 4, 5] as n (n)}
+					<form
+						method="POST"
+						action={a.rating === n ? '?/clearRating' : '?/setRating'}
+						use:enhance={() => {
+							settingRating = true;
+							return async ({ update }) => {
+								settingRating = false;
+								await update();
+							};
+						}}
+					>
+						{#if a.rating !== n}
+							<input type="hidden" name="rating" value={n} />
+						{/if}
+						<button
+							type="submit"
+							disabled={settingRating}
+							class="p-0.5 text-muted-foreground transition-colors hover:text-amber-400 disabled:opacity-50"
+							aria-label="Rate {n} star{n === 1 ? '' : 's'}"
+							onmouseenter={() => (hoveredStar = n)}
+						>
+							<Star
+								class={cn(
+									'size-5',
+									(hoveredStar ?? a.rating ?? 0) >= n
+										? 'fill-amber-400 stroke-amber-400'
+										: 'fill-none'
+								)}
+							/>
+						</button>
+					</form>
+				{/each}
+			</div>
 
 			<div class="mt-3 flex flex-wrap gap-2">
 				{#if a.category}

@@ -94,6 +94,7 @@ func (s *Server) MountHandlers() {
 		r.Route("/api/archives/{id}", func(r chi.Router) {
 			r.Get("/", archiveHandler.GetArchive)
 			r.Patch("/", archiveHandler.UpdateArchive)
+			r.Delete("/", archiveHandler.DeleteArchive)
 			r.Get("/cover", archiveHandler.GetCover)
 			r.Get("/pages/{index}", archiveHandler.GetPage)
 			r.Get("/pages/{index}/thumbnail", archiveHandler.GetPageThumbnail)
@@ -103,6 +104,8 @@ func (s *Server) MountHandlers() {
 			r.Delete("/progress", archiveHandler.DeleteProgress)
 			r.Put("/favorite", archiveHandler.AddFavorite)
 			r.Delete("/favorite", archiveHandler.RemoveFavorite)
+			r.Put("/rating", archiveHandler.SetRating)
+			r.Delete("/rating", archiveHandler.RemoveRating)
 		})
 		r.Route("/api/archives/{id}/metadata", func(r chi.Router) {
 			r.Post("/", metadataHandler.FetchMetadata)

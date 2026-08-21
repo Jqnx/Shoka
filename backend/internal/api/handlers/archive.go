@@ -7,6 +7,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -68,6 +69,7 @@ type ArchiveResponse struct {
 
 	ThumbsReady bool `json:"thumbs_ready"`
 	IsFavorited bool `json:"is_favorited"`
+	Rating      *int `json:"rating"`
 }
 
 type ProgressResponse struct {
@@ -103,6 +105,24 @@ func (h *ArchiveHandler) favoritedSet(ctx context.Context, userID string, ids []
 		favorited[id] = true
 	}
 	return favorited, nil
+}
+
+// ratingSet fetches, for a set of archive ids, the given user's own rating
+// (1-5) for each one that has been rated — one query instead of one
+// GetArchiveRating call per row.
+func (h *ArchiveHandler) ratingSet(ctx context.Context, userID string, ids []string) (map[string]int, error) {
+	rows, err := h.queries.GetArchiveRatingsForIDs(ctx, sqlc.GetArchiveRatingsForIDsParams{
+		Uid: userID,
+		Ids: ids,
+	})
+	if err != nil {
+		return nil, err
+	}
+	ratings := make(map[string]int, len(rows))
+	for _, row := range rows {
+		ratings[row.ArchiveID] = int(row.Rating)
+	}
+	return ratings, nil
 }
 
 // GetArchiveSortOptions godoc
@@ -199,7 +219,7 @@ func (h *ArchiveHandler) GetLanguages(w http.ResponseWriter, r *http.Request) {
 //	@Param			library_id	query		string		true	"Library ID to list archives from"
 //	@Param			page		query		int		false	"Page number (1-based)"							default(1)
 //	@Param			limit		query		int		false	"Items per page"								default(24)
-//	@Param			sort		query		string		false	"Sort order (title_asc, title_desc, release_date_asc, release_date_desc, created_at_asc, created_at_desc, page_count_asc, page_count_desc)"
+//	@Param			sort		query		string		false	"Sort order (title_asc, title_desc, release_date_asc, release_date_desc, created_at_asc, created_at_desc, page_count_asc, page_count_desc, rating_asc, rating_desc)"
 //	@Param			artist		query		[]string	false	"Filter by artist name(s); archive must have all"
 //	@Param			tag			query		[]string	false	"Filter by tag name(s); archive must have all"
 //	@Param			character	query		[]string	false	"Filter by character name(s); archive must have all"
@@ -273,6 +293,13 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ratings, err := h.ratingSet(r.Context(), userID, ids)
+	if err != nil {
+		h.logger.Error("get archive ratings failed", "error", err)
+		response.InternalError(w, "failed to get rating")
+		return
+	}
+
 	lc := language.NewLanguageConverter()
 	items := make([]ArchiveResponse, 0, len(rows))
 	for _, row := range rows {
@@ -296,6 +323,9 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt:   row.UpdatedAt,
 			ThumbsReady: h.processor.ThumbsReady(row.ID, int(row.PageCount)),
 			IsFavorited: favorited[row.ID],
+		}
+		if rating, ok := ratings[row.ID]; ok {
+			resp.Rating = &rating
 		}
 		if meta, ok := metaByID[row.ID]; ok {
 			resp.Artists = meta.Artists
@@ -382,9 +412,16 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	ratings, err := h.ratingSet(r.Context(), userID, ids)
+	if err != nil {
+		h.logger.Error("get archive ratings failed", "error", err)
+		response.InternalError(w, "failed to get rating")
+		return
+	}
+
 	items := make([]ArchiveResponse, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, ArchiveResponse{
+		resp := ArchiveResponse{
 			ID:          row.ID,
 			Title:       row.Title,
 			Summary:     row.Summary,
@@ -402,7 +439,11 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 				LastRead:    row.LastRead,
 				Completed:   row.Completed,
 			},
-		})
+		}
+		if rating, ok := ratings[row.ID]; ok {
+			resp.Rating = &rating
+		}
+		items = append(items, resp)
 	}
 
 	response.JSON(w, http.StatusOK, ArchiveListResponse{
@@ -459,6 +500,18 @@ func (h *ArchiveHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ids := make([]string, len(rows))
+	for i, row := range rows {
+		ids[i] = row.ID
+	}
+
+	ratings, err := h.ratingSet(r.Context(), userID, ids)
+	if err != nil {
+		h.logger.Error("get archive ratings failed", "error", err)
+		response.InternalError(w, "failed to get rating")
+		return
+	}
+
 	items := make([]ArchiveResponse, 0, len(rows))
 	for _, row := range rows {
 		resp := ArchiveResponse{
@@ -474,6 +527,9 @@ func (h *ArchiveHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt:   row.UpdatedAt,
 			ThumbsReady: h.processor.ThumbsReady(row.ID, int(row.PageCount)),
 			IsFavorited: true,
+		}
+		if rating, ok := ratings[row.ID]; ok {
+			resp.Rating = &rating
 		}
 		if row.Page != nil {
 			resp.Progress = &ProgressResponse{
@@ -525,9 +581,11 @@ func (h *ArchiveHandler) GetArchive(w http.ResponseWriter, r *http.Request) {
 		meta        *metadata.Result
 		progress    *sqlc.ReadingProgress
 		isFavorited bool
+		rating      *int
 		metaErr     error
 		progErr     error
 		favErr      error
+		ratingErr   error
 	}
 
 	ch := make(chan result, 1)
@@ -551,6 +609,20 @@ func (h *ArchiveHandler) GetArchive(w http.ResponseWriter, r *http.Request) {
 			ArchiveID: archive.ID,
 			Uid:       userID,
 		})
+
+		rating, err := h.queries.GetArchiveRating(r.Context(), sqlc.GetArchiveRatingParams{
+			ArchiveID: archive.ID,
+			Uid:       userID,
+		})
+		if err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				res.ratingErr = err
+			}
+		} else {
+			r := int(rating)
+			res.rating = &r
+		}
+
 		ch <- res
 	}()
 
@@ -574,7 +646,13 @@ func (h *ArchiveHandler) GetArchive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, h.buildResponse(archive, res.meta, res.progress, res.isFavorited))
+	if res.ratingErr != nil {
+		h.logger.Error("get rating failed", "id", id, "error", res.ratingErr)
+		response.InternalError(w, "failed to get rating")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, h.buildResponse(archive, res.meta, res.progress, res.isFavorited, res.rating))
 }
 
 // UpdateArchiveRequest is a partial update: omitted fields are left
@@ -689,7 +767,66 @@ func (h *ArchiveHandler) UpdateArchive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusOK, h.buildResponse(archive, meta, progress, isFavorited))
+	var rating *int
+	if v, err := h.queries.GetArchiveRating(r.Context(), sqlc.GetArchiveRatingParams{
+		ArchiveID: id,
+		Uid:       userID,
+	}); err == nil {
+		iv := int(v)
+		rating = &iv
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		h.logger.Error("get rating failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get updated archive")
+		return
+	}
+
+	response.JSON(w, http.StatusOK, h.buildResponse(archive, meta, progress, isFavorited, rating))
+}
+
+// DeleteArchive godoc
+//
+//	@Summary		Delete an archive
+//	@Description	Removes the archive and all its associated data (progress, favorites, ratings, metadata) from the library. By default the underlying file on disk is left untouched — pass delete_file=true to also remove it. Cache/thumbnail data is always evicted.
+//	@Tags			archives
+//	@Param			id			path	string	true	"Archive ID"
+//	@Param			delete_file	query	bool	false	"Also delete the archive file from disk"	default(false)
+//	@Success		204
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id} [delete]
+func (h *ArchiveHandler) DeleteArchive(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	deleteFile := r.URL.Query().Get("delete_file") == "true"
+
+	archive, err := h.queries.GetArchiveByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "archive not found")
+			return
+		}
+		h.logger.Error("get archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
+		return
+	}
+
+	if err := h.queries.DeleteArchive(r.Context(), id); err != nil {
+		h.logger.Error("delete archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to delete archive")
+		return
+	}
+
+	if err := h.processor.EvictAll(id); err != nil {
+		h.logger.Warn("evict archive cache failed", "id", id, "error", err)
+	}
+
+	if deleteFile {
+		if err := os.Remove(archive.FilePath); err != nil && !os.IsNotExist(err) {
+			h.logger.Warn("delete archive file failed", "id", id, "path", archive.FilePath, "error", err)
+		}
+	}
+
+	h.logger.Info("archive deleted", "id", id, "delete_file", deleteFile)
+	response.NoContent(w)
 }
 
 type UpdateProgressRequest struct {
@@ -850,13 +987,96 @@ func (h *ArchiveHandler) RemoveFavorite(w http.ResponseWriter, r *http.Request) 
 	response.NoContent(w)
 }
 
+type SetRatingRequest struct {
+	// Rating is 1-5, matching a classic 5-star rating widget. There's no
+	// 0/"unset" value here — clearing a rating is DELETE .../rating.
+	Rating int `json:"rating"`
+}
+
+// SetRating godoc
+//
+//	@Summary		Rate an archive
+//	@Description	Idempotent - sets the current users star rating (1-5) for this archive, overwriting any previous rating.
+//	@Tags			archives
+//	@Accept			json
+//	@Param			id		path	string				true	"Archive ID"
+//	@Param			body	body	SetRatingRequest	true	"Rating"
+//	@Success		204
+//	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/rating [put]
+func (h *ArchiveHandler) SetRating(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	userID := auth.UserIDFromContext(r.Context())
+
+	var body SetRatingRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if body.Rating < 1 || body.Rating > 5 {
+		response.BadRequest(w, "rating must be between 1 and 5")
+		return
+	}
+
+	if _, err := h.queries.GetArchiveByID(r.Context(), id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "archive not found")
+			return
+		}
+		h.logger.Error("get archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
+		return
+	}
+
+	if _, err := h.queries.UpsertArchiveRating(r.Context(), sqlc.UpsertArchiveRatingParams{
+		ArchiveID: id,
+		UserID:    userID,
+		Rating:    int64(body.Rating),
+	}); err != nil {
+		h.logger.Error("upsert archive rating failed", "id", id, "error", err)
+		response.InternalError(w, "failed to rate archive")
+		return
+	}
+
+	response.NoContent(w)
+}
+
+// RemoveRating godoc
+//
+//	@Summary		Clear an archive's rating
+//	@Description	Removes the current users star rating for this archive. No-op if it wasn't rated.
+//	@Tags			archives
+//	@Param			id	path	string	true	"Archive ID"
+//	@Success		204
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/rating [delete]
+func (h *ArchiveHandler) RemoveRating(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	userID := auth.UserIDFromContext(r.Context())
+
+	if err := h.queries.RemoveArchiveRating(r.Context(), sqlc.RemoveArchiveRatingParams{
+		ArchiveID: id,
+		Uid:       userID,
+	}); err != nil {
+		h.logger.Error("remove archive rating failed", "id", id, "error", err)
+		response.InternalError(w, "failed to clear rating")
+		return
+	}
+
+	response.NoContent(w)
+}
+
 func (h *ArchiveHandler) buildResponse(
 	archive sqlc.Archive,
 	meta *metadata.Result,
 	progress *sqlc.ReadingProgress,
 	isFavorited bool,
+	rating *int,
 ) ArchiveResponse {
-	return buildArchiveResponse(h.processor, archive, meta, progress, isFavorited)
+	return buildArchiveResponse(h.processor, archive, meta, progress, isFavorited, rating)
 }
 
 // buildArchiveResponse is the shared ArchiveResponse builder — a
@@ -870,6 +1090,7 @@ func buildArchiveResponse(
 	meta *metadata.Result,
 	progress *sqlc.ReadingProgress,
 	isFavorited bool,
+	rating *int,
 ) ArchiveResponse {
 	lc := language.NewLanguageConverter()
 	var lang string
@@ -892,6 +1113,7 @@ func buildArchiveResponse(
 		UpdatedAt:   archive.UpdatedAt,
 		ThumbsReady: processor.ThumbsReady(archive.ID, int(archive.PageCount)),
 		IsFavorited: isFavorited,
+		Rating:      rating,
 	}
 
 	if meta != nil {

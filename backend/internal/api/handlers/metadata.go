@@ -319,7 +319,18 @@ func (h *MetadataHandler) ApplyMetadataFromSource(w http.ResponseWriter, r *http
 		h.logger.Error("get favorite status failed", "id", id, "error", err)
 	}
 
+	var rating *int
+	if v, err := h.queries.GetArchiveRating(r.Context(), sqlc.GetArchiveRatingParams{
+		ArchiveID: id,
+		Uid:       userID,
+	}); err == nil {
+		iv := int(v)
+		rating = &iv
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		h.logger.Error("get rating failed", "id", id, "error", err)
+	}
+
 	preview := overlayResult(archive, result)
 
-	response.JSON(w, http.StatusOK, buildArchiveResponse(h.processor, preview, result, progress, isFavorited))
+	response.JSON(w, http.StatusOK, buildArchiveResponse(h.processor, preview, result, progress, isFavorited, rating))
 }

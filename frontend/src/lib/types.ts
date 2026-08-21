@@ -30,6 +30,7 @@ export type Archive = {
 	progress: Progress | null;
 	thumbs_ready: boolean;
 	is_favorited: boolean;
+	rating: number | null;
 };
 
 export type ArchiveListResponse = {
@@ -187,10 +188,10 @@ export type ArchiveSortOption = {
 // handle on this side.
 //
 // view_mode and reading_direction are orthogonal: view_mode picks paged vs.
-// continuous scroll, reading_direction only decides which physical side is
-// "next" while paged (irrelevant in continuous mode, which always scrolls
+// scroll, reading_direction only decides which physical side is
+// "next" while paged (irrelevant in scroll mode, which always scrolls
 // top-to-bottom).
-export type ViewMode = 'paged' | 'continuous';
+export type ViewMode = 'paged' | 'scroll';
 export type ReadingDirection = 'ltr' | 'rtl';
 export type PageLayout = 'single' | 'double';
 export type FitMode = 'width' | 'height' | 'original';

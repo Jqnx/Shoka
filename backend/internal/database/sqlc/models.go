@@ -44,6 +44,13 @@ type ArchiveParody struct {
 	ParodyID  *int64  `json:"parody_id"`
 }
 
+type ArchiveRating struct {
+	ArchiveID string    `json:"archive_id"`
+	UserID    string    `json:"user_id"`
+	Rating    int64     `json:"rating"`
+	RatedAt   time.Time `json:"rated_at"`
+}
+
 type ArchiveTag struct {
 	ArchiveID *string `json:"archive_id"`
 	TagID     *int64  `json:"tag_id"`
