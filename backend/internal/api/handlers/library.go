@@ -414,10 +414,17 @@ func (h *LibraryHandler) GetLibrarySources(w http.ResponseWriter, r *http.Reques
 	response.JSON(w, http.StatusOK, items)
 }
 
+// UpdateLibrarySourceRequest is a partial update: omitted fields are left
+// unchanged. Enabled/Cookies/APIKey use pointers so, e.g., toggling
+// "enabled" alone (the settings dialog never opened) doesn't wipe a
+// previously-saved API key — send an explicit value (empty string clears
+// cookies/api_key) to change it. For the blocklists, omit the key to leave
+// it unchanged, send an empty array to clear it, or send a full list to
+// replace it.
 type UpdateLibrarySourceRequest struct {
-	Enabled           bool     `json:"enabled"`
-	Cookies           string   `json:"cookies"`
-	APIKey            string   `json:"api_key"`
+	Enabled           *bool    `json:"enabled"`
+	Cookies           *string  `json:"cookies"`
+	APIKey            *string  `json:"api_key"`
 	MagazineBlocklist []string `json:"magazine_blocklist"`
 	MiscBlocklist     []string `json:"misc_blocklist"`
 }
@@ -444,21 +451,48 @@ func (h *LibraryHandler) UpdateLibrarySource(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	magazineJSON, _ := json.Marshal(body.MagazineBlocklist)
-	miscJSON, _ := json.Marshal(body.MiscBlocklist)
+	existing, err := h.queries.GetLibrarySource(r.Context(), sqlc.GetLibrarySourceParams{
+		LibraryID: id,
+		Source:    source,
+	})
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		h.logger.Error("get library source failed", "id", id, "source", source, "error", err)
+		response.InternalError(w, "failed to update library source")
+		return
+	}
 
 	params := sqlc.UpsertLibrarySourceParams{
 		LibraryID:         id,
 		Source:            source,
-		Enabled:           boolToInt(body.Enabled),
-		MagazineBlocklist: string(magazineJSON),
-		MiscBlocklist:     string(miscJSON),
+		Enabled:           existing.Enabled,
+		Cookies:           existing.Cookies,
+		ApiKey:            existing.ApiKey,
+		MagazineBlocklist: existing.MagazineBlocklist,
+		MiscBlocklist:     existing.MiscBlocklist,
 	}
-	if body.Cookies != "" {
-		params.Cookies = &body.Cookies
+	if params.MagazineBlocklist == "" {
+		params.MagazineBlocklist = "[]"
 	}
-	if body.APIKey != "" {
-		params.ApiKey = &body.APIKey
+	if params.MiscBlocklist == "" {
+		params.MiscBlocklist = "[]"
+	}
+
+	if body.Enabled != nil {
+		params.Enabled = boolToInt(*body.Enabled)
+	}
+	if body.Cookies != nil {
+		params.Cookies = body.Cookies
+	}
+	if body.APIKey != nil {
+		params.ApiKey = body.APIKey
+	}
+	if body.MagazineBlocklist != nil {
+		magazineJSON, _ := json.Marshal(body.MagazineBlocklist)
+		params.MagazineBlocklist = string(magazineJSON)
+	}
+	if body.MiscBlocklist != nil {
+		miscJSON, _ := json.Marshal(body.MiscBlocklist)
+		params.MiscBlocklist = string(miscJSON)
 	}
 
 	row, err := h.queries.UpsertLibrarySource(r.Context(), params)

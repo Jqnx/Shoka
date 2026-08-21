@@ -73,6 +73,28 @@
 	>
 		<input type="hidden" name="source" value={source.source} />
 		<input type="hidden" name="enabled" value={String(enabled)} />
+		<!--
+			These mirror the settings-dialog fields but stay mounted even while
+			the dialog is closed, unlike the dialog's own inputs (which live in a
+			portal that unmounts on close). The enabled-only toggle below submits
+			this form directly without opening the dialog - without these, that
+			submission would carry no cookies/api_key/blocklist values at all,
+			and the server would overwrite the stored ones with empty values.
+		-->
+		{#if info.fields.includes('cookies')}
+			<input type="hidden" name="cookies" value={cookies} />
+		{/if}
+		{#if info.fields.includes('api_key')}
+			<input type="hidden" name="api_key" value={apiKey} />
+		{/if}
+		{#if info.fields.includes('blocklists')}
+			{#each magazineBlocklist as tag (tag)}
+				<input type="hidden" name="magazine_blocklist" value={tag} />
+			{/each}
+			{#each miscBlocklist as tag (tag)}
+				<input type="hidden" name="misc_blocklist" value={tag} />
+			{/each}
+		{/if}
 
 		<div
 			class="relative flex aspect-[4/3] items-center justify-center {info.image
@@ -126,8 +148,6 @@
 						<Label for="{source.source}-cookies">Session cookie</Label>
 						<Textarea
 							id="{source.source}-cookies"
-							name="cookies"
-							form={formId}
 							bind:value={cookies}
 							placeholder="ipb_member_id=...; ipb_pass_hash=..."
 							class="font-mono text-xs"
@@ -141,8 +161,6 @@
 						<Label for="{source.source}-api-key">API key</Label>
 						<Input
 							id="{source.source}-api-key"
-							name="api_key"
-							form={formId}
 							bind:value={apiKey}
 							placeholder="API key"
 							class="font-mono text-xs"
@@ -166,9 +184,6 @@
 							{/each}
 							<TagsInput.Input placeholder="Add magazine name…" />
 						</TagsInput.Root>
-						{#each magazineBlocklist as tag (tag)}
-							<input type="hidden" name="magazine_blocklist" form={formId} value={tag} />
-						{/each}
 					</div>
 
 					<div class="space-y-1.5">
@@ -186,9 +201,6 @@
 							{/each}
 							<TagsInput.Input placeholder="Add tag…" />
 						</TagsInput.Root>
-						{#each miscBlocklist as tag (tag)}
-							<input type="hidden" name="misc_blocklist" form={formId} value={tag} />
-						{/each}
 					</div>
 				{/if}
 			</div>
