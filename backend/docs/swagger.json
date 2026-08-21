@@ -325,7 +325,7 @@
                     },
                     {
                         "type": "string",
-                        "description": "Sort order (title_asc, title_desc, release_date_asc, release_date_desc, created_at_asc, created_at_desc, page_count_asc, page_count_desc)",
+                        "description": "Sort order (title_asc, title_desc, release_date_asc, release_date_desc, created_at_asc, created_at_desc, page_count_asc, page_count_desc, rating_asc, rating_desc)",
                         "name": "sort",
                         "in": "query"
                     },
@@ -564,6 +564,46 @@
             }
         },
         "/api/archives/{id}": {
+            "delete": {
+                "description": "Removes the archive and all its associated data (progress, favorites, ratings, metadata) from the library. By default the underlying file on disk is left untouched — pass delete_file=true to also remove it. Cache/thumbnail data is always evicted.",
+                "tags": [
+                    "archives"
+                ],
+                "summary": "Delete an archive",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Archive ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Also delete the archive file from disk",
+                        "name": "delete_file",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            },
             "patch": {
                 "description": "Partial update of an archive's metadata, including relations (artists/tags/parodies/circles/characters). This is a direct manual edit, not a metadata source — a subsequent \"fetch metadata\" call can still overwrite these values, there is currently no per-field locking.",
                 "consumes": [
@@ -880,6 +920,86 @@
                     "archives"
                 ],
                 "summary": "Reset reading progress for an archive",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Archive ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/archives/{id}/rating": {
+            "put": {
+                "description": "Idempotent - sets the current users star rating (1-5) for this archive, overwriting any previous rating.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "archives"
+                ],
+                "summary": "Rate an archive",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Archive ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Rating",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.SetRatingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Removes the current users star rating for this archive. No-op if it wasn't rated.",
+                "tags": [
+                    "archives"
+                ],
+                "summary": "Clear an archive's rating",
                 "parameters": [
                     {
                         "type": "string",
@@ -2347,6 +2467,9 @@
                 "progress": {
                     "$ref": "#/definitions/handlers.ProgressResponse"
                 },
+                "rating": {
+                    "type": "integer"
+                },
                 "release_date": {
                     "type": "string"
                 },
@@ -2626,6 +2749,15 @@
                 },
                 "view_mode": {
                     "type": "string"
+                }
+            }
+        },
+        "handlers.SetRatingRequest": {
+            "type": "object",
+            "properties": {
+                "rating": {
+                    "description": "Rating is 1-5, matching a classic 5-star rating widget. There's no\n0/\"unset\" value here — clearing a rating is DELETE .../rating.",
+                    "type": "integer"
                 }
             }
         },

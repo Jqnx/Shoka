@@ -47,6 +47,8 @@ definitions:
         type: array
       progress:
         $ref: '#/definitions/handlers.ProgressResponse'
+      rating:
+        type: integer
       release_date:
         type: string
       summary:
@@ -229,6 +231,14 @@ definitions:
         type: string
       view_mode:
         type: string
+    type: object
+  handlers.SetRatingRequest:
+    properties:
+      rating:
+        description: |-
+          Rating is 1-5, matching a classic 5-star rating widget. There's no
+          0/"unset" value here — clearing a rating is DELETE .../rating.
+        type: integer
     type: object
   handlers.SortOptionResponse:
     properties:
@@ -651,7 +661,8 @@ paths:
         name: limit
         type: integer
       - description: Sort order (title_asc, title_desc, release_date_asc, release_date_desc,
-          created_at_asc, created_at_desc, page_count_asc, page_count_desc)
+          created_at_asc, created_at_desc, page_count_asc, page_count_desc, rating_asc,
+          rating_desc)
         in: query
         name: sort
         type: string
@@ -706,6 +717,36 @@ paths:
       tags:
       - archives
   /api/archives/{id}:
+    delete:
+      description: Removes the archive and all its associated data (progress, favorites,
+        ratings, metadata) from the library. By default the underlying file on disk
+        is left untouched — pass delete_file=true to also remove it. Cache/thumbnail
+        data is always evicted.
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - default: false
+        description: Also delete the archive file from disk
+        in: query
+        name: delete_file
+        type: boolean
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Delete an archive
+      tags:
+      - archives
     patch:
       consumes:
       - application/json
@@ -935,6 +976,61 @@ paths:
           schema:
             $ref: '#/definitions/response.Error'
       summary: Record reading progress for an archive
+      tags:
+      - archives
+  /api/archives/{id}/rating:
+    delete:
+      description: Removes the current users star rating for this archive. No-op if
+        it wasn't rated.
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Clear an archive's rating
+      tags:
+      - archives
+    put:
+      consumes:
+      - application/json
+      description: Idempotent - sets the current users star rating (1-5) for this
+        archive, overwriting any previous rating.
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Rating
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.SetRatingRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Rate an archive
       tags:
       - archives
   /api/archives/{id}/thumbnails:
