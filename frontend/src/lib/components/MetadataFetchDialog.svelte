@@ -5,7 +5,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Sparkles, ArrowLeft, ImageOff } from '@lucide/svelte';
+	import { Sparkles, Search, ArrowLeft, ImageOff } from '@lucide/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { errorMessage } from '$lib/api';
 	import { METADATA_SOURCE_INFO, sourceInfo } from '$lib/metadata-sources';
@@ -56,6 +56,10 @@
 	const ALL_SOURCES = 'all';
 
 	let open = $state(false);
+	// 'search' shows a picker of results for the user to compare and choose
+	// from (when the source supports search); 'auto' skips that picker and
+	// goes straight to the top result's diff - see runFetch().
+	let mode = $state<'search' | 'auto'>('search');
 	let sourceValue = $state(ALL_SOURCES);
 	// Seeded from the archive's title (the backend's own default when no
 	// override is given), then freely editable - lets a source's search be
@@ -206,7 +210,25 @@
 				const searchUrl = `/api/archives/${archiveId}/metadata/${sourceValue}/search${q ? `?q=${encodeURIComponent(q)}` : ''}`;
 				const res = await fetch(searchUrl);
 				if (res.ok) {
-					searchResults = await res.json();
+					const results: MetadataSearchResult[] = await res.json();
+
+					// Auto mode: skip the picker entirely, take the top result
+					// (the source's own best-match ranking) straight to its diff.
+					// loading stays true through pickResult() too, so the Fetch
+					// button stays disabled/labeled for the whole round trip
+					// instead of flashing enabled again mid-fetch.
+					if (mode === 'auto') {
+						if (results.length === 0) {
+							loading = false;
+							error = 'No matching results found.';
+							return;
+						}
+						await pickResult(results[0]);
+						loading = false;
+						return;
+					}
+
+					searchResults = results;
 					loading = false;
 					return;
 				}
@@ -296,19 +318,36 @@
 	}
 </script>
 
-<Button
-	type="button"
-	variant="outline"
-	size="sm"
-	class="w-full gap-1.5"
-	onclick={() => {
-		open = true;
-		loadSourceAvailability();
-	}}
->
-	<Sparkles class="size-4" />
-	Fetch metadata
-</Button>
+<div class="flex gap-2">
+	<Button
+		type="button"
+		variant="outline"
+		size="sm"
+		class="flex-1 gap-1.5"
+		onclick={() => {
+			mode = 'search';
+			open = true;
+			loadSourceAvailability();
+		}}
+	>
+		<Search class="size-4" />
+		Search metadata
+	</Button>
+	<Button
+		type="button"
+		variant="outline"
+		size="sm"
+		class="flex-1 gap-1.5"
+		onclick={() => {
+			mode = 'auto';
+			open = true;
+			loadSourceAvailability();
+		}}
+	>
+		<Sparkles class="size-4" />
+		Fetch metadata
+	</Button>
+</div>
 
 <Dialog.Root
 	bind:open
@@ -322,12 +361,15 @@
 >
 	<Dialog.Content class="sm:max-w-lg">
 		<Dialog.Header>
-			<Dialog.Title>Fetch metadata</Dialog.Title>
+			<Dialog.Title>{mode === 'auto' ? 'Fetch metadata' : 'Search metadata'}</Dialog.Title>
 			<Dialog.Description>
 				{#if fetched}
 					Choose which fields to apply. Nothing is saved until you hit Save changes below.
 				{:else if searchResults}
 					Pick a result to compare against the current form.
+				{:else if mode === 'auto'}
+					Automatically picks the best match from the selected source and shows you the
+					differences. Nothing is saved until you hit Save changes below.
 				{:else}
 					Pull metadata from a source and choose which fields to apply. Nothing is saved until
 					you hit Save changes below.
