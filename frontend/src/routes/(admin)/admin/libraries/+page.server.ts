@@ -42,27 +42,6 @@ export const actions: Actions = {
 		return { action: 'create' as const, success: true };
 	},
 
-	toggle: async ({ request, fetch }) => {
-		const form = await request.formData();
-		const id = String(form.get('id') ?? '');
-		const enabled = form.get('enabled') === 'true';
-
-		const res = await fetch(`/api/admin/libraries/${id}`, {
-			method: 'PATCH',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ enabled: !enabled })
-		});
-
-		if (!res.ok) {
-			return fail(res.status, {
-				action: 'toggle' as const,
-				error: await errorMessage(res, 'Failed to update library.')
-			});
-		}
-
-		return { action: 'toggle' as const, success: true };
-	},
-
 	scan: async ({ request, fetch }) => {
 		const form = await request.formData();
 		const id = String(form.get('id') ?? '');

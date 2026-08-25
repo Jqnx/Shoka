@@ -17,7 +17,7 @@ insert into library (
   type
 )
 values (?, ?, ?, ?)
-returning id, name, path, type, enabled, created_at, updated_at
+returning id, name, path, type, created_at, updated_at
 `
 
 type CreateLibraryParams struct {
@@ -40,7 +40,6 @@ func (q *Queries) CreateLibrary(ctx context.Context, arg CreateLibraryParams) (L
 		&i.Name,
 		&i.Path,
 		&i.Type,
-		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -58,7 +57,7 @@ func (q *Queries) DeleteLibrary(ctx context.Context, id string) error {
 }
 
 const getLibraryByID = `-- name: GetLibraryByID :one
-select id, name, path, type, enabled, created_at, updated_at
+select id, name, path, type, created_at, updated_at
 from library
 where id = ?
 `
@@ -71,7 +70,6 @@ func (q *Queries) GetLibraryByID(ctx context.Context, id string) (Library, error
 		&i.Name,
 		&i.Path,
 		&i.Type,
-		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -81,7 +79,7 @@ func (q *Queries) GetLibraryByID(ctx context.Context, id string) (Library, error
 const getLibraryByPath = `-- name: GetLibraryByPath :one
 ;
 
-select id, name, path, type, enabled, created_at, updated_at
+select id, name, path, type, created_at, updated_at
 from library
 where path = ?
 `
@@ -94,57 +92,16 @@ func (q *Queries) GetLibraryByPath(ctx context.Context, path string) (Library, e
 		&i.Name,
 		&i.Path,
 		&i.Type,
-		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
 }
 
-const listEnabledLibraries = `-- name: ListEnabledLibraries :many
-;
-
-select id, name, path, type, enabled, created_at, updated_at
-from library
-where enabled
-order by name
-`
-
-func (q *Queries) ListEnabledLibraries(ctx context.Context) ([]Library, error) {
-	rows, err := q.db.QueryContext(ctx, listEnabledLibraries)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Library
-	for rows.Next() {
-		var i Library
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Path,
-			&i.Type,
-			&i.Enabled,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listLibraries = `-- name: ListLibraries :many
 ;
 
-select id, name, path, type, enabled, created_at, updated_at
+select id, name, path, type, created_at, updated_at
 from library
 order by name
 `
@@ -163,7 +120,6 @@ func (q *Queries) ListLibraries(ctx context.Context) ([]Library, error) {
 			&i.Name,
 			&i.Path,
 			&i.Type,
-			&i.Enabled,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -180,62 +136,30 @@ func (q *Queries) ListLibraries(ctx context.Context) ([]Library, error) {
 	return items, nil
 }
 
-const setLibraryEnabled = `-- name: SetLibraryEnabled :one
-update library
-set
-    enabled = ?,
-    updated_at = datetime('now')
-where id = ?
-returning id, name, path, type, enabled, created_at, updated_at
-`
-
-type SetLibraryEnabledParams struct {
-	Enabled int64  `json:"enabled"`
-	ID      string `json:"id"`
-}
-
-func (q *Queries) SetLibraryEnabled(ctx context.Context, arg SetLibraryEnabledParams) (Library, error) {
-	row := q.db.QueryRowContext(ctx, setLibraryEnabled, arg.Enabled, arg.ID)
-	var i Library
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Path,
-		&i.Type,
-		&i.Enabled,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const updateLibrary = `-- name: UpdateLibrary :one
 ;
 
 update library
 set
     name = ?,
-    enabled = ?,
     updated_at = datetime('now')
 where id = ?
-returning id, name, path, type, enabled, created_at, updated_at
+returning id, name, path, type, created_at, updated_at
 `
 
 type UpdateLibraryParams struct {
-	Name    string `json:"name"`
-	Enabled int64  `json:"enabled"`
-	ID      string `json:"id"`
+	Name string `json:"name"`
+	ID   string `json:"id"`
 }
 
 func (q *Queries) UpdateLibrary(ctx context.Context, arg UpdateLibraryParams) (Library, error) {
-	row := q.db.QueryRowContext(ctx, updateLibrary, arg.Name, arg.Enabled, arg.ID)
+	row := q.db.QueryRowContext(ctx, updateLibrary, arg.Name, arg.ID)
 	var i Library
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
 		&i.Path,
 		&i.Type,
-		&i.Enabled,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

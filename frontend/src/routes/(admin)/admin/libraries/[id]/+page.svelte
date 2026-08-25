@@ -32,14 +32,6 @@
 
 	<div class="mt-3 flex items-center gap-2">
 		<h1 class="text-2xl font-bold tracking-tight">{data.library.name}</h1>
-		<Badge
-			variant="outline"
-			class={data.library.enabled
-				? 'border-transparent bg-emerald-600/10 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400'
-				: 'border-transparent bg-destructive/10 text-destructive dark:bg-destructive/20'}
-		>
-			{data.library.enabled ? 'Enabled' : 'Disabled'}
-		</Badge>
 		<Badge variant="outline">{typeLabel}</Badge>
 	</div>
 	<p class="mt-1 truncate font-mono text-sm text-muted-foreground">{data.library.path}</p>

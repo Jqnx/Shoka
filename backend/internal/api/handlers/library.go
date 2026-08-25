@@ -55,7 +55,6 @@ type LibraryResponse struct {
 	Name      string `json:"name"`
 	Path      string `json:"path"`
 	Type      string `json:"type"`
-	Enabled   bool   `json:"enabled"`
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
 }
@@ -66,7 +65,6 @@ func toLibraryResponse(lib sqlc.Library) LibraryResponse {
 		Name:      lib.Name,
 		Path:      lib.Path,
 		Type:      lib.Type,
-		Enabled:   lib.Enabled != 0,
 		CreatedAt: lib.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt: lib.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
@@ -235,13 +233,12 @@ func (h *LibraryHandler) CreateLibrary(w http.ResponseWriter, r *http.Request) {
 }
 
 type UpdateLibraryRequest struct {
-	Name    *string `json:"name"`
-	Enabled *bool   `json:"enabled"`
+	Name *string `json:"name"`
 }
 
 // UpdateLibrary godoc
 //
-//	@Summary		Rename or enable/disable a library
+//	@Summary		Rename a library
 //	@Description	The library's path and type are immutable after creation.
 //	@Tags			admin
 //	@Accept			json
@@ -281,15 +278,9 @@ func (h *LibraryHandler) UpdateLibrary(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	enabled := current.Enabled
-	if body.Enabled != nil {
-		enabled = boolToInt(*body.Enabled)
-	}
-
 	updated, err := h.queries.UpdateLibrary(r.Context(), sqlc.UpdateLibraryParams{
-		ID:      id,
-		Name:    name,
-		Enabled: enabled,
+		ID:   id,
+		Name: name,
 	})
 	if err != nil {
 		h.logger.Error("update library failed", "id", id, "error", err)

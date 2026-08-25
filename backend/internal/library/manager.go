@@ -17,11 +17,11 @@ import (
 // clients which types exist versus which are actually usable today.
 var AllLibraryTypes = []string{"doujinshi", "audio"}
 
-// Manager owns the set of active libraries: for each enabled library it
-// runs a filesystem Watcher, and it dispatches scan jobs (see
-// jobs.Scannable) to the Scanner implementation registered for that
-// library's type. It lets libraries be added/enabled/disabled/removed at
-// runtime via the admin API without restarting the server.
+// Manager owns the set of active libraries: for each one it runs a
+// filesystem Watcher, and it dispatches scan jobs (see jobs.Scannable) to
+// the Scanner implementation registered for that library's type. It lets
+// libraries be added/removed at runtime via the admin API without
+// restarting the server.
 type Manager struct {
 	cfg      *config.Config
 	queries  *sqlc.Queries
@@ -63,12 +63,12 @@ func (m *Manager) SupportsType(libraryType string) bool {
 	return ok
 }
 
-// Start loads every enabled library and begins watching it. Call once at
+// Start loads every library and begins watching it. Call once at
 // application startup, after config/DB are ready.
 func (m *Manager) Start(ctx context.Context) error {
-	libs, err := m.queries.ListEnabledLibraries(ctx)
+	libs, err := m.queries.ListLibraries(ctx)
 	if err != nil {
-		return fmt.Errorf("list enabled libraries: %w", err)
+		return fmt.Errorf("list libraries: %w", err)
 	}
 
 	for _, lib := range libs {
@@ -78,13 +78,13 @@ func (m *Manager) Start(ctx context.Context) error {
 	return nil
 }
 
-// EnqueueInitialScans enqueues one scan job per enabled library. Intended
-// to be called once at application startup; the worker pool parallelizes
-// the resulting jobs across libraries.
+// EnqueueInitialScans enqueues one scan job per library. Intended to be
+// called once at application startup; the worker pool parallelizes the
+// resulting jobs across libraries.
 func (m *Manager) EnqueueInitialScans(ctx context.Context) error {
-	libs, err := m.queries.ListEnabledLibraries(ctx)
+	libs, err := m.queries.ListLibraries(ctx)
 	if err != nil {
-		return fmt.Errorf("list enabled libraries: %w", err)
+		return fmt.Errorf("list libraries: %w", err)
 	}
 
 	for _, lib := range libs {
@@ -110,14 +110,11 @@ func (m *Manager) Shutdown() {
 	}
 }
 
-// OnLibraryChanged starts or stops watching lib depending on its current
-// enabled state. Call after creating a library or updating its enabled
-// flag so the change takes effect immediately, without a restart.
+// OnLibraryChanged begins watching lib. Call after creating or updating a
+// library so the change takes effect immediately, without a restart.
+// startWatching is idempotent, so calling this for an already-watched
+// library is a no-op.
 func (m *Manager) OnLibraryChanged(ctx context.Context, lib sqlc.Library) {
-	if lib.Enabled == 0 {
-		m.stopWatching(lib.ID)
-		return
-	}
 	m.startWatching(ctx, lib)
 }
 
@@ -133,11 +130,6 @@ func (m *Manager) ScanLibrary(ctx context.Context, libraryID string) error {
 	lib, err := m.queries.GetLibraryByID(ctx, libraryID)
 	if err != nil {
 		return fmt.Errorf("get library: %w", err)
-	}
-
-	if lib.Enabled == 0 {
-		m.log.Debug("skipping scan of disabled library", "library_id", lib.ID)
-		return nil
 	}
 
 	scanner, ok := m.scanners[lib.Type]

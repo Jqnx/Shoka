@@ -81,6 +81,7 @@ func main() {
 	// Register worker handlers
 	worker.Register(jobs.JobTypeScan, jobs.NewScanHandler(libraries, log), 1)
 	worker.Register(jobs.JobTypeCover, jobs.NewCoverHandler(images, log), 5)
+	worker.Register(jobs.JobTypePHash, jobs.NewPHashHandler(images, queries, log), 3)
 	worker.Register(jobs.JobTypeThumbnail, jobs.NewThumbnailHandler(images, thumbnails, log), 3)
 	worker.Register(jobs.JobTypeMetadata, jobs.NewMetadataHandler(pipeline, queries, db, queue, log), 5)
 	worker.Register(jobs.JobTypeMetadataRemote, jobs.NewRemoteMetadataHandler(pipeline, queries, db, log), 1)
@@ -92,7 +93,7 @@ func main() {
 		worker.Start(ctx)
 	}
 
-	// Start watching every enabled library and enqueue an initial scan for each
+	// Start watching every library and enqueue an initial scan for each
 	if err := libraries.Start(ctx); err != nil {
 		log.Error("failed to start library watchers", "error", err)
 	}

@@ -27,26 +27,10 @@ from library
 order by name
 ;
 
--- name: ListEnabledLibraries :many
-select *
-from library
-where enabled
-order by name
-;
-
 -- name: UpdateLibrary :one
 update library
 set
     name = ?,
-    enabled = ?,
-    updated_at = datetime('now')
-where id = ?
-returning *;
-
--- name: SetLibraryEnabled :one
-update library
-set
-    enabled = ?,
     updated_at = datetime('now')
 where id = ?
 returning *;
