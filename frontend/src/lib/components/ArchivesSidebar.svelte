@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar';
 	import { Combobox, MultiCombobox } from '$lib/components/ui/combobox';
+	import * as Select from '$lib/components/ui/select/index.js';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
 	import { X } from '@lucide/svelte';
@@ -11,6 +12,9 @@
 	const ANY = 'any';
 
 	type Filters = {
+		// '' means unset - the backend treats has_phash as tri-state (omit to
+		// include both hashed and unhashed archives).
+		has_phash: string;
 		category: string;
 		language: string;
 		tag: string[];
@@ -38,12 +42,22 @@
 	} = $props();
 
 	const hasActiveFilters = $derived(
-		filters.category !== '' ||
+		filters.has_phash !== '' ||
+			filters.category !== '' ||
 			filters.language !== '' ||
 			filters.artist.length > 0 ||
 			filters.tag.length > 0 ||
 			filters.character.length > 0 ||
 			filters.parody.length > 0
+	);
+
+	const phashOptions = [
+		{ value: ANY, label: 'Any' },
+		{ value: 'true', label: 'Hashed' },
+		{ value: 'false', label: 'Not hashed' }
+	];
+	const phashLabel = $derived(
+		phashOptions.find((o) => o.value === (filters.has_phash || ANY))?.label ?? 'Any'
 	);
 
 	const categoryOptions = $derived([
@@ -87,7 +101,16 @@
 
 	function clearFilters() {
 		const params = new URLSearchParams(page.url.searchParams);
-		for (const key of ['category', 'language', 'tag', 'character', 'parody', 'artist', 'page']) {
+		for (const key of [
+			'has_phash',
+			'category',
+			'language',
+			'tag',
+			'character',
+			'parody',
+			'artist',
+			'page'
+		]) {
 			params.delete(key);
 		}
 		goto(`${page.url.pathname}?${params}`, { noScroll: true });
@@ -205,6 +228,27 @@
 					searchPlaceholder="Search parodies..."
 					emptyText="No parodies found."
 				/>
+			</Sidebar.GroupContent>
+		</Sidebar.Group>
+
+		<Separator />
+
+		<!-- Perceptual hash -->
+		<Sidebar.Group class="p-0">
+			<Sidebar.GroupLabel class="px-0">Perceptual hash</Sidebar.GroupLabel>
+			<Sidebar.GroupContent class="mt-1">
+				<Select.Root
+					type="single"
+					value={filters.has_phash || ANY}
+					onValueChange={(v) => setParam('has_phash', v)}
+				>
+					<Select.Trigger class="w-full">{phashLabel}</Select.Trigger>
+					<Select.Content>
+						{#each phashOptions as opt (opt.value)}
+							<Select.Item value={opt.value} label={opt.label}>{opt.label}</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
 	</Sidebar.Content>

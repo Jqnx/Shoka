@@ -1,11 +1,9 @@
 <script lang="ts">
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { Library, Wrench } from '@lucide/svelte';
+	import { CopyCheck, Library, Wrench } from '@lucide/svelte';
 
 	let { data } = $props();
-
-	const enabledCount = $derived(data.libraries.filter((l) => l.enabled).length);
 </script>
 
 <svelte:head>
@@ -25,11 +23,26 @@
 				</Card.Title>
 				<Card.Description>
 					{data.libraries.length}
-					{data.libraries.length === 1 ? 'library' : 'libraries'} · {enabledCount} enabled
+					{data.libraries.length === 1 ? 'library' : 'libraries'}
 				</Card.Description>
 			</Card.Header>
 			<Card.Footer>
 				<Button href="/admin/libraries" variant="outline" size="sm">Manage libraries</Button>
+			</Card.Footer>
+		</Card.Root>
+
+		<Card.Root>
+			<Card.Header>
+				<Card.Title class="flex items-center gap-2">
+					<CopyCheck class="size-4" />
+					Duplicates
+				</Card.Title>
+				<Card.Description>
+					Find archives that look alike across libraries by perceptual hash.
+				</Card.Description>
+			</Card.Header>
+			<Card.Footer>
+				<Button href="/admin/duplicates" variant="outline" size="sm">Review duplicates</Button>
 			</Card.Footer>
 		</Card.Root>
 

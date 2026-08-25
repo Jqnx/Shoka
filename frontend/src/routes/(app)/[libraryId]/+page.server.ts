@@ -24,8 +24,15 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 		Math.max(1, parseInt(url.searchParams.get('limit') ?? String(DEFAULT_LIMIT)) || DEFAULT_LIMIT)
 	);
 
+	// Only 'true'/'false' are meaningful here - the backend ignores anything
+	// else and filters on neither, so normalising junk to '' keeps the UI's
+	// displayed selection honest about what was actually applied.
+	const rawHasPHash = url.searchParams.get('has_phash');
+	const hasPHash = rawHasPHash === 'true' || rawHasPHash === 'false' ? rawHasPHash : '';
+
 	const filters = {
 		q: url.searchParams.get('q') ?? '',
+		has_phash: hasPHash,
 		sort: url.searchParams.get('sort') ?? '',
 		category: url.searchParams.get('category') ?? '',
 		language: url.searchParams.get('language') ?? '',
@@ -41,6 +48,7 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 		limit: String(limit)
 	});
 	if (filters.q) archiveParams.set('q', filters.q);
+	if (filters.has_phash) archiveParams.set('has_phash', filters.has_phash);
 	if (filters.sort) archiveParams.set('sort', filters.sort);
 	if (filters.category) archiveParams.set('category', filters.category);
 	if (filters.language) archiveParams.set('language', filters.language);

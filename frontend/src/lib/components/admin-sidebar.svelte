@@ -2,7 +2,7 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import UserMenu from '$lib/components/user-menu.svelte';
 	import { page } from '$app/state';
-	import { BookOpen, House, LayoutDashboard, Library, Wrench } from '@lucide/svelte';
+	import { BookOpen, CopyCheck, House, LayoutDashboard, Library, Wrench } from '@lucide/svelte';
 	import type { User } from 'better-auth';
 	import type { ComponentProps } from 'svelte';
 
@@ -17,6 +17,7 @@
 	const managementLinks = [
 		{ path: '/admin', label: 'Overview', icon: LayoutDashboard },
 		{ path: '/admin/libraries', label: 'Libraries', icon: Library },
+		{ path: '/admin/duplicates', label: 'Duplicates', icon: CopyCheck },
 		{ path: '/admin/maintenance', label: 'Maintenance', icon: Wrench }
 	];
 </script>

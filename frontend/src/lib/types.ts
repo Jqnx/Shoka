@@ -156,7 +156,6 @@ export type Library = {
 	name: string;
 	path: string;
 	type: string;
-	enabled: boolean;
 	created_at: string;
 	updated_at: string;
 };
@@ -203,4 +202,22 @@ export type ReaderSettings = {
 	page_layout: PageLayout;
 	fit_mode: FitMode;
 	background: ReaderBackground;
+};
+
+// One archive within a DuplicateGroup, as returned by GET /api/admin/duplicates.
+export type DuplicateArchive = {
+	id: string;
+	title: string;
+	library_id: string;
+	// Mean per-point Hamming distance to the group's first member (which is
+	// itself 0, i.e. the reference) - lower means more visually similar.
+	distance: number;
+	// Per-sample-point breakdown: p0 is the cover, p25/p50/p75 are that
+	// fraction through the archive. Points either side hasn't hashed are
+	// omitted rather than reported as 0.
+	distances: Record<string, number>;
+};
+
+export type DuplicateGroup = {
+	archives: DuplicateArchive[];
 };
