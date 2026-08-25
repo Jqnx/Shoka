@@ -138,6 +138,35 @@ definitions:
       type:
         type: string
     type: object
+  handlers.DuplicateArchive:
+    properties:
+      distance:
+        description: |-
+          Distance is the mean per-point Hamming distance to the group's first
+          member (itself 0) - lower means more visually similar.
+        type: integer
+      distances:
+        additionalProperties:
+          type: integer
+        description: |-
+          Distances breaks that down per sample point (p0 = cover, p25/p50/p75 =
+          that fraction through the archive). Points either side hasn't hashed
+          are omitted rather than reported as 0.
+        type: object
+      id:
+        type: string
+      library_id:
+        type: string
+      title:
+        type: string
+    type: object
+  handlers.DuplicateGroup:
+    properties:
+      archives:
+        items:
+          $ref: '#/definitions/handlers.DuplicateArchive'
+        type: array
+    type: object
   handlers.LanguageResponse:
     properties:
       code:
@@ -149,8 +178,6 @@ definitions:
     properties:
       created_at:
         type: string
-      enabled:
-        type: boolean
       id:
         type: string
       name:
@@ -322,8 +349,6 @@ definitions:
     type: object
   handlers.UpdateLibraryRequest:
     properties:
-      enabled:
-        type: boolean
       name:
         type: string
     type: object
@@ -468,6 +493,40 @@ paths:
       summary: Enqueue cover generation for all archives
       tags:
       - admin
+  /api/admin/duplicates:
+    get:
+      description: Cross-library maintenance action, like /admin/covers. Compares
+        archives at four sample points (the cover plus 25/50/75% through the pages)
+        and groups pairs where a majority of comparable points are within threshold
+        - so a match has to hold across the body of the work, not just its cover.
+        Groups are connected components (A close to B, B close to C groups all three
+        even if A and C aren't directly close), so treat larger groups as progressively
+        less certain. Archives the phash job hasn't processed yet are silently skipped.
+        Note that positional sampling assumes the two archives' page counts roughly
+        line up; a release padded with many extra pages can still slip through.
+      parameters:
+      - default: 8
+        description: Max per-point Hamming distance (0-20) for a sample point to count
+          as matching
+        in: query
+        name: threshold
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.DuplicateGroup'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Find likely-duplicate archives by perceptual hash
+      tags:
+      - admin
   /api/admin/libraries:
     post:
       consumes:
@@ -556,7 +615,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.Error'
-      summary: Rename or enable/disable a library
+      summary: Rename a library
       tags:
       - admin
   /api/admin/libraries/{id}/scan:
@@ -642,6 +701,21 @@ paths:
       summary: Configure a metadata source for a single library
       tags:
       - admin
+  /api/admin/phashes:
+    post:
+      description: Backfills the hashes GET /api/admin/duplicates compares. Safe to
+        re-run - each job overwrites that archive's hashes in place, so this is also
+        how you re-hash the library after a change to which pages get sampled.
+      responses:
+        "204":
+          description: No Content
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Enqueue perceptual-hash computation for all archives
+      tags:
+      - admin
   /api/archives:
     get:
       parameters:
@@ -708,6 +782,11 @@ paths:
         in: query
         name: category
         type: string
+      - description: Filter by whether the archive has been perceptually hashed (for
+          duplicate detection). Omit to include both.
+        in: query
+        name: has_phash
+        type: boolean
       produces:
       - application/json
       responses:

@@ -34,6 +34,44 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/admin/duplicates": {
+            "get": {
+                "description": "Cross-library maintenance action, like /admin/covers. Compares archives at four sample points (the cover plus 25/50/75% through the pages) and groups pairs where a majority of comparable points are within threshold - so a match has to hold across the body of the work, not just its cover. Groups are connected components (A close to B, B close to C groups all three even if A and C aren't directly close), so treat larger groups as progressively less certain. Archives the phash job hasn't processed yet are silently skipped. Note that positional sampling assumes the two archives' page counts roughly line up; a release padded with many extra pages can still slip through.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Find likely-duplicate archives by perceptual hash",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 8,
+                        "description": "Max per-point Hamming distance (0-20) for a sample point to count as matching",
+                        "name": "threshold",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/handlers.DuplicateGroup"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/admin/libraries": {
             "post": {
                 "consumes": [
@@ -124,7 +162,7 @@ const docTemplate = `{
                 "tags": [
                     "admin"
                 ],
-                "summary": "Rename or enable/disable a library",
+                "summary": "Rename a library",
                 "parameters": [
                     {
                         "type": "string",
@@ -298,6 +336,26 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/admin/phashes": {
+            "post": {
+                "description": "Backfills the hashes GET /api/admin/duplicates compares. Safe to re-run - each job overwrites that archive's hashes in place, so this is also how you re-hash the library after a change to which pages get sampled.",
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Enqueue perceptual-hash computation for all archives",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/archives": {
             "get": {
                 "produces": [
@@ -391,6 +449,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Filter by category",
                         "name": "category",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter by whether the archive has been perceptually hashed (for duplicate detection). Omit to include both.",
+                        "name": "has_phash",
                         "in": "query"
                     }
                 ],
@@ -2619,6 +2683,42 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.DuplicateArchive": {
+            "type": "object",
+            "properties": {
+                "distance": {
+                    "description": "Distance is the mean per-point Hamming distance to the group's first\nmember (itself 0) - lower means more visually similar.",
+                    "type": "integer"
+                },
+                "distances": {
+                    "description": "Distances breaks that down per sample point (p0 = cover, p25/p50/p75 =\nthat fraction through the archive). Points either side hasn't hashed\nare omitted rather than reported as 0.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "library_id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.DuplicateGroup": {
+            "type": "object",
+            "properties": {
+                "archives": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.DuplicateArchive"
+                    }
+                }
+            }
+        },
         "handlers.LanguageResponse": {
             "type": "object",
             "properties": {
@@ -2635,9 +2735,6 @@ const docTemplate = `{
             "properties": {
                 "created_at": {
                     "type": "string"
-                },
-                "enabled": {
-                    "type": "boolean"
                 },
                 "id": {
                     "type": "string"
@@ -2895,9 +2992,6 @@ const docTemplate = `{
         "handlers.UpdateLibraryRequest": {
             "type": "object",
             "properties": {
-                "enabled": {
-                    "type": "boolean"
-                },
                 "name": {
                     "type": "string"
                 }
