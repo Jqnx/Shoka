@@ -398,7 +398,7 @@ func (q *Queries) GetArchiveArtists(ctx context.Context, id string) ([]Artist, e
 const getArchiveByArtist = `-- name: GetArchiveByArtist :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75
 from archive
 join archive_artist on archive.id = archive_artist.archive_id
 join artist on archive_artist.artist_id = artist.id
@@ -428,6 +428,10 @@ func (q *Queries) GetArchiveByArtist(ctx context.Context, name string) ([]Archiv
 			&i.UpdatedAt,
 			&i.ReleaseDate,
 			&i.LibraryID,
+			&i.PhashP0,
+			&i.PhashP25,
+			&i.PhashP50,
+			&i.PhashP75,
 		); err != nil {
 			return nil, err
 		}
@@ -445,7 +449,7 @@ func (q *Queries) GetArchiveByArtist(ctx context.Context, name string) ([]Archiv
 const getArchiveByArtistList = `-- name: GetArchiveByArtistList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75
 from archive
 join archive_artist on archive.id = archive_artist.archive_id
 join artist on archive_artist.artist_id = artist.id
@@ -483,6 +487,10 @@ func (q *Queries) GetArchiveByArtistList(ctx context.Context, arg GetArchiveByAr
 			&i.UpdatedAt,
 			&i.ReleaseDate,
 			&i.LibraryID,
+			&i.PhashP0,
+			&i.PhashP25,
+			&i.PhashP50,
+			&i.PhashP75,
 		); err != nil {
 			return nil, err
 		}
@@ -584,7 +592,7 @@ func (q *Queries) GetArchiveIDsByArtists(ctx context.Context, arg GetArchiveIDsB
 const getArchivesByArtistID = `-- name: GetArchivesByArtistID :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, reading_progress.page, reading_progress.last_read, reading_progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, reading_progress.page, reading_progress.last_read, reading_progress.completed
 from archive
 join archive_artist on archive.id = archive_artist.archive_id
 join artist on archive_artist.artist_id = artist.id
@@ -616,6 +624,10 @@ type GetArchivesByArtistIDRow struct {
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
 	LibraryID   string     `json:"library_id"`
+	PhashP0     *int64     `json:"phash_p0"`
+	PhashP25    *int64     `json:"phash_p25"`
+	PhashP50    *int64     `json:"phash_p50"`
+	PhashP75    *int64     `json:"phash_p75"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
 	Completed   *bool      `json:"completed"`
@@ -649,6 +661,10 @@ func (q *Queries) GetArchivesByArtistID(ctx context.Context, arg GetArchivesByAr
 			&i.UpdatedAt,
 			&i.ReleaseDate,
 			&i.LibraryID,
+			&i.PhashP0,
+			&i.PhashP25,
+			&i.PhashP50,
+			&i.PhashP75,
 			&i.Page,
 			&i.LastRead,
 			&i.Completed,

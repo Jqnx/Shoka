@@ -60,7 +60,7 @@ insert into archive (
   page_count
 )
 values (?, ?, ?, ?, ?, ?, ?)
-returning id, title, summary, language, category, page_count, file_path, file_size, mod_time, created_at, updated_at, release_date, library_id
+returning id, title, summary, language, category, page_count, file_path, file_size, mod_time, created_at, updated_at, release_date, library_id, phash_p0, phash_p25, phash_p50, phash_p75
 `
 
 type CreateArchiveParams struct {
@@ -98,6 +98,10 @@ func (q *Queries) CreateArchive(ctx context.Context, arg CreateArchiveParams) (A
 		&i.UpdatedAt,
 		&i.ReleaseDate,
 		&i.LibraryID,
+		&i.PhashP0,
+		&i.PhashP25,
+		&i.PhashP50,
+		&i.PhashP75,
 	)
 	return i, err
 }
@@ -192,10 +196,67 @@ func (q *Queries) GetAllArchiveFilePaths(ctx context.Context) ([]GetAllArchiveFi
 	return items, nil
 }
 
+const getAllArchivePHashes = `-- name: GetAllArchivePHashes :many
+;
+
+select id, title, library_id, phash_p0, phash_p25, phash_p50, phash_p75
+from archive
+where phash_p0 is not null
+   or phash_p25 is not null
+   or phash_p50 is not null
+   or phash_p75 is not null
+`
+
+type GetAllArchivePHashesRow struct {
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	LibraryID string `json:"library_id"`
+	PhashP0   *int64 `json:"phash_p0"`
+	PhashP25  *int64 `json:"phash_p25"`
+	PhashP50  *int64 `json:"phash_p50"`
+	PhashP75  *int64 `json:"phash_p75"`
+}
+
+// Deliberately NOT scoped to a library - duplicate detection is a
+// cross-library maintenance action (the same doujin can end up scanned
+// into two different library folders). Rows with no hashes at all are
+// excluded; a row with only some points hashed is still useful (the
+// comparison just has fewer points to work with).
+func (q *Queries) GetAllArchivePHashes(ctx context.Context) ([]GetAllArchivePHashesRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllArchivePHashes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAllArchivePHashesRow
+	for rows.Next() {
+		var i GetAllArchivePHashesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.LibraryID,
+			&i.PhashP0,
+			&i.PhashP25,
+			&i.PhashP50,
+			&i.PhashP75,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAllArchives = `-- name: GetAllArchives :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, reading_progress.page, reading_progress.last_read, reading_progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, reading_progress.page, reading_progress.last_read, reading_progress.completed
 from archive
 left join
     reading_progress
@@ -224,6 +285,10 @@ type GetAllArchivesRow struct {
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
 	LibraryID   string     `json:"library_id"`
+	PhashP0     *int64     `json:"phash_p0"`
+	PhashP25    *int64     `json:"phash_p25"`
+	PhashP50    *int64     `json:"phash_p50"`
+	PhashP75    *int64     `json:"phash_p75"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
 	Completed   *bool      `json:"completed"`
@@ -252,6 +317,10 @@ func (q *Queries) GetAllArchives(ctx context.Context, arg GetAllArchivesParams) 
 			&i.UpdatedAt,
 			&i.ReleaseDate,
 			&i.LibraryID,
+			&i.PhashP0,
+			&i.PhashP25,
+			&i.PhashP50,
+			&i.PhashP75,
 			&i.Page,
 			&i.LastRead,
 			&i.Completed,
@@ -272,7 +341,7 @@ func (q *Queries) GetAllArchives(ctx context.Context, arg GetAllArchivesParams) 
 const getArchiveByFilePath = `-- name: GetArchiveByFilePath :one
 ;
 
-select id, title, summary, language, category, page_count, file_path, file_size, mod_time, created_at, updated_at, release_date, library_id
+select id, title, summary, language, category, page_count, file_path, file_size, mod_time, created_at, updated_at, release_date, library_id, phash_p0, phash_p25, phash_p50, phash_p75
 from archive
 where file_path = ?
 `
@@ -294,12 +363,16 @@ func (q *Queries) GetArchiveByFilePath(ctx context.Context, filePath string) (Ar
 		&i.UpdatedAt,
 		&i.ReleaseDate,
 		&i.LibraryID,
+		&i.PhashP0,
+		&i.PhashP25,
+		&i.PhashP50,
+		&i.PhashP75,
 	)
 	return i, err
 }
 
 const getArchiveByID = `-- name: GetArchiveByID :one
-select id, title, summary, language, category, page_count, file_path, file_size, mod_time, created_at, updated_at, release_date, library_id
+select id, title, summary, language, category, page_count, file_path, file_size, mod_time, created_at, updated_at, release_date, library_id, phash_p0, phash_p25, phash_p50, phash_p75
 from archive
 where id = ?
 `
@@ -321,6 +394,10 @@ func (q *Queries) GetArchiveByID(ctx context.Context, id string) (Archive, error
 		&i.UpdatedAt,
 		&i.ReleaseDate,
 		&i.LibraryID,
+		&i.PhashP0,
+		&i.PhashP25,
+		&i.PhashP50,
+		&i.PhashP75,
 	)
 	return i, err
 }
@@ -373,7 +450,7 @@ func (q *Queries) GetArchiveFilePathsByLibrary(ctx context.Context, libraryID st
 const getArchiveList = `-- name: GetArchiveList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, reading_progress.page, reading_progress.last_read, reading_progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, reading_progress.page, reading_progress.last_read, reading_progress.completed
 from archive
 left join
     reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = ?1
@@ -403,6 +480,10 @@ type GetArchiveListRow struct {
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
 	LibraryID   string     `json:"library_id"`
+	PhashP0     *int64     `json:"phash_p0"`
+	PhashP25    *int64     `json:"phash_p25"`
+	PhashP50    *int64     `json:"phash_p50"`
+	PhashP75    *int64     `json:"phash_p75"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
 	Completed   *bool      `json:"completed"`
@@ -436,6 +517,10 @@ func (q *Queries) GetArchiveList(ctx context.Context, arg GetArchiveListParams) 
 			&i.UpdatedAt,
 			&i.ReleaseDate,
 			&i.LibraryID,
+			&i.PhashP0,
+			&i.PhashP25,
+			&i.PhashP50,
+			&i.PhashP75,
 			&i.Page,
 			&i.LastRead,
 			&i.Completed,
@@ -547,6 +632,38 @@ type UpdateArchiveMetaParams struct {
 
 func (q *Queries) UpdateArchiveMeta(ctx context.Context, arg UpdateArchiveMetaParams) error {
 	_, err := q.db.ExecContext(ctx, updateArchiveMeta, arg.FileSize, arg.ModTime, arg.ID)
+	return err
+}
+
+const updateArchivePHashes = `-- name: UpdateArchivePHashes :exec
+;
+
+update archive
+set phash_p0 = ?,
+    phash_p25 = ?,
+    phash_p50 = ?,
+    phash_p75 = ?
+where id = ?
+`
+
+type UpdateArchivePHashesParams struct {
+	PhashP0  *int64 `json:"phash_p0"`
+	PhashP25 *int64 `json:"phash_p25"`
+	PhashP50 *int64 `json:"phash_p50"`
+	PhashP75 *int64 `json:"phash_p75"`
+	ID       string `json:"id"`
+}
+
+// All four sample points are written together by the phash job, so there's
+// no partial-update path to worry about.
+func (q *Queries) UpdateArchivePHashes(ctx context.Context, arg UpdateArchivePHashesParams) error {
+	_, err := q.db.ExecContext(ctx, updateArchivePHashes,
+		arg.PhashP0,
+		arg.PhashP25,
+		arg.PhashP50,
+		arg.PhashP75,
+		arg.ID,
+	)
 	return err
 }
 

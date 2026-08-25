@@ -117,6 +117,8 @@ func (s *Server) MountHandlers() {
 
 		r.Route("/api/admin", func(r chi.Router) {
 			r.Post("/covers", adminHandler.GenerateCovers)
+			r.Post("/phashes", adminHandler.GeneratePHashes)
+			r.Get("/duplicates", adminHandler.GetDuplicates)
 
 			r.Route("/libraries", func(r chi.Router) {
 				r.Post("/", libraryHandler.CreateLibrary)

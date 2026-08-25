@@ -22,6 +22,10 @@ type Archive struct {
 	UpdatedAt   time.Time  `json:"updated_at"`
 	ReleaseDate *time.Time `json:"release_date"`
 	LibraryID   string     `json:"library_id"`
+	PhashP0     *int64     `json:"phash_p0"`
+	PhashP25    *int64     `json:"phash_p25"`
+	PhashP50    *int64     `json:"phash_p50"`
+	PhashP75    *int64     `json:"phash_p75"`
 }
 
 type ArchiveArtist struct {
@@ -133,7 +137,6 @@ type Library struct {
 	Name      string    `json:"name"`
 	Path      string    `json:"path"`
 	Type      string    `json:"type"`
-	Enabled   int64     `json:"enabled"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

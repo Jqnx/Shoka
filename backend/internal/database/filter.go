@@ -20,10 +20,13 @@ type ArchiveFilter struct {
 	Parodies   []string
 	Language   string
 	Category   string
-	Sort       string
-	Limit      int64
-	Offset     int64
-	UserID     string
+	// HasPHash is tri-state: nil means "don't filter on it at all", which is
+	// why it isn't a plain bool.
+	HasPHash *bool
+	Sort     string
+	Limit    int64
+	Offset   int64
+	UserID   string
 }
 
 // SortOption is one valid value for ArchiveFilter.Sort. SortOptions is the
@@ -36,6 +39,13 @@ type SortOption struct {
 	DisplayName string
 	clause      string
 }
+
+// hasNoPHashExpr is true for an archive with none of its sample points
+// hashed - the same definition of "hashed" GetAllArchivePHashes uses, so an
+// archive whose cover failed to hash but whose interior points succeeded
+// still counts as hashed (it's still usable for duplicate detection, which
+// needs two comparable points). Backs the has_phash filter.
+const hasNoPHashExpr = "(archive.phash_p0 IS NULL AND archive.phash_p25 IS NULL AND archive.phash_p50 IS NULL AND archive.phash_p75 IS NULL)"
 
 var SortOptions = []SortOption{
 	{"title_asc", "Title (A–Z)", "archive.title ASC"},
@@ -110,6 +120,14 @@ func buildWhere(f ArchiveFilter) (string, []any) {
 	if f.Category != "" {
 		sb.WriteString("AND archive.category = ? ")
 		args = append(args, f.Category)
+	}
+
+	if f.HasPHash != nil {
+		if *f.HasPHash {
+			sb.WriteString("AND NOT " + hasNoPHashExpr + " ")
+		} else {
+			sb.WriteString("AND " + hasNoPHashExpr + " ")
+		}
 	}
 
 	// The trigram tokenizer can't form a trigram from fewer than 3

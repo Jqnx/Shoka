@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/corona10/goimagehash"
 	"github.com/davidbyttow/govips/v2/vips"
 )
 
@@ -119,6 +120,32 @@ func (p *Processor) GenerateThumbnail(ctx context.Context, archiveID string, ind
 
 	p.log.Debug("thumbnail generated", "archive_id", archiveID, "index", index)
 	return nil
+}
+
+// ComputePHash computes a 64-bit perceptual hash (DCT-based, see
+// goimagehash.PerceptionHash) of an image - used for duplicate detection
+// across archives whose cover looks the same even when the file doesn't
+// match byte-for-byte (recompressed, re-cropped, different format, ...).
+// Unlike processImage/ProcessToBytes this never touches disk or re-encodes:
+// ToGoImage() converts the decoded vips image directly to a Go image.Image.
+func (p *Processor) ComputePHash(data []byte) (uint64, error) {
+	img, err := vips.NewImageFromBuffer(data)
+	if err != nil {
+		return 0, fmt.Errorf("decode image: %w", err)
+	}
+	defer img.Close()
+
+	goImg, err := img.ToGoImage()
+	if err != nil {
+		return 0, fmt.Errorf("convert to go image: %w", err)
+	}
+
+	hash, err := goimagehash.PerceptionHash(goImg)
+	if err != nil {
+		return 0, fmt.Errorf("compute perceptual hash: %w", err)
+	}
+
+	return hash.GetHash(), nil
 }
 
 // EvictAll removes the entire cache directory for an archive.

@@ -136,3 +136,28 @@ delete from archive
 delete from archive
 where file_path = ?
 ;
+
+-- name: UpdateArchivePHashes :exec
+-- All four sample points are written together by the phash job, so there's
+-- no partial-update path to worry about.
+update archive
+set phash_p0 = ?,
+    phash_p25 = ?,
+    phash_p50 = ?,
+    phash_p75 = ?
+where id = ?
+;
+
+-- name: GetAllArchivePHashes :many
+-- Deliberately NOT scoped to a library - duplicate detection is a
+-- cross-library maintenance action (the same doujin can end up scanned
+-- into two different library folders). Rows with no hashes at all are
+-- excluded; a row with only some points hashed is still useful (the
+-- comparison just has fewer points to work with).
+select id, title, library_id, phash_p0, phash_p25, phash_p50, phash_p75
+from archive
+where phash_p0 is not null
+   or phash_p25 is not null
+   or phash_p50 is not null
+   or phash_p75 is not null
+;
