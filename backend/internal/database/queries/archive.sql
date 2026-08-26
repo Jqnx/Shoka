@@ -161,3 +161,12 @@ where phash_p0 is not null
    or phash_p50 is not null
    or phash_p75 is not null
 ;
+
+-- name: GetArchivesByIDs :many
+-- Backs the bulk endpoints: resolves which of a caller-supplied set of ids
+-- actually exist (so missing ones can be reported per-id rather than
+-- failing the whole batch) and carries page_count for read-marking.
+select id, page_count
+from archive
+where id in (sqlc.slice('ids'))
+;

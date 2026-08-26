@@ -42,3 +42,24 @@ select count(*)
 from reading_progress
 where user_id = ?
 ;
+
+-- name: MarkArchivesRead :exec
+-- One statement rather than a loop: the page to land on differs per archive
+-- (its own last page), so it's read straight off each archive row. Archives
+-- with no pages clamp to 0 instead of -1.
+insert into reading_progress (archive_id, user_id, page, completed, last_read)
+select archive.id, sqlc.arg('uid'), max(archive.page_count - 1, 0), true, datetime('now')
+from archive
+where archive.id in (sqlc.slice('ids'))
+on conflict (user_id, archive_id) do update set
+    page = excluded.page,
+    completed = excluded.completed,
+    last_read = excluded.last_read
+;
+
+-- name: MarkArchivesUnread :exec
+-- Deletes the rows outright rather than zeroing them, matching
+-- DeleteReadingProgress: page 0 still counts as "in progress".
+delete from reading_progress
+where user_id = sqlc.arg('uid') and archive_id in (sqlc.slice('ids'))
+;

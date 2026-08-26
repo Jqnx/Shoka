@@ -75,7 +75,9 @@ func (q *Queue) EnqueueAfter(ctx context.Context, jobType string, payload any, d
 		return err
 	}
 
-	runAfter := time.Now().Add(delay)
+	// UTC so the stored value matches the column's datetime('now')
+	// default and ClaimJob's comparison basis.
+	runAfter := time.Now().UTC().Add(delay)
 
 	if err := q.queries.EnqueueJobAfter(ctx, sqlc.EnqueueJobAfterParams{
 		Type:     jobType,
@@ -124,7 +126,7 @@ func (q *Queue) markFailed(ctx context.Context, id int64, jobErr error) error {
 
 func (q *Queue) requeueForRetry(ctx context.Context, id int64, attempts int64) error {
 	backoff := time.Duration(attempts*attempts) * 30 * time.Second
-	runAfter := time.Now().Add(backoff)
+	runAfter := time.Now().UTC().Add(backoff)
 
 	err := q.queries.RequeueJob(ctx, sqlc.RequeueJobParams{
 		RunAfter: runAfter,

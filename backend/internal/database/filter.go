@@ -269,3 +269,48 @@ func GetBulkArchiveMetadata(ctx context.Context, db *sql.DB, archiveIDs []string
 
 	return result, nil
 }
+
+// CanonicalNames maps lowercased name -> the spelling already stored in
+// table, for whichever of names already exist there.
+//
+// The entity name columns are case-sensitively unique, so "Big Breasts"
+// and "big breasts" can coexist as separate rows that then behave as
+// unrelated tags when filtering. Callers use this to snap incoming names
+// onto the spelling already in use before writing. table is always a
+// caller-supplied constant, never user input - same as getRelationNames
+// above.
+func CanonicalNames(ctx context.Context, db *sql.DB, table string, names []string) (map[string]string, error) {
+	canonical := make(map[string]string, len(names))
+	if len(names) == 0 {
+		return canonical, nil
+	}
+
+	args := make([]any, 0, len(names))
+	for _, name := range names {
+		if name = strings.TrimSpace(name); name != "" {
+			args = append(args, strings.ToLower(name))
+		}
+	}
+	if len(args) == 0 {
+		return canonical, nil
+	}
+
+	placeholders := strings.Repeat(",?", len(args))[1:]
+	query := fmt.Sprintf("SELECT name FROM %s WHERE lower(name) IN (%s)", table, placeholders)
+
+	rows, err := db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		canonical[strings.ToLower(name)] = name
+	}
+
+	return canonical, rows.Err()
+}

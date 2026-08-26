@@ -474,6 +474,144 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/archives/bulk": {
+            "patch": {
+                "description": "Relations (artists/tags/parodies/circles/characters) MERGE into what each archive already has rather than replacing it, so an archive keeps its own tags and gains the submitted ones; de-duplication is case-insensitive and submitted names are snapped to the spelling already in use. Because it only adds, an empty array is a no-op rather than \"clear\" and bulk removal is unsupported. Scalars (language/category) are SET, overwriting the current value; omit or null them to leave them alone, send \"\" to blank them. Title, summary and release_date are intentionally not editable here since they describe one specific archive - use PATCH /api/archives/{id} for those. Each archive is applied in its own transaction, so a failure part-way through leaves earlier archives updated and reports the rest in \"failed\".",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "archives"
+                ],
+                "summary": "Update shared metadata on archives in bulk",
+                "parameters": [
+                    {
+                        "description": "Archives and relations to add",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BulkUpdateArchivesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BulkResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/archives/bulk/metadata": {
+            "post": {
+                "description": "Enqueues the same metadata job the scanner uses for newly added archives: local sources run first and are applied, then a remote job is chained to fill remaining gaps. Pass \"source\" to pin the fetch to a single named source instead, in which case only that source runs and nothing is chained; network-backed sources are queued on the low-concurrency worker so a large batch doesn't hammer them. A source that is disabled for a given archive's library is skipped rather than retried. Returns as soon as the jobs are queued - \"succeeded\" counts archives queued, not archives whose metadata has been written yet. Unlike the single-archive fetch endpoints there is no preview/confirm step, so results are applied automatically.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "archives"
+                ],
+                "summary": "Fetch and apply metadata for archives in bulk",
+                "parameters": [
+                    {
+                        "description": "Archives to identify, optionally pinned to one source",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BulkMetadataRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BulkResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/archives/bulk/progress": {
+            "put": {
+                "description": "Marking read jumps each archive to its own last page and flags it completed; marking unread deletes the progress row outright (page 0 would still count as in-progress). Ids that don't resolve to an archive are reported in \"failed\" rather than failing the request.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "archives"
+                ],
+                "summary": "Mark archives read or unread in bulk",
+                "parameters": [
+                    {
+                        "description": "Archives and desired read state",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BulkProgressRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BulkResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/archives/categories": {
             "get": {
                 "description": "Returns every distinct category currently in use across all libraries, sorted. Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.",
@@ -2608,6 +2746,111 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "handlers.BulkFailure": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.BulkMetadataRequest": {
+            "type": "object",
+            "properties": {
+                "ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "source": {
+                    "description": "Source optionally pins the fetch to one named metadata source\n(comicinfo, filename, e-hentai, nhentai). Omit it to run the normal\npriority-ordered pipeline.",
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.BulkProgressRequest": {
+            "type": "object",
+            "properties": {
+                "ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "read": {
+                    "description": "Read true marks every archive finished (its own last page); false\nclears progress entirely, the same as DELETE .../{id}/progress.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "handlers.BulkResult": {
+            "type": "object",
+            "properties": {
+                "failed": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.BulkFailure"
+                    }
+                },
+                "requested": {
+                    "type": "integer"
+                },
+                "succeeded": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.BulkUpdateArchivesRequest": {
+            "type": "object",
+            "properties": {
+                "artists": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "category": {
+                    "type": "string"
+                },
+                "characters": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "circles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "language": {
+                    "type": "string"
+                },
+                "parodies": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "tags": {
                     "type": "array",
                     "items": {
                         "type": "string"

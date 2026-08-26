@@ -33,9 +33,10 @@ type ArchiveHandler struct {
 	cache       *image.Cache
 	queue       *jobs.Queue
 	broadcaster *events.ThumbnailBroadcaster
+	pipeline    *metadata.Pipeline
 }
 
-func NewArchiveHandler(queries *sqlc.Queries, db *sql.DB, log *slog.Logger, processor *image.Processor, cache *image.Cache, queue *jobs.Queue, broadcaster *events.ThumbnailBroadcaster) *ArchiveHandler {
+func NewArchiveHandler(queries *sqlc.Queries, db *sql.DB, log *slog.Logger, processor *image.Processor, cache *image.Cache, queue *jobs.Queue, broadcaster *events.ThumbnailBroadcaster, pipeline *metadata.Pipeline) *ArchiveHandler {
 	return &ArchiveHandler{
 		queries:     queries,
 		db:          db,
@@ -43,6 +44,7 @@ func NewArchiveHandler(queries *sqlc.Queries, db *sql.DB, log *slog.Logger, proc
 		cache:       cache,
 		queue:       queue,
 		broadcaster: broadcaster,
+		pipeline:    pipeline,
 		logger:      log.With("handler", "archive"),
 	}
 }

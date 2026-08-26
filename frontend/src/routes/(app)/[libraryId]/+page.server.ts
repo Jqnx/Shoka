@@ -1,11 +1,13 @@
-import { error } from '@sveltejs/kit';
-import type { PageServerLoad } from './$types';
+import { error, fail } from '@sveltejs/kit';
+import type { Actions, PageServerLoad } from './$types';
+import { errorMessage } from '$lib/server/api';
 import type {
 	Artist,
 	ArchiveLanguage,
 	ArchiveListResponse,
 	ArchiveSortOption,
 	Character,
+	MetadataSourceInfo,
 	Parody,
 	Tag
 } from '$lib/types';
@@ -65,7 +67,8 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 		parodiesRes,
 		sortOptionsRes,
 		categoriesRes,
-		languagesRes
+		languagesRes,
+		sourcesRes
 	] = await Promise.all([
 		fetch(`/api/archives?${archiveParams}`),
 		fetch('/api/artists/all'),
@@ -74,7 +77,12 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 		fetch('/api/parodies/all'),
 		fetch('/api/archives/sort-options'),
 		fetch('/api/archives/categories'),
-		fetch('/api/archives/languages')
+		fetch('/api/archives/languages'),
+		// Which sources the bulk-identify picker may offer. Enablement is
+		// per-library, and the backend silently skips a source that's disabled
+		// for the archive's library, so the picker needs this to avoid
+		// offering a no-op.
+		fetch(`/api/metadata/sources?library_id=${library.id}`)
 	]);
 
 	const archivesData: ArchiveListResponse = archivesRes.ok
@@ -87,6 +95,7 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 	const sortOptions: ArchiveSortOption[] = sortOptionsRes.ok ? await sortOptionsRes.json() : [];
 	const categories: string[] = categoriesRes.ok ? await categoriesRes.json() : [];
 	const languages: ArchiveLanguage[] = languagesRes.ok ? await languagesRes.json() : [];
+	const metadataSources: MetadataSourceInfo[] = sourcesRes.ok ? await sourcesRes.json() : [];
 
 	return {
 		library,
@@ -101,6 +110,110 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 		parodies,
 		sortOptions,
 		categories,
-		languages
+		languages,
+		metadataSources
 	};
+};
+
+// Every bulk endpoint answers with this shape and is deliberately
+// partial-success: a single bad archive lands in `failed` instead of
+// rolling back the ones that worked.
+type BulkResult = {
+	requested: number;
+	succeeded: number;
+	failed: { id: string; error: string }[];
+};
+
+function summarize(action: string, result: BulkResult) {
+	return {
+		action,
+		success: true as const,
+		requested: result.requested,
+		succeeded: result.succeeded,
+		failed: result.failed?.length ?? 0
+	};
+}
+
+export const actions: Actions = {
+	bulkProgress: async ({ request, fetch }) => {
+		const form = await request.formData();
+		const ids = form.getAll('ids').map(String);
+		const read = form.get('read') === 'true';
+		if (ids.length === 0) {
+			return fail(400, { action: 'bulkProgress' as const, error: 'No archives selected.' });
+		}
+
+		const res = await fetch('/api/archives/bulk/progress', {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ ids, read })
+		});
+		if (!res.ok) {
+			return fail(res.status, {
+				action: 'bulkProgress' as const,
+				error: await errorMessage(res, 'Failed to update archives.')
+			});
+		}
+		return summarize(read ? 'markRead' : 'markUnread', await res.json());
+	},
+
+	bulkIdentify: async ({ request, fetch }) => {
+		const form = await request.formData();
+		const ids = form.getAll('ids').map(String);
+		if (ids.length === 0) {
+			return fail(400, { action: 'bulkIdentify' as const, error: 'No archives selected.' });
+		}
+
+		// Omitted means "run the normal priority-ordered pipeline"; the backend
+		// rejects an unknown name outright, so only send a non-empty one.
+		const source = String(form.get('source') ?? '').trim();
+
+		const res = await fetch('/api/archives/bulk/metadata', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(source ? { ids, source } : { ids })
+		});
+		if (!res.ok) {
+			return fail(res.status, {
+				action: 'bulkIdentify' as const,
+				error: await errorMessage(res, 'Failed to queue identification.')
+			});
+		}
+		return summarize('identify', await res.json());
+	},
+
+	bulkEdit: async ({ request, fetch }) => {
+		const form = await request.formData();
+		const ids = form.getAll('ids').map(String);
+		if (ids.length === 0) {
+			return fail(400, { action: 'bulkEdit' as const, error: 'No archives selected.' });
+		}
+
+		// Relations are additive on the backend (existing values are kept and
+		// unioned with these), and an omitted key means "leave alone" - so
+		// empty lists are dropped rather than sent, which would be a no-op
+		// anyway. Scalars overwrite, and '' is how you deliberately blank one,
+		// hence the explicit "was it submitted at all" check.
+		const body: Record<string, unknown> = { ids };
+		for (const field of ['artists', 'tags', 'parodies', 'circles', 'characters']) {
+			const values = form.getAll(field).map(String).filter(Boolean);
+			if (values.length > 0) body[field] = values;
+		}
+		for (const field of ['language', 'category']) {
+			if (form.has(field)) body[field] = String(form.get(field) ?? '');
+		}
+
+		const res = await fetch('/api/archives/bulk', {
+			method: 'PATCH',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(body)
+		});
+		if (!res.ok) {
+			return fail(res.status, {
+				action: 'bulkEdit' as const,
+				error: await errorMessage(res, 'Failed to update archives.')
+			});
+		}
+		return summarize('edit', await res.json());
+	}
 };

@@ -17,7 +17,12 @@ where id = (
   select id
   from job
   where status = 'pending'
-  and run_after <= datetime('now')
+  -- datetime() on both sides rather than a bare string comparison: Go
+  -- writes time.Time as local time with a UTC offset ("...14:52:54+02:00")
+  -- while datetime('now') is UTC, so comparing the raw text compares
+  -- wall-clock digits from different zones and delays (or, in a negative
+  -- offset, skips) every backoff.
+  and datetime(run_after) <= datetime('now')
   order by created_at asc
   limit 1
 )

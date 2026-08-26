@@ -40,7 +40,7 @@ func (s *Server) MountHandlers() {
 		r.Use(authMiddleware(s.DB))
 
 		testHandler := handlers.NewTestHandler(s.Queries, s.Processor, s.Log)
-		archiveHandler := handlers.NewArchiveHandler(s.Queries, s.DB, s.Log, s.Processor, s.Cache, s.Queue, s.Thumbnails)
+		archiveHandler := handlers.NewArchiveHandler(s.Queries, s.DB, s.Log, s.Processor, s.Cache, s.Queue, s.Thumbnails, s.Pipeline)
 		metadataHandler := handlers.NewMetadataHandler(s.Queries, s.DB, s.Pipeline, s.Processor, s.Log)
 		adminHandler := handlers.NewAdminHandler(s.Queries, s.Queue, s.Log)
 		libraryHandler := handlers.NewLibraryHandler(s.Queries, s.Queue, s.Libraries, s.Log)
@@ -59,6 +59,16 @@ func (s *Server) MountHandlers() {
 		r.Get("/api/archives/languages", archiveHandler.GetLanguages)
 		r.Get("/api/archives/recently-read", archiveHandler.GetRecentlyRead)
 		r.Get("/api/archives/favorites", archiveHandler.GetFavorites)
+
+		// Registered before the /api/archives/{id} routes below: chi matches
+		// static segments ahead of wildcards, so "bulk" can't be swallowed as
+		// an archive id, but keeping them adjacent makes that ordering
+		// obvious to the next reader.
+		r.Route("/api/archives/bulk", func(r chi.Router) {
+			r.Patch("/", archiveHandler.BulkUpdateArchives)
+			r.Put("/progress", archiveHandler.BulkUpdateProgress)
+			r.Post("/metadata", archiveHandler.BulkFetchMetadata)
+		})
 		r.Get("/api/tags", tagHandler.GetTags)
 		r.Get("/api/tags/all", tagHandler.GetAllTags)
 		r.Route("/api/tags/{id}", func(r chi.Router) {

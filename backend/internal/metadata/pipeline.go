@@ -295,6 +295,20 @@ func (p *Pipeline) FetchFromSourceByID(ctx context.Context, name string, input I
 	return remote.FetchByID(ctx, input, id)
 }
 
+// SourceIsLocal reports whether name is a registered source (known) and,
+// if so, whether it reads from the local filesystem rather than the network
+// (isLocal). Callers use this to validate a caller-supplied source name and
+// to decide which job queue to run it on - remote sources are deliberately
+// processed at low concurrency so they aren't hammered.
+func (p *Pipeline) SourceIsLocal(name string) (isLocal, known bool) {
+	for _, s := range p.sources {
+		if s.Name() == name {
+			return s.IsLocal(), true
+		}
+	}
+	return false, false
+}
+
 // Sources returns info about all registered sources and their enabled
 // state for the given library.
 func (p *Pipeline) Sources(ctx context.Context, libraryID string) []SourceInfo {

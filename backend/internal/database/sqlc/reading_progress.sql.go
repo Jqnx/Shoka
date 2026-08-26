@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"strings"
 	"time"
 )
 
@@ -155,6 +156,73 @@ func (q *Queries) GetRecentlyReadArchives(ctx context.Context, arg GetRecentlyRe
 		return nil, err
 	}
 	return items, nil
+}
+
+const markArchivesRead = `-- name: MarkArchivesRead :exec
+;
+
+insert into reading_progress (archive_id, user_id, page, completed, last_read)
+select archive.id, ?1, max(archive.page_count - 1, 0), true, datetime('now')
+from archive
+where archive.id in (/*SLICE:ids*/?)
+on conflict (user_id, archive_id) do update set
+    page = excluded.page,
+    completed = excluded.completed,
+    last_read = excluded.last_read
+`
+
+type MarkArchivesReadParams struct {
+	Uid string   `json:"uid"`
+	Ids []string `json:"ids"`
+}
+
+// One statement rather than a loop: the page to land on differs per archive
+// (its own last page), so it's read straight off each archive row. Archives
+// with no pages clamp to 0 instead of -1.
+func (q *Queries) MarkArchivesRead(ctx context.Context, arg MarkArchivesReadParams) error {
+	query := markArchivesRead
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Uid)
+	if len(arg.Ids) > 0 {
+		for _, v := range arg.Ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
+}
+
+const markArchivesUnread = `-- name: MarkArchivesUnread :exec
+;
+
+delete from reading_progress
+where user_id = ?1 and archive_id in (/*SLICE:ids*/?)
+`
+
+type MarkArchivesUnreadParams struct {
+	Uid string   `json:"uid"`
+	Ids []string `json:"ids"`
+}
+
+// Deletes the rows outright rather than zeroing them, matching
+// DeleteReadingProgress: page 0 still counts as "in progress".
+func (q *Queries) MarkArchivesUnread(ctx context.Context, arg MarkArchivesUnreadParams) error {
+	query := markArchivesUnread
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Uid)
+	if len(arg.Ids) > 0 {
+		for _, v := range arg.Ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
 }
 
 const upsertReadingProgress = `-- name: UpsertReadingProgress :one

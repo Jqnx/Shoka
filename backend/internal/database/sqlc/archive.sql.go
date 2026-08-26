@@ -8,6 +8,7 @@ package sqlc
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"time"
 )
 
@@ -559,6 +560,55 @@ func (q *Queries) GetArchiveShuffle(ctx context.Context, arg GetArchiveShufflePa
 	var id string
 	err := row.Scan(&id)
 	return id, err
+}
+
+const getArchivesByIDs = `-- name: GetArchivesByIDs :many
+;
+
+select id, page_count
+from archive
+where id in (/*SLICE:ids*/?)
+`
+
+type GetArchivesByIDsRow struct {
+	ID        string `json:"id"`
+	PageCount int64  `json:"page_count"`
+}
+
+// Backs the bulk endpoints: resolves which of a caller-supplied set of ids
+// actually exist (so missing ones can be reported per-id rather than
+// failing the whole batch) and carries page_count for read-marking.
+func (q *Queries) GetArchivesByIDs(ctx context.Context, ids []string) ([]GetArchivesByIDsRow, error) {
+	query := getArchivesByIDs
+	var queryParams []interface{}
+	if len(ids) > 0 {
+		for _, v := range ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchivesByIDsRow
+	for rows.Next() {
+		var i GetArchivesByIDsRow
+		if err := rows.Scan(&i.ID, &i.PageCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getFilePathByID = `-- name: GetFilePathByID :one
