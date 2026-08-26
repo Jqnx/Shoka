@@ -58,3 +58,8 @@ info.yml
 
 # Notes
 notes.txt
+
+.agents/
+.claude/
+agent/
+skills-lock.json
