@@ -136,6 +136,18 @@ func (p *Processor) ComputePHash(data []byte) (uint64, error) {
 	}
 	defer img.Close()
 
+	// goimagehash.PerceptionHash resizes to exactly 64x64 internally with a
+	// pure-Go bilinear resize regardless of input size - shrink with vips'
+	// SIMD Lanczos3 first instead of allocating a full-resolution Go image
+	// and resizing that in pure Go.
+	const phashDim = 64
+	if longest := max(img.Width(), img.Height()); longest > phashDim {
+		scale := float64(phashDim) / float64(longest)
+		if err := img.Resize(scale, vips.KernelLanczos3); err != nil {
+			return 0, fmt.Errorf("resize: %w", err)
+		}
+	}
+
 	goImg, err := img.ToGoImage()
 	if err != nil {
 		return 0, fmt.Errorf("convert to go image: %w", err)

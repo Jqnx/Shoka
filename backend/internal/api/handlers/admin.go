@@ -90,12 +90,15 @@ type DuplicateArchive struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
 	LibraryID string `json:"library_id"`
-	// Distance is the mean per-point Hamming distance to the group's first
-	// member (itself 0) - lower means more visually similar.
+	// Distance is the mean per-point Hamming distance to whichever *other*
+	// member of the group this archive matches most closely - lower means
+	// more visually similar. In a chained group (A close to B, B close to C)
+	// this reports the real match, not the distance to an arbitrary anchor.
 	Distance int `json:"distance"`
 	// Distances breaks that down per sample point (p0 = cover, p25/p50/p75 =
-	// that fraction through the archive). Points either side hasn't hashed
-	// are omitted rather than reported as 0.
+	// that fraction through the archive), against that same closest member.
+	// Points either archive hasn't hashed are omitted rather than reported
+	// as 0.
 	Distances map[string]int `json:"distances"`
 }
 
@@ -226,21 +229,41 @@ func (h *AdminHandler) GetDuplicates(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		anchor := candidates[members[0]]
-
 		archives := make([]DuplicateArchive, 0, len(members))
 		for _, idx := range members {
 			c := candidates[idx]
-			mean, _, _ := comparePHashes(anchor.hashes, c.hashes, threshold)
 
-			distances := make(map[string]int, len(samplePointLabels))
-			for k, label := range samplePointLabels {
-				if anchor.hashes[k] == nil || c.hashes[k] == nil {
+			// Compare against whichever other group member c is actually
+			// closest to, rather than a fixed anchor: union-find chains
+			// A-B and B-C into one group even when A and C are a poor
+			// direct match, and reporting c's distance to that anchor
+			// would look like a false positive.
+			mean := 0
+			nearest := -1
+
+			for _, otherIdx := range members {
+				if otherIdx == idx {
 					continue
 				}
 
-				//nolint:gosec // bit reinterpretation of a 64-bit perceptual hash stored as signed int64, not an arithmetic conversion
-				distances[label] = bits.OnesCount64(uint64(*anchor.hashes[k]) ^ uint64(*c.hashes[k]))
+				m, compared, _ := comparePHashes(c.hashes, candidates[otherIdx].hashes, threshold)
+				if compared > 0 && (nearest == -1 || m < mean) {
+					mean = m
+					nearest = otherIdx
+				}
+			}
+
+			distances := make(map[string]int, len(samplePointLabels))
+			if nearest != -1 {
+				other := candidates[nearest]
+				for k, label := range samplePointLabels {
+					if c.hashes[k] == nil || other.hashes[k] == nil {
+						continue
+					}
+
+					//nolint:gosec // bit reinterpretation of a 64-bit perceptual hash stored as signed int64, not an arithmetic conversion
+					distances[label] = bits.OnesCount64(uint64(*c.hashes[k]) ^ uint64(*other.hashes[k]))
+				}
 			}
 
 			archives = append(archives, DuplicateArchive{

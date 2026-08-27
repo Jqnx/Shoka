@@ -80,16 +80,16 @@ func (q *Queue) EnqueueAfter(ctx context.Context, jobType string, payload any, d
 	// default and ClaimJob's comparison basis.
 	runAfter := time.Now().UTC().Add(delay)
 
-	if err := q.queries.EnqueueJobAfter(ctx, sqlc.EnqueueJobAfterParams{
+	err = q.queries.EnqueueJobAfter(ctx, sqlc.EnqueueJobAfterParams{
 		Type:     jobType,
 		Payload:  string(b),
 		RunAfter: runAfter,
-	}); err != nil {
+	})
+	if err != nil {
 		q.log.Error("failed to enqueue job", "type", jobType, "error", err)
-		return err
 	}
 
-	return nil
+	return err
 }
 
 func (q *Queue) claim(ctx context.Context) (*Job, error) {

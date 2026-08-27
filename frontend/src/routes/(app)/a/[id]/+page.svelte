@@ -57,7 +57,15 @@
 	// one to link/label with either - fall back to the first library, same
 	// as the rest of the app until that's exposed.
 	const fromParam = $derived(page.url.searchParams.get('from'));
-	const fromLibraryId = $derived(fromParam?.match(/^\/([^/?]+)/)?.[1]);
+	// `from`'s first path segment is only a library id when the user came from
+	// a library listing - coming from e.g. /admin/duplicates it's "admin",
+	// which must not flow on as a real library id (it would make
+	// MetadataFetchDialog fail open on every source). Validate it against the
+	// libraries actually loaded before trusting it.
+	const fromSegment = $derived(fromParam?.match(/^\/([^/?]+)/)?.[1]);
+	const fromLibraryId = $derived(
+		fromSegment && data.libraries.some((l) => l.id === fromSegment) ? fromSegment : undefined
+	);
 	// Same resolved id used for both the back-link label and, further down,
 	// which library's metadata source settings the edit sheet's fetch dialog
 	// should respect (see MetadataFetchDialog's disabled-source picker).

@@ -146,7 +146,7 @@ func (s *ArchiveScanner) process(ctx context.Context, lib sqlc.Library, found ma
 		}
 
 		if s.hasChanged(record, info) {
-			if err := s.updateArchive(ctx, record.ID, info); err != nil {
+			if err := s.updateArchive(ctx, path, record.ID, info); err != nil {
 				s.log.Error("failed to update archive", "path", path, "error", err)
 				continue
 			}
@@ -251,11 +251,21 @@ func (s *ArchiveScanner) addArchive(ctx context.Context, lib sqlc.Library, path 
 }
 
 // updateArchive() updates an existing archive and queues up necessary jobs.
-func (s *ArchiveScanner) updateArchive(ctx context.Context, id string, info fs.FileInfo) error {
+func (s *ArchiveScanner) updateArchive(ctx context.Context, path, id string, info fs.FileInfo) error {
 	if err := s.queries.UpdateArchiveMeta(ctx, sqlc.UpdateArchiveMetaParams{
 		ID:       id,
 		FileSize: info.Size(),
 		ModTime:  info.ModTime(),
+	}); err != nil {
+		return err
+	}
+
+	// The file's contents changed, so the stored perceptual hashes are now
+	// stale - re-hash so GetDuplicates keeps comparing against current data
+	// instead of waiting on the full-library POST /api/admin/phashes backfill.
+	if err := s.queue.Enqueue(ctx, jobs.JobTypePHash, jobs.PHashPayload{
+		ArchiveID: id,
+		FilePath:  path,
 	}); err != nil {
 		return err
 	}

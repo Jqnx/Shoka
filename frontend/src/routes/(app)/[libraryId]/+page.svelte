@@ -11,6 +11,7 @@
 	import BulkEditDialog from '$lib/components/BulkEditDialog.svelte';
 	import { Search, CheckSquare, Square, Ellipsis, Check, RotateCcw, Sparkles } from '@lucide/svelte';
 	import { enhance } from '$app/forms';
+	import type { ActionResult } from '@sveltejs/kit';
 	import { cn } from '$lib/utils.js';
 	import { goto, afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
@@ -87,13 +88,24 @@
 	}
 
 	// Shared enhance handler for the dropdown's bulk forms: every one of them
-	// acts on the current selection and is done with it afterwards.
+	// acts on the current selection and is done with it afterwards - but only
+	// on success. A failed action keeps bulkPending set until the list has
+	// actually refreshed, and leaves the selection intact so the user can
+	// retry without rebuilding it.
 	function bulkSubmit() {
 		bulkPending = true;
-		return async ({ update }: { update: () => Promise<void> }) => {
-			bulkPending = false;
+		return async ({
+			result,
+			update
+		}: {
+			result: ActionResult;
+			update: () => Promise<void>;
+		}) => {
 			await update();
-			exitSelection();
+			bulkPending = false;
+			if (result.type !== 'failure') {
+				exitSelection();
+			}
 		};
 	}
 

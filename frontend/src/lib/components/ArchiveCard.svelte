@@ -35,6 +35,10 @@
 	let pressTimer: ReturnType<typeof setTimeout> | undefined;
 	let startX = 0;
 	let startY = 0;
+	// Which pointer type started the current interaction - so the context
+	// menu is only suppressed for a touch/pen long-press, never a real
+	// desktop right-click (which must keep "open in new tab" etc.).
+	let lastPointerType = 'mouse';
 	// Set when the timer fires so the click that follows the release can be
 	// swallowed - otherwise releasing a long press would immediately toggle
 	// off the selection it just created (or navigate).
@@ -46,6 +50,7 @@
 	}
 
 	function handlePointerDown(e: PointerEvent) {
+		lastPointerType = e.pointerType;
 		// Ignore secondary/middle buttons so right-click and open-in-new-tab
 		// keep behaving normally.
 		if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -82,6 +87,13 @@
 		}
 	}
 
+	// Only swallow the context menu when it follows a touch/pen long-press
+	// (where it would otherwise interrupt the hold-to-select gesture). A
+	// mouse right-click keeps its native menu.
+	function handleContextMenu(e: MouseEvent) {
+		if (lastPointerType !== 'mouse') e.preventDefault();
+	}
+
 	// Keyboard parity: in selection mode the anchor shouldn't navigate, and
 	// Space is the conventional toggle key once it acts like a checkbox.
 	function handleKeyDown(e: KeyboardEvent) {
@@ -94,11 +106,12 @@
 </script>
 
 <a
-	{href}
+	href={selectionMode ? undefined : href}
 	data-sveltekit-preload-data="tap"
 	draggable="false"
 	role={selectionMode ? 'checkbox' : undefined}
 	aria-checked={selectionMode ? selected : undefined}
+	tabindex={selectionMode ? 0 : undefined}
 	onpointerdown={handlePointerDown}
 	onpointermove={handlePointerMove}
 	onpointerup={cancelPress}
@@ -106,7 +119,7 @@
 	onpointerleave={cancelPress}
 	onclick={handleClick}
 	onkeydown={handleKeyDown}
-	oncontextmenu={(e) => e.preventDefault()}
+	oncontextmenu={handleContextMenu}
 	class="group relative flex cursor-pointer touch-pan-y flex-col overflow-hidden rounded-lg border bg-card transition-all select-none hover:-translate-y-0.5 hover:shadow-md {selected
 		? 'border-primary ring-2 ring-primary'
 		: 'border-border'}"
