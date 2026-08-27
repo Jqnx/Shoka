@@ -149,7 +149,7 @@
 		{/if}
 
 		<div class="absolute top-1.5 right-1.5">
-			<span class="rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white/90">
+			<span class="rounded bg-black/60 px-1.5 py-0.5 text-[11px] font-medium text-white/90">
 				{archive.page_count}p
 			</span>
 		</div>
@@ -173,19 +173,19 @@
 	<!-- Card body -->
 	<div class="flex flex-col gap-1 p-2">
 		<p
-			class="line-clamp-2 text-xs leading-tight font-medium text-card-foreground group-hover:text-foreground"
+			class="line-clamp-2 text-sm leading-tight font-medium text-card-foreground group-hover:text-foreground"
 		>
 			{archive.title}
 		</p>
 		{#if archive.artists?.length}
-			<p class="truncate text-[11px] text-muted-foreground">{archive.artists.join(', ')}</p>
+			<p class="truncate text-xs text-muted-foreground">{archive.artists.join(', ')}</p>
 		{/if}
 		<div class="mt-0.5 flex flex-wrap gap-1">
 			{#if archive.category}
-				<Badge variant="secondary" class="h-4 px-1.5 text-[10px]">{archive.category}</Badge>
+				<Badge variant="secondary" class="h-4 px-1.5 text-[11px]">{archive.category}</Badge>
 			{/if}
 			{#if archive.language}
-				<Badge variant="outline" class="h-4 px-1.5 text-[10px]">{archive.language}</Badge>
+				<Badge variant="outline" class="h-4 px-1.5 text-[11px]">{archive.language}</Badge>
 			{/if}
 		</div>
 	</div>

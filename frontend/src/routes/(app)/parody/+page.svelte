@@ -22,14 +22,14 @@
 	{#if data.parodies.length === 0}
 		<p class="text-muted-foreground">No parodies found.</p>
 	{:else}
-		<div class="flex flex-wrap gap-2">
+		<div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
 			{#each data.parodies as parody (parody.id)}
 				<Badge
 					href={resolve(`/parody/${encodeURIComponent(parody.name)}`)}
 					variant="outline"
-					class="text-sm"
+					class="h-auto w-full justify-between rounded-md text-sm"
 				>
-					{parody.name}
+					<span class="truncate">{parody.name}</span>
 					<span class="text-muted-foreground">{parody.count}</span>
 				</Badge>
 			{/each}

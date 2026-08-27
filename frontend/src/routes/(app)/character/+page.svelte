@@ -22,14 +22,14 @@
 	{#if data.characters.length === 0}
 		<p class="text-muted-foreground">No characters found.</p>
 	{:else}
-		<div class="flex flex-wrap gap-2">
+		<div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
 			{#each data.characters as character (character.id)}
 				<Badge
 					href={resolve(`/character/${encodeURIComponent(character.name)}`)}
 					variant="outline"
-					class="text-sm"
+					class="h-auto w-full justify-between rounded-md text-sm"
 				>
-					{character.name}
+					<span class="truncate">{character.name}</span>
 					<span class="text-muted-foreground">{character.count}</span>
 				</Badge>
 			{/each}

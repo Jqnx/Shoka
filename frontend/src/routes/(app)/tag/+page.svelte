@@ -22,10 +22,14 @@
 	{#if data.tags.length === 0}
 		<p class="text-muted-foreground">No tags found.</p>
 	{:else}
-		<div class="flex flex-wrap gap-2">
+		<div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
 			{#each data.tags as tag (tag.id)}
-				<Badge href={resolve(`/tag/${encodeURIComponent(tag.name)}`)} variant="outline" class="text-sm">
-					{tag.name}
+				<Badge
+					href={resolve(`/tag/${encodeURIComponent(tag.name)}`)}
+					variant="outline"
+					class="h-auto w-full justify-between rounded-md text-sm"
+				>
+					<span class="truncate">{tag.name}</span>
 					<span class="text-muted-foreground">{tag.count}</span>
 				</Badge>
 			{/each}
