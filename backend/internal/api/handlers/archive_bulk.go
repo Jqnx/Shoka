@@ -1,19 +1,18 @@
 package handlers
 
 import (
-	"database/sql"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"net/http"
-	"strings"
-
 	"Shoka/internal/api/response"
 	"Shoka/internal/auth"
 	"Shoka/internal/database"
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/jobs"
 	"Shoka/internal/metadata"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
 )
 
 // maxBulkArchives caps how many archives a single bulk request may touch.
@@ -44,12 +43,14 @@ type BulkResult struct {
 // otherwise be counted twice in the result totals.
 func normalizeBulkIDs(raw []string) ([]string, error) {
 	seen := make(map[string]bool, len(raw))
+
 	ids := make([]string, 0, len(raw))
 	for _, id := range raw {
 		id = strings.TrimSpace(id)
 		if id == "" || seen[id] {
 			continue
 		}
+
 		seen[id] = true
 		ids = append(ids, id)
 	}
@@ -57,9 +58,11 @@ func normalizeBulkIDs(raw []string) ([]string, error) {
 	if len(ids) == 0 {
 		return nil, errors.New("ids is required and must contain at least one archive id")
 	}
+
 	if len(ids) > maxBulkArchives {
 		return nil, errors.New("too many ids in one request")
 	}
+
 	return ids, nil
 }
 
@@ -82,11 +85,13 @@ func (h *ArchiveHandler) partitionExisting(r *http.Request, ids []string) ([]sql
 	// reaching the frontend as null (see the note on Archive's relation
 	// fields in types.ts).
 	failed := []BulkFailure{}
+
 	for _, id := range ids {
 		if !found[id] {
 			failed = append(failed, BulkFailure{ID: id, Error: "archive not found"})
 		}
 	}
+
 	return rows, failed, nil
 }
 
@@ -104,7 +109,7 @@ type BulkProgressRequest struct {
 //	@Tags			archives
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		BulkProgressRequest	true	"Archives and desired read state"
+//	@Param			body	BulkProgressRequest	true	"Archives and desired read state"
 //	@Success		200	{object}	BulkResult
 //	@Failure		400	{object}	response.Error
 //	@Failure		500	{object}	response.Error
@@ -128,6 +133,7 @@ func (h *ArchiveHandler) BulkUpdateProgress(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		h.logger.Error("get archives by ids failed", "error", err)
 		response.InternalError(w, "failed to load archives")
+
 		return
 	}
 
@@ -148,9 +154,11 @@ func (h *ArchiveHandler) BulkUpdateProgress(w http.ResponseWriter, r *http.Reque
 				Ids: existing,
 			})
 		}
+
 		if err != nil {
 			h.logger.Error("bulk progress update failed", "read", body.Read, "error", err)
 			response.InternalError(w, "failed to update progress")
+
 			return
 		}
 	}
@@ -177,7 +185,7 @@ type BulkMetadataRequest struct {
 //	@Tags			archives
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		BulkMetadataRequest	true	"Archives to identify, optionally pinned to one source"
+//	@Param			body	BulkMetadataRequest	true	"Archives to identify, optionally pinned to one source"
 //	@Success		202	{object}	BulkResult
 //	@Failure		400	{object}	response.Error
 //	@Failure		500	{object}	response.Error
@@ -199,13 +207,16 @@ func (h *ArchiveHandler) BulkFetchMetadata(w http.ResponseWriter, r *http.Reques
 	// single-slot worker (see main.go's Register limits) so a bulk fetch
 	// can't fire five concurrent scrapes at the same site.
 	jobType := jobs.JobTypeMetadata
+
 	if source := strings.TrimSpace(body.Source); source != "" {
 		isLocal, known := h.pipeline.SourceIsLocal(source)
 		if !known {
 			response.BadRequest(w, fmt.Sprintf("unknown metadata source %q", source))
 			return
 		}
+
 		body.Source = source
+
 		if !isLocal {
 			jobType = jobs.JobTypeMetadataRemote
 		}
@@ -215,10 +226,12 @@ func (h *ArchiveHandler) BulkFetchMetadata(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		h.logger.Error("get archives by ids failed", "error", err)
 		response.InternalError(w, "failed to load archives")
+
 		return
 	}
 
 	succeeded := 0
+
 	for _, row := range rows {
 		// EnqueueOnce so re-submitting a selection that's still processing
 		// doesn't stack duplicate work for the same archive.
@@ -228,8 +241,10 @@ func (h *ArchiveHandler) BulkFetchMetadata(w http.ResponseWriter, r *http.Reques
 		}); err != nil {
 			h.logger.Error("enqueue metadata job failed", "archive_id", row.ID, "error", err)
 			failed = append(failed, BulkFailure{ID: row.ID, Error: "failed to enqueue metadata job"})
+
 			continue
 		}
+
 		succeeded++
 	}
 
@@ -300,8 +315,10 @@ func canonicalizeNames(r *http.Request, db *sql.DB, table string, names []string
 			out[i] = existing
 			continue
 		}
+
 		out[i] = name
 	}
+
 	return out, nil
 }
 
@@ -311,18 +328,23 @@ func mergeNames(existing, add []string) []string {
 	}
 
 	merged := make([]string, 0, len(existing)+len(add))
+
 	seen := make(map[string]bool, len(existing)+len(add))
 	for _, list := range [][]string{existing, add} {
 		for _, name := range list {
 			name = strings.TrimSpace(name)
+
 			key := strings.ToLower(name)
 			if name == "" || seen[key] {
 				continue
 			}
+
 			seen[key] = true
+
 			merged = append(merged, name)
 		}
 	}
+
 	return merged
 }
 
@@ -333,7 +355,7 @@ func mergeNames(existing, add []string) []string {
 //	@Tags			archives
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		BulkUpdateArchivesRequest	true	"Archives and relations to add"
+//	@Param			body	BulkUpdateArchivesRequest	true	"Archives and relations to add"
 //	@Success		200	{object}	BulkResult
 //	@Failure		400	{object}	response.Error
 //	@Failure		500	{object}	response.Error
@@ -362,6 +384,7 @@ func (h *ArchiveHandler) BulkUpdateArchives(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		h.logger.Error("get archives by ids failed", "error", err)
 		response.InternalError(w, "failed to load archives")
+
 		return
 	}
 
@@ -376,6 +399,7 @@ func (h *ArchiveHandler) BulkUpdateArchives(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		h.logger.Error("get bulk archive metadata failed", "error", err)
 		response.InternalError(w, "failed to load current metadata")
+
 		return
 	}
 
@@ -395,12 +419,15 @@ func (h *ArchiveHandler) BulkUpdateArchives(w http.ResponseWriter, r *http.Reque
 		if err != nil {
 			h.logger.Error("canonicalize names failed", "table", field.table, "error", err)
 			response.InternalError(w, "failed to resolve existing metadata names")
+
 			return
 		}
+
 		*field.names = canonical
 	}
 
 	succeeded := 0
+
 	for _, id := range existingIDs {
 		existing := current[id]
 		if existing == nil {
@@ -422,8 +449,10 @@ func (h *ArchiveHandler) BulkUpdateArchives(w http.ResponseWriter, r *http.Reque
 		if err := metadata.ApplyMetadata(r.Context(), h.queries, h.db, id, result); err != nil {
 			h.logger.Error("bulk update archive failed", "archive_id", id, "error", err)
 			failed = append(failed, BulkFailure{ID: id, Error: "failed to update archive"})
+
 			continue
 		}
+
 		succeeded++
 	}
 

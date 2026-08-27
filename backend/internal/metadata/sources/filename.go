@@ -1,13 +1,12 @@
 package sources
 
 import (
+	"Shoka/internal/language"
+	"Shoka/internal/metadata"
 	"context"
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"Shoka/internal/language"
-	"Shoka/internal/metadata"
 )
 
 var knownMagazinePrefixes = []string{
@@ -75,9 +74,9 @@ func NewFilenameSource() *FilenameSource {
 	return &FilenameSource{}
 }
 
-func (s *FilenameSource) Name() string    { return "filename" }
-func (s *FilenameSource) Priority() int   { return 3 }
-func (s *FilenameSource) IsLocal() bool   { return true }
+func (s *FilenameSource) Name() string  { return "filename" }
+func (s *FilenameSource) Priority() int { return 3 }
+func (s *FilenameSource) IsLocal() bool { return true }
 
 func (s *FilenameSource) Fetch(ctx context.Context, input metadata.Input) (*metadata.Result, error) {
 	base := strings.TrimSuffix(filepath.Base(input.FilePath), filepath.Ext(input.FilePath))
@@ -116,7 +115,6 @@ func (s *FilenameSource) Fetch(ctx context.Context, input metadata.Input) (*meta
 					result.Language = &iso
 				}
 			}
-
 		}
 
 		base = bracketPattern.ReplaceAllString(base, "")
@@ -138,6 +136,7 @@ func (s *FilenameSource) Fetch(ctx context.Context, input metadata.Input) (*meta
 	title := bracketPattern.ReplaceAllString(base, "")
 	title = parenPattern.ReplaceAllString(title, "")
 	title = curlyPattern.ReplaceAllString(title, "")
+
 	title = strings.Trim(title, "[]() ")
 	if title != "" {
 		result.Title = &title

@@ -1,16 +1,15 @@
 package handlers
 
 import (
+	"Shoka/internal/api/response"
+	"Shoka/internal/auth"
+	"Shoka/internal/database/sqlc"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 	"slices"
-
-	"Shoka/internal/api/response"
-	"Shoka/internal/auth"
-	"Shoka/internal/database/sqlc"
 )
 
 type ReaderSettingsHandler struct {
@@ -82,9 +81,11 @@ func (h *ReaderSettingsHandler) GetReaderSettings(w http.ResponseWriter, r *http
 		response.JSON(w, http.StatusOK, defaultReaderSettings)
 		return
 	}
+
 	if err != nil {
 		h.logger.Error("get reader settings failed", "error", err)
 		response.InternalError(w, "failed to get reader settings")
+
 		return
 	}
 
@@ -106,7 +107,7 @@ type UpdateReaderSettingsRequest struct {
 //	@Tags			reader-settings
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	body		UpdateReaderSettingsRequest	true	"Fields to change"
+//	@Param			body	UpdateReaderSettingsRequest	true	"Fields to change"
 //	@Success		200		{object}	ReaderSettingsResponse
 //	@Failure		400		{object}	response.Error
 //	@Failure		500		{object}	response.Error
@@ -124,18 +125,22 @@ func (h *ReaderSettingsHandler) UpdateReaderSettings(w http.ResponseWriter, r *h
 		response.BadRequest(w, err.Error())
 		return
 	}
+
 	if err := validateOneOf("reading_direction", body.ReadingDirection, validReadingDirections); err != nil {
 		response.BadRequest(w, err.Error())
 		return
 	}
+
 	if err := validateOneOf("page_layout", body.PageLayout, validPageLayouts); err != nil {
 		response.BadRequest(w, err.Error())
 		return
 	}
+
 	if err := validateOneOf("fit_mode", body.FitMode, validFitModes); err != nil {
 		response.BadRequest(w, err.Error())
 		return
 	}
+
 	if err := validateOneOf("background", body.Background, validBackgrounds); err != nil {
 		response.BadRequest(w, err.Error())
 		return
@@ -151,21 +156,26 @@ func (h *ReaderSettingsHandler) UpdateReaderSettings(w http.ResponseWriter, r *h
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		h.logger.Error("get reader settings failed", "error", err)
 		response.InternalError(w, "failed to update reader settings")
+
 		return
 	}
 
 	if body.ViewMode != nil {
 		current.ViewMode = *body.ViewMode
 	}
+
 	if body.ReadingDirection != nil {
 		current.ReadingDirection = *body.ReadingDirection
 	}
+
 	if body.PageLayout != nil {
 		current.PageLayout = *body.PageLayout
 	}
+
 	if body.FitMode != nil {
 		current.FitMode = *body.FitMode
 	}
+
 	if body.Background != nil {
 		current.Background = *body.Background
 	}
@@ -181,6 +191,7 @@ func (h *ReaderSettingsHandler) UpdateReaderSettings(w http.ResponseWriter, r *h
 	if err != nil {
 		h.logger.Error("upsert reader settings failed", "error", err)
 		response.InternalError(w, "failed to update reader settings")
+
 		return
 	}
 
@@ -191,8 +202,10 @@ func validateOneOf(field string, value *string, allowed []string) error {
 	if value == nil {
 		return nil
 	}
+
 	if slices.Contains(allowed, *value) {
 		return nil
 	}
+
 	return errors.New("invalid " + field)
 }

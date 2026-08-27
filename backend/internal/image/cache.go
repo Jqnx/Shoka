@@ -1,10 +1,9 @@
 package image
 
 import (
+	"Shoka/internal/library/archive"
 	"fmt"
 	"log/slog"
-
-	"Shoka/internal/library/archive"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 )
@@ -22,6 +21,7 @@ func NewCache(processor *Processor, log *slog.Logger) (*Cache, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &Cache{
 		processor: processor,
 		lru:       l,
@@ -37,7 +37,7 @@ func lruKey(archiveID string, index int) string {
 
 // GetPage returns processed WebP bytes for a page.
 // Checks LRU first, then opens the archive on a miss.
-func (c *Cache) GetPage(archiveID string, filePath string, index int) ([]byte, error) {
+func (c *Cache) GetPage(archiveID, filePath string, index int) ([]byte, error) {
 	key := lruKey(archiveID, index)
 
 	if data, ok := c.lru.Get(key); ok {
@@ -53,6 +53,7 @@ func (c *Cache) GetPage(archiveID string, filePath string, index int) ([]byte, e
 	}
 
 	c.lru.Add(key, data)
+
 	return data, nil
 }
 

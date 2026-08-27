@@ -1,13 +1,6 @@
 package handlers
 
 import (
-	"database/sql"
-	"errors"
-	"fmt"
-	"log/slog"
-	"net/http"
-	"os"
-
 	"Shoka/internal/api/response"
 	"Shoka/internal/auth"
 	"Shoka/internal/database"
@@ -16,6 +9,12 @@ import (
 	"Shoka/internal/library/archive"
 	"Shoka/internal/metadata"
 	"Shoka/internal/metadata/sources"
+	"database/sql"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -87,6 +86,7 @@ func (h *MetadataHandler) FetchMetadata(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		h.logger.Error("metadata pipeline failed", "archive_id", id, "error", err)
 		response.InternalError(w, "failed to fetch metadata")
+
 		return
 	}
 
@@ -130,6 +130,7 @@ func (h *MetadataHandler) FetchMetadataFromSource(w http.ResponseWriter, r *http
 		default:
 			response.InternalError(w, err.Error())
 		}
+
 		return
 	}
 
@@ -245,6 +246,7 @@ func (h *MetadataHandler) SearchMetadataSource(w http.ResponseWriter, r *http.Re
 		default:
 			response.InternalError(w, err.Error())
 		}
+
 		return
 	}
 
@@ -292,6 +294,7 @@ func (h *MetadataHandler) ApplyMetadataFromSource(w http.ResponseWriter, r *http
 		default:
 			response.InternalError(w, err.Error())
 		}
+
 		return
 	}
 
@@ -301,6 +304,7 @@ func (h *MetadataHandler) ApplyMetadataFromSource(w http.ResponseWriter, r *http
 	}
 
 	userID := auth.UserIDFromContext(r.Context())
+
 	var progress *sqlc.ReadingProgress
 	if p, err := h.queries.GetProgressForArchive(r.Context(), sqlc.GetProgressForArchiveParams{
 		ArchiveID: id,
@@ -320,6 +324,7 @@ func (h *MetadataHandler) ApplyMetadataFromSource(w http.ResponseWriter, r *http
 	}
 
 	var rating *int
+
 	if v, err := h.queries.GetArchiveRating(r.Context(), sqlc.GetArchiveRatingParams{
 		ArchiveID: id,
 		Uid:       userID,

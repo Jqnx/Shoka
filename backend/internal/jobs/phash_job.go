@@ -33,13 +33,16 @@ func sampleIndices(pageCount int) [4]int {
 	if pageCount <= 0 {
 		return idx
 	}
+
 	for i, pos := range samplePositions {
 		n := int(float64(pageCount) * pos)
 		if n >= pageCount {
 			n = pageCount - 1
 		}
+
 		idx[i] = n
 	}
+
 	return idx
 }
 
@@ -64,6 +67,7 @@ func NewPHashHandler(processor *image.Processor, queries *sqlc.Queries, log *slo
 		if err != nil {
 			return fmt.Errorf("list pages: %w", err)
 		}
+
 		if len(pages) == 0 {
 			log.Warn("archive has no pages, skipping phash", "archive_id", p.ArchiveID)
 			return nil
@@ -79,6 +83,7 @@ func NewPHashHandler(processor *image.Processor, queries *sqlc.Queries, log *slo
 			if hash, done := hashByIndex[pageIdx]; done {
 				signed := int64(hash)
 				hashes[i] = &signed
+
 				continue
 			}
 
@@ -88,6 +93,7 @@ func NewPHashHandler(processor *image.Processor, queries *sqlc.Queries, log *slo
 				// work - the comparison tolerates missing sample points.
 				log.Warn("hash page failed",
 					"archive_id", p.ArchiveID, "page", pageIdx, "error", err)
+
 				continue
 			}
 

@@ -1,14 +1,13 @@
 package jobs
 
 import (
+	"Shoka/internal/database/sqlc"
+	"Shoka/internal/metadata"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
-
-	"Shoka/internal/database/sqlc"
-	"Shoka/internal/metadata"
 )
 
 const (
@@ -53,9 +52,11 @@ func NewMetadataHandler(pipeline *metadata.Pipeline, queries *sqlc.Queries, db *
 			if err != nil {
 				return skipOrFail(logger, "local", p, err)
 			}
+
 			if result == nil {
 				return nil
 			}
+
 			return metadata.ApplyMetadata(ctx, queries, db, archive.ID, result)
 		}
 
@@ -99,9 +100,11 @@ func NewRemoteMetadataHandler(pipeline *metadata.Pipeline, queries *sqlc.Queries
 			if err != nil {
 				return skipOrFail(logger, "remote", p, err)
 			}
+
 			if result == nil {
 				return nil
 			}
+
 			return metadata.ApplyMetadata(ctx, queries, db, archive.ID, result)
 		}
 
@@ -127,6 +130,7 @@ func skipOrFail(logger *slog.Logger, stage string, p MetadataPayload, err error)
 		errors.Is(err, metadata.ErrNotSearchable):
 		logger.Warn("skipping metadata source",
 			"stage", stage, "archive_id", p.ArchiveID, "source", p.Source, "reason", err)
+
 		return nil
 	default:
 		return fmt.Errorf("fetch from source %q: %w", p.Source, err)

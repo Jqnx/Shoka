@@ -1,15 +1,14 @@
 package handlers
 
 import (
-	"encoding/json"
-	"log/slog"
-	"net/http"
-	"strconv"
-
 	"Shoka/internal/api/response"
 	"Shoka/internal/auth"
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/image"
+	"encoding/json"
+	"log/slog"
+	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -61,6 +60,7 @@ func (h *TagHandler) GetTags(w http.ResponseWriter, r *http.Request) {
 			page = v
 		}
 	}
+
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 100 {
 			limit = v
@@ -73,6 +73,7 @@ func (h *TagHandler) GetTags(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("count tags failed", "error", err)
 		response.InternalError(w, "failed to count tags")
+
 		return
 	}
 
@@ -83,6 +84,7 @@ func (h *TagHandler) GetTags(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("list tags failed", "error", err)
 		response.InternalError(w, "failed to list tags")
+
 		return
 	}
 
@@ -117,6 +119,7 @@ func (h *TagHandler) GetAllTags(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("get all tags failed", "error", err)
 		response.InternalError(w, "failed to get tags")
+
 		return
 	}
 
@@ -150,22 +153,26 @@ func (h *TagHandler) GetArchivesByTag(w http.ResponseWriter, r *http.Request) {
 
 	page := 1
 	limit := 24
+
 	if p := r.URL.Query().Get("page"); p != "" {
 		if v, err := strconv.Atoi(p); err == nil && v > 0 {
 			page = v
 		}
 	}
+
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 100 {
 			limit = v
 		}
 	}
+
 	offset := int64((page - 1) * limit)
 
 	total, err := h.queries.TotalArchiveWithTag(r.Context(), name)
 	if err != nil {
 		h.logger.Error("count archives by tag failed", "error", err)
 		response.InternalError(w, "failed to count archives")
+
 		return
 	}
 
@@ -178,6 +185,7 @@ func (h *TagHandler) GetArchivesByTag(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("list archives by tag failed", "error", err)
 		response.InternalError(w, "failed to list archives")
+
 		return
 	}
 
@@ -204,6 +212,7 @@ func (h *TagHandler) GetArchivesByTag(w http.ResponseWriter, r *http.Request) {
 				resp.Progress.LastRead = *row.LastRead
 			}
 		}
+
 		items = append(items, resp)
 	}
 
@@ -225,7 +234,7 @@ type UpdateTagDescriptionRequest struct {
 //	@Tags			tags
 //	@Accept			json
 //	@Param			id		path	int							true	"Tag ID"
-//	@Param			body	body	UpdateTagDescriptionRequest	true	"Description"
+//	@Param			body	UpdateTagDescriptionRequest	true	"Description"
 //	@Success		204
 //	@Failure		400	{object}	response.Error
 //	@Failure		500	{object}	response.Error
@@ -249,6 +258,7 @@ func (h *TagHandler) UpdateTagDescription(w http.ResponseWriter, r *http.Request
 	}); err != nil {
 		h.logger.Error("update tag description failed", "error", err)
 		response.InternalError(w, "failed to update tag")
+
 		return
 	}
 
@@ -274,6 +284,7 @@ func (h *TagHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
 	if err := h.queries.DeleteTag(r.Context(), id); err != nil {
 		h.logger.Error("delete tag failed", "error", err)
 		response.InternalError(w, "failed to delete tag")
+
 		return
 	}
 

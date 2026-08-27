@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// Every job type must implement this function signature
+// Every job type must implement this function signature.
 type Handler func(ctx context.Context, job *Job) error
 
 type Worker struct {
@@ -28,7 +28,7 @@ func NewWorker(queue *Queue, log *slog.Logger) *Worker {
 	}
 }
 
-// Register() associates a job type with its handler function
+// Register() associates a job type with its handler function.
 func (w *Worker) Register(jobType string, handler Handler, limit int) {
 	w.handlers[jobType] = handler
 	if limit > 0 {
@@ -39,6 +39,7 @@ func (w *Worker) Register(jobType string, handler Handler, limit int) {
 // Start() begins polling in a goroutine. Cancel the context to stop it.
 func (w *Worker) Start(ctx context.Context) {
 	go w.run(ctx)
+
 	w.log.Info("job worker started", "poll_interval", w.interval)
 }
 
@@ -64,6 +65,7 @@ func (w *Worker) processNext(ctx context.Context) {
 		w.log.Error("failed to claim job", "error", err)
 		return
 	}
+
 	if job == nil {
 		return // nothing to do
 	}
@@ -75,6 +77,7 @@ func (w *Worker) processNext(ctx context.Context) {
 	if !ok {
 		log.Error("no handler registered for job type")
 		w.queue.markFailed(ctx, job.ID, fmt.Errorf("no handler for type: %s", job.Type))
+
 		return
 	}
 
@@ -93,6 +96,7 @@ func (w *Worker) processNext(ctx context.Context) {
 			w.queue.markFailed(ctx, job.ID, err)
 			log.Error("job exceeded max attempts, marked failed")
 		}
+
 		return
 	}
 

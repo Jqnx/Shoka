@@ -3,6 +3,7 @@ package archive
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -12,7 +13,7 @@ import (
 	"github.com/nwaples/rardecode/v2"
 )
 
-// rarArchive implements the Archive interface
+// rarArchive implements the Archive interface.
 type rarArchive struct {
 	path  string
 	pages []Page
@@ -28,17 +29,21 @@ func openRar(path string) (Archive, error) {
 	defer r.Close()
 
 	var pages []Page
+
 	for {
 		header, err := r.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
+
 		if err != nil {
 			return nil, err
 		}
+
 		if header.IsDir || !isImageFile(header.Name) {
 			continue
 		}
+
 		pages = append(pages, Page{
 			Filename: header.Name,
 			Size:     header.UnPackedSize,
@@ -46,13 +51,14 @@ func openRar(path string) (Archive, error) {
 	}
 
 	sortPages(pages)
+
 	return &rarArchive{path: path, pages: pages}, nil
 }
 
-// Path() returns the path to the RAR
+// Path() returns the path to the RAR.
 func (r *rarArchive) Path() string { return r.path }
 
-// Pages() returns a sorted list of all pages in the RAR
+// Pages() returns a sorted list of all pages in the RAR.
 func (r *rarArchive) Pages() ([]Page, error) {
 	return r.pages, nil
 }
@@ -67,13 +73,15 @@ func (r *rarArchive) Extract(page Page) (io.ReadCloser, error) {
 
 	for {
 		header, err := reader.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
+
 		if err != nil {
 			reader.Close()
 			return nil, err
 		}
+
 		if header.Name == page.Filename {
 			// wrap reader so closing it also closes the rar reader
 			return &rarPageReader{reader: reader, current: reader}, nil
@@ -81,6 +89,7 @@ func (r *rarArchive) Extract(page Page) (io.ReadCloser, error) {
 	}
 
 	reader.Close()
+
 	return nil, fmt.Errorf("page not found in archive: %s", page.Filename)
 }
 
@@ -95,12 +104,14 @@ func (r *rarArchive) ReadFile(file string) ([]byte, error) {
 
 	for {
 		header, err := reader.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
+
 		if err != nil {
 			return nil, err
 		}
+
 		if strings.ToLower(filepath.Base(header.Name)) == lowerFile {
 			return io.ReadAll(reader)
 		}
@@ -113,6 +124,7 @@ func (r *rarArchive) WriteFile(name string, data []byte) error {
 	zipPath := strings.TrimSuffix(r.path, filepath.Ext(r.path)) + ".cbz"
 
 	var buf bytes.Buffer
+
 	w := zip.NewWriter(&buf)
 
 	reader, err := rardecode.OpenReader(r.path)
@@ -123,12 +135,14 @@ func (r *rarArchive) WriteFile(name string, data []byte) error {
 
 	for {
 		header, err := reader.Next()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
+
 		if err != nil {
 			return fmt.Errorf("read rar entry: %w", err)
 		}
+
 		if header.IsDir {
 			continue
 		}
@@ -141,6 +155,7 @@ func (r *rarArchive) WriteFile(name string, data []byte) error {
 		if err != nil {
 			return fmt.Errorf("create zip entry %s: %w", header.Name, err)
 		}
+
 		if _, err := io.Copy(fw, reader); err != nil {
 			return fmt.Errorf("copy entry %s: %w", header.Name, err)
 		}
@@ -150,6 +165,7 @@ func (r *rarArchive) WriteFile(name string, data []byte) error {
 	if err != nil {
 		return fmt.Errorf("create %s: %w", name, err)
 	}
+
 	if _, err := fw.Write(data); err != nil {
 		return fmt.Errorf("write %s: %w", name, err)
 	}
@@ -173,10 +189,11 @@ func (r *rarArchive) WriteFile(name string, data []byte) error {
 	}
 
 	r.path = zipPath
+
 	return nil
 }
 
-// Close() does nothing, only here to satisfy the Archive interface
+// Close() does nothing, only here to satisfy the Archive interface.
 func (r *rarArchive) Close() error { return nil }
 
 // rarPageReader wraps the rar reader so the caller can close it normally.
@@ -187,5 +204,5 @@ type rarPageReader struct {
 
 func (r *rarPageReader) Read(p []byte) (int, error) { return r.current.Read(p) }
 
-// Close() closes the RAR reader
+// Close() closes the RAR reader.
 func (r *rarPageReader) Close() error { return r.reader.Close() }

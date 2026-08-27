@@ -1,11 +1,6 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"net/http"
-	"os"
-
 	"Shoka/internal/api"
 	"Shoka/internal/config"
 	"Shoka/internal/database"
@@ -17,6 +12,10 @@ import (
 	"Shoka/internal/log"
 	"Shoka/internal/metadata"
 	"Shoka/internal/metadata/sources"
+	"context"
+	"fmt"
+	"net/http"
+	"os"
 
 	"github.com/davidbyttow/govips/v2/vips"
 )
@@ -47,23 +46,29 @@ func main() {
 		os.Exit(1)
 	}
 	defer db.Close()
+
 	if err := database.Migrate(db); err != nil {
 		log.Error("failed to migrate database", "error", err)
 		os.Exit(1)
 	}
+
 	queries := sqlc.New(db)
+
 	log.Info("connected to database")
 
 	// Initialize Services
 	vips.LoggingSettings(nil, vips.LogLevelWarning)
 	vips.Startup(nil)
+
 	defer vips.Shutdown()
+
 	queue := jobs.NewQueue(queries, log)
 	worker := jobs.NewWorker(queue, log)
 	libraries := library.NewManager(cfg, queries, queue, log)
 	thumbnails := events.NewThumbnailBroadcaster()
 	images := image.NewProcessor(cfg.Cache.Dir, log)
 	cache, err := image.NewCache(images, log)
+
 	pipeline := metadata.NewPipeline(
 		log,
 		queries,
@@ -76,6 +81,7 @@ func main() {
 		log.Error("failed to initialize image cache", "error", err)
 		os.Exit(1)
 	}
+
 	api := api.New(queries, log, queue, cache, images, pipeline, libraries, thumbnails, db)
 
 	// Register worker handlers
@@ -89,6 +95,7 @@ func main() {
 	// Start Workers with cancellable context
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	for range 10 {
 		worker.Start(ctx)
 	}
@@ -97,13 +104,15 @@ func main() {
 	if err := libraries.Start(ctx); err != nil {
 		log.Error("failed to start library watchers", "error", err)
 	}
+
 	if err := libraries.EnqueueInitialScans(ctx); err != nil {
 		log.Error("failed to enqueue initial scans", "error", err)
 	}
 
 	// Start API Server
 	host := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	log.Info(fmt.Sprintf("listening on %s", host))
+	log.Info("listening on " + host)
+
 	if err := http.ListenAndServe(host, api.Router); err != nil {
 		log.Error("failed to start server", "error", err)
 		os.Exit(1)

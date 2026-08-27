@@ -1,6 +1,15 @@
 package handlers
 
 import (
+	"Shoka/internal/api/response"
+	"Shoka/internal/auth"
+	"Shoka/internal/database"
+	"Shoka/internal/database/sqlc"
+	"Shoka/internal/events"
+	"Shoka/internal/image"
+	"Shoka/internal/jobs"
+	"Shoka/internal/language"
+	"Shoka/internal/metadata"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -11,16 +20,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"Shoka/internal/api/response"
-	"Shoka/internal/auth"
-	"Shoka/internal/database"
-	"Shoka/internal/database/sqlc"
-	"Shoka/internal/events"
-	"Shoka/internal/image"
-	"Shoka/internal/jobs"
-	"Shoka/internal/language"
-	"Shoka/internal/metadata"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -102,10 +101,12 @@ func (h *ArchiveHandler) favoritedSet(ctx context.Context, userID string, ids []
 	if err != nil {
 		return nil, err
 	}
+
 	favorited := make(map[string]bool, len(favoritedIDs))
 	for _, id := range favoritedIDs {
 		favorited[id] = true
 	}
+
 	return favorited, nil
 }
 
@@ -120,10 +121,12 @@ func (h *ArchiveHandler) ratingSet(ctx context.Context, userID string, ids []str
 	if err != nil {
 		return nil, err
 	}
+
 	ratings := make(map[string]int, len(rows))
 	for _, row := range rows {
 		ratings[row.ArchiveID] = int(row.Rating)
 	}
+
 	return ratings, nil
 }
 
@@ -161,6 +164,7 @@ func (h *ArchiveHandler) GetCategories(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("get categories failed", "error", err)
 		response.InternalError(w, "failed to get categories")
+
 		return
 	}
 
@@ -193,6 +197,7 @@ func (h *ArchiveHandler) GetLanguages(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("get languages failed", "error", err)
 		response.InternalError(w, "failed to get languages")
+
 		return
 	}
 
@@ -203,10 +208,12 @@ func (h *ArchiveHandler) GetLanguages(w http.ResponseWriter, r *http.Request) {
 		if code == nil {
 			continue
 		}
+
 		name, err := lc.ToName(*code)
 		if err != nil {
 			name = *code
 		}
+
 		languages = append(languages, LanguageResponse{Code: *code, Name: name})
 	}
 
@@ -220,10 +227,12 @@ func hasPHashParam(raw string) *bool {
 	if raw == "" {
 		return nil
 	}
+
 	v, err := strconv.ParseBool(raw)
 	if err != nil {
 		return nil
 	}
+
 	return &v
 }
 
@@ -265,6 +274,7 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 			page = v
 		}
 	}
+
 	if l := q.Get("limit"); l != "" {
 		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 100 {
 			limit = v
@@ -291,6 +301,7 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("list archives failed", "error", err)
 		response.InternalError(w, "failed to list archives")
+
 		return
 	}
 
@@ -303,6 +314,7 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("get bulk archive metadata failed", "error", err)
 		response.InternalError(w, "failed to get archive metadata")
+
 		return
 	}
 
@@ -310,6 +322,7 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("get favorited archive ids failed", "error", err)
 		response.InternalError(w, "failed to get favorite status")
+
 		return
 	}
 
@@ -317,13 +330,16 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("get archive ratings failed", "error", err)
 		response.InternalError(w, "failed to get rating")
+
 		return
 	}
 
 	lc := language.NewLanguageConverter()
+
 	items := make([]ArchiveResponse, 0, len(rows))
 	for _, row := range rows {
 		var lang string
+
 		if row.Language != nil {
 			if name, err := lc.ToName(*row.Language); err == nil {
 				lang = name
@@ -331,6 +347,7 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 				lang = *row.Language
 			}
 		}
+
 		resp := ArchiveResponse{
 			ID:          row.ID,
 			Title:       row.Title,
@@ -347,6 +364,7 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 		if rating, ok := ratings[row.ID]; ok {
 			resp.Rating = &rating
 		}
+
 		if meta, ok := metaByID[row.ID]; ok {
 			resp.Artists = meta.Artists
 			resp.Tags = meta.Tags
@@ -354,6 +372,7 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 			resp.Circles = meta.Circles
 			resp.Characters = meta.Characters
 		}
+
 		if row.Page != nil {
 			resp.Progress = &ProgressResponse{
 				CurrentPage: int(*row.Page),
@@ -363,6 +382,7 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 				resp.Progress.LastRead = *row.LastRead
 			}
 		}
+
 		items = append(items, resp)
 	}
 
@@ -390,22 +410,26 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 
 	page := 1
 	limit := 24
+
 	if p := r.URL.Query().Get("page"); p != "" {
 		if v, err := strconv.Atoi(p); err == nil && v > 0 {
 			page = v
 		}
 	}
+
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 100 {
 			limit = v
 		}
 	}
+
 	offset := int64((page - 1) * limit)
 
 	total, err := h.queries.CountRecentlyReadArchives(r.Context(), userID)
 	if err != nil {
 		h.logger.Error("count recently read archives failed", "error", err)
 		response.InternalError(w, "failed to count recently read archives")
+
 		return
 	}
 
@@ -417,6 +441,7 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		h.logger.Error("get recently read archives failed", "error", err)
 		response.InternalError(w, "failed to get recently read archives")
+
 		return
 	}
 
@@ -429,6 +454,7 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		h.logger.Error("get favorited archive ids failed", "error", err)
 		response.InternalError(w, "failed to get favorite status")
+
 		return
 	}
 
@@ -436,6 +462,7 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		h.logger.Error("get archive ratings failed", "error", err)
 		response.InternalError(w, "failed to get rating")
+
 		return
 	}
 
@@ -463,6 +490,7 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 		if rating, ok := ratings[row.ID]; ok {
 			resp.Rating = &rating
 		}
+
 		items = append(items, resp)
 	}
 
@@ -490,22 +518,26 @@ func (h *ArchiveHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 
 	page := 1
 	limit := 24
+
 	if p := r.URL.Query().Get("page"); p != "" {
 		if v, err := strconv.Atoi(p); err == nil && v > 0 {
 			page = v
 		}
 	}
+
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 100 {
 			limit = v
 		}
 	}
+
 	offset := int64((page - 1) * limit)
 
 	total, err := h.queries.CountUserFavoriteArchive(r.Context(), userID)
 	if err != nil {
 		h.logger.Error("count favorite archives failed", "error", err)
 		response.InternalError(w, "failed to count favorite archives")
+
 		return
 	}
 
@@ -517,6 +549,7 @@ func (h *ArchiveHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("get favorite archives failed", "error", err)
 		response.InternalError(w, "failed to get favorite archives")
+
 		return
 	}
 
@@ -529,6 +562,7 @@ func (h *ArchiveHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("get archive ratings failed", "error", err)
 		response.InternalError(w, "failed to get rating")
+
 		return
 	}
 
@@ -551,6 +585,7 @@ func (h *ArchiveHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 		if rating, ok := ratings[row.ID]; ok {
 			resp.Rating = &rating
 		}
+
 		if row.Page != nil {
 			resp.Progress = &ProgressResponse{
 				CurrentPage: int(*row.Page),
@@ -560,6 +595,7 @@ func (h *ArchiveHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 				resp.Progress.LastRead = *row.LastRead
 			}
 		}
+
 		items = append(items, resp)
 	}
 
@@ -591,8 +627,10 @@ func (h *ArchiveHandler) GetArchive(w http.ResponseWriter, r *http.Request) {
 			response.NotFound(w, "archive not found")
 			return
 		}
+
 		h.logger.Error("get archive failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get archive")
+
 		return
 	}
 
@@ -609,14 +647,16 @@ func (h *ArchiveHandler) GetArchive(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ch := make(chan result, 1)
+
 	go func() {
 		var res result
+
 		res.meta, res.metaErr = database.GetArchiveMetadata(r.Context(), h.queries, id)
+
 		progress, err := h.queries.GetProgressForArchive(r.Context(), sqlc.GetProgressForArchiveParams{
 			ArchiveID: archive.ID,
 			UserID:    userID,
 		})
-
 		if err != nil {
 			res.progress = nil
 			res.progErr = err
@@ -651,24 +691,28 @@ func (h *ArchiveHandler) GetArchive(w http.ResponseWriter, r *http.Request) {
 	if res.metaErr != nil {
 		h.logger.Error("get archive metadata failed", "id", id, "error", res.metaErr)
 		response.InternalError(w, "failed to get archive metadata")
+
 		return
 	}
 
 	if res.progErr != nil && !errors.Is(res.progErr, sql.ErrNoRows) {
 		h.logger.Error("get progress failed", "id", id, "error", res.progErr)
 		response.InternalError(w, "failed to get reading progress")
+
 		return
 	}
 
 	if res.favErr != nil {
 		h.logger.Error("get favorite status failed", "id", id, "error", res.favErr)
 		response.InternalError(w, "failed to get favorite status")
+
 		return
 	}
 
 	if res.ratingErr != nil {
 		h.logger.Error("get rating failed", "id", id, "error", res.ratingErr)
 		response.InternalError(w, "failed to get rating")
+
 		return
 	}
 
@@ -705,7 +749,7 @@ type UpdateArchiveRequest struct {
 //	@Accept			json
 //	@Produce		json
 //	@Param			id		path		string					true	"Archive ID"
-//	@Param			body	body		UpdateArchiveRequest	true	"Fields to update"
+//	@Param			body	UpdateArchiveRequest	true	"Fields to update"
 //	@Success		200	{object}	ArchiveResponse
 //	@Failure		400	{object}	response.Error
 //	@Failure		404	{object}	response.Error
@@ -720,8 +764,10 @@ func (h *ArchiveHandler) UpdateArchive(w http.ResponseWriter, r *http.Request) {
 			response.NotFound(w, "archive not found")
 			return
 		}
+
 		h.logger.Error("get archive failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get archive")
+
 		return
 	}
 
@@ -750,6 +796,7 @@ func (h *ArchiveHandler) UpdateArchive(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		h.logger.Error("update archive failed", "id", id, "error", err)
 		response.InternalError(w, "failed to update archive")
+
 		return
 	}
 
@@ -757,6 +804,7 @@ func (h *ArchiveHandler) UpdateArchive(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("get updated archive failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get updated archive")
+
 		return
 	}
 
@@ -764,6 +812,7 @@ func (h *ArchiveHandler) UpdateArchive(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("get archive metadata failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get updated archive")
+
 		return
 	}
 
@@ -784,10 +833,12 @@ func (h *ArchiveHandler) UpdateArchive(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("get favorite status failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get updated archive")
+
 		return
 	}
 
 	var rating *int
+
 	if v, err := h.queries.GetArchiveRating(r.Context(), sqlc.GetArchiveRatingParams{
 		ArchiveID: id,
 		Uid:       userID,
@@ -797,6 +848,7 @@ func (h *ArchiveHandler) UpdateArchive(w http.ResponseWriter, r *http.Request) {
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		h.logger.Error("get rating failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get updated archive")
+
 		return
 	}
 
@@ -824,14 +876,17 @@ func (h *ArchiveHandler) DeleteArchive(w http.ResponseWriter, r *http.Request) {
 			response.NotFound(w, "archive not found")
 			return
 		}
+
 		h.logger.Error("get archive failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get archive")
+
 		return
 	}
 
 	if err := h.queries.DeleteArchive(r.Context(), id); err != nil {
 		h.logger.Error("delete archive failed", "id", id, "error", err)
 		response.InternalError(w, "failed to delete archive")
+
 		return
 	}
 
@@ -865,7 +920,7 @@ type UpdateProgressRequest struct {
 //	@Accept			json
 //	@Produce		json
 //	@Param			id		path		string					true	"Archive ID"
-//	@Param			body	body		UpdateProgressRequest	true	"Progress"
+//	@Param			body	UpdateProgressRequest	true	"Progress"
 //	@Success		200	{object}	ProgressResponse
 //	@Failure		400	{object}	response.Error
 //	@Failure		404	{object}	response.Error
@@ -881,8 +936,10 @@ func (h *ArchiveHandler) UpdateProgress(w http.ResponseWriter, r *http.Request) 
 			response.NotFound(w, "archive not found")
 			return
 		}
+
 		h.logger.Error("get archive failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get archive")
+
 		return
 	}
 
@@ -911,6 +968,7 @@ func (h *ArchiveHandler) UpdateProgress(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		h.logger.Error("upsert reading progress failed", "id", id, "error", err)
 		response.InternalError(w, "failed to update progress")
+
 		return
 	}
 
@@ -940,6 +998,7 @@ func (h *ArchiveHandler) DeleteProgress(w http.ResponseWriter, r *http.Request) 
 	}); err != nil {
 		h.logger.Error("delete reading progress failed", "id", id, "error", err)
 		response.InternalError(w, "failed to reset progress")
+
 		return
 	}
 
@@ -965,8 +1024,10 @@ func (h *ArchiveHandler) AddFavorite(w http.ResponseWriter, r *http.Request) {
 			response.NotFound(w, "archive not found")
 			return
 		}
+
 		h.logger.Error("get archive failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get archive")
+
 		return
 	}
 
@@ -976,6 +1037,7 @@ func (h *ArchiveHandler) AddFavorite(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		h.logger.Error("add favorite archive failed", "id", id, "error", err)
 		response.InternalError(w, "failed to favorite archive")
+
 		return
 	}
 
@@ -1001,6 +1063,7 @@ func (h *ArchiveHandler) RemoveFavorite(w http.ResponseWriter, r *http.Request) 
 	}); err != nil {
 		h.logger.Error("remove favorite archive failed", "id", id, "error", err)
 		response.InternalError(w, "failed to unfavorite archive")
+
 		return
 	}
 
@@ -1020,7 +1083,7 @@ type SetRatingRequest struct {
 //	@Tags			archives
 //	@Accept			json
 //	@Param			id		path	string				true	"Archive ID"
-//	@Param			body	body	SetRatingRequest	true	"Rating"
+//	@Param			body	SetRatingRequest	true	"Rating"
 //	@Success		204
 //	@Failure		400	{object}	response.Error
 //	@Failure		404	{object}	response.Error
@@ -1046,8 +1109,10 @@ func (h *ArchiveHandler) SetRating(w http.ResponseWriter, r *http.Request) {
 			response.NotFound(w, "archive not found")
 			return
 		}
+
 		h.logger.Error("get archive failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get archive")
+
 		return
 	}
 
@@ -1058,6 +1123,7 @@ func (h *ArchiveHandler) SetRating(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		h.logger.Error("upsert archive rating failed", "id", id, "error", err)
 		response.InternalError(w, "failed to rate archive")
+
 		return
 	}
 
@@ -1083,6 +1149,7 @@ func (h *ArchiveHandler) RemoveRating(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		h.logger.Error("remove archive rating failed", "id", id, "error", err)
 		response.InternalError(w, "failed to clear rating")
+
 		return
 	}
 
@@ -1113,14 +1180,18 @@ func buildArchiveResponse(
 	rating *int,
 ) ArchiveResponse {
 	lc := language.NewLanguageConverter()
-	var lang string
-	var err error
+
+	var (
+		lang string
+		err  error
+	)
 	if archive.Language != nil {
 		lang, err = lc.ToName(*archive.Language)
 		if err != nil {
 			lang = *archive.Language
 		}
 	}
+
 	resp := ArchiveResponse{
 		ID:          archive.ID,
 		Title:       archive.Title,
@@ -1164,21 +1235,27 @@ func overlayResult(archive sqlc.Archive, result *metadata.Result) sqlc.Archive {
 	if result.Title != nil {
 		preview.Title = *result.Title
 	}
+
 	if result.Summary != nil {
 		preview.Summary = result.Summary
 	}
+
 	if result.Language != nil {
 		preview.Language = result.Language
 	}
+
 	if result.Category != nil {
 		preview.Category = result.Category
 	}
+
 	if result.ReleaseDate != nil {
 		preview.ReleaseDate = result.ReleaseDate
 	}
+
 	if result.PageCount != nil {
 		preview.PageCount = *result.PageCount
 	}
+
 	return preview
 }
 
@@ -1231,8 +1308,10 @@ func (h *ArchiveHandler) GetPage(w http.ResponseWriter, r *http.Request) {
 			response.NotFound(w, "archive not found")
 			return
 		}
+
 		h.logger.Error("get archive failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get archive")
+
 		return
 	}
 
@@ -1245,6 +1324,7 @@ func (h *ArchiveHandler) GetPage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("get page failed", "id", id, "index", index, "error", err)
 		response.InternalError(w, "failed to get page")
+
 		return
 	}
 
@@ -1282,8 +1362,10 @@ func (h *ArchiveHandler) GetPageThumbnail(w http.ResponseWriter, r *http.Request
 			response.NotFound(w, "archive not found")
 			return
 		}
+
 		h.logger.Error("get archive failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get archive")
+
 		return
 	}
 
@@ -1322,8 +1404,10 @@ func (h *ArchiveHandler) GenerateThumbnails(w http.ResponseWriter, r *http.Reque
 			response.NotFound(w, "archive not found")
 			return
 		}
+
 		h.logger.Error("get archive failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get archive")
+
 		return
 	}
 
@@ -1338,6 +1422,7 @@ func (h *ArchiveHandler) GenerateThumbnails(w http.ResponseWriter, r *http.Reque
 	}); err != nil {
 		h.logger.Error("enqueue thumbnail job failed", "id", id, "error", err)
 		response.InternalError(w, "failed to trigger thumbnail generation")
+
 		return
 	}
 
@@ -1372,8 +1457,10 @@ func (h *ArchiveHandler) StreamThumbnailEvents(w http.ResponseWriter, r *http.Re
 			response.NotFound(w, "archive not found")
 			return
 		}
+
 		h.logger.Error("get archive failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get archive")
+
 		return
 	}
 
@@ -1393,22 +1480,26 @@ func (h *ArchiveHandler) StreamThumbnailEvents(w http.ResponseWriter, r *http.Re
 
 	pageCount := int(archive.PageCount)
 	allReady := true
-	for i := 0; i < pageCount; i++ {
+
+	for i := range pageCount {
 		if h.processor.ThumbPath(archive.ID, i) != "" {
 			response.SSEEvent(w, "ready", map[string]int{"index": i})
 		} else {
 			allReady = false
 		}
 	}
+
 	flusher.Flush()
 
 	if allReady {
 		response.SSEEvent(w, "done", thumbnailDoneEvent{Done: true})
 		flusher.Flush()
+
 		return
 	}
 
 	ctx := r.Context()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -1417,11 +1508,14 @@ func (h *ArchiveHandler) StreamThumbnailEvents(w http.ResponseWriter, r *http.Re
 			if !ok {
 				return
 			}
+
 			if event.Done {
 				response.SSEEvent(w, "done", thumbnailDoneEvent{Done: true, Error: event.Error})
 				flusher.Flush()
+
 				return
 			}
+
 			response.SSEEvent(w, "ready", map[string]int{"index": event.Index})
 			flusher.Flush()
 		}

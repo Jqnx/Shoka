@@ -1,13 +1,13 @@
 package jobs
 
 import (
+	"Shoka/internal/database/sqlc"
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"time"
-
-	"Shoka/internal/database/sqlc"
 )
 
 type Queue struct {
@@ -61,6 +61,7 @@ func (q *Queue) EnqueueOnce(ctx context.Context, jobType string, payload any) er
 	if err != nil {
 		return err
 	}
+
 	if exists {
 		q.log.Info("job already queued, skipping", "type", jobType)
 		return nil
@@ -92,9 +93,10 @@ func (q *Queue) EnqueueAfter(ctx context.Context, jobType string, payload any, d
 
 func (q *Queue) claim(ctx context.Context) (*Job, error) {
 	row, err := q.queries.ClaimJob(ctx)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -121,10 +123,11 @@ func (q *Queue) markFailed(ctx context.Context, id int64, jobErr error) error {
 		Error: &jobError,
 		ID:    id,
 	})
+
 	return err
 }
 
-func (q *Queue) requeueForRetry(ctx context.Context, id int64, attempts int64) error {
+func (q *Queue) requeueForRetry(ctx context.Context, id, attempts int64) error {
 	backoff := time.Duration(attempts*attempts) * 30 * time.Second
 	runAfter := time.Now().UTC().Add(backoff)
 

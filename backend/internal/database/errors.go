@@ -11,5 +11,6 @@ func IsUniqueConstraintError(err error) bool {
 	if ok {
 		return sqliteErr.ExtendedCode == sqlite3.ErrConstraintUnique
 	}
+
 	return false
 }

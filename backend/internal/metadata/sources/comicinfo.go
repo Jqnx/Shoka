@@ -1,14 +1,13 @@
 package sources
 
 import (
+	"Shoka/internal/library/archive"
+	"Shoka/internal/metadata"
 	"context"
 	"encoding/xml"
 	"fmt"
 	"strings"
 	"time"
-
-	"Shoka/internal/library/archive"
-	"Shoka/internal/metadata"
 )
 
 // TODO:
@@ -69,31 +68,40 @@ func (s *ComicInfoSource) parse(data []byte) (*metadata.Result, error) {
 	if info.Title != "" {
 		result.Title = &info.Title
 	}
+
 	if info.Summary != "" {
 		result.Summary = &info.Summary
 	}
+
 	if info.LanguageISO != "" {
 		result.Language = &info.LanguageISO
 	}
+
 	if info.Genre != "" {
 		result.Category = &info.Genre
 	}
+
 	if info.PageCount > 0 {
 		result.PageCount = &info.PageCount
 	}
+
 	if info.Writer != "" {
 		artists := splitAndTrim(info.Writer, ",")
 		result.Artists = artists
 	}
+
 	if info.Tags != "" {
 		result.Tags = splitAndTrim(info.Tags, ",")
 	}
+
 	if info.Characters != "" {
 		result.Characters = splitAndTrim(info.Characters, ",")
 	}
+
 	if info.Series != "" {
 		result.Parodies = splitAndTrim(info.Series, ",")
 	}
+
 	if info.Year > 0 {
 		t := time.Date(info.Year, time.Month(info.Month), info.Day, 0, 0, 0, 0, time.UTC)
 		result.ReleaseDate = &t
@@ -108,32 +116,41 @@ func MarshalComicInfo(result *metadata.Result) ([]byte, error) {
 	if result.Title != nil {
 		info.Title = *result.Title
 	}
+
 	if result.Summary != nil {
 		info.Summary = *result.Summary
 	}
+
 	if result.Language != nil {
 		info.LanguageISO = *result.Language
 	}
+
 	if result.Category != nil {
 		info.Genre = *result.Category
 	}
+
 	if result.PageCount != nil {
 		info.PageCount = *result.PageCount
 	}
+
 	if result.ReleaseDate != nil {
 		info.Year = result.ReleaseDate.Year()
 		info.Month = int(result.ReleaseDate.Month())
 		info.Day = result.ReleaseDate.Day()
 	}
+
 	if len(result.Artists) > 0 {
 		info.Writer = strings.Join(result.Artists, ", ")
 	}
+
 	if len(result.Tags) > 0 {
 		info.Tags = strings.Join(result.Tags, ", ")
 	}
+
 	if len(result.Characters) > 0 {
 		info.Characters = strings.Join(result.Characters, ", ")
 	}
+
 	if len(result.Parodies) > 0 {
 		info.Series = result.Parodies[0]
 	}
@@ -148,11 +165,13 @@ func MarshalComicInfo(result *metadata.Result) ([]byte, error) {
 
 func splitAndTrim(s, sep string) []string {
 	parts := strings.Split(s, sep)
+
 	result := make([]string, 0, len(parts))
 	for _, p := range parts {
 		if t := strings.ToLower(strings.TrimSpace(p)); t != "" && t != "unknown" {
 			result = append(result, t)
 		}
 	}
+
 	return result
 }

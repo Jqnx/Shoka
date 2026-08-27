@@ -1,14 +1,13 @@
 package handlers
 
 import (
-	"log/slog"
-	"net/http"
-	"strconv"
-
 	"Shoka/internal/api/response"
 	"Shoka/internal/auth"
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/image"
+	"log/slog"
+	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -59,6 +58,7 @@ func (h *ParodyHandler) GetParodies(w http.ResponseWriter, r *http.Request) {
 			page = v
 		}
 	}
+
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 100 {
 			limit = v
@@ -71,6 +71,7 @@ func (h *ParodyHandler) GetParodies(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("count parodies failed", "error", err)
 		response.InternalError(w, "failed to count parodies")
+
 		return
 	}
 
@@ -81,6 +82,7 @@ func (h *ParodyHandler) GetParodies(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("list parodies failed", "error", err)
 		response.InternalError(w, "failed to list parodies")
+
 		return
 	}
 
@@ -114,6 +116,7 @@ func (h *ParodyHandler) GetAllParodies(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("get all parodies failed", "error", err)
 		response.InternalError(w, "failed to get parodies")
+
 		return
 	}
 
@@ -146,22 +149,26 @@ func (h *ParodyHandler) GetArchivesByParody(w http.ResponseWriter, r *http.Reque
 
 	page := 1
 	limit := 24
+
 	if p := r.URL.Query().Get("page"); p != "" {
 		if v, err := strconv.Atoi(p); err == nil && v > 0 {
 			page = v
 		}
 	}
+
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 100 {
 			limit = v
 		}
 	}
+
 	offset := int64((page - 1) * limit)
 
 	total, err := h.queries.TotalArchiveWithParody(r.Context(), name)
 	if err != nil {
 		h.logger.Error("count archives by parody failed", "error", err)
 		response.InternalError(w, "failed to count archives")
+
 		return
 	}
 
@@ -174,6 +181,7 @@ func (h *ParodyHandler) GetArchivesByParody(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		h.logger.Error("list archives by parody failed", "error", err)
 		response.InternalError(w, "failed to list archives")
+
 		return
 	}
 
@@ -200,6 +208,7 @@ func (h *ParodyHandler) GetArchivesByParody(w http.ResponseWriter, r *http.Reque
 				resp.Progress.LastRead = *row.LastRead
 			}
 		}
+
 		items = append(items, resp)
 	}
 
@@ -230,6 +239,7 @@ func (h *ParodyHandler) DeleteParody(w http.ResponseWriter, r *http.Request) {
 	if err := h.queries.DeleteParody(r.Context(), id); err != nil {
 		h.logger.Error("delete parody failed", "error", err)
 		response.InternalError(w, "failed to delete parody")
+
 		return
 	}
 

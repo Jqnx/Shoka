@@ -29,6 +29,7 @@ func (s *EHentaiSource) Fetch(ctx context.Context, input metadata.Input) (*metad
 	if err != nil {
 		return nil, err
 	}
+
 	if galleryID == "" {
 		return nil, nil // not found
 	}

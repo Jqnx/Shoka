@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 )
@@ -31,7 +32,7 @@ func NewScanHandler(scanner Scannable, log *slog.Logger) Handler {
 		}
 
 		if p.LibraryID == "" {
-			return fmt.Errorf("scan job missing library_id")
+			return errors.New("scan job missing library_id")
 		}
 
 		return scanner.ScanLibrary(ctx, p.LibraryID)

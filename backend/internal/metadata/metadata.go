@@ -1,14 +1,13 @@
 package metadata
 
 import (
+	"Shoka/internal/database/sqlc"
+	"Shoka/internal/util"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
-
-	"Shoka/internal/database/sqlc"
-	"Shoka/internal/util"
 )
 
 // Result holds all metadata that can be collected for an archive.
@@ -103,6 +102,7 @@ func ApplyMetadata(ctx context.Context, queries *sqlc.Queries, db *sql.DB, archi
 		return fmt.Errorf("begin transaction: %w", err)
 	}
 	defer tx.Rollback()
+
 	qtx := queries.WithTx(tx)
 
 	// Archive Details
@@ -163,6 +163,7 @@ func ApplyMetadata(ctx context.Context, queries *sqlc.Queries, db *sql.DB, archi
 
 func applyArtists(ctx context.Context, q *sqlc.Queries, archiveID string, artists []string) error {
 	artistsJson, _ := json.Marshal(artists)
+
 	err := q.BulkAddArtists(ctx, artistsJson)
 	if err != nil {
 		return fmt.Errorf("upsert artists: %w", err)
@@ -210,6 +211,7 @@ func applyArtists(ctx context.Context, q *sqlc.Queries, archiveID string, artist
 			return fmt.Errorf("increment artist counts: %w", err)
 		}
 	}
+
 	if len(toRemove) > 0 {
 		if err := q.DecrementArtistCount(ctx, toRemove); err != nil {
 			return fmt.Errorf("decrement artist counts: %w", err)
@@ -221,6 +223,7 @@ func applyArtists(ctx context.Context, q *sqlc.Queries, archiveID string, artist
 
 func applyCircles(ctx context.Context, q *sqlc.Queries, archiveID string, circles []string) error {
 	circleJson, _ := json.Marshal(circles)
+
 	err := q.BulkAddCircle(ctx, circleJson)
 	if err != nil {
 		return fmt.Errorf("upsert circles: %w", err)
@@ -268,6 +271,7 @@ func applyCircles(ctx context.Context, q *sqlc.Queries, archiveID string, circle
 			return fmt.Errorf("increment circle counts: %w", err)
 		}
 	}
+
 	if len(toRemove) > 0 {
 		if err := q.DecrementCircleCount(ctx, toRemove); err != nil {
 			return fmt.Errorf("decrement circle counts: %w", err)
@@ -279,6 +283,7 @@ func applyCircles(ctx context.Context, q *sqlc.Queries, archiveID string, circle
 
 func applyTags(ctx context.Context, q *sqlc.Queries, archiveID string, tags []string) error {
 	tagsJson, _ := json.Marshal(tags)
+
 	err := q.BulkAddTags(ctx, tagsJson)
 	if err != nil {
 		return fmt.Errorf("upsert tags: %w", err)
@@ -326,6 +331,7 @@ func applyTags(ctx context.Context, q *sqlc.Queries, archiveID string, tags []st
 			return fmt.Errorf("increment tag counts: %w", err)
 		}
 	}
+
 	if len(toRemove) > 0 {
 		if err := q.DecrementTagCount(ctx, toRemove); err != nil {
 			return fmt.Errorf("decrement tag counts: %w", err)
@@ -337,6 +343,7 @@ func applyTags(ctx context.Context, q *sqlc.Queries, archiveID string, tags []st
 
 func applyCharacters(ctx context.Context, q *sqlc.Queries, archiveID string, characters []string) error {
 	charactersJson, _ := json.Marshal(characters)
+
 	err := q.BulkAddCharacters(ctx, charactersJson)
 	if err != nil {
 		return fmt.Errorf("upsert characters: %w", err)
@@ -384,6 +391,7 @@ func applyCharacters(ctx context.Context, q *sqlc.Queries, archiveID string, cha
 			return fmt.Errorf("increment character counts: %w", err)
 		}
 	}
+
 	if len(toRemove) > 0 {
 		if err := q.DecrementCharacterCount(ctx, toRemove); err != nil {
 			return fmt.Errorf("decrement character counts: %w", err)
@@ -395,6 +403,7 @@ func applyCharacters(ctx context.Context, q *sqlc.Queries, archiveID string, cha
 
 func applyParodies(ctx context.Context, q *sqlc.Queries, archiveID string, parodies []string) error {
 	parodiesJson, _ := json.Marshal(parodies)
+
 	err := q.BulkAddParodies(ctx, parodiesJson)
 	if err != nil {
 		return fmt.Errorf("upsert parodies: %w", err)
@@ -442,6 +451,7 @@ func applyParodies(ctx context.Context, q *sqlc.Queries, archiveID string, parod
 			return fmt.Errorf("increment parody counts: %w", err)
 		}
 	}
+
 	if len(toRemove) > 0 {
 		if err := q.DecrementParodyCount(ctx, toRemove); err != nil {
 			return fmt.Errorf("decrement parody counts: %w", err)

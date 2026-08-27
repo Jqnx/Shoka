@@ -37,6 +37,7 @@ func (h *AdminHandler) GenerateCovers(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.Log.Error("get archives failed", "error", err)
 		response.InternalError(w, "failed to get archives")
+
 		return
 	}
 
@@ -65,6 +66,7 @@ func (h *AdminHandler) GeneratePHashes(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.Log.Error("get archives failed", "error", err)
 		response.InternalError(w, "failed to get archives")
+
 		return
 	}
 
@@ -113,17 +115,21 @@ type DuplicateGroup struct {
 // cover-coincidence false positives that a cover-only comparison produced.
 func comparePHashes(a, b [4]*int64, threshold int) (mean, compared int, matched bool) {
 	var total, within int
+
 	for i := range a {
 		if a[i] == nil || b[i] == nil {
 			continue
 		}
+
 		d := bits.OnesCount64(uint64(*a[i]) ^ uint64(*b[i]))
 		total += d
 		compared++
+
 		if d <= threshold {
 			within++
 		}
 	}
+
 	if compared == 0 {
 		return 0, 0, false
 	}
@@ -144,6 +150,7 @@ func comparePHashes(a, b [4]*int64, threshold int) (mean, compared int, matched 
 //	@Router			/api/admin/duplicates [get]
 func (h *AdminHandler) GetDuplicates(w http.ResponseWriter, r *http.Request) {
 	threshold := 8
+
 	if v := r.URL.Query().Get("threshold"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n >= 0 && n <= 20 {
 			threshold = n
@@ -154,6 +161,7 @@ func (h *AdminHandler) GetDuplicates(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.Log.Error("get archive phashes failed", "error", err)
 		response.InternalError(w, "failed to get archive phashes")
+
 		return
 	}
 
@@ -161,6 +169,7 @@ func (h *AdminHandler) GetDuplicates(w http.ResponseWriter, r *http.Request) {
 		id, title, libraryID string
 		hashes               [4]*int64
 	}
+
 	candidates := make([]candidate, 0, len(rows))
 	for _, row := range rows {
 		candidates = append(candidates, candidate{
@@ -178,12 +187,13 @@ func (h *AdminHandler) GetDuplicates(w http.ResponseWriter, r *http.Request) {
 	for i := range parent {
 		parent[i] = i
 	}
-	var find func(int) int
-	find = func(x int) int {
+
+	var find func(int) int = func(x int) int {
 		for parent[x] != x {
 			parent[x] = parent[parent[x]]
 			x = parent[x]
 		}
+
 		return x
 	}
 	union := func(a, b int) {
@@ -202,6 +212,7 @@ func (h *AdminHandler) GetDuplicates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	membersByRoot := make(map[int][]int)
+
 	for i := range candidates {
 		root := find(i)
 		membersByRoot[root] = append(membersByRoot[root], i)
@@ -212,7 +223,9 @@ func (h *AdminHandler) GetDuplicates(w http.ResponseWriter, r *http.Request) {
 		if len(members) < 2 {
 			continue
 		}
+
 		anchor := candidates[members[0]]
+
 		archives := make([]DuplicateArchive, 0, len(members))
 		for _, idx := range members {
 			c := candidates[idx]
@@ -223,6 +236,7 @@ func (h *AdminHandler) GetDuplicates(w http.ResponseWriter, r *http.Request) {
 				if anchor.hashes[k] == nil || c.hashes[k] == nil {
 					continue
 				}
+
 				distances[label] = bits.OnesCount64(uint64(*anchor.hashes[k]) ^ uint64(*c.hashes[k]))
 			}
 
@@ -234,6 +248,7 @@ func (h *AdminHandler) GetDuplicates(w http.ResponseWriter, r *http.Request) {
 				Distances: distances,
 			})
 		}
+
 		sort.Slice(archives, func(i, j int) bool { return archives[i].Distance < archives[j].Distance })
 		groups = append(groups, DuplicateGroup{Archives: archives})
 	}
@@ -244,6 +259,7 @@ func (h *AdminHandler) GetDuplicates(w http.ResponseWriter, r *http.Request) {
 		if len(groups[i].Archives) != len(groups[j].Archives) {
 			return len(groups[i].Archives) > len(groups[j].Archives)
 		}
+
 		return groups[i].Archives[1].Distance < groups[j].Archives[1].Distance
 	})
 

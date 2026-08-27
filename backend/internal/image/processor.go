@@ -32,8 +32,8 @@ func NewProcessor(cacheDir string, log *slog.Logger) *Processor {
 	}
 }
 
-// processImage() resizes an image and exports it as a webp
-func (p *Processor) processImage(r io.Reader, destPath string, maxWidth int, quality int) error {
+// processImage() resizes an image and exports it as a webp.
+func (p *Processor) processImage(r io.Reader, destPath string, maxWidth, quality int) error {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return fmt.Errorf("read image data: %w", err)
@@ -103,7 +103,7 @@ func (p *Processor) ProcessToBytes(r io.Reader) ([]byte, error) {
 	return bytes, nil
 }
 
-// GenerateThumbnail() generates a thumbnail for a given archive page
+// GenerateThumbnail() generates a thumbnail for a given archive page.
 func (p *Processor) GenerateThumbnail(ctx context.Context, archiveID string, index int, r io.Reader) error {
 	if err := util.EnsureDir(p.ThumbDir(archiveID)); err != nil {
 		return err
@@ -119,6 +119,7 @@ func (p *Processor) GenerateThumbnail(ctx context.Context, archiveID string, ind
 	}
 
 	p.log.Debug("thumbnail generated", "archive_id", archiveID, "index", index)
+
 	return nil
 }
 
@@ -155,6 +156,8 @@ func (p *Processor) EvictAll(archiveID string) error {
 	if err := os.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("evict archive=%s: %w", archiveID, err)
 	}
+
 	p.log.Info("cache evicted", "archive_id", archiveID)
+
 	return nil
 }

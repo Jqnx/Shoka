@@ -13,7 +13,7 @@ var imageExtensions = map[string]bool{
 	".avif": true,
 }
 
-// isImageFile() checks if a file is a supported image
+// isImageFile() checks if a file is a supported image.
 func isImageFile(filename string) bool {
 	ext := strings.ToLower(filepath.Ext(filename))
 	return imageExtensions[ext]

@@ -29,7 +29,9 @@ func SSEEvent(w http.ResponseWriter, event string, data any) error {
 	if err != nil {
 		return err
 	}
+
 	_, err = fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, payload)
+
 	return err
 }
 

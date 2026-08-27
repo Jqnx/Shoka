@@ -40,22 +40,28 @@ func (w *Watcher) Start(ctx context.Context) error {
 	// recursive. Doujinshi libraries are typically nested (artist/series
 	// folders), so walk the tree and watch every subdirectory up front.
 	added := 0
+
 	if err := filepath.WalkDir(w.dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			w.log.Warn("could not access path while setting up watches", "path", path, "error", err)
 			return nil
 		}
+
 		if !d.IsDir() {
 			return nil
 		}
+
 		if len(d.Name()) > 0 && d.Name()[0] == '.' {
 			return filepath.SkipDir
 		}
+
 		if err := watcher.Add(path); err != nil {
 			w.log.Warn("failed to watch directory", "path", path, "error", err)
 			return nil
 		}
+
 		added++
+
 		return nil
 	}); err != nil {
 		watcher.Close()
@@ -65,6 +71,7 @@ func (w *Watcher) Start(ctx context.Context) error {
 	w.log.Info("watching library", "dir", w.dir, "watched_dirs", added)
 
 	go w.run(ctx, watcher)
+
 	return nil
 }
 
@@ -82,6 +89,7 @@ func (w *Watcher) run(ctx context.Context, watcher *fsnotify.Watcher) {
 			if debounce != nil {
 				debounce.Stop()
 			}
+
 			return
 
 		case event, ok := <-watcher.Events:
@@ -103,8 +111,10 @@ func (w *Watcher) run(ctx context.Context, watcher *fsnotify.Watcher) {
 				if debounce != nil {
 					debounce.Stop()
 				}
+
 				debounce = time.AfterFunc(5*time.Second, func() {
 					w.log.Info("triggering scan after fs event")
+
 					if err := w.queue.EnqueueOnce(ctx, jobs.JobTypeScan, jobs.ScanPayload{LibraryID: w.libraryID}); err != nil {
 						w.log.Error("scan triggered by watcher failed", "error", err)
 					}
@@ -115,6 +125,7 @@ func (w *Watcher) run(ctx context.Context, watcher *fsnotify.Watcher) {
 			if !ok {
 				return
 			}
+
 			w.log.Error("watcher error", "error", err)
 		}
 	}
@@ -127,12 +138,15 @@ func (w *Watcher) watchNewDir(watcher *fsnotify.Watcher, dir string) {
 		if err != nil || !d.IsDir() {
 			return nil
 		}
+
 		if len(d.Name()) > 0 && d.Name()[0] == '.' {
 			return filepath.SkipDir
 		}
+
 		if err := watcher.Add(path); err != nil {
 			w.log.Warn("failed to watch new directory", "path", path, "error", err)
 		}
+
 		return nil
 	})
 }

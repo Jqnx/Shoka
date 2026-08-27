@@ -12,51 +12,57 @@ import (
 	"github.com/bodgit/sevenzip"
 )
 
-// sevenZipArchive implements the Archive interface
+// sevenZipArchive implements the Archive interface.
 type sevenZipArchive struct {
 	reader *sevenzip.ReadCloser
 	path   string
 }
 
-// openSevenZip() opens a 7zip file and returns zipArchive
+// openSevenZip() opens a 7zip file and returns zipArchive.
 func openSevenZip(path string) (Archive, error) {
 	r, err := sevenzip.OpenReader(path)
 	if err != nil {
 		return nil, fmt.Errorf("open sevenZip: %w", err)
 	}
+
 	return &sevenZipArchive{reader: r, path: path}, nil
 }
 
-// Path() returns the path to the 7zip file
+// Path() returns the path to the 7zip file.
 func (z *sevenZipArchive) Path() string { return z.path }
 
-// Pages() returns a sorted list of all pages in the 7zip file
+// Pages() returns a sorted list of all pages in the 7zip file.
 func (z *sevenZipArchive) Pages() ([]Page, error) {
 	var pages []Page
+
 	for _, f := range z.reader.File {
 		if f.FileInfo().IsDir() || !isImageFile(f.Name) {
 			continue
 		}
+
 		pages = append(pages, Page{
 			Filename: f.Name,
 			Size:     int64(f.UncompressedSize),
 		})
 	}
+
 	sortPages(pages)
+
 	return pages, nil
 }
 
-// Extract() returns a reader for the page
+// Extract() returns a reader for the page.
 func (z *sevenZipArchive) Extract(page Page) (io.ReadCloser, error) {
 	for _, f := range z.reader.File {
 		if f.Name == page.Filename {
 			return f.Open()
 		}
 	}
+
 	return nil, fmt.Errorf("page not found in archive: %s", page.Filename)
 }
 
-// ReadFile() returns the contents of a file
+// ReadFile() returns the contents of a file.
 func (z *sevenZipArchive) ReadFile(file string) ([]byte, error) {
 	for _, f := range z.reader.File {
 		name := strings.ToLower(filepath.Base(f.Name))
@@ -66,6 +72,7 @@ func (z *sevenZipArchive) ReadFile(file string) ([]byte, error) {
 				return nil, err
 			}
 			defer rc.Close()
+
 			return io.ReadAll(rc)
 		}
 	}
@@ -73,11 +80,12 @@ func (z *sevenZipArchive) ReadFile(file string) ([]byte, error) {
 	return nil, nil
 }
 
-// WriteFile() adds a new file to the archive
+// WriteFile() adds a new file to the archive.
 func (s *sevenZipArchive) WriteFile(name string, data []byte) error {
 	zipPath := strings.TrimSuffix(s.path, filepath.Ext(s.path)) + ".cbz"
 
 	var buf bytes.Buffer
+
 	w := zip.NewWriter(&buf)
 
 	f, err := os.Open(s.path)
@@ -120,6 +128,7 @@ func (s *sevenZipArchive) WriteFile(name string, data []byte) error {
 			rc.Close()
 			return fmt.Errorf("copy entry %s: %w", entry.Name, err)
 		}
+
 		rc.Close()
 	}
 
@@ -127,6 +136,7 @@ func (s *sevenZipArchive) WriteFile(name string, data []byte) error {
 	if err != nil {
 		return fmt.Errorf("create %s: %w", name, err)
 	}
+
 	if _, err := fw.Write(data); err != nil {
 		return fmt.Errorf("write %s: %w", name, err)
 	}
@@ -150,10 +160,11 @@ func (s *sevenZipArchive) WriteFile(name string, data []byte) error {
 	}
 
 	s.path = zipPath
+
 	return nil
 }
 
-// Close() closes the 7zip file reader
+// Close() closes the 7zip file reader.
 func (z *sevenZipArchive) Close() error {
 	return z.reader.Close()
 }

@@ -47,17 +47,20 @@ func (b *ThumbnailBroadcaster) Subscribe(archiveID string) (<-chan ThumbnailEven
 	if b.subs[archiveID] == nil {
 		b.subs[archiveID] = make(map[chan ThumbnailEvent]struct{})
 	}
+
 	b.subs[archiveID][ch] = struct{}{}
 	b.mu.Unlock()
 
 	cancel := func() {
 		b.mu.Lock()
 		defer b.mu.Unlock()
+
 		if subs, ok := b.subs[archiveID]; ok {
 			if _, ok := subs[ch]; ok {
 				delete(subs, ch)
 				close(ch)
 			}
+
 			if len(subs) == 0 {
 				delete(b.subs, archiveID)
 			}

@@ -1,14 +1,13 @@
 package library
 
 import (
+	"Shoka/internal/config"
+	"Shoka/internal/database/sqlc"
+	"Shoka/internal/jobs"
 	"context"
 	"fmt"
 	"log/slog"
 	"sync"
-
-	"Shoka/internal/config"
-	"Shoka/internal/database/sqlc"
-	"Shoka/internal/jobs"
 )
 
 // AllLibraryTypes lists every library type known to the schema (must stay
@@ -91,6 +90,7 @@ func (m *Manager) EnqueueInitialScans(ctx context.Context) error {
 		if _, ok := m.scanners[lib.Type]; !ok {
 			continue
 		}
+
 		if err := m.queue.EnqueueOnce(ctx, jobs.JobTypeScan, jobs.ScanPayload{LibraryID: lib.ID}); err != nil {
 			m.log.Error("failed to enqueue initial scan", "library_id", lib.ID, "error", err)
 		}
@@ -158,10 +158,12 @@ func (m *Manager) startWatching(ctx context.Context, lib sqlc.Library) {
 	}
 
 	watchCtx, cancel := context.WithCancel(ctx)
+
 	watcher := NewWatcher(m.queue, lib.ID, lib.Path, m.log)
 	if err := watcher.Start(watchCtx); err != nil {
 		m.log.Error("failed to start watcher", "library_id", lib.ID, "path", lib.Path, "error", err)
 		cancel()
+
 		return
 	}
 

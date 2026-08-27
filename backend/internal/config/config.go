@@ -2,6 +2,7 @@ package config
 
 import (
 	"Shoka/internal/util"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -31,11 +32,12 @@ func LoadConfig() (*Config, error) {
 
 	// Read config file, create new one with defaults if one doesn't exist
 	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+		if _, ok := errors.AsType[viper.ConfigFileNotFoundError](err); ok {
 			_, err := os.Create(filepath.Join(DataDir, ConfigFile))
 			if err != nil {
 				return nil, err
 			}
+
 			if err := viper.WriteConfig(); err != nil {
 				return nil, err
 			}
@@ -88,6 +90,7 @@ func getEnv(c *Config) error {
 		if err != nil {
 			return err
 		}
+
 		c.Server.Port = port
 	}
 

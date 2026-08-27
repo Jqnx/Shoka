@@ -1,8 +1,11 @@
 package sources
 
 import (
+	"Shoka/internal/language"
+	"Shoka/internal/metadata"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -11,9 +14,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"Shoka/internal/language"
-	"Shoka/internal/metadata"
 
 	"golang.org/x/time/rate"
 )
@@ -27,7 +27,7 @@ const (
 	nhentaiCDNURL     = "https://nhentai.net/api/v2/cdn"
 	nhentaiUserAgent  = "Shoka/1.0 (https://github.com/Jqnx/Shoka)"
 
-	// Anonymous search endpoint: 10 requests/minute per IP
+	// Anonymous search endpoint: 10 requests/minute per IP.
 	nhentaiRateInterval = 6 * time.Second
 
 	// The list of CDN servers rarely changes; avoid hitting /api/v2/cdn on
@@ -127,8 +127,9 @@ func (s *NHentaiSource) Search(ctx context.Context, input metadata.Input) ([]*me
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusTooManyRequests {
-		return nil, fmt.Errorf("nhentai rate limit exceeded")
+		return nil, errors.New("nhentai rate limit exceeded")
 	}
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("nhentai search returned %d", resp.StatusCode)
 	}
@@ -154,6 +155,7 @@ func (s *NHentaiSource) FetchByID(ctx context.Context, input metadata.Input, id 
 	if err != nil {
 		return nil, fmt.Errorf("invalid nhentai gallery id: %s", id)
 	}
+
 	return s.fetchGallery(ctx, galleryID, input.SourceConfig.APIKey)
 }
 
@@ -163,9 +165,11 @@ func (s *NHentaiSource) Fetch(ctx context.Context, input metadata.Input) (*metad
 	if err != nil {
 		return nil, err
 	}
+
 	if galleryID == 0 {
 		return nil, nil
 	}
+
 	return s.fetchGallery(ctx, galleryID, input.SourceConfig.APIKey)
 }
 
@@ -183,8 +187,9 @@ func (s *NHentaiSource) search(ctx context.Context, title, apiKey string) (int, 
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusTooManyRequests {
-		return 0, fmt.Errorf("nhentai rate limit exceeded")
+		return 0, errors.New("nhentai rate limit exceeded")
 	}
+
 	if resp.StatusCode != http.StatusOK {
 		return 0, fmt.Errorf("nhentai search returned %d", resp.StatusCode)
 	}
@@ -212,9 +217,11 @@ func (s *NHentaiSource) fetchGallery(ctx context.Context, id int, apiKey string)
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, nil
 	}
+
 	if resp.StatusCode == http.StatusTooManyRequests {
-		return nil, fmt.Errorf("nhentai rate limit exceeded")
+		return nil, errors.New("nhentai rate limit exceeded")
 	}
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("nhentai gallery returned %d", resp.StatusCode)
 	}
@@ -227,7 +234,7 @@ func (s *NHentaiSource) fetchGallery(ctx context.Context, id int, apiKey string)
 	return s.toResult(&gallery), nil
 }
 
-// toResult converts nhentaiGalleryDetail to metadata.Result
+// toResult converts nhentaiGalleryDetail to metadata.Result.
 func (s *NHentaiSource) toResult(g *nhentaiGalleryDetail) *metadata.Result {
 	result := &metadata.Result{}
 
@@ -236,9 +243,11 @@ func (s *NHentaiSource) toResult(g *nhentaiGalleryDetail) *metadata.Result {
 	if title == "" {
 		title = g.Title.Pretty
 	}
+
 	if title == "" {
 		title = g.Title.Japanese
 	}
+
 	if title != "" {
 		result.Title = &title
 	}
@@ -298,33 +307,41 @@ func (s *NHentaiSource) doRequest(ctx context.Context, rawURL, apiKey string) (*
 		if err != nil {
 			return nil, err
 		}
+
 		s.setHeaders(req, apiKey)
+
 		return req, nil
 	}
 
-	for attempt := 0; attempt < 2; attempt++ {
+	for attempt := range 2 {
 		if err := s.limiter.Wait(ctx); err != nil {
 			return nil, err
 		}
+
 		req, err := build()
 		if err != nil {
 			return nil, err
 		}
+
 		resp, err := s.client.Do(req)
 		if err != nil {
 			return nil, err
 		}
+
 		if resp.StatusCode != http.StatusTooManyRequests || attempt == 1 {
 			return resp, nil
 		}
+
 		resp.Body.Close()
 
 		wait := 60 * time.Second
+
 		if ra := resp.Header.Get("Retry-After"); ra != "" {
 			if secs, err := strconv.Atoi(ra); err == nil {
 				wait = time.Duration(secs) * time.Second
 			}
 		}
+
 		timer := time.NewTimer(wait)
 		select {
 		case <-ctx.Done():
@@ -335,18 +352,19 @@ func (s *NHentaiSource) doRequest(ctx context.Context, rawURL, apiKey string) (*
 		}
 	}
 
-	return nil, fmt.Errorf("nhentai: unexpected retry loop exit")
+	return nil, errors.New("nhentai: unexpected retry loop exit")
 }
 
-// setHeaders sets the user agent and API key headers for the request
+// setHeaders sets the user agent and API key headers for the request.
 func (s *NHentaiSource) setHeaders(req *http.Request, apiKey string) {
 	req.Header.Set("User-Agent", nhentaiUserAgent)
+
 	if apiKey != "" {
 		req.Header.Set("Authorization", "Key "+apiKey)
 	}
 }
 
-// listItemToSearchResult converts a nhentaiSearchResultItem to a SearchResult
+// listItemToSearchResult converts a nhentaiSearchResultItem to a SearchResult.
 func (s *NHentaiSource) listItemToSearchResult(item *nhentaiSearchResultItem, thumbServer string) *metadata.SearchResult {
 	title := item.EnglishTitle
 	if title == "" {
@@ -372,6 +390,7 @@ func resolveThumbURL(thumbServer, relativePath string) string {
 	if thumbServer == "" || relativePath == "" {
 		return relativePath
 	}
+
 	return strings.TrimRight(thumbServer, "/") + "/" + strings.TrimLeft(relativePath, "/")
 }
 
@@ -419,7 +438,7 @@ func (s *NHentaiSource) fetchCDNServers(ctx context.Context, apiKey string) ([]s
 	}
 
 	if len(cdn.ThumbServers) == 0 {
-		return nil, fmt.Errorf("no thumb servers in cdn response")
+		return nil, errors.New("no thumb servers in cdn response")
 	}
 
 	return cdn.ThumbServers, nil

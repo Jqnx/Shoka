@@ -35,6 +35,7 @@ func authMiddleware(db *sql.DB) func(http.Handler) http.Handler {
 func extractToken(r *http.Request) (string, error) {
 	// Authorization: Bearer <token>
 	header := r.Header.Get("Authorization")
+
 	token, ok := strings.CutPrefix(header, "Bearer ")
 	if ok {
 		return token, nil
@@ -46,7 +47,7 @@ func extractToken(r *http.Request) (string, error) {
 		return "", nil
 	}
 
-	cookieToken := strings.Split(cookie.Value, ".")[0]
+	cookieToken, _, _ := strings.Cut(cookie.Value, ".")
 
 	return cookieToken, nil
 }

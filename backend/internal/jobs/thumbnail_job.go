@@ -54,6 +54,7 @@ func NewThumbnailHandler(processor *image.Processor, broadcaster *events.Thumbna
 		}
 
 		generated := 0
+
 		for _, page := range pages {
 			// Skip pages that already have a thumbnail (e.g. page 0, which
 			// the cover job usually generates first) — checking before
@@ -70,11 +71,13 @@ func NewThumbnailHandler(processor *image.Processor, broadcaster *events.Thumbna
 
 			err = processor.GenerateThumbnail(ctx, p.ArchiveID, page.Index, r)
 			r.Close()
+
 			if err != nil {
 				return err
 			}
 
 			generated++
+
 			broadcaster.Publish(p.ArchiveID, events.ThumbnailEvent{Index: page.Index})
 		}
 

@@ -1,10 +1,9 @@
 package archive
 
 import (
+	"Shoka/internal/util"
 	"path/filepath"
 	"sort"
-
-	"Shoka/internal/util"
 )
 
 // sortPages sorts pages into natural reading order by filename.

@@ -19,6 +19,7 @@ func (p *Processor) ThumbPath(archiveID string, index int) string {
 	if _, err := os.Stat(path); err != nil {
 		return ""
 	}
+
 	return path
 }
 
@@ -28,6 +29,7 @@ func (p *Processor) ThumbsReady(archiveID string, pageCount int) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -45,6 +47,7 @@ func writeFileAtomic(destPath string, data []byte) error {
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
 	}
+
 	tmpPath := tmp.Name()
 	defer os.Remove(tmpPath) // no-op once successfully renamed
 
@@ -52,6 +55,7 @@ func writeFileAtomic(destPath string, data []byte) error {
 		tmp.Close()
 		return fmt.Errorf("write temp file: %w", err)
 	}
+
 	if err := tmp.Close(); err != nil {
 		return fmt.Errorf("close temp file: %w", err)
 	}

@@ -1,7 +1,7 @@
 package archive
 
 //
-//import (
+// import (
 //	"bytes"
 //	"fmt"
 //	"image/jpeg"
@@ -10,7 +10,7 @@ package archive
 //	"github.com/gen2brain/go-fitz"
 //)
 //
-//type pdfArchive struct {
+// type pdfArchive struct {
 //	doc   *fitz.Document
 //	path  string
 //	pages []Page

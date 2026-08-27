@@ -1,6 +1,12 @@
 package library
 
 import (
+	"Shoka/internal/config"
+	"Shoka/internal/database"
+	"Shoka/internal/database/sqlc"
+	"Shoka/internal/jobs"
+	"Shoka/internal/library/archive"
+	"Shoka/internal/util"
 	"context"
 	"fmt"
 	"io/fs"
@@ -10,13 +16,6 @@ import (
 	"slices"
 	"strings"
 	"time"
-
-	"Shoka/internal/config"
-	"Shoka/internal/database"
-	"Shoka/internal/database/sqlc"
-	"Shoka/internal/jobs"
-	"Shoka/internal/library/archive"
-	"Shoka/internal/util"
 )
 
 var supportedExtensions = []string{".cbz", ".cbr", ".zip", ".rar", ".7z"}
@@ -57,6 +56,7 @@ func NewArchiveScanner(cfg *config.Config, queries *sqlc.Queries, queue JobQueue
 // libraries' archives are never touched.
 func (s *ArchiveScanner) Scan(ctx context.Context, lib sqlc.Library) error {
 	s.log.Info("library scan started", "library_id", lib.ID, "library", lib.Name)
+
 	start := time.Now()
 
 	found := make(map[string]fs.FileInfo) // path → FileInfo
@@ -77,10 +77,11 @@ func (s *ArchiveScanner) Scan(ctx context.Context, lib sqlc.Library) error {
 		"updated", updated,
 		"removed", removed,
 	)
+
 	return nil
 }
 
-// walk() recursively walks a directory and adds any files it finds to the found map
+// walk() recursively walks a directory and adds any files it finds to the found map.
 func (s *ArchiveScanner) walk(ctx context.Context, root string, found map[string]fs.FileInfo) error {
 	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -109,6 +110,7 @@ func (s *ArchiveScanner) walk(ctx context.Context, root string, found map[string
 		}
 
 		found[path] = info
+
 		return nil
 	})
 }
@@ -137,7 +139,9 @@ func (s *ArchiveScanner) process(ctx context.Context, lib sqlc.Library, found ma
 				s.log.Error("failed to add archive", "path", path, "error", err)
 				continue
 			}
+
 			added++
+
 			continue
 		}
 
@@ -146,6 +150,7 @@ func (s *ArchiveScanner) process(ctx context.Context, lib sqlc.Library, found ma
 				s.log.Error("failed to update archive", "path", path, "error", err)
 				continue
 			}
+
 			updated++
 		}
 	}
@@ -156,6 +161,7 @@ func (s *ArchiveScanner) process(ctx context.Context, lib sqlc.Library, found ma
 				s.log.Error("failed to remove archive", "path", path, "error", err)
 				continue
 			}
+
 			removed++
 		}
 	}
@@ -163,13 +169,13 @@ func (s *ArchiveScanner) process(ctx context.Context, lib sqlc.Library, found ma
 	return added, updated, removed, nil
 }
 
-// hasChanged() checks if an archive has changed
+// hasChanged() checks if an archive has changed.
 func (s *ArchiveScanner) hasChanged(record sqlc.GetArchiveFilePathsByLibraryRow, info fs.FileInfo) bool {
 	return record.FileSize != info.Size() ||
 		!record.ModTime.Equal(info.ModTime())
 }
 
-// addArchive() adds a new archive and queues up necessary jobs
+// addArchive() adds a new archive and queues up necessary jobs.
 func (s *ArchiveScanner) addArchive(ctx context.Context, lib sqlc.Library, path string, info fs.FileInfo) error {
 	var arch sqlc.Archive
 
@@ -180,6 +186,7 @@ func (s *ArchiveScanner) addArchive(ctx context.Context, lib sqlc.Library, path 
 
 	pages, err := a.Pages()
 	a.Close()
+
 	if err != nil {
 		return fmt.Errorf("list pages: %w", err)
 	}
@@ -199,7 +206,6 @@ func (s *ArchiveScanner) addArchive(ctx context.Context, lib sqlc.Library, path 
 			ModTime:   info.ModTime(),
 			PageCount: int64(len(pages)),
 		})
-
 		if err == nil {
 			break
 		}
@@ -240,10 +246,11 @@ func (s *ArchiveScanner) addArchive(ctx context.Context, lib sqlc.Library, path 
 	// by SQL triggers on insert/update/delete (see migration 00028).
 
 	s.log.Info("archive added", "path", path, "id", arch.ID, "library_id", lib.ID)
+
 	return nil
 }
 
-// updateArchive() updates an existing archive and queues up necessary jobs
+// updateArchive() updates an existing archive and queues up necessary jobs.
 func (s *ArchiveScanner) updateArchive(ctx context.Context, id string, info fs.FileInfo) error {
 	if err := s.queries.UpdateArchiveMeta(ctx, sqlc.UpdateArchiveMetaParams{
 		ID:       id,
@@ -260,11 +267,12 @@ func (s *ArchiveScanner) updateArchive(ctx context.Context, id string, info fs.F
 	// s.queue.Enqueue(ctx, jobs.JobTypeMetadata, jobs.MetadataPayload{ArchiveID: id})
 
 	s.log.Info("archive updated", "id", id)
+
 	return nil
 }
 
-// removeArchive() removes an archive and its cache directory
-func (s *ArchiveScanner) removeArchive(ctx context.Context, id string, path string) error {
+// removeArchive() removes an archive and its cache directory.
+func (s *ArchiveScanner) removeArchive(ctx context.Context, id, path string) error {
 	if err := s.queries.DeleteArchive(ctx, id); err != nil {
 		return err
 	}
@@ -275,5 +283,6 @@ func (s *ArchiveScanner) removeArchive(ctx context.Context, id string, path stri
 	}
 
 	s.log.Info("archive removed", "path", path, "id", id)
+
 	return nil
 }

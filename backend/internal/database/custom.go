@@ -1,20 +1,21 @@
 package database
 
 import (
+	"Shoka/internal/database/sqlc"
+	"Shoka/internal/metadata"
 	"context"
 	"database/sql"
 	"fmt"
 	"time"
-
-	"Shoka/internal/database/sqlc"
-	"Shoka/internal/metadata"
 )
 
 // GetSession looks up a Better Auth session token and returns the owning user ID.
 // Returns ("", nil) if the token does not exist or has expired.
 func GetSession(ctx context.Context, db *sql.DB, token string) (string, error) {
-	var userID string
-	var expiresAt int64
+	var (
+		userID    string
+		expiresAt int64
+	)
 
 	err := db.QueryRowContext(ctx, `
         SELECT user_id, expires_at
@@ -26,9 +27,11 @@ func GetSession(ctx context.Context, db *sql.DB, token string) (string, error) {
 	if err == sql.ErrNoRows {
 		return "", nil
 	}
+
 	if err != nil {
 		return "", fmt.Errorf("session lookup: %w", err)
 	}
+
 	if time.Now().After(time.UnixMilli(expiresAt)) {
 		return "", nil
 	}
@@ -47,18 +50,23 @@ func GetArchiveMetadata(ctx context.Context, q *sqlc.Queries, archiveID string) 
 	if archive.Title != "" {
 		result.Title = &archive.Title
 	}
+
 	if archive.Summary != nil {
 		result.Summary = archive.Summary
 	}
+
 	if archive.Language != nil {
 		result.Language = archive.Language
 	}
+
 	if archive.Category != nil {
 		result.Category = archive.Category
 	}
+
 	if archive.PageCount > 0 {
 		result.PageCount = &archive.PageCount
 	}
+
 	if archive.ReleaseDate != nil {
 		result.ReleaseDate = archive.ReleaseDate
 	}
@@ -67,6 +75,7 @@ func GetArchiveMetadata(ctx context.Context, q *sqlc.Queries, archiveID string) 
 	if err != nil {
 		return nil, fmt.Errorf("get artists: %w", err)
 	}
+
 	for _, a := range artists {
 		result.Artists = append(result.Artists, a.Name)
 	}
@@ -75,6 +84,7 @@ func GetArchiveMetadata(ctx context.Context, q *sqlc.Queries, archiveID string) 
 	if err != nil {
 		return nil, fmt.Errorf("get tags: %w", err)
 	}
+
 	for _, t := range tags {
 		result.Tags = append(result.Tags, t.Name)
 	}
@@ -83,6 +93,7 @@ func GetArchiveMetadata(ctx context.Context, q *sqlc.Queries, archiveID string) 
 	if err != nil {
 		return nil, fmt.Errorf("get parodies: %w", err)
 	}
+
 	for _, p := range parodies {
 		result.Parodies = append(result.Parodies, p.Name)
 	}
@@ -91,6 +102,7 @@ func GetArchiveMetadata(ctx context.Context, q *sqlc.Queries, archiveID string) 
 	if err != nil {
 		return nil, fmt.Errorf("get circles: %w", err)
 	}
+
 	for _, c := range circles {
 		result.Circles = append(result.Circles, c.Name)
 	}
@@ -99,6 +111,7 @@ func GetArchiveMetadata(ctx context.Context, q *sqlc.Queries, archiveID string) 
 	if err != nil {
 		return nil, fmt.Errorf("get characters: %w", err)
 	}
+
 	for _, c := range characters {
 		result.Characters = append(result.Characters, c.Name)
 	}

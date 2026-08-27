@@ -1,6 +1,7 @@
 package metadata
 
 import (
+	"Shoka/internal/database/sqlc"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -8,8 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
-
-	"Shoka/internal/database/sqlc"
 )
 
 var (
@@ -56,6 +55,7 @@ func (p *Pipeline) resolveSettings(ctx context.Context, libraryID, name string) 
 		if errors.Is(err, sql.ErrNoRows) {
 			return SourceSettings{}, nil
 		}
+
 		return SourceSettings{}, err
 	}
 
@@ -67,6 +67,7 @@ func (p *Pipeline) resolveSettings(ctx context.Context, libraryID, name string) 
 	if row.Cookies != nil {
 		settings.Cookies = *row.Cookies
 	}
+
 	if row.ApiKey != nil {
 		settings.APIKey = *row.ApiKey
 	}
@@ -81,6 +82,7 @@ func (p *Pipeline) IsEnabled(ctx context.Context, libraryID, name string) bool {
 		p.logger.Warn("failed to resolve source settings", "library_id", libraryID, "source", name, "error", err)
 		return false
 	}
+
 	return settings.Enabled
 }
 
@@ -105,6 +107,7 @@ func (p *Pipeline) run(ctx context.Context, input Input, localOnly bool) (*Resul
 			p.logger.Warn("failed to resolve source settings", "source", source.Name(), "archive_id", input.ArchiveID, "error", err)
 			continue
 		}
+
 		if !settings.Enabled {
 			continue
 		}
@@ -132,6 +135,7 @@ func (p *Pipeline) run(ctx context.Context, input Input, localOnly bool) (*Resul
 				"archive_id", input.ArchiveID,
 				"error", err,
 			)
+
 			continue
 		}
 
@@ -140,6 +144,7 @@ func (p *Pipeline) run(ctx context.Context, input Input, localOnly bool) (*Resul
 				"source", source.Name(),
 				"archive_id", input.ArchiveID,
 			)
+
 			continue
 		}
 
@@ -158,18 +163,23 @@ func merge(dst, src *Result) {
 	if dst.Title == nil && src.Title != nil {
 		dst.Title = src.Title
 	}
+
 	if dst.Summary == nil && src.Summary != nil {
 		dst.Summary = src.Summary
 	}
+
 	if dst.Language == nil && src.Language != nil {
 		dst.Language = src.Language
 	}
+
 	if dst.Category == nil && src.Category != nil {
 		dst.Category = src.Category
 	}
+
 	if dst.ReleaseDate == nil && src.ReleaseDate != nil {
 		dst.ReleaseDate = src.ReleaseDate
 	}
+
 	if dst.PageCount == nil && src.PageCount != nil {
 		dst.PageCount = src.PageCount
 	}
@@ -177,15 +187,19 @@ func merge(dst, src *Result) {
 	if len(dst.Artists) == 0 && len(src.Artists) > 0 {
 		dst.Artists = src.Artists
 	}
+
 	if len(dst.Tags) == 0 && len(src.Tags) > 0 {
 		dst.Tags = src.Tags
 	}
+
 	if len(dst.Parodies) == 0 && len(src.Parodies) > 0 {
 		dst.Parodies = src.Parodies
 	}
+
 	if len(dst.Circles) == 0 && len(src.Circles) > 0 {
 		dst.Circles = src.Circles
 	}
+
 	if len(dst.Characters) == 0 && len(src.Characters) > 0 {
 		dst.Characters = src.Characters
 	}
@@ -206,6 +220,7 @@ func isComplete(r *Result) bool {
 // FetchWithSource runs a single named source.
 func (p *Pipeline) FetchWithSource(ctx context.Context, name string, input Input) (*Result, error) {
 	var found Source
+
 	for _, s := range p.sources {
 		if s.Name() == name {
 			found = s
@@ -221,9 +236,11 @@ func (p *Pipeline) FetchWithSource(ctx context.Context, name string, input Input
 	if err != nil {
 		return nil, fmt.Errorf("resolve source settings: %w", err)
 	}
+
 	if !settings.Enabled {
 		return nil, fmt.Errorf("%w: %s", ErrDisabledSource, name)
 	}
+
 	input.SourceConfig = settings
 
 	return found.Fetch(ctx, input)
@@ -233,6 +250,7 @@ func (p *Pipeline) FetchWithSource(ctx context.Context, name string, input Input
 // Returns ErrNotSearchable if the source doesn't support manual search.
 func (p *Pipeline) SearchWithSource(ctx context.Context, name string, input Input) ([]*SearchResult, error) {
 	var found Source
+
 	for _, s := range p.sources {
 		if s.Name() == name {
 			found = s
@@ -248,9 +266,11 @@ func (p *Pipeline) SearchWithSource(ctx context.Context, name string, input Inpu
 	if err != nil {
 		return nil, fmt.Errorf("resolve source settings: %w", err)
 	}
+
 	if !settings.Enabled {
 		return nil, fmt.Errorf("%w: %s", ErrDisabledSource, name)
 	}
+
 	input.SourceConfig = settings
 
 	searchable, ok := found.(SearchableSource)
@@ -267,6 +287,7 @@ func (p *Pipeline) SearchWithSource(ctx context.Context, name string, input Inpu
 // the correct per-library source settings (cookies/API key) can be used.
 func (p *Pipeline) FetchFromSourceByID(ctx context.Context, name string, input Input, id string) (*Result, error) {
 	var found Source
+
 	for _, s := range p.sources {
 		if s.Name() == name {
 			found = s
@@ -282,9 +303,11 @@ func (p *Pipeline) FetchFromSourceByID(ctx context.Context, name string, input I
 	if err != nil {
 		return nil, fmt.Errorf("resolve source settings: %w", err)
 	}
+
 	if !settings.Enabled {
 		return nil, fmt.Errorf("%w: %s", ErrDisabledSource, name)
 	}
+
 	input.SourceConfig = settings
 
 	remote, ok := found.(RemoteSource)
@@ -306,6 +329,7 @@ func (p *Pipeline) SourceIsLocal(name string) (isLocal, known bool) {
 			return s.IsLocal(), true
 		}
 	}
+
 	return false, false
 }
 
@@ -328,9 +352,11 @@ func unmarshalStringSlice(raw string) []string {
 	if raw == "" {
 		return nil
 	}
+
 	var out []string
 	if err := json.Unmarshal([]byte(raw), &out); err != nil {
 		return nil
 	}
+
 	return out
 }

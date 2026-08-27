@@ -3,6 +3,7 @@
 package language
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -75,7 +76,7 @@ func NewLanguageConverter() *LanguageConverter {
 
 func (lc *LanguageConverter) ToISO(name string) (string, error) {
 	if name == "" {
-		return "", fmt.Errorf("empty language input")
+		return "", errors.New("empty language input")
 	}
 
 	normalized := strings.ToLower(strings.TrimSpace(name))
@@ -84,6 +85,7 @@ func (lc *LanguageConverter) ToISO(name string) (string, error) {
 		if _, exists := lc.codeToName[normalized]; exists {
 			return normalized, nil
 		}
+
 		return "", fmt.Errorf("unknown ISO code: %s", name)
 	}
 
@@ -99,17 +101,20 @@ func (lc *LanguageConverter) ToName(code string) (string, error) {
 	if name, exists := lc.codeToName[normalized]; exists {
 		return name, nil
 	}
+
 	return "", fmt.Errorf("unknown ISO code: %s", code)
 }
 
 func (lc *LanguageConverter) IsValidISO(code string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(code))
 	_, exists := lc.codeToName[normalized]
+
 	return exists
 }
 
 func (lc *LanguageConverter) IsValidName(name string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(name))
 	_, exists := lc.nameToCode[normalized]
+
 	return exists
 }

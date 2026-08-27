@@ -32,6 +32,7 @@ func NewCoverHandler(processor *image.Processor, log *slog.Logger) Handler {
 		if err != nil {
 			return fmt.Errorf("list pages: %w", err)
 		}
+
 		page := pages[0]
 
 		r, err := a.Extract(page)

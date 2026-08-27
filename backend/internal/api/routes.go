@@ -1,10 +1,9 @@
 package api
 
 import (
-	"net/http"
-
 	"Shoka/internal/api/handlers"
 	"Shoka/internal/api/response"
+	"net/http"
 
 	_ "Shoka/docs"
 

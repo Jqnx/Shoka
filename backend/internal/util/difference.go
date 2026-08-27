@@ -9,6 +9,7 @@ func DiffIDs(current, desired []int64) (toAdd, toRemove []int64) {
 	for _, id := range current {
 		currentSet[id] = true
 	}
+
 	for _, id := range desired {
 		desiredSet[id] = true
 	}
@@ -18,6 +19,7 @@ func DiffIDs(current, desired []int64) (toAdd, toRemove []int64) {
 			toAdd = append(toAdd, id)
 		}
 	}
+
 	for _, id := range current {
 		if !desiredSet[id] {
 			toRemove = append(toRemove, id)

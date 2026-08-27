@@ -1,4 +1,4 @@
-.PHONY: dev sqlc tidy dr docker-run dd docker-down help
+.PHONY: dev sqlc tidy lint lint/fix fmt dr docker-run dd docker-down help
 
 APP_NAME   := Shoka
 BACKEND    := ./backend
@@ -60,6 +60,15 @@ swag: ## Regenerate swaggo API docs
 # ----- Code Quality -----
 tidy: ## Tidy Go module dependencies
 	cd $(BACKEND) && go mod tidy
+
+lint: ## Run golangci-lint over the backend
+	cd $(BACKEND) && golangci-lint run ./...
+
+lint/fix: ## Run golangci-lint with autofix over the backend
+	cd $(BACKEND) && golangci-lint run --fix ./...
+
+fmt: ## Format backend Go code (gofumpt + goimports via golangci-lint)
+	cd $(BACKEND) && golangci-lint fmt ./...
 
 # ----- Cache -----
 cache/clear: ## Delete all cached thumbnails and pages

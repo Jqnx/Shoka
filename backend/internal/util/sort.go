@@ -12,6 +12,7 @@ func NaturalLess(a, b string) bool {
 		if b == "" {
 			return false
 		}
+
 		if a == "" {
 			return true
 		}
@@ -24,7 +25,9 @@ func NaturalLess(a, b string) bool {
 			if a[0] != b[0] {
 				return a[0] < b[0]
 			}
+
 			a, b = a[1:], b[1:]
+
 			continue
 		}
 
@@ -36,6 +39,7 @@ func NaturalLess(a, b string) bool {
 
 		// compare the numeric segments as integers
 		aNum, _ := strconv.Atoi(a[aDigit[0]:aDigit[1]])
+
 		bNum, _ := strconv.Atoi(b[bDigit[0]:bDigit[1]])
 		if aNum != bNum {
 			return aNum < bNum

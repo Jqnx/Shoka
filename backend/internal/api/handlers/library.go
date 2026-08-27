@@ -1,6 +1,12 @@
 package handlers
 
 import (
+	"Shoka/internal/api/response"
+	"Shoka/internal/database"
+	"Shoka/internal/database/sqlc"
+	"Shoka/internal/jobs"
+	"Shoka/internal/library"
+	"Shoka/internal/util"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -10,13 +16,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"Shoka/internal/api/response"
-	"Shoka/internal/database"
-	"Shoka/internal/database/sqlc"
-	"Shoka/internal/jobs"
-	"Shoka/internal/library"
-	"Shoka/internal/util"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -83,6 +82,7 @@ func (h *LibraryHandler) GetLibraries(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("list libraries failed", "error", err)
 		response.InternalError(w, "failed to list libraries")
+
 		return
 	}
 
@@ -130,7 +130,7 @@ type CreateLibraryRequest struct {
 //	@Summary		Create a library
 //	@Tags			admin
 //	@Accept			json
-//	@Param			body	body		CreateLibraryRequest	true	"Library to create"
+//	@Param			body	CreateLibraryRequest	true	"Library to create"
 //	@Success		201	{object}	LibraryResponse
 //	@Failure		400	{object}	response.Error
 //	@Failure		409	{object}	response.Error
@@ -144,6 +144,7 @@ func (h *LibraryHandler) CreateLibrary(w http.ResponseWriter, r *http.Request) {
 	}
 
 	body.Name = strings.TrimSpace(body.Name)
+
 	body.Path = strings.TrimSpace(body.Path)
 	if body.Type == "" {
 		body.Type = "doujinshi"
@@ -175,14 +176,17 @@ func (h *LibraryHandler) CreateLibrary(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("list libraries failed", "error", err)
 		response.InternalError(w, "failed to validate library path")
+
 		return
 	}
+
 	if overlap, ok := findOverlappingLibrary(existing, absPath); ok {
 		response.BadRequest(w, fmt.Sprintf("path overlaps with existing library %q (%s)", overlap.Name, overlap.Path))
 		return
 	}
 
 	var lib sqlc.Library
+
 	for range 5 {
 		id, err := util.GenerateID()
 		if err != nil {
@@ -199,13 +203,17 @@ func (h *LibraryHandler) CreateLibrary(w http.ResponseWriter, r *http.Request) {
 		if err == nil {
 			break
 		}
+
 		if !database.IsUniqueConstraintError(err) {
 			h.logger.Error("create library failed", "error", err)
 			response.InternalError(w, "failed to create library")
+
 			return
 		}
+
 		h.logger.Warn("library id collision, retrying")
 	}
+
 	if lib.ID == "" {
 		response.InternalError(w, "failed to create library")
 		return
@@ -243,7 +251,7 @@ type UpdateLibraryRequest struct {
 //	@Tags			admin
 //	@Accept			json
 //	@Param			id		path		string					true	"Library ID"
-//	@Param			body	body		UpdateLibraryRequest	true	"Fields to update"
+//	@Param			body	UpdateLibraryRequest	true	"Fields to update"
 //	@Success		200	{object}	LibraryResponse
 //	@Failure		400	{object}	response.Error
 //	@Failure		404	{object}	response.Error
@@ -258,8 +266,10 @@ func (h *LibraryHandler) UpdateLibrary(w http.ResponseWriter, r *http.Request) {
 			response.NotFound(w, "library not found")
 			return
 		}
+
 		h.logger.Error("get library failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get library")
+
 		return
 	}
 
@@ -285,6 +295,7 @@ func (h *LibraryHandler) UpdateLibrary(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.Error("update library failed", "id", id, "error", err)
 		response.InternalError(w, "failed to update library")
+
 		return
 	}
 
@@ -311,14 +322,17 @@ func (h *LibraryHandler) DeleteLibrary(w http.ResponseWriter, r *http.Request) {
 			response.NotFound(w, "library not found")
 			return
 		}
+
 		h.logger.Error("get library failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get library")
+
 		return
 	}
 
 	if err := h.queries.DeleteLibrary(r.Context(), id); err != nil {
 		h.logger.Error("delete library failed", "id", id, "error", err)
 		response.InternalError(w, "failed to delete library")
+
 		return
 	}
 
@@ -344,14 +358,17 @@ func (h *LibraryHandler) ScanLibrary(w http.ResponseWriter, r *http.Request) {
 			response.NotFound(w, "library not found")
 			return
 		}
+
 		h.logger.Error("get library failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get library")
+
 		return
 	}
 
 	if err := h.queue.EnqueueOnce(r.Context(), jobs.JobTypeScan, jobs.ScanPayload{LibraryID: id}); err != nil {
 		h.logger.Error("enqueue scan failed", "id", id, "error", err)
 		response.InternalError(w, "failed to enqueue scan")
+
 		return
 	}
 
@@ -383,6 +400,7 @@ func (h *LibraryHandler) GetLibrarySources(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		h.logger.Error("get library sources failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get library sources")
+
 		return
 	}
 
@@ -397,6 +415,7 @@ func (h *LibraryHandler) GetLibrarySources(w http.ResponseWriter, r *http.Reques
 		if row.Cookies != nil {
 			items[i].Cookies = *row.Cookies
 		}
+
 		if row.ApiKey != nil {
 			items[i].APIKey = *row.ApiKey
 		}
@@ -427,7 +446,7 @@ type UpdateLibrarySourceRequest struct {
 //	@Accept			json
 //	@Param			id		path		string						true	"Library ID"
 //	@Param			source	path		string						true	"Source name (e.g. nhentai, e-hentai, comicinfo, filename)"
-//	@Param			body	body		UpdateLibrarySourceRequest	true	"Source settings"
+//	@Param			body	UpdateLibrarySourceRequest	true	"Source settings"
 //	@Success		200	{object}	LibrarySourceResponse
 //	@Failure		400	{object}	response.Error
 //	@Failure		500	{object}	response.Error
@@ -449,6 +468,7 @@ func (h *LibraryHandler) UpdateLibrarySource(w http.ResponseWriter, r *http.Requ
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		h.logger.Error("get library source failed", "id", id, "source", source, "error", err)
 		response.InternalError(w, "failed to update library source")
+
 		return
 	}
 
@@ -464,6 +484,7 @@ func (h *LibraryHandler) UpdateLibrarySource(w http.ResponseWriter, r *http.Requ
 	if params.MagazineBlocklist == "" {
 		params.MagazineBlocklist = "[]"
 	}
+
 	if params.MiscBlocklist == "" {
 		params.MiscBlocklist = "[]"
 	}
@@ -471,16 +492,20 @@ func (h *LibraryHandler) UpdateLibrarySource(w http.ResponseWriter, r *http.Requ
 	if body.Enabled != nil {
 		params.Enabled = boolToInt(*body.Enabled)
 	}
+
 	if body.Cookies != nil {
 		params.Cookies = body.Cookies
 	}
+
 	if body.APIKey != nil {
 		params.ApiKey = body.APIKey
 	}
+
 	if body.MagazineBlocklist != nil {
 		magazineJSON, _ := json.Marshal(body.MagazineBlocklist)
 		params.MagazineBlocklist = string(magazineJSON)
 	}
+
 	if body.MiscBlocklist != nil {
 		miscJSON, _ := json.Marshal(body.MiscBlocklist)
 		params.MiscBlocklist = string(miscJSON)
@@ -490,6 +515,7 @@ func (h *LibraryHandler) UpdateLibrarySource(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		h.logger.Error("update library source failed", "id", id, "source", source, "error", err)
 		response.InternalError(w, "failed to update library source")
+
 		return
 	}
 
@@ -502,6 +528,7 @@ func (h *LibraryHandler) UpdateLibrarySource(w http.ResponseWriter, r *http.Requ
 	if row.Cookies != nil {
 		resp.Cookies = *row.Cookies
 	}
+
 	if row.ApiKey != nil {
 		resp.APIKey = *row.ApiKey
 	}
@@ -513,6 +540,7 @@ func boolToInt(b bool) int64 {
 	if b {
 		return 1
 	}
+
 	return 0
 }
 
@@ -520,10 +548,12 @@ func unmarshalStringSlice(raw string) []string {
 	if raw == "" {
 		return []string{}
 	}
+
 	var out []string
 	if err := json.Unmarshal([]byte(raw), &out); err != nil {
 		return []string{}
 	}
+
 	return out
 }
 
@@ -535,6 +565,7 @@ func findOverlappingLibrary(libs []sqlc.Library, candidatePath string) (sqlc.Lib
 			return lib, true
 		}
 	}
+
 	return sqlc.Library{}, false
 }
 

@@ -1,14 +1,13 @@
 package database
 
 import (
+	"Shoka/internal/database/sqlc"
+	"Shoka/internal/metadata"
 	"context"
 	"database/sql"
 	"fmt"
 	"strings"
 	"unicode/utf8"
-
-	"Shoka/internal/database/sqlc"
-	"Shoka/internal/metadata"
 )
 
 type ArchiveFilter struct {
@@ -68,11 +67,13 @@ func resolveSort(s string) string {
 			return opt.clause
 		}
 	}
+
 	for _, opt := range SortOptions {
 		if opt.Value == defaultSort {
 			return opt.clause
 		}
 	}
+
 	return "archive.created_at DESC"
 }
 
@@ -93,19 +94,24 @@ func addRelationFilterNames(sb *strings.Builder, args *[]any, joinTable, entityT
 		if name == "" {
 			continue
 		}
+
 		sb.WriteString("AND EXISTS (SELECT 1 FROM " + joinTable + " JOIN " + entityTable + " ON " + joinTable + "." + joinCol + " = " + entityTable + ".id WHERE " + joinTable + ".archive_id = archive.id AND " + entityTable + ".name = ?) ")
+
 		*args = append(*args, name)
 	}
 }
 
 func buildWhere(f ArchiveFilter) (string, []any) {
-	var sb strings.Builder
-	var args []any
+	var (
+		sb   strings.Builder
+		args []any
+	)
 
 	sb.WriteString("WHERE 1=1 ")
 
 	// library scoping is mandatory: the app has no unified cross-library view.
 	sb.WriteString("AND archive.library_id = ? ")
+
 	args = append(args, f.LibraryID)
 
 	addRelationFilterNames(&sb, &args, "archive_artist", "artist", "artist_id", f.Artists)
@@ -115,10 +121,13 @@ func buildWhere(f ArchiveFilter) (string, []any) {
 
 	if f.Language != "" {
 		sb.WriteString("AND archive.language = ? ")
+
 		args = append(args, f.Language)
 	}
+
 	if f.Category != "" {
 		sb.WriteString("AND archive.category = ? ")
+
 		args = append(args, f.Category)
 	}
 
@@ -135,6 +144,7 @@ func buildWhere(f ArchiveFilter) (string, []any) {
 	// treat it as no search filter instead of a confusing empty result set.
 	if query := strings.TrimSpace(f.Query); utf8.RuneCountInString(query) >= 3 {
 		sb.WriteString("AND archive.id IN (SELECT archive_id FROM archive_fts WHERE archive_fts MATCH ?) ")
+
 		args = append(args, ftsQuery(query))
 	}
 
@@ -146,6 +156,7 @@ func ListArchives(ctx context.Context, db *sql.DB, f ArchiveFilter) ([]sqlc.GetA
 	whereSQL, whereArgs := buildWhere(f)
 
 	var total int64
+
 	countSQL := "SELECT COUNT(*) FROM archive " + whereSQL
 	if err := db.QueryRowContext(ctx, countSQL, whereArgs...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count archives: %w", err)
@@ -170,6 +181,7 @@ func ListArchives(ctx context.Context, db *sql.DB, f ArchiveFilter) ([]sqlc.GetA
 	defer rows.Close()
 
 	var items []sqlc.GetArchiveListRow
+
 	for rows.Next() {
 		var row sqlc.GetArchiveListRow
 		if err := rows.Scan(
@@ -180,6 +192,7 @@ func ListArchives(ctx context.Context, db *sql.DB, f ArchiveFilter) ([]sqlc.GetA
 		); err != nil {
 			return nil, 0, fmt.Errorf("scan archive row: %w", err)
 		}
+
 		items = append(items, row)
 	}
 
@@ -224,6 +237,7 @@ func getRelationNames(ctx context.Context, db *sql.DB, joinTable, entityTable, j
 		if err := rows.Scan(&archiveID, &name); err != nil {
 			return nil, err
 		}
+
 		result[archiveID] = append(result[archiveID], name)
 	}
 
@@ -242,18 +256,22 @@ func GetBulkArchiveMetadata(ctx context.Context, db *sql.DB, archiveIDs []string
 	if err != nil {
 		return nil, fmt.Errorf("get artists: %w", err)
 	}
+
 	tags, err := getRelationNames(ctx, db, "archive_tag", "tag", "tag_id", archiveIDs)
 	if err != nil {
 		return nil, fmt.Errorf("get tags: %w", err)
 	}
+
 	parodies, err := getRelationNames(ctx, db, "archive_parody", "parody", "parody_id", archiveIDs)
 	if err != nil {
 		return nil, fmt.Errorf("get parodies: %w", err)
 	}
+
 	circles, err := getRelationNames(ctx, db, "archive_circle", "circle", "circle_id", archiveIDs)
 	if err != nil {
 		return nil, fmt.Errorf("get circles: %w", err)
 	}
+
 	characters, err := getRelationNames(ctx, db, "archive_character", "character", "character_id", archiveIDs)
 	if err != nil {
 		return nil, fmt.Errorf("get characters: %w", err)
@@ -291,6 +309,7 @@ func CanonicalNames(ctx context.Context, db *sql.DB, table string, names []strin
 			args = append(args, strings.ToLower(name))
 		}
 	}
+
 	if len(args) == 0 {
 		return canonical, nil
 	}
@@ -309,6 +328,7 @@ func CanonicalNames(ctx context.Context, db *sql.DB, table string, names []strin
 		if err := rows.Scan(&name); err != nil {
 			return nil, err
 		}
+
 		canonical[strings.ToLower(name)] = name
 	}
 
