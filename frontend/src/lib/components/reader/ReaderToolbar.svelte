@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ReaderSettings } from '$lib/types';
+	import { resolve } from '$app/paths';
 	import * as Popover from '$lib/components/ui/popover/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { ChevronLeft, Settings } from '@lucide/svelte';
@@ -40,7 +41,7 @@
 	-->
 	<div class="min-w-0 flex-1">
 		<a
-			href={backHref}
+			href={resolve(backHref as `/${string}`)}
 			class="inline-flex max-w-full items-center gap-1.5 rounded-md px-2 py-1 text-white/90 transition-colors hover:bg-white/10 hover:text-white"
 		>
 			<ChevronLeft class="size-5 shrink-0" />

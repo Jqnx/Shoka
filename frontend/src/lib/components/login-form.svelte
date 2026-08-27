@@ -1,8 +1,9 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Form from '$lib/components/ui/form/index.js';
-	import SuperDebug, { type SuperValidated, type Infer, superForm } from 'sveltekit-superforms';
+	import { type SuperValidated, type Infer, superForm } from 'sveltekit-superforms';
 	import { loginSchema, type LoginSchema } from '$lib/schemas/login';
 	import { zod4Client } from 'sveltekit-superforms/adapters';
 	import Label from './ui/label/label.svelte';
@@ -45,7 +46,7 @@
 			<Label
 				class="justify-self-center pt-2 text-left text-sm leading-normal font-normal text-muted-foreground"
 			>
-				Don't have an account? <a href="/signup" class="underline">Sign up</a>
+				Don't have an account? <a href={resolve('/signup')} class="underline">Sign up</a>
 			</Label>
 		</form>
 	</Card.Content>

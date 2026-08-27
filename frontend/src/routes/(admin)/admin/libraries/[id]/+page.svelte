@@ -6,6 +6,7 @@
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import LibrarySourceCard from '$lib/components/library-source-card.svelte';
 	import { enhance } from '$app/forms';
+	import { resolve } from '$app/paths';
 	import { ArrowLeft } from '@lucide/svelte';
 
 	let { data, form } = $props();
@@ -23,7 +24,7 @@
 
 <div class="mx-auto max-w-3xl p-4 sm:p-6">
 	<a
-		href="/admin/libraries"
+		href={resolve('/admin/libraries')}
 		class="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
 	>
 		<ArrowLeft class="size-3.5" />

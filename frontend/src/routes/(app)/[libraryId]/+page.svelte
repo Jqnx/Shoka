@@ -14,6 +14,7 @@
 	import type { ActionResult } from '@sveltejs/kit';
 	import { cn } from '$lib/utils.js';
 	import { goto, afterNavigate } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { SvelteSet } from 'svelte/reactivity';
 
@@ -21,7 +22,7 @@
 
 	let selectionMode = $state(false);
 	let bulkPending = $state(false);
-	let selectedIds = $state(new SvelteSet<string>());
+	const selectedIds = new SvelteSet<string>();
 
 	// Selection is per-view: ids from a page you've navigated away from would
 	// stay selected but invisible, so any navigation (paging, filtering,
@@ -65,7 +66,7 @@
 
 	function exitSelection() {
 		selectionMode = false;
-		selectedIds = new SvelteSet();
+		selectedIds.clear();
 	}
 
 	function startSelection(id: string) {
@@ -84,7 +85,8 @@
 	}
 
 	function selectAll() {
-		selectedIds = new SvelteSet(data.archives.map((a) => a.id));
+		selectedIds.clear();
+		for (const a of data.archives) selectedIds.add(a.id);
 	}
 
 	// Shared enhance handler for the dropdown's bulk forms: every one of them
@@ -124,7 +126,7 @@
 		const params = new URLSearchParams(page.url.searchParams);
 		params.set(name, value);
 		params.delete('page');
-		goto(`${page.url.pathname}?${params}`, { noScroll: true, keepFocus: true });
+		goto(resolve(`${page.url.pathname}?${params}`), { noScroll: true, keepFocus: true });
 	}
 </script>
 
@@ -364,7 +366,7 @@
 						onPageChange={(p) => {
 							const params = new URLSearchParams(page.url.searchParams);
 							params.set('page', String(p));
-							goto(`${page.url.pathname}?${params}`, { noScroll: true });
+							goto(resolve(`${page.url.pathname}?${params}`), { noScroll: true });
 						}}
 					>
 						{#snippet children({ pages })}

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import UserMenu from '$lib/components/user-menu.svelte';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { BookOpen, CopyCheck, House, LayoutDashboard, Library, Wrench } from '@lucide/svelte';
 	import type { User } from 'better-auth';
@@ -29,7 +30,7 @@
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton {isActive}>
 					{#snippet child({ props })}
-						<a href={link.path} {...props}>
+						<a href={resolve(link.path as `/${string}`)} {...props}>
 							<link.icon />
 							<span>{link.label}</span>
 						</a>
@@ -46,7 +47,7 @@
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton size="lg">
 					{#snippet child({ props })}
-						<a href="/" {...props}>
+						<a href={resolve('/')} {...props}>
 							<div
 								class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg"
 							>

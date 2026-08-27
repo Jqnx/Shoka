@@ -9,7 +9,6 @@
 	import MetadataFetchDialog from '$lib/components/MetadataFetchDialog.svelte';
 	import { Pencil } from '@lucide/svelte';
 	import { enhance, applyAction } from '$app/forms';
-	import { invalidateAll } from '$app/navigation';
 	import type { Archive, ArchiveLanguage, Artist, Character, Parody, Tag } from '$lib/types';
 
 	let {

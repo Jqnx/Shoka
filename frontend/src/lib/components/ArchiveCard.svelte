@@ -25,7 +25,7 @@
 	// to the archive detail page, so its "back" link can return here exactly
 	// as left, instead of a bare library link.
 	const from = $derived(page.url.pathname + page.url.search);
-	const href = $derived(`${resolve(`/a/${archive.id}`)}?from=${encodeURIComponent(from)}`);
+	const href = $derived(resolve(`/a/${archive.id}?from=${encodeURIComponent(from)}`));
 
 	const LONG_PRESS_MS = 800;
 	// A press that drifts further than this is a scroll/drag, not a hold -

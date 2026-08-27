@@ -6,6 +6,7 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import { X } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import type { Artist, ArchiveLanguage, Character, Parody, Tag } from '$lib/types';
 
@@ -86,7 +87,7 @@
 		if (value && value !== ANY) params.set(name, value);
 		else params.delete(name);
 		params.delete('page');
-		goto(`${page.url.pathname}?${params}`, { noScroll: true, keepFocus: true });
+		goto(resolve(`${page.url.pathname}?${params}`), { noScroll: true, keepFocus: true });
 	}
 
 	function setMultiParam(name: string, values: string[]) {
@@ -96,7 +97,7 @@
 			if (value) params.append(name, value);
 		}
 		params.delete('page');
-		goto(`${page.url.pathname}?${params}`, { noScroll: true, keepFocus: true });
+		goto(resolve(`${page.url.pathname}?${params}`), { noScroll: true, keepFocus: true });
 	}
 
 	function clearFilters() {
@@ -113,7 +114,7 @@
 		]) {
 			params.delete(key);
 		}
-		goto(`${page.url.pathname}?${params}`, { noScroll: true });
+		goto(resolve(`${page.url.pathname}?${params}`), { noScroll: true });
 	}
 </script>
 

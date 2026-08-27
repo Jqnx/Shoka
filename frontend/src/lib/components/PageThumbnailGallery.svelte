@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity';
+	import { resolve } from '$app/paths';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { ImageOff } from '@lucide/svelte';
 
@@ -68,7 +69,7 @@
 	<div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
 		{#each pages as index (index)}
 			<a
-				href="/a/{archiveId}/{index + 1}"
+				href={resolve(`/a/${archiveId}/${index + 1}`)}
 				class="block aspect-[2/3] overflow-hidden rounded-md border border-border bg-muted transition-colors hover:border-primary"
 			>
 				{#if readyIndexes.has(index)}

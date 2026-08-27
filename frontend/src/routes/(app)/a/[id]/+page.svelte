@@ -104,7 +104,7 @@
 <div class="mx-auto max-w-screen-xl px-4 py-8 sm:px-6">
 	<!-- Back -->
 	<a
-		href={archivesHref}
+		href={resolve(archivesHref as `/${string}`)}
 		class="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
 	>
 		<ChevronLeft class="size-4" />

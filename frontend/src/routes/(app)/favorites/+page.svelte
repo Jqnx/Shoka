@@ -4,6 +4,7 @@
 	import ArchiveCard from '$lib/components/ArchiveCard.svelte';
 	import { Search } from '@lucide/svelte';
 	import { goto, afterNavigate } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 
 	afterNavigate((nav) => {
@@ -54,7 +55,7 @@
 						onPageChange={(p) => {
 							const params = new URLSearchParams(page.url.searchParams);
 							params.set('page', String(p));
-							goto(`${page.url.pathname}?${params}`, { noScroll: true });
+							goto(resolve(`${page.url.pathname}?${params}`), { noScroll: true });
 						}}
 					>
 						{#snippet children({ pages })}

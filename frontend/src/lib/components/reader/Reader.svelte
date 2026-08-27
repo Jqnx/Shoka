@@ -3,6 +3,7 @@
 	import { onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import { replaceState } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import PagedView from './PagedView.svelte';
 	import ScrollView from './ScrollView.svelte';
 	import ReaderToolbar from './ReaderToolbar.svelte';
@@ -215,7 +216,7 @@
 	// skip: the URL already reflects the correct initial page either way.
 	$effect(() => {
 		try {
-			replaceState(`/a/${archiveId}/${currentPage + 1}`, {});
+			replaceState(resolve(`/a/${archiveId}/${currentPage + 1}`), {});
 		} catch {
 			// see comment above
 		}

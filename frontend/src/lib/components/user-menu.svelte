@@ -2,6 +2,7 @@
 	import * as Avatar from '$lib/components/ui/avatar/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { resolve } from '$app/paths';
 	import { cn } from '$lib/utils.js';
 	import { toggleMode, mode } from 'mode-watcher';
 	import { enhance } from '$app/forms';
@@ -62,7 +63,7 @@
 				<DropdownMenu.Separator />
 				<DropdownMenu.Item>
 					{#snippet child({ props })}
-						<a href="/favorites" {...props}>
+						<a href={resolve('/favorites')} {...props}>
 							<Heart />
 							Favorites
 						</a>
@@ -70,7 +71,7 @@
 				</DropdownMenu.Item>
 				<DropdownMenu.Item>
 					{#snippet child({ props })}
-						<a href="/settings" {...props}>
+						<a href={resolve('/settings')} {...props}>
 							<Settings />
 							Settings
 						</a>

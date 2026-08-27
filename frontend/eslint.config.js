@@ -39,6 +39,19 @@ export default defineConfig(
 	{
 		// Override or add rule settings here, such as:
 		// 'svelte/button-has-type': 'error'
-		rules: {}
+		rules: {
+			// URLSearchParams/Map instances here are throwaway locals used to build
+			// a query string before handing it to goto() - they're never held in
+			// reactive state, so SvelteURLSearchParams/SvelteMap buy nothing.
+			'svelte/prefer-svelte-reactivity': 'off'
+		}
+	},
+	{
+		// Vendored shadcn-svelte primitives - don't hand-edit generated components.
+		// button.svelte's href is a passthrough prop that callers resolve().
+		files: ['src/lib/components/ui/**'],
+		rules: {
+			'svelte/no-navigation-without-resolve': 'off'
+		}
 	}
 );

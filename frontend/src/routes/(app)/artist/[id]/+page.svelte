@@ -14,7 +14,9 @@
 	// The artist-by-id endpoint isn't library-scoped, so there's no library
 	// context here; default to the first one, same as the rest of the app
 	// until there's a "current library" concept.
-	const archivesHref = $derived(data.libraries[0] ? `/${data.libraries[0].id}` : '/');
+	const archivesHref = $derived(
+		(data.libraries[0] ? `/${data.libraries[0].id}` : '/') as `/${string}`
+	);
 </script>
 
 <svelte:head>
@@ -23,7 +25,7 @@
 
 <div class="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6">
 	<a
-		href={archivesHref}
+		href={resolve(archivesHref)}
 		class="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
 	>
 		<ChevronLeft class="size-4" />

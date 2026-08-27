@@ -4,6 +4,7 @@
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { CopyCheck } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 
 	let { data } = $props();
@@ -34,7 +35,7 @@
 	function setThreshold(value: string) {
 		const params = new URLSearchParams(page.url.searchParams);
 		params.set('threshold', value);
-		goto(`${page.url.pathname}?${params}`, { noScroll: true, keepFocus: true });
+		goto(resolve(`${page.url.pathname}?${params}`), { noScroll: true, keepFocus: true });
 	}
 
 	// Send the user back here after they act on an archive, rather than to a
@@ -113,7 +114,7 @@
 						<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
 							{#each group.archives as archive, j (archive.id)}
 								<a
-									href="/a/{archive.id}?from={from}"
+									href={resolve(`/a/${archive.id}?from=${from}`)}
 									class="group flex flex-col gap-2 rounded-lg border border-border p-2 transition-colors hover:bg-accent/50"
 								>
 									<div class="relative aspect-[2/3] overflow-hidden rounded bg-muted">

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import UserMenu from '$lib/components/user-menu.svelte';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import {
 		BookOpen,
@@ -42,7 +43,7 @@
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton {isActive}>
 					{#snippet child({ props })}
-						<a href={link.path} {...props}>
+						<a href={resolve(link.path as `/${string}`)} {...props}>
 							<link.icon />
 							<span>{link.label}</span>
 						</a>
@@ -59,7 +60,7 @@
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton size="lg">
 					{#snippet child({ props })}
-						<a href="/" {...props}>
+						<a href={resolve('/')} {...props}>
 							<div
 								class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg"
 							>
@@ -82,7 +83,7 @@
 			<Sidebar.GroupLabel>Libraries</Sidebar.GroupLabel>
 			{#if libraries.length === 0}
 				<p class="px-2 text-xs text-sidebar-foreground/60">
-					No libraries yet. <a href="/admin/libraries" class="underline">Add one</a>.
+					No libraries yet. <a href={resolve('/admin/libraries')} class="underline">Add one</a>.
 				</p>
 			{:else}
 				<Sidebar.Menu>
@@ -91,7 +92,7 @@
 						<Sidebar.MenuItem>
 							<Sidebar.MenuButton {isActive}>
 								{#snippet child({ props })}
-									<a href="/{library.id}" data-sveltekit-preload-data="tap" {...props}>
+									<a href={resolve(`/${library.id}`)} data-sveltekit-preload-data="tap" {...props}>
 										<Library />
 										<span>{library.name}</span>
 									</a>
