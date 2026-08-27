@@ -142,7 +142,7 @@
 		{#if archive.progress}
 			<div class="absolute inset-x-0 top-0 h-1.5">
 				<div
-					class="h-full bg-primary transition-all"
+					class="h-full bg-sidebar-primary transition-all"
 					style="width: {Math.round((archive.progress.current_page / archive.page_count) * 100)}%"
 				></div>
 			</div>
