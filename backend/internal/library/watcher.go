@@ -64,7 +64,7 @@ func (w *Watcher) Start(ctx context.Context) error {
 
 		return nil
 	}); err != nil {
-		watcher.Close()
+		_ = watcher.Close()
 		return err
 	}
 
@@ -135,7 +135,12 @@ func (w *Watcher) run(ctx context.Context, watcher *fsnotify.Watcher) {
 // already contain, e.g. a whole folder moved in at once) to the watcher.
 func (w *Watcher) watchNewDir(watcher *fsnotify.Watcher, dir string) {
 	_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || !d.IsDir() {
+		if err != nil {
+			w.log.Warn("could not access path while watching new directory", "path", path, "error", err)
+			return nil
+		}
+
+		if !d.IsDir() {
 			return nil
 		}
 

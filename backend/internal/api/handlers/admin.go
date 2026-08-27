@@ -121,6 +121,7 @@ func comparePHashes(a, b [4]*int64, threshold int) (mean, compared int, matched 
 			continue
 		}
 
+		//nolint:gosec // bit reinterpretation of a 64-bit perceptual hash stored as signed int64, not an arithmetic conversion
 		d := bits.OnesCount64(uint64(*a[i]) ^ uint64(*b[i]))
 		total += d
 		compared++
@@ -188,7 +189,7 @@ func (h *AdminHandler) GetDuplicates(w http.ResponseWriter, r *http.Request) {
 		parent[i] = i
 	}
 
-	var find func(int) int = func(x int) int {
+	find := func(x int) int {
 		for parent[x] != x {
 			parent[x] = parent[parent[x]]
 			x = parent[x]
@@ -196,6 +197,7 @@ func (h *AdminHandler) GetDuplicates(w http.ResponseWriter, r *http.Request) {
 
 		return x
 	}
+
 	union := func(a, b int) {
 		ra, rb := find(a), find(b)
 		if ra != rb {
@@ -237,6 +239,7 @@ func (h *AdminHandler) GetDuplicates(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 
+				//nolint:gosec // bit reinterpretation of a 64-bit perceptual hash stored as signed int64, not an arithmetic conversion
 				distances[label] = bits.OnesCount64(uint64(*anchor.hashes[k]) ^ uint64(*c.hashes[k]))
 			}
 

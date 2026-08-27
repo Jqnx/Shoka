@@ -11,8 +11,29 @@ var (
 	zipMimes      = []string{"application/zip", "application/x-zip", "application/x-zip-compressed"}
 	sevenZipMimes = []string{"application/x-7z-compressed"}
 	rarMimes      = []string{"application/x-rar", "application/x-rar-compressed"}
-	pdfMimes      = []string{"application/pdf", "application/x-pdf"}
+	//nolint:unused // referenced by the commented-out PDF case in Open; kept for when PDF support returns
+	pdfMimes = []string{"application/pdf", "application/x-pdf"}
 )
+
+// maxArchiveEntrySize bounds how large a single entry may decompress to when
+// rewriting an archive, so a crafted "zip bomb" entry can't exhaust memory or
+// disk. 512 MiB is far beyond any real scanned page.
+const maxArchiveEntrySize = 512 << 20
+
+// copyArchiveEntry copies a single archive entry into dst, rejecting entries
+// that decompress to more than maxArchiveEntrySize.
+func copyArchiveEntry(dst io.Writer, src io.Reader, name string) error {
+	n, err := io.Copy(dst, io.LimitReader(src, maxArchiveEntrySize+1))
+	if err != nil {
+		return fmt.Errorf("copy entry %s: %w", name, err)
+	}
+
+	if n > maxArchiveEntrySize {
+		return fmt.Errorf("entry %s exceeds the %d-byte decompression limit", name, maxArchiveEntrySize)
+	}
+
+	return nil
+}
 
 type Page struct {
 	Index    int

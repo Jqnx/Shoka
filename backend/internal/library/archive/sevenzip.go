@@ -42,7 +42,8 @@ func (z *sevenZipArchive) Pages() ([]Page, error) {
 
 		pages = append(pages, Page{
 			Filename: f.Name,
-			Size:     int64(f.UncompressedSize),
+			//nolint:gosec // archive-reported size, stored as page metadata only; never used for allocation
+			Size: int64(f.UncompressedSize),
 		})
 	}
 
@@ -113,23 +114,9 @@ func (s *sevenZipArchive) WriteFile(name string, data []byte) error {
 			continue
 		}
 
-		rc, err := entry.Open()
-		if err != nil {
-			return fmt.Errorf("open entry %s: %w", entry.Name, err)
+		if err := copySevenZipEntry(w, entry); err != nil {
+			return err
 		}
-
-		fw, err := w.Create(entry.Name)
-		if err != nil {
-			rc.Close()
-			return fmt.Errorf("create zip entry %s: %w", entry.Name, err)
-		}
-
-		if _, err := io.Copy(fw, rc); err != nil {
-			rc.Close()
-			return fmt.Errorf("copy entry %s: %w", entry.Name, err)
-		}
-
-		rc.Close()
 	}
 
 	fw, err := w.Create(name)
@@ -146,12 +133,13 @@ func (s *sevenZipArchive) WriteFile(name string, data []byte) error {
 	}
 
 	tmp := zipPath + ".tmp"
+	//nolint:gosec // library archive file, deliberately group/other-readable so the frontend process can serve it
 	if err := os.WriteFile(tmp, buf.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("write temp file: %w", err)
 	}
 
 	if err := os.Rename(tmp, zipPath); err != nil {
-		os.Remove(tmp)
+		_ = os.Remove(tmp)
 		return fmt.Errorf("write cbz: %w", err)
 	}
 
@@ -162,6 +150,23 @@ func (s *sevenZipArchive) WriteFile(name string, data []byte) error {
 	s.path = zipPath
 
 	return nil
+}
+
+// copySevenZipEntry copies one entry from the source 7z into the new zip
+// writer, bounding how much it may decompress.
+func copySevenZipEntry(w *zip.Writer, entry *sevenzip.File) error {
+	rc, err := entry.Open()
+	if err != nil {
+		return fmt.Errorf("open entry %s: %w", entry.Name, err)
+	}
+	defer func() { _ = rc.Close() }()
+
+	fw, err := w.Create(entry.Name)
+	if err != nil {
+		return fmt.Errorf("create zip entry %s: %w", entry.Name, err)
+	}
+
+	return copyArchiveEntry(fw, rc, entry.Name)
 }
 
 // Close() closes the 7zip file reader.

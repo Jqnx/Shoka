@@ -86,9 +86,10 @@ func (q *Queue) EnqueueAfter(ctx context.Context, jobType string, payload any, d
 		RunAfter: runAfter,
 	}); err != nil {
 		q.log.Error("failed to enqueue job", "type", jobType, "error", err)
+		return err
 	}
 
-	return err
+	return nil
 }
 
 func (q *Queue) claim(ctx context.Context) (*Job, error) {
@@ -113,28 +114,24 @@ func (q *Queue) claim(ctx context.Context) (*Job, error) {
 }
 
 func (q *Queue) markDone(ctx context.Context, id int64) error {
-	err := q.queries.MarkJobAsDone(ctx, id)
-	return err
+	return q.queries.MarkJobAsDone(ctx, id)
 }
 
 func (q *Queue) markFailed(ctx context.Context, id int64, jobErr error) error {
 	jobError := jobErr.Error()
-	err := q.queries.MarkJobAsFailed(ctx, sqlc.MarkJobAsFailedParams{
+
+	return q.queries.MarkJobAsFailed(ctx, sqlc.MarkJobAsFailedParams{
 		Error: &jobError,
 		ID:    id,
 	})
-
-	return err
 }
 
 func (q *Queue) requeueForRetry(ctx context.Context, id, attempts int64) error {
 	backoff := time.Duration(attempts*attempts) * 30 * time.Second
 	runAfter := time.Now().UTC().Add(backoff)
 
-	err := q.queries.RequeueJob(ctx, sqlc.RequeueJobParams{
+	return q.queries.RequeueJob(ctx, sqlc.RequeueJobParams{
 		RunAfter: runAfter,
 		ID:       id,
 	})
-
-	return err
 }

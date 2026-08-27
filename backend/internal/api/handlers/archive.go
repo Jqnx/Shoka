@@ -17,12 +17,23 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 )
+
+// archiveIDPattern matches the IDs produced by util.GenerateID. The archive ID
+// arrives as an untrusted path parameter and is used to build filesystem paths
+// (thumbnail and page cache), so anything outside this alphabet — path
+// separators, "..", NUL — is rejected before it can escape the cache root.
+var archiveIDPattern = regexp.MustCompile(`^[A-Za-z0-9]+$`)
+
+func validArchiveID(id string) bool {
+	return archiveIDPattern.MatchString(id)
+}
 
 type ArchiveHandler struct {
 	queries     *sqlc.Queries
@@ -1270,6 +1281,10 @@ func overlayResult(archive sqlc.Archive, result *metadata.Result) sqlc.Archive {
 //	@Router			/api/archives/{id}/cover [get]
 func (h *ArchiveHandler) GetCover(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	if !validArchiveID(id) {
+		response.BadRequest(w, "invalid archive id")
+		return
+	}
 
 	path := h.processor.ThumbPath(id, 0)
 	if path == "" {
@@ -1278,6 +1293,7 @@ func (h *ArchiveHandler) GetCover(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	//nolint:gosec // G703: id is constrained to [A-Za-z0-9]+ by validArchiveID above, so path stays inside the cache root
 	http.ServeFile(w, r, path)
 }
 
@@ -1295,6 +1311,10 @@ func (h *ArchiveHandler) GetCover(w http.ResponseWriter, r *http.Request) {
 //	@Router			/api/archives/{id}/pages/{index} [get]
 func (h *ArchiveHandler) GetPage(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	if !validArchiveID(id) {
+		response.BadRequest(w, "invalid archive id")
+		return
+	}
 
 	index, err := strconv.Atoi(chi.URLParam(r, "index"))
 	if err != nil || index < 0 {
@@ -1349,6 +1369,10 @@ func (h *ArchiveHandler) GetPage(w http.ResponseWriter, r *http.Request) {
 //	@Router			/api/archives/{id}/pages/{index}/thumbnail [get]
 func (h *ArchiveHandler) GetPageThumbnail(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	if !validArchiveID(id) {
+		response.BadRequest(w, "invalid archive id")
+		return
+	}
 
 	index, err := strconv.Atoi(chi.URLParam(r, "index"))
 	if err != nil || index < 0 {
@@ -1381,6 +1405,7 @@ func (h *ArchiveHandler) GetPageThumbnail(w http.ResponseWriter, r *http.Request
 	}
 
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	//nolint:gosec // G703: id is constrained to [A-Za-z0-9]+ by validArchiveID above, so path stays inside the cache root
 	http.ServeFile(w, r, path)
 }
 

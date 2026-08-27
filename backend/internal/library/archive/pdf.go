@@ -16,7 +16,7 @@ package archive
 //	pages []Page
 //}
 //
-//func openPDF(path string) (Archive, error) {
+// func openPDF(path string) (Archive, error) {
 //	doc, err := fitz.New(path)
 //	if err != nil {
 //		return nil, fmt.Errorf("failed to open pdf: %w", err)

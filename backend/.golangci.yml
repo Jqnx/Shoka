@@ -121,10 +121,11 @@ linters:
     errcheck:
       check-type-assertions: true
     godot:
-      # don't "fix" swaggo / go:generate style annotation lines by appending a period
+      # don't "fix" annotation lines or inline example snippets by appending a period
       exclude:
-        - '^\s*@\w'
-        - '^\s*go:'
+        - '^\s*@\w'          # swaggo directives (@Param, @name, ...)
+        - '^\s*go:'          # //go:generate etc.
+        - '^\s*[\[(]'        # example patterns like "[Artist] Title (Parody)"
     funlen:
       lines: 120
       statements: 80

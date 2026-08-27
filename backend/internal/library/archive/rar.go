@@ -78,7 +78,7 @@ func (r *rarArchive) Extract(page Page) (io.ReadCloser, error) {
 		}
 
 		if err != nil {
-			reader.Close()
+			_ = reader.Close()
 			return nil, err
 		}
 
@@ -88,7 +88,7 @@ func (r *rarArchive) Extract(page Page) (io.ReadCloser, error) {
 		}
 	}
 
-	reader.Close()
+	_ = reader.Close()
 
 	return nil, fmt.Errorf("page not found in archive: %s", page.Filename)
 }
@@ -156,8 +156,8 @@ func (r *rarArchive) WriteFile(name string, data []byte) error {
 			return fmt.Errorf("create zip entry %s: %w", header.Name, err)
 		}
 
-		if _, err := io.Copy(fw, reader); err != nil {
-			return fmt.Errorf("copy entry %s: %w", header.Name, err)
+		if err := copyArchiveEntry(fw, reader, header.Name); err != nil {
+			return err
 		}
 	}
 
@@ -175,12 +175,13 @@ func (r *rarArchive) WriteFile(name string, data []byte) error {
 	}
 
 	tmp := zipPath + ".tmp"
+	//nolint:gosec // library archive file, deliberately group/other-readable so the frontend process can serve it
 	if err := os.WriteFile(tmp, buf.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("write temp file: %w", err)
 	}
 
 	if err := os.Rename(tmp, zipPath); err != nil {
-		os.Remove(tmp)
+		_ = os.Remove(tmp)
 		return fmt.Errorf("write cbz: %w", err)
 	}
 

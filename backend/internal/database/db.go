@@ -2,10 +2,12 @@ package database
 
 import (
 	"Shoka/internal/config"
+	"context"
 	"database/sql"
 	"embed"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/pressly/goose/v3"
@@ -21,8 +23,11 @@ func New() (*sql.DB, error) {
 		return nil, err
 	}
 
-	if err := db.Ping(); err != nil {
-		db.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := db.PingContext(ctx); err != nil {
+		_ = db.Close()
 		return nil, err
 	}
 

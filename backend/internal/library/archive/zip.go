@@ -40,7 +40,8 @@ func (z *zipArchive) Pages() ([]Page, error) {
 
 		pages = append(pages, Page{
 			Filename: f.Name,
-			Size:     int64(f.UncompressedSize64),
+			//nolint:gosec // archive-reported size, stored as page metadata only; never used for allocation
+			Size: int64(f.UncompressedSize64),
 		})
 	}
 
@@ -90,32 +91,9 @@ func (z *zipArchive) WriteFile(name string, data []byte) error {
 			continue
 		}
 
-		rc, err := f.Open()
-		if err != nil {
-			return fmt.Errorf("open entry %s: %w", f.Name, err)
+		if err := copyZipEntry(w, f); err != nil {
+			return err
 		}
-
-		header, err := zip.FileInfoHeader(f.FileInfo())
-		if err != nil {
-			rc.Close()
-			return fmt.Errorf("copy header %s: %w", f.Name, err)
-		}
-
-		header.Name = f.Name
-		header.Method = zip.Deflate
-
-		fw, err := w.CreateHeader(header)
-		if err != nil {
-			rc.Close()
-			return fmt.Errorf("create entry %s: %w", f.Name, err)
-		}
-
-		if _, err := io.Copy(fw, rc); err != nil {
-			rc.Close()
-			return fmt.Errorf("copy entry %s: %w", f.Name, err)
-		}
-
-		rc.Close()
 	}
 
 	// write the new file at the root of the archive
@@ -140,12 +118,13 @@ func (z *zipArchive) WriteFile(name string, data []byte) error {
 	// write atomically — write to a temp file then rename
 	// this ensures the original is never left in a corrupted state
 	tmp := z.path + ".tmp"
+	//nolint:gosec // library archive file, deliberately group/other-readable so the frontend process can serve it
 	if err := os.WriteFile(tmp, buf.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("write temp file: %w", err)
 	}
 
 	if err := os.Rename(tmp, z.path); err != nil {
-		os.Remove(tmp)
+		_ = os.Remove(tmp)
 		return fmt.Errorf("replace archive: %w", err)
 	}
 
@@ -158,6 +137,31 @@ func (z *zipArchive) WriteFile(name string, data []byte) error {
 	z.reader = r
 
 	return nil
+}
+
+// copyZipEntry copies one existing entry from the source archive into the new
+// zip writer, bounding how much it may decompress.
+func copyZipEntry(w *zip.Writer, f *zip.File) error {
+	rc, err := f.Open()
+	if err != nil {
+		return fmt.Errorf("open entry %s: %w", f.Name, err)
+	}
+	defer func() { _ = rc.Close() }()
+
+	header, err := zip.FileInfoHeader(f.FileInfo())
+	if err != nil {
+		return fmt.Errorf("copy header %s: %w", f.Name, err)
+	}
+
+	header.Name = f.Name
+	header.Method = zip.Deflate
+
+	fw, err := w.CreateHeader(header)
+	if err != nil {
+		return fmt.Errorf("create entry %s: %w", f.Name, err)
+	}
+
+	return copyArchiveEntry(fw, rc, f.Name)
 }
 
 // Close() closes the zip file reader.

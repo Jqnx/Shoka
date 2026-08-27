@@ -416,6 +416,7 @@ func (s *NHentaiSource) thumbServer(ctx context.Context, apiKey string) string {
 		return ""
 	}
 
+	//nolint:gosec // picking a CDN mirror at random for load spreading, not a security decision
 	return s.thumbServers[rand.Intn(len(s.thumbServers))]
 }
 

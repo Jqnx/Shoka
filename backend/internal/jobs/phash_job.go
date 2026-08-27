@@ -81,6 +81,7 @@ func NewPHashHandler(processor *image.Processor, queries *sqlc.Queries, log *slo
 
 		for i, pageIdx := range indices {
 			if hash, done := hashByIndex[pageIdx]; done {
+				//nolint:gosec // storing a 64-bit perceptual hash as signed int64 for SQLite (no unsigned type); round-trips losslessly
 				signed := int64(hash)
 				hashes[i] = &signed
 
@@ -98,6 +99,7 @@ func NewPHashHandler(processor *image.Processor, queries *sqlc.Queries, log *slo
 			}
 
 			hashByIndex[pageIdx] = hash
+			//nolint:gosec // storing a 64-bit perceptual hash as signed int64 for SQLite (no unsigned type); round-trips losslessly
 			signed := int64(hash)
 			hashes[i] = &signed
 		}

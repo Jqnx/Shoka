@@ -89,6 +89,10 @@ func ftsQuery(raw string) string {
 
 // addRelationFilterNames appends one "AND EXISTS (...)" clause per value in names,
 // requiring the archive to be associated with every named row (AND semantics).
+//
+// joinTable, entityTable and joinCol are always caller-supplied constants (see
+// buildWhere) — never user input. Every user-controlled value is bound through
+// a "?" placeholder in args.
 func addRelationFilterNames(sb *strings.Builder, args *[]any, joinTable, entityTable, joinCol string, names []string) {
 	for _, name := range names {
 		if name == "" {
@@ -157,11 +161,16 @@ func ListArchives(ctx context.Context, db *sql.DB, f ArchiveFilter) ([]sqlc.GetA
 
 	var total int64
 
+	// whereSQL and orderBy are assembled from string constants plus "?"
+	// placeholders (see buildWhere / resolveSort) — no caller data is
+	// interpolated into the statement text.
+
 	countSQL := "SELECT COUNT(*) FROM archive " + whereSQL
 	if err := db.QueryRowContext(ctx, countSQL, whereArgs...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count archives: %w", err)
 	}
 
+	//nolint:gosec // G202: concatenation is of trusted constants; all values are bound parameters
 	selectSQL := `SELECT archive.id, archive.title, archive.summary, archive.language, archive.category,
 		archive.page_count, archive.file_path, archive.file_size, archive.mod_time,
 		archive.created_at, archive.updated_at, archive.release_date,
@@ -208,6 +217,7 @@ func getRelationNames(ctx context.Context, db *sql.DB, joinTable, entityTable, j
 	}
 
 	placeholders := strings.Repeat(",?", len(archiveIDs))[1:]
+	//nolint:gosec // table/column names are caller-supplied constants; archive IDs are bound via "?" placeholders
 	query := fmt.Sprintf(
 		`SELECT %s.archive_id, %s.name
 		FROM %s
@@ -315,6 +325,7 @@ func CanonicalNames(ctx context.Context, db *sql.DB, table string, names []strin
 	}
 
 	placeholders := strings.Repeat(",?", len(args))[1:]
+	//nolint:gosec // table is a caller-supplied constant (see doc comment); names are bound via "?" placeholders
 	query := fmt.Sprintf("SELECT name FROM %s WHERE lower(name) IN (%s)", table, placeholders)
 
 	rows, err := db.QueryContext(ctx, query, args...)

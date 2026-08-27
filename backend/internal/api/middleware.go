@@ -5,6 +5,7 @@ import (
 	"Shoka/internal/auth"
 	"Shoka/internal/database"
 	"database/sql"
+	"errors"
 	"net/http"
 	"strings"
 )
@@ -41,10 +42,15 @@ func extractToken(r *http.Request) (string, error) {
 		return token, nil
 	}
 
-	// Better Auth sets a cookie named "better-auth.session_token" by default
+	// Better Auth sets a cookie named "better-auth.session_token" by default.
+	// A missing cookie just means "no token" — any other error is real.
 	cookie, err := r.Cookie("better-auth.session_token")
-	if err != nil {
+	if errors.Is(err, http.ErrNoCookie) {
 		return "", nil
+	}
+
+	if err != nil {
+		return "", err
 	}
 
 	cookieToken, _, _ := strings.Cut(cookie.Value, ".")

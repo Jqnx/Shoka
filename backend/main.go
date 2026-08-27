@@ -9,13 +9,15 @@ import (
 	"Shoka/internal/image"
 	"Shoka/internal/jobs"
 	"Shoka/internal/library"
-	"Shoka/internal/log"
+	applog "Shoka/internal/log"
 	"Shoka/internal/metadata"
 	"Shoka/internal/metadata/sources"
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/davidbyttow/govips/v2/vips"
 )
@@ -29,27 +31,32 @@ import (
 // @in header
 // @name Authorization
 func main() {
-	// Load configuration
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		fmt.Printf("failed to load configuration: %v", err)
+		fmt.Fprintf(os.Stderr, "failed to load configuration: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Create new Logger
-	log := log.New(cfg)
+	log := applog.New(cfg)
 
-	// Connect to database
+	if err := run(cfg, log); err != nil {
+		log.Error("fatal", "error", err)
+		os.Exit(1)
+	}
+}
+
+// run wires up every component and blocks serving the API. Returning an error
+// (rather than calling os.Exit inline) lets the deferred db.Close and
+// vips.Shutdown actually run on a startup failure.
+func run(cfg *config.Config, log *slog.Logger) error {
 	db, err := database.New()
 	if err != nil {
-		log.Error("failed to connect to database", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("connect to database: %w", err)
 	}
 	defer db.Close()
 
 	if err := database.Migrate(db); err != nil {
-		log.Error("failed to migrate database", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("migrate database: %w", err)
 	}
 
 	queries := sqlc.New(db)
@@ -67,7 +74,11 @@ func main() {
 	libraries := library.NewManager(cfg, queries, queue, log)
 	thumbnails := events.NewThumbnailBroadcaster()
 	images := image.NewProcessor(cfg.Cache.Dir, log)
+
 	cache, err := image.NewCache(images, log)
+	if err != nil {
+		return fmt.Errorf("initialize image cache: %w", err)
+	}
 
 	pipeline := metadata.NewPipeline(
 		log,
@@ -77,12 +88,8 @@ func main() {
 		sources.NewEHentaiSource(),
 		sources.NewNHentaiSource(),
 	)
-	if err != nil {
-		log.Error("failed to initialize image cache", "error", err)
-		os.Exit(1)
-	}
 
-	api := api.New(queries, log, queue, cache, images, pipeline, libraries, thumbnails, db)
+	apiServer := api.New(queries, log, queue, cache, images, pipeline, libraries, thumbnails, db)
 
 	// Register worker handlers
 	worker.Register(jobs.JobTypeScan, jobs.NewScanHandler(libraries, log), 1)
@@ -113,8 +120,15 @@ func main() {
 	host := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	log.Info("listening on " + host)
 
-	if err := http.ListenAndServe(host, api.Router); err != nil {
-		log.Error("failed to start server", "error", err)
-		os.Exit(1)
+	srv := &http.Server{
+		Addr:              host,
+		Handler:           apiServer.Router,
+		ReadHeaderTimeout: 10 * time.Second,
 	}
+
+	if err := srv.ListenAndServe(); err != nil {
+		return fmt.Errorf("run server: %w", err)
+	}
+
+	return nil
 }

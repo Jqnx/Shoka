@@ -76,7 +76,10 @@ func (w *Worker) processNext(ctx context.Context) {
 	handler, ok := w.handlers[job.Type]
 	if !ok {
 		log.Error("no handler registered for job type")
-		w.queue.markFailed(ctx, job.ID, fmt.Errorf("no handler for type: %s", job.Type))
+
+		if err := w.queue.markFailed(ctx, job.ID, fmt.Errorf("no handler for type: %s", job.Type)); err != nil {
+			log.Error("failed to mark job as failed", "error", err)
+		}
 
 		return
 	}
@@ -90,16 +93,24 @@ func (w *Worker) processNext(ctx context.Context) {
 		log.Warn("job failed", "error", err)
 
 		if job.Attempts < job.MaxAttempts {
-			w.queue.requeueForRetry(ctx, job.ID, job.Attempts)
-			log.Info("job requeued for retry", "backoff_seconds", job.Attempts*job.Attempts*30)
+			if reqErr := w.queue.requeueForRetry(ctx, job.ID, job.Attempts); reqErr != nil {
+				log.Error("failed to requeue job for retry", "error", reqErr)
+			} else {
+				log.Info("job requeued for retry", "backoff_seconds", job.Attempts*job.Attempts*30)
+			}
+		} else if failErr := w.queue.markFailed(ctx, job.ID, err); failErr != nil {
+			log.Error("failed to mark job as failed", "error", failErr)
 		} else {
-			w.queue.markFailed(ctx, job.ID, err)
 			log.Error("job exceeded max attempts, marked failed")
 		}
 
 		return
 	}
 
-	w.queue.markDone(ctx, job.ID)
+	if err := w.queue.markDone(ctx, job.ID); err != nil {
+		log.Error("failed to mark job as done", "error", err)
+		return
+	}
+
 	log.Info("job completed")
 }
