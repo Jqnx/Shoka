@@ -170,6 +170,19 @@ export const actions: Actions = {
 		return { action: 'clearRating' as const, success: true };
 	},
 
+	saveMetadata: async ({ fetch, params }) => {
+		const res = await fetch(`/api/archives/${params.id}/metadata/save`, { method: 'POST' });
+
+		if (!res.ok) {
+			return fail(res.status, {
+				action: 'saveMetadata' as const,
+				error: await errorMessage(res, 'Failed to save metadata to file.')
+			});
+		}
+
+		return { action: 'saveMetadata' as const, success: true };
+	},
+
 	deleteArchive: async ({ request, fetch, params, url }) => {
 		const form = await request.formData();
 		const deleteFile = form.get('delete_file') === 'true';

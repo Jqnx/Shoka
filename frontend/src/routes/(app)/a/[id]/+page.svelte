@@ -26,6 +26,7 @@
 		Check,
 		Heart,
 		Star,
+		Save,
 		Trash2
 	} from '@lucide/svelte';
 
@@ -40,6 +41,7 @@
 	let deleteDialogOpen = $state(false);
 	let deletingArchive = $state(false);
 	let deleteFileToo = $state(false);
+	let savingMetadata = $state(false);
 
 	// Archive.artists is just names (matching everywhere else metadata is
 	// stored free-text) - resolve to the matching artist's id, if any, from
@@ -131,7 +133,7 @@
 				{readLabel}
 			</Button>
 
-			{#if (form?.action === 'markRead' || form?.action === 'markUnread' || form?.action === 'toggleFavorite' || form?.action === 'setRating' || form?.action === 'clearRating' || form?.action === 'deleteArchive') && form.error}
+			{#if (form?.action === 'markRead' || form?.action === 'markUnread' || form?.action === 'toggleFavorite' || form?.action === 'setRating' || form?.action === 'clearRating' || form?.action === 'saveMetadata' || form?.action === 'deleteArchive') && form.error}
 				<p class="mt-1.5 text-center text-xs text-destructive">{form.error}</p>
 			{/if}
 		</div>
@@ -229,6 +231,30 @@
 										>
 											<RotateCcw />
 											{markingUnread ? 'Marking…' : 'Mark as unread'}
+										</button>
+									{/snippet}
+								</DropdownMenu.Item>
+							</form>
+							<form
+								method="POST"
+								action="?/saveMetadata"
+								use:enhance={() => {
+									savingMetadata = true;
+									return async ({ update }) => {
+										savingMetadata = false;
+										await update();
+									};
+								}}
+							>
+								<DropdownMenu.Item disabled={savingMetadata}>
+									{#snippet child({ props })}
+										<button
+											type="submit"
+											{...props}
+											class={cn(props.class as string, 'w-full')}
+										>
+											<Save />
+											{savingMetadata ? 'Saving…' : 'Save metadata to file'}
 										</button>
 									{/snippet}
 								</DropdownMenu.Item>
