@@ -48,10 +48,12 @@ func (s *Server) MountHandlers() {
 		parodyHandler := handlers.NewParodyHandler(s.Queries, s.Log, s.Processor)
 		artistHandler := handlers.NewArtistHandler(s.Queries, s.DB, s.Log, s.Processor)
 		readerSettingsHandler := handlers.NewReaderSettingsHandler(s.Queries, s.Log)
+		searchHandler := handlers.NewSearchHandler(s.Queries, s.DB, s.Processor, s.Log)
 
 		r.Get("/api/metadata/sources", metadataHandler.GetSources)
 		r.Get("/api/libraries", libraryHandler.GetLibraries)
 		r.Get("/api/libraries/types", libraryHandler.GetLibraryTypes)
+		r.Get("/api/search", searchHandler.Search)
 		r.Get("/api/archives", archiveHandler.GetArchives)
 		r.Get("/api/archives/sort-options", archiveHandler.GetArchiveSortOptions)
 		r.Get("/api/archives/categories", archiveHandler.GetCategories)

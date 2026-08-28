@@ -151,6 +151,36 @@ export type ArtistListResponse = {
 	limit: number;
 };
 
+// GET /api/search - one name match from a metadata entity category
+// (artists, tags, parodies, circles, characters). Unlike the archive
+// category, these are global entities (not scoped to a library).
+export type SearchEntityResult = {
+	id: number;
+	name: string;
+	count: number;
+};
+
+export type SearchEntityResponse = {
+	items: SearchEntityResult[];
+	total: number;
+};
+
+export type SearchArchiveResponse = {
+	items: Archive[];
+	total: number;
+};
+
+// GET /api/search - results grouped by category, each independently capped
+// (via the `limit` param) and separately counted via its own `total`.
+export type SearchResponse = {
+	archives: SearchArchiveResponse;
+	artists: SearchEntityResponse;
+	circles: SearchEntityResponse;
+	tags: SearchEntityResponse;
+	parodies: SearchEntityResponse;
+	characters: SearchEntityResponse;
+};
+
 export type Library = {
 	id: string;
 	name: string;

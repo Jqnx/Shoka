@@ -14,6 +14,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -104,8 +105,11 @@ type SortOptionResponse struct {
 
 // favoritedSet fetches, for a set of archive ids, which ones the given user
 // has favorited — one query instead of one ArchiveIsFavorited call per row.
-func (h *ArchiveHandler) favoritedSet(ctx context.Context, userID string, ids []string) (map[string]bool, error) {
-	favoritedIDs, err := h.queries.GetFavoritedArchiveIDs(ctx, sqlc.GetFavoritedArchiveIDsParams{
+// Package-level (rather than an ArchiveHandler method) so other handlers
+// that hold their own *sqlc.Queries can build the same response shape —
+// e.g. SearchHandler assembling the archive category of a search result.
+func favoritedSet(ctx context.Context, queries *sqlc.Queries, userID string, ids []string) (map[string]bool, error) {
+	favoritedIDs, err := queries.GetFavoritedArchiveIDs(ctx, sqlc.GetFavoritedArchiveIDsParams{
 		Uid: userID,
 		Ids: ids,
 	})
@@ -123,9 +127,10 @@ func (h *ArchiveHandler) favoritedSet(ctx context.Context, userID string, ids []
 
 // ratingSet fetches, for a set of archive ids, the given user's own rating
 // (1-5) for each one that has been rated — one query instead of one
-// GetArchiveRating call per row.
-func (h *ArchiveHandler) ratingSet(ctx context.Context, userID string, ids []string) (map[string]int, error) {
-	rows, err := h.queries.GetArchiveRatingsForIDs(ctx, sqlc.GetArchiveRatingsForIDsParams{
+// GetArchiveRating call per row. Package-level for the same reason as
+// favoritedSet above.
+func ratingSet(ctx context.Context, queries *sqlc.Queries, userID string, ids []string) (map[string]int, error) {
+	rows, err := queries.GetArchiveRatingsForIDs(ctx, sqlc.GetArchiveRatingsForIDsParams{
 		Uid: userID,
 		Ids: ids,
 	})
@@ -139,6 +144,94 @@ func (h *ArchiveHandler) ratingSet(ctx context.Context, userID string, ids []str
 	}
 
 	return ratings, nil
+}
+
+// buildArchiveListResponses converts archive list rows into ArchiveResponse
+// items, bulk-fetching relational metadata, favorite status and ratings in
+// a fixed number of queries (avoiding N+1). Shared by GetArchives and
+// SearchHandler.Search so both build the same response shape from a
+// []sqlc.GetArchiveListRow.
+func buildArchiveListResponses(
+	ctx context.Context,
+	queries *sqlc.Queries,
+	db *sql.DB,
+	processor *image.Processor,
+	userID string,
+	rows []sqlc.GetArchiveListRow,
+) ([]ArchiveResponse, error) {
+	ids := make([]string, len(rows))
+	for i, row := range rows {
+		ids[i] = row.ID
+	}
+
+	metaByID, err := database.GetBulkArchiveMetadata(ctx, db, ids)
+	if err != nil {
+		return nil, fmt.Errorf("get bulk archive metadata: %w", err)
+	}
+
+	favorited, err := favoritedSet(ctx, queries, userID, ids)
+	if err != nil {
+		return nil, fmt.Errorf("get favorited archive ids: %w", err)
+	}
+
+	ratings, err := ratingSet(ctx, queries, userID, ids)
+	if err != nil {
+		return nil, fmt.Errorf("get archive ratings: %w", err)
+	}
+
+	lc := language.NewLanguageConverter()
+
+	items := make([]ArchiveResponse, 0, len(rows))
+	for _, row := range rows {
+		var lang string
+
+		if row.Language != nil {
+			if name, err := lc.ToName(*row.Language); err == nil {
+				lang = name
+			} else {
+				lang = *row.Language
+			}
+		}
+
+		resp := ArchiveResponse{
+			ID:          row.ID,
+			Title:       row.Title,
+			Summary:     row.Summary,
+			Language:    &lang,
+			Category:    row.Category,
+			ReleaseDate: row.ReleaseDate,
+			PageCount:   int(row.PageCount),
+			CreatedAt:   row.CreatedAt,
+			UpdatedAt:   row.UpdatedAt,
+			ThumbsReady: processor.ThumbsReady(row.ID, int(row.PageCount)),
+			IsFavorited: favorited[row.ID],
+		}
+		if rating, ok := ratings[row.ID]; ok {
+			resp.Rating = &rating
+		}
+
+		if meta, ok := metaByID[row.ID]; ok {
+			resp.Artists = meta.Artists
+			resp.Tags = meta.Tags
+			resp.Parodies = meta.Parodies
+			resp.Circles = meta.Circles
+			resp.Characters = meta.Characters
+		}
+
+		if row.Page != nil {
+			resp.Progress = &ProgressResponse{
+				CurrentPage: int(*row.Page),
+				Completed:   row.Completed != nil && *row.Completed,
+			}
+			if row.LastRead != nil {
+				resp.Progress.LastRead = *row.LastRead
+			}
+		}
+
+		items = append(items, resp)
+	}
+
+	return items, nil
 }
 
 // GetArchiveSortOptions godoc
@@ -316,85 +409,12 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ids := make([]string, len(rows))
-	for i, row := range rows {
-		ids[i] = row.ID
-	}
-
-	metaByID, err := database.GetBulkArchiveMetadata(r.Context(), h.db, ids)
+	items, err := buildArchiveListResponses(r.Context(), h.queries, h.db, h.processor, userID, rows)
 	if err != nil {
-		h.logger.Error("get bulk archive metadata failed", "error", err)
+		h.logger.Error("build archive responses failed", "error", err)
 		response.InternalError(w, "failed to get archive metadata")
 
 		return
-	}
-
-	favorited, err := h.favoritedSet(r.Context(), userID, ids)
-	if err != nil {
-		h.logger.Error("get favorited archive ids failed", "error", err)
-		response.InternalError(w, "failed to get favorite status")
-
-		return
-	}
-
-	ratings, err := h.ratingSet(r.Context(), userID, ids)
-	if err != nil {
-		h.logger.Error("get archive ratings failed", "error", err)
-		response.InternalError(w, "failed to get rating")
-
-		return
-	}
-
-	lc := language.NewLanguageConverter()
-
-	items := make([]ArchiveResponse, 0, len(rows))
-	for _, row := range rows {
-		var lang string
-
-		if row.Language != nil {
-			if name, err := lc.ToName(*row.Language); err == nil {
-				lang = name
-			} else {
-				lang = *row.Language
-			}
-		}
-
-		resp := ArchiveResponse{
-			ID:          row.ID,
-			Title:       row.Title,
-			Summary:     row.Summary,
-			Language:    &lang,
-			Category:    row.Category,
-			ReleaseDate: row.ReleaseDate,
-			PageCount:   int(row.PageCount),
-			CreatedAt:   row.CreatedAt,
-			UpdatedAt:   row.UpdatedAt,
-			ThumbsReady: h.processor.ThumbsReady(row.ID, int(row.PageCount)),
-			IsFavorited: favorited[row.ID],
-		}
-		if rating, ok := ratings[row.ID]; ok {
-			resp.Rating = &rating
-		}
-
-		if meta, ok := metaByID[row.ID]; ok {
-			resp.Artists = meta.Artists
-			resp.Tags = meta.Tags
-			resp.Parodies = meta.Parodies
-			resp.Circles = meta.Circles
-			resp.Characters = meta.Characters
-		}
-
-		if row.Page != nil {
-			resp.Progress = &ProgressResponse{
-				CurrentPage: int(*row.Page),
-				Completed:   row.Completed != nil && *row.Completed,
-			}
-			if row.LastRead != nil {
-				resp.Progress.LastRead = *row.LastRead
-			}
-		}
-
-		items = append(items, resp)
 	}
 
 	response.JSON(w, http.StatusOK, ArchiveListResponse{
@@ -461,7 +481,7 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 		ids[i] = row.ID
 	}
 
-	favorited, err := h.favoritedSet(r.Context(), userID, ids)
+	favorited, err := favoritedSet(r.Context(), h.queries, userID, ids)
 	if err != nil {
 		h.logger.Error("get favorited archive ids failed", "error", err)
 		response.InternalError(w, "failed to get favorite status")
@@ -469,7 +489,7 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	ratings, err := h.ratingSet(r.Context(), userID, ids)
+	ratings, err := ratingSet(r.Context(), h.queries, userID, ids)
 	if err != nil {
 		h.logger.Error("get archive ratings failed", "error", err)
 		response.InternalError(w, "failed to get rating")
@@ -569,7 +589,7 @@ func (h *ArchiveHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 		ids[i] = row.ID
 	}
 
-	ratings, err := h.ratingSet(r.Context(), userID, ids)
+	ratings, err := ratingSet(r.Context(), h.queries, userID, ids)
 	if err != nil {
 		h.logger.Error("get archive ratings failed", "error", err)
 		response.InternalError(w, "failed to get rating")
@@ -760,7 +780,7 @@ type UpdateArchiveRequest struct {
 //	@Accept			json
 //	@Produce		json
 //	@Param			id		path		string					true	"Archive ID"
-//	@Param			body	UpdateArchiveRequest	true	"Fields to update"
+//	@Param			body	body	UpdateArchiveRequest	true	"Fields to update"
 //	@Success		200	{object}	ArchiveResponse
 //	@Failure		400	{object}	response.Error
 //	@Failure		404	{object}	response.Error
@@ -931,7 +951,7 @@ type UpdateProgressRequest struct {
 //	@Accept			json
 //	@Produce		json
 //	@Param			id		path		string					true	"Archive ID"
-//	@Param			body	UpdateProgressRequest	true	"Progress"
+//	@Param			body	body	UpdateProgressRequest	true	"Progress"
 //	@Success		200	{object}	ProgressResponse
 //	@Failure		400	{object}	response.Error
 //	@Failure		404	{object}	response.Error
@@ -1094,7 +1114,7 @@ type SetRatingRequest struct {
 //	@Tags			archives
 //	@Accept			json
 //	@Param			id		path	string				true	"Archive ID"
-//	@Param			body	SetRatingRequest	true	"Rating"
+//	@Param			body	body	SetRatingRequest	true	"Rating"
 //	@Success		204
 //	@Failure		400	{object}	response.Error
 //	@Failure		404	{object}	response.Error
