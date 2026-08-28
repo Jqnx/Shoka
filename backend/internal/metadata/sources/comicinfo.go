@@ -10,9 +10,6 @@ import (
 	"time"
 )
 
-// TODO:
-// 1. Write functionality
-
 type comicInfoXML struct {
 	Title       string `xml:"Title"`
 	Summary     string `xml:"Summary"`
