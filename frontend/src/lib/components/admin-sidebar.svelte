@@ -3,7 +3,15 @@
 	import UserMenu from '$lib/components/user-menu.svelte';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { BookOpen, CopyCheck, House, LayoutDashboard, Library, Wrench } from '@lucide/svelte';
+	import {
+		Activity,
+		BookOpen,
+		CopyCheck,
+		House,
+		LayoutDashboard,
+		Library,
+		Wrench
+	} from '@lucide/svelte';
 	import type { User } from 'better-auth';
 	import type { ComponentProps } from 'svelte';
 
@@ -19,6 +27,7 @@
 		{ path: '/admin', label: 'Overview', icon: LayoutDashboard },
 		{ path: '/admin/libraries', label: 'Libraries', icon: Library },
 		{ path: '/admin/duplicates', label: 'Duplicates', icon: CopyCheck },
+		{ path: '/admin/jobs', label: 'Jobs', icon: Activity },
 		{ path: '/admin/maintenance', label: 'Maintenance', icon: Wrench }
 	];
 </script>

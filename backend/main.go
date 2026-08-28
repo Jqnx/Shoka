@@ -103,6 +103,18 @@ func run(cfg *config.Config, log *slog.Logger) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// A job left 'running' by an unclean shutdown is owned by a worker that
+	// no longer exists - nothing would ever move it on, so it would sit in
+	// the admin job monitor as permanently stuck. Reclaim those before any
+	// worker starts. 'pending' rather than 'failed' because ClaimJob already
+	// incremented attempts, so a recovered job retries under the normal
+	// max_attempts budget and fails on its own if it keeps dying.
+	if reset, err := queries.ResetRunningJobs(ctx); err != nil {
+		log.Error("failed to reset orphaned running jobs", "error", err)
+	} else if reset > 0 {
+		log.Info("requeued orphaned running jobs from previous run", "count", reset)
+	}
+
 	for range 10 {
 		worker.Start(ctx)
 	}

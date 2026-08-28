@@ -251,3 +251,30 @@ export type DuplicateArchive = {
 export type DuplicateGroup = {
 	archives: DuplicateArchive[];
 };
+
+export type JobStatus = 'pending' | 'running' | 'done' | 'failed';
+
+// One job row in the admin job monitor, from GET /api/admin/jobs.
+export type JobView = {
+	id: number;
+	type: string;
+	status: JobStatus;
+	// Human-readable description of what the job acts on, derived from its
+	// payload server-side (e.g. "archive:a3f9…", "library:main"). Empty when
+	// the payload carries no recognisable target.
+	target: string;
+	attempts: number;
+	max_attempts: number;
+	error?: string;
+	created_at: string;
+	updated_at: string;
+};
+
+export type JobSnapshot = {
+	// Always contains all four statuses, zero-filled - these are whole-queue
+	// totals, not the length of the capped lists below.
+	counts: Record<JobStatus, number>;
+	// Pending + running jobs, running first. Capped server-side.
+	active: JobView[];
+	recent_failures: JobView[];
+};

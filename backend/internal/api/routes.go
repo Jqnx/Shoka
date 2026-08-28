@@ -42,6 +42,7 @@ func (s *Server) MountHandlers() {
 		archiveHandler := handlers.NewArchiveHandler(s.Queries, s.DB, s.Log, s.Processor, s.Cache, s.Queue, s.Thumbnails, s.Pipeline)
 		metadataHandler := handlers.NewMetadataHandler(s.Queries, s.DB, s.Pipeline, s.Processor, s.Log)
 		adminHandler := handlers.NewAdminHandler(s.Queries, s.Queue, s.Log)
+		jobHandler := handlers.NewJobHandler(s.Queries, s.Log)
 		libraryHandler := handlers.NewLibraryHandler(s.Queries, s.Queue, s.Libraries, s.Log)
 		tagHandler := handlers.NewTagHandler(s.Queries, s.Log, s.Processor)
 		characterHandler := handlers.NewCharacterHandler(s.Queries, s.Log, s.Processor)
@@ -130,6 +131,8 @@ func (s *Server) MountHandlers() {
 			r.Post("/covers", adminHandler.GenerateCovers)
 			r.Post("/phashes", adminHandler.GeneratePHashes)
 			r.Get("/duplicates", adminHandler.GetDuplicates)
+			r.Get("/jobs", jobHandler.GetJobs)
+			r.Get("/jobs/events", jobHandler.StreamJobEvents)
 
 			r.Route("/libraries", func(r chi.Router) {
 				r.Post("/", libraryHandler.CreateLibrary)

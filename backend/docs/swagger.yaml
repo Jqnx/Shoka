@@ -244,6 +244,51 @@ definitions:
           $ref: '#/definitions/handlers.DuplicateArchive'
         type: array
     type: object
+  handlers.JobSnapshot:
+    properties:
+      active:
+        description: |-
+          Active is pending + running jobs, running first. Capped at
+          maxActiveJobs - Counts reports the true totals.
+        items:
+          $ref: '#/definitions/handlers.JobView'
+        type: array
+      counts:
+        additionalProperties:
+          format: int64
+          type: integer
+        description: Counts is keyed by status and always contains all four statuses.
+        type: object
+      recent_failures:
+        items:
+          $ref: '#/definitions/handlers.JobView'
+        type: array
+    type: object
+  handlers.JobView:
+    properties:
+      attempts:
+        type: integer
+      created_at:
+        type: string
+      error:
+        type: string
+      id:
+        type: integer
+      max_attempts:
+        type: integer
+      status:
+        type: string
+      target:
+        description: |-
+          Target is a human-readable description of what the job acts on,
+          derived from its payload - e.g. "archive:a3f9..." or "library:main".
+          Empty when the payload has no recognisable target.
+        type: string
+      type:
+        type: string
+      updated_at:
+        type: string
+    type: object
   handlers.LanguageResponse:
     properties:
       code:
@@ -644,6 +689,45 @@ paths:
           schema:
             $ref: '#/definitions/response.Error'
       summary: Find likely-duplicate archives by perceptual hash
+      tags:
+      - admin
+  /api/admin/jobs:
+    get:
+      description: Status counts across the whole queue, plus the currently pending/running
+        jobs and the most recent failures. Point-in-time - see GET /api/admin/jobs/events
+        to follow it live.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.JobSnapshot'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Get a snapshot of the job queue
+      tags:
+      - admin
+  /api/admin/jobs/events:
+    get:
+      description: Server-Sent Events. Emits a "snapshot" event ({counts, active,
+        recent_failures}, same shape as GET /api/admin/jobs) immediately on connect,
+        then again whenever the queue changes. Polls once a second, matching the workers'
+        own tick, so a job that starts and finishes inside one interval may never
+        be observed as running - the counts still account for it. Identical consecutive
+        snapshots are suppressed; a comment heartbeat keeps idle connections alive.
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Stream job queue activity
       tags:
       - admin
   /api/admin/libraries:

@@ -97,6 +97,57 @@ func (q *Queries) EnqueueJobAfter(ctx context.Context, arg EnqueueJobAfterParams
 	return err
 }
 
+const getActiveJobs = `-- name: GetActiveJobs :many
+;
+
+select
+    id, type, payload, status, attempts, max_attempts, error, created_at, updated_at, run_after
+from job
+where status in ('pending', 'running')
+order by
+    case status when 'running' then 0 else 1 end,
+    created_at asc
+limit ?1
+`
+
+// Powers the admin job monitor. Selects payload (unlike GetJobsByStatus) so
+// the handler can derive a human-readable target, and is bounded so a
+// library-wide backfill of thousands of jobs can't blow up the response.
+// Running first, then oldest-queued first, matching claim order.
+func (q *Queries) GetActiveJobs(ctx context.Context, limit int64) ([]Job, error) {
+	rows, err := q.db.QueryContext(ctx, getActiveJobs, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Job
+	for rows.Next() {
+		var i Job
+		if err := rows.Scan(
+			&i.ID,
+			&i.Type,
+			&i.Payload,
+			&i.Status,
+			&i.Attempts,
+			&i.MaxAttempts,
+			&i.Error,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.RunAfter,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getJobCounts = `-- name: GetJobCounts :many
 ;
 
@@ -167,6 +218,52 @@ func (q *Queries) GetJobsByStatus(ctx context.Context, status string) ([]GetJobs
 		if err := rows.Scan(
 			&i.ID,
 			&i.Type,
+			&i.Status,
+			&i.Attempts,
+			&i.MaxAttempts,
+			&i.Error,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.RunAfter,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getRecentFailedJobs = `-- name: GetRecentFailedJobs :many
+;
+
+select
+    id, type, payload, status, attempts, max_attempts, error, created_at, updated_at, run_after
+from job
+where status = 'failed'
+order by updated_at desc
+limit ?1
+`
+
+// Most recently failed first - updated_at is when the failure was recorded.
+func (q *Queries) GetRecentFailedJobs(ctx context.Context, limit int64) ([]Job, error) {
+	rows, err := q.db.QueryContext(ctx, getRecentFailedJobs, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Job
+	for rows.Next() {
+		var i Job
+		if err := rows.Scan(
+			&i.ID,
+			&i.Type,
+			&i.Payload,
 			&i.Status,
 			&i.Attempts,
 			&i.MaxAttempts,
@@ -259,4 +356,26 @@ type RequeueJobParams struct {
 func (q *Queries) RequeueJob(ctx context.Context, arg RequeueJobParams) error {
 	_, err := q.db.ExecContext(ctx, requeueJob, arg.RunAfter, arg.ID)
 	return err
+}
+
+const resetRunningJobs = `-- name: ResetRunningJobs :execrows
+;
+
+update job
+set status = 'pending',
+    updated_at = datetime('now')
+where status = 'running'
+`
+
+// Startup recovery: a job left 'running' by an unclean shutdown would
+// otherwise stay that way forever and show as permanently stuck in the
+// monitor. Back to 'pending' rather than 'failed' because ClaimJob already
+// incremented attempts, so a recovered job retries under the normal
+// max_attempts budget and fails on its own if it keeps dying.
+func (q *Queries) ResetRunningJobs(ctx context.Context) (int64, error) {
+	result, err := q.db.ExecContext(ctx, resetRunningJobs)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
