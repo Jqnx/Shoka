@@ -234,7 +234,7 @@ type UpdateTagDescriptionRequest struct {
 //	@Tags			tags
 //	@Accept			json
 //	@Param			id		path	int							true	"Tag ID"
-//	@Param			body	UpdateTagDescriptionRequest	true	"Description"
+//	@Param			body	body	UpdateTagDescriptionRequest	true	"Description"
 //	@Success		204
 //	@Failure		400	{object}	response.Error
 //	@Failure		500	{object}	response.Error

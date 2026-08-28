@@ -109,7 +109,7 @@ type BulkProgressRequest struct {
 //	@Tags			archives
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	BulkProgressRequest	true	"Archives and desired read state"
+//	@Param			body	body	BulkProgressRequest	true	"Archives and desired read state"
 //	@Success		200	{object}	BulkResult
 //	@Failure		400	{object}	response.Error
 //	@Failure		500	{object}	response.Error
@@ -185,7 +185,7 @@ type BulkMetadataRequest struct {
 //	@Tags			archives
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	BulkMetadataRequest	true	"Archives to identify, optionally pinned to one source"
+//	@Param			body	body	BulkMetadataRequest	true	"Archives to identify, optionally pinned to one source"
 //	@Success		202	{object}	BulkResult
 //	@Failure		400	{object}	response.Error
 //	@Failure		500	{object}	response.Error
@@ -355,7 +355,7 @@ func mergeNames(existing, add []string) []string {
 //	@Tags			archives
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	BulkUpdateArchivesRequest	true	"Archives and relations to add"
+//	@Param			body	body	BulkUpdateArchivesRequest	true	"Archives and relations to add"
 //	@Success		200	{object}	BulkResult
 //	@Failure		400	{object}	response.Error
 //	@Failure		500	{object}	response.Error

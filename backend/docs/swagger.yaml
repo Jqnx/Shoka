@@ -216,16 +216,19 @@ definitions:
     properties:
       distance:
         description: |-
-          Distance is the mean per-point Hamming distance to the group's first
-          member (itself 0) - lower means more visually similar.
+          Distance is the mean per-point Hamming distance to whichever *other*
+          member of the group this archive matches most closely - lower means
+          more visually similar. In a chained group (A close to B, B close to C)
+          this reports the real match, not the distance to an arbitrary anchor.
         type: integer
       distances:
         additionalProperties:
           type: integer
         description: |-
           Distances breaks that down per sample point (p0 = cover, p25/p50/p75 =
-          that fraction through the archive). Points either side hasn't hashed
-          are omitted rather than reported as 0.
+          that fraction through the archive), against that same closest member.
+          Points either archive hasn't hashed are omitted rather than reported
+          as 0.
         type: object
       id:
         type: string
@@ -332,6 +335,48 @@ definitions:
         type: string
       view_mode:
         type: string
+    type: object
+  handlers.SearchArchiveResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/handlers.ArchiveResponse'
+        type: array
+      total:
+        type: integer
+    type: object
+  handlers.SearchEntityResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/handlers.SearchEntityResult'
+        type: array
+      total:
+        type: integer
+    type: object
+  handlers.SearchEntityResult:
+    properties:
+      count:
+        type: integer
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  handlers.SearchResponse:
+    properties:
+      archives:
+        $ref: '#/definitions/handlers.SearchArchiveResponse'
+      artists:
+        $ref: '#/definitions/handlers.SearchEntityResponse'
+      characters:
+        $ref: '#/definitions/handlers.SearchEntityResponse'
+      circles:
+        $ref: '#/definitions/handlers.SearchEntityResponse'
+      parodies:
+        $ref: '#/definitions/handlers.SearchEntityResponse'
+      tags:
+        $ref: '#/definitions/handlers.SearchEntityResponse'
     type: object
   handlers.SetRatingRequest:
     properties:
@@ -1974,6 +2019,48 @@ paths:
       summary: Update the current user's reader settings
       tags:
       - reader-settings
+  /api/search:
+    get:
+      description: Substring match (min 3 characters - shorter values return every
+        category empty) over each category's name, scoped to a single library for
+        the archives category. Artist/tag/parody/circle/character are global entities
+        (not library-scoped), so those four categories search the whole install. Each
+        category is independently capped at `limit` and separately counted via its
+        `total`, for a "N more" affordance per category.
+      parameters:
+      - description: Library ID to scope the archive category to
+        in: query
+        name: library_id
+        required: true
+        type: string
+      - description: Search query (substring match, min 3 characters)
+        in: query
+        name: q
+        required: true
+        type: string
+      - default: 5
+        description: Max results per category
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.SearchResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Search across archives, artists, tags, parodies, circles and characters
+      tags:
+      - search
   /api/tags:
     get:
       parameters:

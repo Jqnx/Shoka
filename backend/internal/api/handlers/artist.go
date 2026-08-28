@@ -262,7 +262,7 @@ type CreateArtistRequest struct {
 //	@Tags			artists
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	CreateArtistRequest	true	"Artist to create"
+//	@Param			body	body	CreateArtistRequest	true	"Artist to create"
 //	@Success		201	{object}	ArtistResponse
 //	@Failure		400	{object}	response.Error
 //	@Failure		409	{object}	response.Error
@@ -366,7 +366,7 @@ type UpdateArtistRequest struct {
 //	@Accept			json
 //	@Produce		json
 //	@Param			id		path		int						true	"Artist ID"
-//	@Param			body	UpdateArtistRequest	true	"Fields to update"
+//	@Param			body	body	UpdateArtistRequest	true	"Fields to update"
 //	@Success		200	{object}	ArtistResponse
 //	@Failure		400	{object}	response.Error
 //	@Failure		404	{object}	response.Error

@@ -130,7 +130,7 @@ type CreateLibraryRequest struct {
 //	@Summary		Create a library
 //	@Tags			admin
 //	@Accept			json
-//	@Param			body	CreateLibraryRequest	true	"Library to create"
+//	@Param			body	body	CreateLibraryRequest	true	"Library to create"
 //	@Success		201	{object}	LibraryResponse
 //	@Failure		400	{object}	response.Error
 //	@Failure		409	{object}	response.Error
@@ -251,7 +251,7 @@ type UpdateLibraryRequest struct {
 //	@Tags			admin
 //	@Accept			json
 //	@Param			id		path		string					true	"Library ID"
-//	@Param			body	UpdateLibraryRequest	true	"Fields to update"
+//	@Param			body	body	UpdateLibraryRequest	true	"Fields to update"
 //	@Success		200	{object}	LibraryResponse
 //	@Failure		400	{object}	response.Error
 //	@Failure		404	{object}	response.Error
@@ -446,7 +446,7 @@ type UpdateLibrarySourceRequest struct {
 //	@Accept			json
 //	@Param			id		path		string						true	"Library ID"
 //	@Param			source	path		string						true	"Source name (e.g. nhentai, e-hentai, comicinfo, filename)"
-//	@Param			body	UpdateLibrarySourceRequest	true	"Source settings"
+//	@Param			body	body	UpdateLibrarySourceRequest	true	"Source settings"
 //	@Success		200	{object}	LibrarySourceResponse
 //	@Failure		400	{object}	response.Error
 //	@Failure		500	{object}	response.Error

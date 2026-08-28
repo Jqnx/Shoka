@@ -107,7 +107,7 @@ type UpdateReaderSettingsRequest struct {
 //	@Tags			reader-settings
 //	@Accept			json
 //	@Produce		json
-//	@Param			body	UpdateReaderSettingsRequest	true	"Fields to change"
+//	@Param			body	body	UpdateReaderSettingsRequest	true	"Fields to change"
 //	@Success		200		{object}	ReaderSettingsResponse
 //	@Failure		400		{object}	response.Error
 //	@Failure		500		{object}	response.Error

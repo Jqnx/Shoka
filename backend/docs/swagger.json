@@ -2044,6 +2044,61 @@
                 }
             }
         },
+        "/api/search": {
+            "get": {
+                "description": "Substring match (min 3 characters - shorter values return every category empty) over each category's name, scoped to a single library for the archives category. Artist/tag/parody/circle/character are global entities (not library-scoped), so those four categories search the whole install. Each category is independently capped at `limit` and separately counted via its `total`, for a \"N more\" affordance per category.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "search"
+                ],
+                "summary": "Search across archives, artists, tags, parodies, circles and characters",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Library ID to scope the archive category to",
+                        "name": "library_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search query (substring match, min 3 characters)",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 5,
+                        "description": "Max results per category",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.SearchResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/tags": {
             "get": {
                 "produces": [
@@ -2924,11 +2979,11 @@
             "type": "object",
             "properties": {
                 "distance": {
-                    "description": "Distance is the mean per-point Hamming distance to the group's first\nmember (itself 0) - lower means more visually similar.",
+                    "description": "Distance is the mean per-point Hamming distance to whichever *other*\nmember of the group this archive matches most closely - lower means\nmore visually similar. In a chained group (A close to B, B close to C)\nthis reports the real match, not the distance to an arbitrary anchor.",
                     "type": "integer"
                 },
                 "distances": {
-                    "description": "Distances breaks that down per sample point (p0 = cover, p25/p50/p75 =\nthat fraction through the archive). Points either side hasn't hashed\nare omitted rather than reported as 0.",
+                    "description": "Distances breaks that down per sample point (p0 = cover, p25/p50/p75 =\nthat fraction through the archive), against that same closest member.\nPoints either archive hasn't hashed are omitted rather than reported\nas 0.",
                     "type": "object",
                     "additionalProperties": {
                         "type": "integer"
@@ -3095,6 +3150,71 @@
                 },
                 "view_mode": {
                     "type": "string"
+                }
+            }
+        },
+        "handlers.SearchArchiveResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.ArchiveResponse"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.SearchEntityResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.SearchEntityResult"
+                    }
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "handlers.SearchEntityResult": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.SearchResponse": {
+            "type": "object",
+            "properties": {
+                "archives": {
+                    "$ref": "#/definitions/handlers.SearchArchiveResponse"
+                },
+                "artists": {
+                    "$ref": "#/definitions/handlers.SearchEntityResponse"
+                },
+                "characters": {
+                    "$ref": "#/definitions/handlers.SearchEntityResponse"
+                },
+                "circles": {
+                    "$ref": "#/definitions/handlers.SearchEntityResponse"
+                },
+                "parodies": {
+                    "$ref": "#/definitions/handlers.SearchEntityResponse"
+                },
+                "tags": {
+                    "$ref": "#/definitions/handlers.SearchEntityResponse"
                 }
             }
         },
