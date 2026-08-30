@@ -126,3 +126,17 @@ After completing the code, ask the user if they want a playground link. Only cal
 ### Linting & formatting
 
 After writing or editing any Svelte code, run `prettier --check` and `eslint` (from `/frontend`) on the changed files and fix any issues before considering the work done.
+
+## Go
+
+You have access to a range of skills related to Go.
+
+### golang-how-to
+
+Orchestrator for using the correct and relevant skills. ALWAYS use this when writing Go code.
+
+## Coding Style
+
+### Comments
+
+Use clear and concise comments. Try to keep comments as short as possible, but don't sacrifice clarity for brevity. Only add the complex logic or important details that are not immediately obvious from the code. Swagger comments do not fall under this category.
