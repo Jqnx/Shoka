@@ -140,6 +140,7 @@ func (s *Server) MountHandlers() {
 					r.Patch("/", libraryHandler.UpdateLibrary)
 					r.Delete("/", libraryHandler.DeleteLibrary)
 					r.Post("/scan", libraryHandler.ScanLibrary)
+					r.Post("/covers", libraryHandler.GenerateLibraryCovers)
 					r.Get("/sources", libraryHandler.GetLibrarySources)
 					r.Patch("/sources/{source}", libraryHandler.UpdateLibrarySource)
 				})

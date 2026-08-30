@@ -1,11 +1,19 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import AddLibraryDialog from '$lib/components/add-library-dialog.svelte';
 	import { enhance } from '$app/forms';
-	import { FolderOpen, RefreshCw, Settings, Trash2 } from '@lucide/svelte';
+	import { cn } from '$lib/utils.js';
+	import type { Library } from '$lib/types';
+	import { Ellipsis, FolderOpen, ImageUp, RefreshCw, Settings, Trash2 } from '@lucide/svelte';
 
 	let { data, form } = $props();
+
+	// The dialog lives outside the {#each} so it isn't torn down with the
+	// dropdown that opens it; the row is carried here instead.
+	let deleteTarget = $state<Library | null>(null);
+	let regenerating = $state<string | null>(null);
 
 	function typeLabel(type: string) {
 		return type.charAt(0).toUpperCase() + type.slice(1);
@@ -20,9 +28,7 @@
 	<div class="flex flex-wrap items-center justify-between gap-2">
 		<div>
 			<h1 class="text-2xl font-bold tracking-tight">Libraries</h1>
-			<p class="mt-1 text-sm text-muted-foreground">
-				Folders to scan for media.
-			</p>
+			<p class="mt-1 text-sm text-muted-foreground">Folders to scan for media.</p>
 		</div>
 
 		<AddLibraryDialog types={data.libraryTypes} />
@@ -30,6 +36,10 @@
 
 	{#if form?.error}
 		<p class="mt-4 text-sm text-destructive">{form.error}</p>
+	{:else if form?.action === 'regenerateCovers' && form.success}
+		<p class="mt-4 text-sm text-muted-foreground">
+			Cover generation enqueued for the library's archives.
+		</p>
 	{/if}
 
 	<div class="mt-6 flex flex-col gap-3">
@@ -56,11 +66,6 @@
 					</div>
 
 					<div class="flex shrink-0 items-center gap-2">
-						<Button href="/admin/libraries/{library.id}" variant="outline" size="icon-sm">
-							<Settings />
-							<span class="sr-only">Settings</span>
-						</Button>
-
 						<form method="POST" action="?/scan" use:enhance>
 							<input type="hidden" name="id" value={library.id} />
 							<Button type="submit" variant="outline" size="sm">
@@ -69,36 +74,79 @@
 							</Button>
 						</form>
 
-						<AlertDialog.Root>
-							<AlertDialog.Trigger>
+						<Button href="/admin/libraries/{library.id}" variant="outline" size="icon-sm">
+							<Settings />
+							<span class="sr-only">Settings</span>
+						</Button>
+
+						<DropdownMenu.Root>
+							<DropdownMenu.Trigger>
 								{#snippet child({ props })}
-									<Button {...props} variant="destructive" size="icon-sm">
-										<Trash2 />
-										<span class="sr-only">Delete</span>
+									<Button {...props} variant="outline" size="icon-sm" aria-label="More actions">
+										<Ellipsis />
 									</Button>
 								{/snippet}
-							</AlertDialog.Trigger>
-							<AlertDialog.Content>
-								<AlertDialog.Header>
-									<AlertDialog.Title>Delete library "{library.name}"?</AlertDialog.Title>
-									<AlertDialog.Description>
-										This removes all its archives from Shoka, but not from disk.
-									</AlertDialog.Description>
-								</AlertDialog.Header>
-								<form method="POST" action="?/delete" use:enhance>
+							</DropdownMenu.Trigger>
+							<DropdownMenu.Content align="end" class="min-w-48">
+								<form
+									method="POST"
+									action="?/regenerateCovers"
+									use:enhance={() => {
+										regenerating = library.id;
+										return async ({ update }) => {
+											regenerating = null;
+											await update();
+										};
+									}}
+								>
 									<input type="hidden" name="id" value={library.id} />
-									<AlertDialog.Footer>
-										<AlertDialog.Cancel type="button">Cancel</AlertDialog.Cancel>
-										<AlertDialog.Action type="submit" variant="destructive">
-											Delete
-										</AlertDialog.Action>
-									</AlertDialog.Footer>
+									<DropdownMenu.Item disabled={regenerating === library.id}>
+										{#snippet child({ props })}
+											<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
+												<ImageUp />
+												{regenerating === library.id ? 'Enqueuing…' : 'Regenerate covers'}
+											</button>
+										{/snippet}
+									</DropdownMenu.Item>
 								</form>
-							</AlertDialog.Content>
-						</AlertDialog.Root>
+								<DropdownMenu.Separator />
+								<DropdownMenu.Item
+									variant="destructive"
+									onSelect={() => {
+										deleteTarget = library;
+									}}
+								>
+									<Trash2 />
+									Delete
+								</DropdownMenu.Item>
+							</DropdownMenu.Content>
+						</DropdownMenu.Root>
 					</div>
 				</div>
 			{/each}
 		{/if}
 	</div>
 </div>
+
+<AlertDialog.Root
+	open={deleteTarget !== null}
+	onOpenChange={(open) => {
+		if (!open) deleteTarget = null;
+	}}
+>
+	<AlertDialog.Content>
+		<AlertDialog.Header>
+			<AlertDialog.Title>Delete library "{deleteTarget?.name}"?</AlertDialog.Title>
+			<AlertDialog.Description>
+				This removes all its archives from Shoka, but not from disk.
+			</AlertDialog.Description>
+		</AlertDialog.Header>
+		<form method="POST" action="?/delete" use:enhance>
+			<input type="hidden" name="id" value={deleteTarget?.id ?? ''} />
+			<AlertDialog.Footer>
+				<AlertDialog.Cancel type="button">Cancel</AlertDialog.Cancel>
+				<AlertDialog.Action type="submit" variant="destructive">Delete</AlertDialog.Action>
+			</AlertDialog.Footer>
+		</form>
+	</AlertDialog.Content>
+</AlertDialog.Root>

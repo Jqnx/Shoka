@@ -58,6 +58,22 @@ export const actions: Actions = {
 		return { action: 'scan' as const, success: true };
 	},
 
+	regenerateCovers: async ({ request, fetch }) => {
+		const form = await request.formData();
+		const id = String(form.get('id') ?? '');
+
+		const res = await fetch(`/api/admin/libraries/${id}/covers`, { method: 'POST' });
+
+		if (!res.ok) {
+			return fail(res.status, {
+				action: 'regenerateCovers' as const,
+				error: await errorMessage(res, 'Failed to enqueue cover generation.')
+			});
+		}
+
+		return { action: 'regenerateCovers' as const, success: true };
+	},
+
 	delete: async ({ request, fetch }) => {
 		const form = await request.formData();
 		const id = String(form.get('id') ?? '');

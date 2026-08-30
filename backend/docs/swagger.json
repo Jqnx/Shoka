@@ -252,6 +252,41 @@
                 }
             }
         },
+        "/api/admin/libraries/{id}/covers": {
+            "post": {
+                "description": "Library-scoped counterpart to /api/admin/covers, which does the same for every library at once.",
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Enqueue cover generation for one library's archives",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Library ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/admin/libraries/{id}/scan": {
             "post": {
                 "tags": [

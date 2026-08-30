@@ -419,6 +419,51 @@ func (h *LibraryHandler) ScanLibrary(w http.ResponseWriter, r *http.Request) {
 	response.NoContent(w)
 }
 
+// GenerateLibraryCovers godoc
+//
+//	@Summary		Enqueue cover generation for one library's archives
+//	@Description	Library-scoped counterpart to /api/admin/covers, which does the same for every library at once.
+//	@Tags			admin
+//	@Param			id	path	string	true	"Library ID"
+//	@Success		204
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/admin/libraries/{id}/covers [post]
+func (h *LibraryHandler) GenerateLibraryCovers(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	if _, err := h.queries.GetLibraryByID(r.Context(), id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "library not found")
+			return
+		}
+
+		h.logger.Error("get library failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get library")
+
+		return
+	}
+
+	archives, err := h.queries.GetArchiveFilePathsByLibrary(r.Context(), id)
+	if err != nil {
+		h.logger.Error("get library archives failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archives")
+
+		return
+	}
+
+	for _, a := range archives {
+		if err := h.queue.Enqueue(r.Context(), jobs.JobTypeCover, jobs.CoverPayload{
+			ArchiveID: a.ID,
+			FilePath:  a.FilePath,
+		}); err != nil {
+			h.logger.Error("enqueue cover job failed", "archive_id", a.ID, "error", err)
+		}
+	}
+
+	response.NoContent(w)
+}
+
 type LibrarySourceResponse struct {
 	Source            string   `json:"source"`
 	Enabled           bool     `json:"enabled"`

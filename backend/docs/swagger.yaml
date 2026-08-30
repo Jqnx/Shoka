@@ -836,6 +836,30 @@ paths:
       summary: Update a library's name and scan settings
       tags:
       - admin
+  /api/admin/libraries/{id}/covers:
+    post:
+      description: Library-scoped counterpart to /api/admin/covers, which does the
+        same for every library at once.
+      parameters:
+      - description: Library ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Enqueue cover generation for one library's archives
+      tags:
+      - admin
   /api/admin/libraries/{id}/scan:
     post:
       parameters:
