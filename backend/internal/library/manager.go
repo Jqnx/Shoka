@@ -28,7 +28,12 @@ type Manager struct {
 	log      *slog.Logger
 	scanners map[string]Scanner // keyed by library.type
 
-	mu      sync.Mutex
+	mu sync.Mutex
+	// baseCtx is the application-lifetime context every watcher derives from,
+	// captured in Start. Never derive a watcher from a request context —
+	// OnLibraryChanged runs in HTTP handlers, so the watcher would die as
+	// soon as the response is written.
+	baseCtx context.Context
 	cancels map[string]context.CancelFunc // library ID -> stop func for its watcher
 }
 
@@ -40,6 +45,7 @@ func NewManager(cfg *config.Config, queries *sqlc.Queries, queue JobQueue, log *
 		queries: queries,
 		queue:   queue,
 		log:     logger,
+		baseCtx: context.Background(),
 		cancels: make(map[string]context.CancelFunc),
 	}
 
@@ -65,14 +71,22 @@ func (m *Manager) SupportsType(libraryType string) bool {
 // Start loads every library and begins watching it. Call once at
 // application startup, after config/DB are ready.
 func (m *Manager) Start(ctx context.Context) error {
+	m.mu.Lock()
+	m.baseCtx = ctx
+	m.mu.Unlock()
+
 	libs, err := m.queries.ListLibraries(ctx)
 	if err != nil {
 		return fmt.Errorf("list libraries: %w", err)
 	}
 
 	for _, lib := range libs {
-		m.startWatching(ctx, lib)
+		m.startWatching(lib)
 	}
+
+	// Periodic scans are a safety net for changes the watcher never sees —
+	// network shares and bind mounts don't propagate inotify events.
+	go m.runScheduler(ctx)
 
 	return nil
 }
@@ -110,12 +124,19 @@ func (m *Manager) Shutdown() {
 	}
 }
 
-// OnLibraryChanged begins watching lib. Call after creating or updating a
-// library so the change takes effect immediately, without a restart.
-// startWatching is idempotent, so calling this for an already-watched
-// library is a no-op.
-func (m *Manager) OnLibraryChanged(ctx context.Context, lib sqlc.Library) {
-	m.startWatching(ctx, lib)
+// OnLibraryChanged reconciles lib's watcher with its current settings, so a
+// create or update takes effect without a restart. Must handle both
+// directions: startWatching is a no-op when already watching, so turning
+// watch_enabled off has to explicitly stop the running watcher.
+//
+// Takes no context by design — see Manager.baseCtx.
+func (m *Manager) OnLibraryChanged(lib sqlc.Library) {
+	if lib.WatchEnabled == 0 {
+		m.stopWatching(lib.ID)
+		return
+	}
+
+	m.startWatching(lib)
 }
 
 // OnLibraryDeleted stops watching a deleted library. DB cleanup (archives,
@@ -137,16 +158,30 @@ func (m *Manager) ScanLibrary(ctx context.Context, libraryID string) error {
 		return fmt.Errorf("no scanner available for library type %q", lib.Type)
 	}
 
+	// Record the attempt even on failure. Otherwise a library that always
+	// fails to scan exhausts its retries, leaves nothing pending for
+	// EnqueueOnce to suppress, and gets re-enqueued every tick.
+	defer func() {
+		if err := m.queries.MarkLibraryScanned(ctx, libraryID); err != nil {
+			m.log.Error("failed to record scan time", "library_id", libraryID, "error", err)
+		}
+	}()
+
 	return scanner.Scan(ctx, lib)
 }
 
 // startWatching begins watching a library's directory for changes. Safe to
-// call more than once — a no-op if already watching, and a no-op if the
-// library's type has no registered Scanner (nothing would ever act on the
-// scan jobs it would trigger).
-func (m *Manager) startWatching(ctx context.Context, lib sqlc.Library) {
+// call more than once — a no-op if already watching, if the library has the
+// filesystem watcher turned off, or if the library's type has no registered
+// Scanner (nothing would ever act on the scan jobs it would trigger).
+func (m *Manager) startWatching(lib sqlc.Library) {
 	if _, ok := m.scanners[lib.Type]; !ok {
 		m.log.Warn("no scanner registered for library type, not watching", "library_id", lib.ID, "type", lib.Type)
+		return
+	}
+
+	if lib.WatchEnabled == 0 {
+		m.log.Info("filesystem watcher disabled for library", "library_id", lib.ID)
 		return
 	}
 
@@ -157,7 +192,7 @@ func (m *Manager) startWatching(ctx context.Context, lib sqlc.Library) {
 		return
 	}
 
-	watchCtx, cancel := context.WithCancel(ctx)
+	watchCtx, cancel := context.WithCancel(m.baseCtx)
 
 	watcher := NewWatcher(m.queue, lib.ID, lib.Path, m.log)
 	if err := watcher.Start(watchCtx); err != nil {

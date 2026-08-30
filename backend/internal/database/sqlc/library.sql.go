@@ -17,7 +17,7 @@ insert into library (
   type
 )
 values (?, ?, ?, ?)
-returning id, name, path, type, created_at, updated_at
+returning id, name, path, type, created_at, updated_at, scan_interval_minutes, watch_enabled, last_scanned_at
 `
 
 type CreateLibraryParams struct {
@@ -42,6 +42,9 @@ func (q *Queries) CreateLibrary(ctx context.Context, arg CreateLibraryParams) (L
 		&i.Type,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ScanIntervalMinutes,
+		&i.WatchEnabled,
+		&i.LastScannedAt,
 	)
 	return i, err
 }
@@ -57,7 +60,7 @@ func (q *Queries) DeleteLibrary(ctx context.Context, id string) error {
 }
 
 const getLibraryByID = `-- name: GetLibraryByID :one
-select id, name, path, type, created_at, updated_at
+select id, name, path, type, created_at, updated_at, scan_interval_minutes, watch_enabled, last_scanned_at
 from library
 where id = ?
 `
@@ -72,6 +75,9 @@ func (q *Queries) GetLibraryByID(ctx context.Context, id string) (Library, error
 		&i.Type,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ScanIntervalMinutes,
+		&i.WatchEnabled,
+		&i.LastScannedAt,
 	)
 	return i, err
 }
@@ -79,7 +85,7 @@ func (q *Queries) GetLibraryByID(ctx context.Context, id string) (Library, error
 const getLibraryByPath = `-- name: GetLibraryByPath :one
 ;
 
-select id, name, path, type, created_at, updated_at
+select id, name, path, type, created_at, updated_at, scan_interval_minutes, watch_enabled, last_scanned_at
 from library
 where path = ?
 `
@@ -94,6 +100,9 @@ func (q *Queries) GetLibraryByPath(ctx context.Context, path string) (Library, e
 		&i.Type,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ScanIntervalMinutes,
+		&i.WatchEnabled,
+		&i.LastScannedAt,
 	)
 	return i, err
 }
@@ -101,7 +110,7 @@ func (q *Queries) GetLibraryByPath(ctx context.Context, path string) (Library, e
 const listLibraries = `-- name: ListLibraries :many
 ;
 
-select id, name, path, type, created_at, updated_at
+select id, name, path, type, created_at, updated_at, scan_interval_minutes, watch_enabled, last_scanned_at
 from library
 order by name
 `
@@ -122,6 +131,9 @@ func (q *Queries) ListLibraries(ctx context.Context) ([]Library, error) {
 			&i.Type,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ScanIntervalMinutes,
+			&i.WatchEnabled,
+			&i.LastScannedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -136,24 +148,94 @@ func (q *Queries) ListLibraries(ctx context.Context) ([]Library, error) {
 	return items, nil
 }
 
+const listLibrariesDueForScan = `-- name: ListLibrariesDueForScan :many
+select id, name, path, type, created_at, updated_at, scan_interval_minutes, watch_enabled, last_scanned_at
+from library
+where scan_interval_minutes > 0
+  and (
+    last_scanned_at is null
+    or datetime(last_scanned_at, '+' || scan_interval_minutes || ' minutes') <= datetime('now')
+  )
+order by name
+`
+
+// ListLibrariesDueForScan returns every library whose periodic scan is due:
+// scanning is enabled (interval > 0) and either it has never been scanned or
+// the interval has elapsed since the last scan attempt. Polled by the
+// library manager's scheduler.
+func (q *Queries) ListLibrariesDueForScan(ctx context.Context) ([]Library, error) {
+	rows, err := q.db.QueryContext(ctx, listLibrariesDueForScan)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Library
+	for rows.Next() {
+		var i Library
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Path,
+			&i.Type,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ScanIntervalMinutes,
+			&i.WatchEnabled,
+			&i.LastScannedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markLibraryScanned = `-- name: MarkLibraryScanned :exec
+update library
+set last_scanned_at = datetime('now')
+where id = ?
+`
+
+// MarkLibraryScanned records a scan attempt. Deliberately does not touch
+// updated_at, which tracks configuration edits rather than scan activity.
+func (q *Queries) MarkLibraryScanned(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, markLibraryScanned, id)
+	return err
+}
+
 const updateLibrary = `-- name: UpdateLibrary :one
 ;
 
 update library
 set
     name = ?,
+    scan_interval_minutes = ?,
+    watch_enabled = ?,
     updated_at = datetime('now')
 where id = ?
-returning id, name, path, type, created_at, updated_at
+returning id, name, path, type, created_at, updated_at, scan_interval_minutes, watch_enabled, last_scanned_at
 `
 
 type UpdateLibraryParams struct {
-	Name string `json:"name"`
-	ID   string `json:"id"`
+	Name                string `json:"name"`
+	ScanIntervalMinutes int64  `json:"scan_interval_minutes"`
+	WatchEnabled        int64  `json:"watch_enabled"`
+	ID                  string `json:"id"`
 }
 
 func (q *Queries) UpdateLibrary(ctx context.Context, arg UpdateLibraryParams) (Library, error) {
-	row := q.db.QueryRowContext(ctx, updateLibrary, arg.Name, arg.ID)
+	row := q.db.QueryRowContext(ctx, updateLibrary,
+		arg.Name,
+		arg.ScanIntervalMinutes,
+		arg.WatchEnabled,
+		arg.ID,
+	)
 	var i Library
 	err := row.Scan(
 		&i.ID,
@@ -162,6 +244,9 @@ func (q *Queries) UpdateLibrary(ctx context.Context, arg UpdateLibraryParams) (L
 		&i.Type,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ScanIntervalMinutes,
+		&i.WatchEnabled,
+		&i.LastScannedAt,
 	)
 	return i, err
 }

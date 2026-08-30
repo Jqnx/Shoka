@@ -186,6 +186,12 @@ export type Library = {
 	name: string;
 	path: string;
 	type: string;
+	/** Periodic rescan cadence in minutes. 0 means periodic scanning is off. */
+	scan_interval_minutes: number;
+	/** Whether the backend's filesystem watcher is running for this library. */
+	watch_enabled: boolean;
+	/** Absent when the library has never been scanned. */
+	last_scanned_at?: string;
 	created_at: string;
 	updated_at: string;
 };

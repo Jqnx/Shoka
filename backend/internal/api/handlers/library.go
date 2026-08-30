@@ -50,23 +50,36 @@ func NewLibraryHandler(queries *sqlc.Queries, queue *jobs.Queue, manager *librar
 }
 
 type LibraryResponse struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	Path      string `json:"path"`
-	Type      string `json:"type"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Path string `json:"path"`
+	Type string `json:"type"`
+	// 0 means periodic scanning is off.
+	ScanIntervalMinutes int64 `json:"scan_interval_minutes"`
+	WatchEnabled        bool  `json:"watch_enabled"`
+	// Omitted when the library has never been scanned.
+	LastScannedAt string `json:"last_scanned_at,omitempty"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
 }
 
 func toLibraryResponse(lib sqlc.Library) LibraryResponse {
-	return LibraryResponse{
-		ID:        lib.ID,
-		Name:      lib.Name,
-		Path:      lib.Path,
-		Type:      lib.Type,
-		CreatedAt: lib.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt: lib.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+	resp := LibraryResponse{
+		ID:                  lib.ID,
+		Name:                lib.Name,
+		Path:                lib.Path,
+		Type:                lib.Type,
+		ScanIntervalMinutes: lib.ScanIntervalMinutes,
+		WatchEnabled:        lib.WatchEnabled != 0,
+		CreatedAt:           lib.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:           lib.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
+
+	if lib.LastScannedAt != nil {
+		resp.LastScannedAt = lib.LastScannedAt.Format("2006-01-02T15:04:05Z07:00")
+	}
+
+	return resp
 }
 
 // GetLibraries godoc
@@ -231,7 +244,7 @@ func (h *LibraryHandler) CreateLibrary(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.manager.OnLibraryChanged(r.Context(), lib)
+	h.manager.OnLibraryChanged(lib)
 
 	if err := h.queue.EnqueueOnce(r.Context(), jobs.JobTypeScan, jobs.ScanPayload{LibraryID: lib.ID}); err != nil {
 		h.logger.Error("enqueue initial scan failed", "library_id", lib.ID, "error", err)
@@ -240,14 +253,24 @@ func (h *LibraryHandler) CreateLibrary(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusCreated, toLibraryResponse(lib))
 }
 
+// Floor for a non-zero interval, so a hand-rolled request can't schedule a
+// full library scan every minute.
+const minScanIntervalMinutes = 15
+
+// UpdateLibraryRequest is a partial update: omitted fields are unchanged.
+// Pointers so saving the name alone can't reset the scan schedule to its
+// zero value — same convention as UpdateLibrarySourceRequest.
 type UpdateLibraryRequest struct {
 	Name *string `json:"name"`
+	// 0 disables periodic scanning; anything else must be >= 15.
+	ScanIntervalMinutes *int64 `json:"scan_interval_minutes"`
+	WatchEnabled        *bool  `json:"watch_enabled"`
 }
 
 // UpdateLibrary godoc
 //
-//	@Summary		Rename a library
-//	@Description	The library's path and type are immutable after creation.
+//	@Summary		Update a library's name and scan settings
+//	@Description	Partial update — omitted fields are left unchanged. The library's path and type are immutable after creation. Set scan_interval_minutes to 0 to disable periodic scanning, or to at least 15 to enable it.
 //	@Tags			admin
 //	@Accept			json
 //	@Param			id		path		string					true	"Library ID"
@@ -288,9 +311,30 @@ func (h *LibraryHandler) UpdateLibrary(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	scanInterval := current.ScanIntervalMinutes
+	if body.ScanIntervalMinutes != nil {
+		scanInterval = *body.ScanIntervalMinutes
+		if scanInterval < 0 {
+			response.BadRequest(w, "scan_interval_minutes cannot be negative")
+			return
+		}
+
+		if scanInterval > 0 && scanInterval < minScanIntervalMinutes {
+			response.BadRequest(w, fmt.Sprintf("scan_interval_minutes must be 0 (disabled) or at least %d", minScanIntervalMinutes))
+			return
+		}
+	}
+
+	watchEnabled := current.WatchEnabled
+	if body.WatchEnabled != nil {
+		watchEnabled = boolToInt(*body.WatchEnabled)
+	}
+
 	updated, err := h.queries.UpdateLibrary(r.Context(), sqlc.UpdateLibraryParams{
-		ID:   id,
-		Name: name,
+		ID:                  id,
+		Name:                name,
+		ScanIntervalMinutes: scanInterval,
+		WatchEnabled:        watchEnabled,
 	})
 	if err != nil {
 		h.logger.Error("update library failed", "id", id, "error", err)
@@ -299,7 +343,7 @@ func (h *LibraryHandler) UpdateLibrary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.manager.OnLibraryChanged(r.Context(), updated)
+	h.manager.OnLibraryChanged(updated)
 
 	response.JSON(w, http.StatusOK, toLibraryResponse(updated))
 }

@@ -52,6 +52,9 @@ make tidy   # Go module cleanup
 - **Image processing**: `govips/v2` for fast image manipulation; cache in `../cache/`
 - **Library scanner**: `internal/library/` — watches the filesystem, handles ZIP/7Z/RAR/PDF archives
   - Avoid the `gen2brain/go-fitz` go package - it causes issues with vips
+  - Two independent triggers per library, both configured on the `library` row and editable at `/admin/libraries/[id]`: the fsnotify watcher (`watch_enabled`) and a periodic scan (`scan_interval_minutes`, 0 = off, otherwise >= 15). The timer exists because inotify events don't arrive over network shares or some container mounts. `Manager.OnLibraryChanged` reconciles the watcher on save, so both settings take effect without a restart.
+  - `Manager.runScheduler` (`scheduler.go`) polls `ListLibrariesDueForScan` every minute and enqueues via `EnqueueOnce`. Due-ness is measured from `library.last_scanned_at`, which `ScanLibrary` sets after every scan *attempt* — including failures, so a library that can't be scanned doesn't get re-enqueued on every tick.
+  - Watchers hang off `Manager.baseCtx` (captured in `Start`), never a request context — deriving one from `r.Context()` kills the watcher when the HTTP response is written.
 - **Metadata pipeline**: `internal/metadata/` — pluggable sources (ComicInfo XML, filename parsing, e-Hentai, nHentai)
 - **Config**: `viper` loading from `data/config.yaml` with env overrides (`HOST`, `PORT`, `LOG_LEVEL`)
 

@@ -19,28 +19,40 @@ export const load: PageServerLoad = async ({ fetch, params }) => {
 };
 
 export const actions: Actions = {
-	rename: async ({ request, fetch, params }) => {
+	updateGeneral: async ({ request, fetch, params }) => {
 		const form = await request.formData();
 		const name = String(form.get('name') ?? '').trim();
 
 		if (!name) {
-			return fail(400, { action: 'rename' as const, error: 'Name cannot be empty.' });
+			return fail(400, { action: 'updateGeneral' as const, error: 'Name cannot be empty.' });
+		}
+
+		const scanInterval = Number(form.get('scan_interval_minutes') ?? 0);
+
+		if (!Number.isInteger(scanInterval) || scanInterval < 0) {
+			return fail(400, { action: 'updateGeneral' as const, error: 'Invalid scan interval.' });
 		}
 
 		const res = await fetch(`/api/admin/libraries/${params.id}`, {
 			method: 'PATCH',
 			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ name })
+			body: JSON.stringify({
+				name,
+				scan_interval_minutes: scanInterval,
+				// Carried by a hidden input holding String(boolean), same as
+				// the "enabled" toggle in library-source-card.svelte.
+				watch_enabled: form.get('watch_enabled') === 'true'
+			})
 		});
 
 		if (!res.ok) {
 			return fail(res.status, {
-				action: 'rename' as const,
-				error: await errorMessage(res, 'Failed to rename library.')
+				action: 'updateGeneral' as const,
+				error: await errorMessage(res, 'Failed to update library.')
 			});
 		}
 
-		return { action: 'rename' as const, success: true };
+		return { action: 'updateGeneral' as const, success: true };
 	},
 
 	updateSource: async ({ request, fetch, params }) => {

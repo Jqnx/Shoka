@@ -204,14 +204,14 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "The library's path and type are immutable after creation.",
+                "description": "Partial update — omitted fields are left unchanged. The library's path and type are immutable after creation. Set scan_interval_minutes to 0 to disable periodic scanning, or to at least 15 to enable it.",
                 "consumes": [
                     "application/json"
                 ],
                 "tags": [
                     "admin"
                 ],
-                "summary": "Rename a library",
+                "summary": "Update a library's name and scan settings",
                 "parameters": [
                     {
                         "type": "string",
@@ -3145,17 +3145,28 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "last_scanned_at": {
+                    "description": "Omitted when the library has never been scanned.",
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
                 "path": {
                     "type": "string"
                 },
+                "scan_interval_minutes": {
+                    "description": "0 means periodic scanning is off.",
+                    "type": "integer"
+                },
                 "type": {
                     "type": "string"
                 },
                 "updated_at": {
                     "type": "string"
+                },
+                "watch_enabled": {
+                    "type": "boolean"
                 }
             }
         },
@@ -3465,6 +3476,13 @@ const docTemplate = `{
             "properties": {
                 "name": {
                     "type": "string"
+                },
+                "scan_interval_minutes": {
+                    "description": "0 disables periodic scanning; anything else must be \u003e= 15.",
+                    "type": "integer"
+                },
+                "watch_enabled": {
+                    "type": "boolean"
                 }
             }
         },

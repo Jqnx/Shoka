@@ -133,12 +133,15 @@ type Job struct {
 }
 
 type Library struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Path      string    `json:"path"`
-	Type      string    `json:"type"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID                  string     `json:"id"`
+	Name                string     `json:"name"`
+	Path                string     `json:"path"`
+	Type                string     `json:"type"`
+	CreatedAt           time.Time  `json:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at"`
+	ScanIntervalMinutes int64      `json:"scan_interval_minutes"`
+	WatchEnabled        int64      `json:"watch_enabled"`
+	LastScannedAt       *time.Time `json:"last_scanned_at"`
 }
 
 type LibrarySource struct {
