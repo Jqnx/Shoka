@@ -7,27 +7,16 @@ package sqlc
 
 import (
 	"context"
-	"database/sql"
 	"strings"
 )
-
-const archiveUrlExists = `-- name: ArchiveUrlExists :execresult
-;
-
-select url
-from archive_url
-where url = ?
-`
-
-func (q *Queries) ArchiveUrlExists(ctx context.Context, url string) (sql.Result, error) {
-	return q.db.ExecContext(ctx, archiveUrlExists, url)
-}
 
 const bulkAddArchiveURLs = `-- name: BulkAddArchiveURLs :exec
 ;
 
 insert into archive_url (archive_id, url)
 select ?, value from json_each(?2)
+where true
+on conflict (archive_id, url) do nothing
 `
 
 type BulkAddArchiveURLsParams struct {
@@ -40,78 +29,25 @@ func (q *Queries) BulkAddArchiveURLs(ctx context.Context, arg BulkAddArchiveURLs
 	return err
 }
 
-const createArchiveURL = `-- name: CreateArchiveURL :exec
-insert into archive_url (url, archive_id)
-values (?, ?)
-`
-
-type CreateArchiveURLParams struct {
-	Url       string `json:"url"`
-	ArchiveID string `json:"archive_id"`
-}
-
-func (q *Queries) CreateArchiveURL(ctx context.Context, arg CreateArchiveURLParams) error {
-	_, err := q.db.ExecContext(ctx, createArchiveURL, arg.Url, arg.ArchiveID)
-	return err
-}
-
-const getArchiveUrlIDs = `-- name: GetArchiveUrlIDs :many
-;
-
-select id
-from archive_url
-where archive_id = ?
-`
-
-func (q *Queries) GetArchiveUrlIDs(ctx context.Context, archiveID string) ([]int64, error) {
-	rows, err := q.db.QueryContext(ctx, getArchiveUrlIDs, archiveID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []int64
-	for rows.Next() {
-		var id int64
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getArchiveUrls = `-- name: GetArchiveUrls :many
-;
-
-select id, url
+select url
 from archive_url
 where archive_id = ?
 `
 
-type GetArchiveUrlsRow struct {
-	ID  int64  `json:"id"`
-	Url string `json:"url"`
-}
-
-func (q *Queries) GetArchiveUrls(ctx context.Context, archiveID string) ([]GetArchiveUrlsRow, error) {
+func (q *Queries) GetArchiveUrls(ctx context.Context, archiveID string) ([]string, error) {
 	rows, err := q.db.QueryContext(ctx, getArchiveUrls, archiveID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetArchiveUrlsRow
+	var items []string
 	for rows.Next() {
-		var i GetArchiveUrlsRow
-		if err := rows.Scan(&i.ID, &i.Url); err != nil {
+		var url string
+		if err := rows.Scan(&url); err != nil {
 			return nil, err
 		}
-		items = append(items, i)
+		items = append(items, url)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

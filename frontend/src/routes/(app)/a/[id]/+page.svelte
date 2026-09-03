@@ -12,6 +12,7 @@
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import PageThumbnailGallery from '$lib/components/PageThumbnailGallery.svelte';
 	import EditArchiveSheet from '$lib/components/EditArchiveSheet.svelte';
+	import SourceLinks from '$lib/components/SourceLinks.svelte';
 	import {
 		BookOpen,
 		ChevronLeft,
@@ -73,7 +74,9 @@
 	// should respect (see MetadataFetchDialog's disabled-source picker).
 	const libraryId = $derived(fromLibraryId ?? data.libraries[0]?.id ?? '');
 
-	const archivesHref = $derived(fromParam ?? (data.libraries[0] ? `/${data.libraries[0].id}` : '/'));
+	const archivesHref = $derived(
+		fromParam ?? (data.libraries[0] ? `/${data.libraries[0].id}` : '/')
+	);
 	const archivesLabel = $derived(
 		data.libraries.find((l) => l.id === libraryId)?.name ?? 'Archives'
 	);
@@ -116,7 +119,9 @@
 	<div class="flex flex-col gap-8 md:flex-row">
 		<!-- Cover -->
 		<div class="w-full shrink-0 md:w-56 lg:w-64">
-			<div class="relative aspect-[2/3] w-full overflow-hidden rounded-lg border border-border bg-muted">
+			<div
+				class="relative aspect-[2/3] w-full overflow-hidden rounded-lg border border-border bg-muted"
+			>
 				<img src="/api/archives/{a.id}/cover" alt={a.title} class="size-full object-cover" />
 				{#if a.progress}
 					<div class="absolute inset-x-0 top-0 h-1.5">
@@ -162,9 +167,7 @@
 							disabled={favoriting}
 							aria-label={a.is_favorited ? 'Remove from favorites' : 'Add to favorites'}
 						>
-							<Heart
-								class={cn('size-4', a.is_favorited && 'fill-red-500 stroke-red-500')}
-							/>
+							<Heart class={cn('size-4', a.is_favorited && 'fill-red-500 stroke-red-500')} />
 						</Button>
 					</form>
 					<EditArchiveSheet
@@ -200,11 +203,7 @@
 								<input type="hidden" name="page_count" value={a.page_count} />
 								<DropdownMenu.Item disabled={a.progress?.completed || markingRead}>
 									{#snippet child({ props })}
-										<button
-											type="submit"
-											{...props}
-											class={cn(props.class as string, 'w-full')}
-										>
+										<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
 											<Check />
 											{markingRead ? 'Marking…' : 'Mark as read'}
 										</button>
@@ -224,11 +223,7 @@
 							>
 								<DropdownMenu.Item disabled={!a.progress || markingUnread}>
 									{#snippet child({ props })}
-										<button
-											type="submit"
-											{...props}
-											class={cn(props.class as string, 'w-full')}
-										>
+										<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
 											<RotateCcw />
 											{markingUnread ? 'Marking…' : 'Mark as unread'}
 										</button>
@@ -248,11 +243,7 @@
 							>
 								<DropdownMenu.Item disabled={savingMetadata}>
 									{#snippet child({ props })}
-										<button
-											type="submit"
-											{...props}
-											class={cn(props.class as string, 'w-full')}
-										>
+										<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
 											<Save />
 											{savingMetadata ? 'Saving…' : 'Save metadata to file'}
 										</button>
@@ -278,8 +269,8 @@
 							<AlertDialog.Header>
 								<AlertDialog.Title>Delete "{a.title}"?</AlertDialog.Title>
 								<AlertDialog.Description>
-									This removes the archive from Shoka, including its reading progress, favorite,
-									and rating.
+									This removes the archive from Shoka, including its reading progress, favorite, and
+									rating.
 								</AlertDialog.Description>
 							</AlertDialog.Header>
 							<form
@@ -381,6 +372,7 @@
 					<FileText class="size-3" />
 					{a.page_count} pages
 				</Badge>
+				<SourceLinks links={a.urls} />
 			</div>
 
 			{#if a.summary}

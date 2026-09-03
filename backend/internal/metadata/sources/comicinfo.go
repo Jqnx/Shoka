@@ -23,6 +23,7 @@ type comicInfoXML struct {
 	Characters  string `xml:"Characters"`
 	Series      string `xml:"Series"`
 	Tags        string `xml:"Tags"`
+	Web         string `xml:"Web"`
 }
 
 type ComicInfoSource struct{}
@@ -104,6 +105,13 @@ func (s *ComicInfoSource) parse(data []byte) (*metadata.Result, error) {
 		result.ReleaseDate = &t
 	}
 
+	// The ComicInfo spec allows <Web> to hold multiple space-separated URLs.
+	// The source name is derived from each link's host downstream, so a
+	// nhentai link here still shows the nhentai icon, not a "comicinfo" one.
+	if info.Web != "" {
+		result.URLs = strings.Fields(info.Web)
+	}
+
 	return result, nil
 }
 
@@ -150,6 +158,10 @@ func MarshalComicInfo(result *metadata.Result) ([]byte, error) {
 
 	if len(result.Parodies) > 0 {
 		info.Series = result.Parodies[0]
+	}
+
+	if len(result.URLs) > 0 {
+		info.Web = strings.Join(result.URLs, " ")
 	}
 
 	output, err := xml.MarshalIndent(info, "", "  ")

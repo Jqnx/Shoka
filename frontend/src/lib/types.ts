@@ -27,11 +27,19 @@ export type Archive = {
 	circles: string[] | null;
 	characters: string[] | null;
 
+	// Populated on the single-archive detail response only (GET
+	// /api/archives/{id} and the metadata preview endpoints). List/search
+	// responses leave it `null` to save a query per row. `source` is derived
+	// backend-side from each URL's host, not stored.
+	urls: ArchiveSourceLink[] | null;
+
 	progress: Progress | null;
 	thumbs_ready: boolean;
 	is_favorited: boolean;
 	rating: number | null;
 };
+
+export type ArchiveSourceLink = { source: string; url: string };
 
 export type ArchiveListResponse = {
 	items: Archive[];
@@ -62,6 +70,7 @@ export type FetchedMetadata = {
 	parodies: string[] | null;
 	circles: string[] | null;
 	characters: string[] | null;
+	urls: string[] | null;
 };
 
 // GET /api/metadata/sources?library_id=X - the enabled state is per-library

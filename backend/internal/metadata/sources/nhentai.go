@@ -252,6 +252,10 @@ func (s *NHentaiSource) toResult(g *nhentaiGalleryDetail) *metadata.Result {
 		result.Title = &title
 	}
 
+	if g.ID > 0 {
+		result.URLs = []string{fmt.Sprintf("%s/g/%d/", nhentaiBaseURL, g.ID)}
+	}
+
 	if g.NumPages > 0 {
 		result.PageCount = &g.NumPages
 	}

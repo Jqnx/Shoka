@@ -53,7 +53,10 @@ export const actions: Actions = {
 			tags: form.getAll('tags').map(String),
 			parodies: form.getAll('parodies').map(String),
 			circles: form.getAll('circles').map(String),
-			characters: form.getAll('characters').map(String)
+			characters: form.getAll('characters').map(String),
+			// The edit sheet always round-trips the current list, so an
+			// untouched save is a no-op and an emptied list genuinely clears.
+			urls: form.getAll('urls').map(String)
 		};
 
 		// release_date can't be explicitly cleared via this endpoint (a nil

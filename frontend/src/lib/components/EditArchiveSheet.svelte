@@ -81,6 +81,11 @@
 	let circles = $state(archive.circles ?? []);
 	// svelte-ignore state_referenced_locally
 	let characters = $state(archive.characters ?? []);
+	// archive.urls is ArchiveSourceLink[] | null on the detail response;
+	// the edit form only works in raw URL strings. `?? []` for the same
+	// null-not-[] reason as the relations above.
+	// svelte-ignore state_referenced_locally
+	let urls = $state(archive.urls?.map((u) => u.url) ?? []);
 
 	// A metadata fetch can hand back a category/language not yet reflected
 	// in `categories`/`languages` (those only cover values already saved
@@ -116,6 +121,7 @@
 		parodies?: string[];
 		circles?: string[];
 		characters?: string[];
+		urls?: string[];
 	}) {
 		if (fields.title !== undefined) title = fields.title;
 		if (fields.summary !== undefined) summary = fields.summary;
@@ -127,6 +133,7 @@
 		if (fields.parodies !== undefined) parodies = fields.parodies;
 		if (fields.circles !== undefined) circles = fields.circles;
 		if (fields.characters !== undefined) characters = fields.characters;
+		if (fields.urls !== undefined) urls = fields.urls;
 	}
 </script>
 
@@ -142,14 +149,28 @@
 	<Sheet.Content class="w-full overflow-y-auto sm:max-w-md">
 		<Sheet.Header>
 			<Sheet.Title>Edit archive</Sheet.Title>
-			<Sheet.Description>Manual edits aren't protected from a later metadata fetch overwriting them.</Sheet.Description>
+			<Sheet.Description
+				>Manual edits aren't protected from a later metadata fetch overwriting them.</Sheet.Description
+			>
 		</Sheet.Header>
 
 		<div class="px-4">
 			<MetadataFetchDialog
 				archiveId={archive.id}
 				{libraryId}
-				current={{ title, summary, category, language: languageValue, releaseDate, artists, tags, parodies, circles, characters }}
+				current={{
+					title,
+					summary,
+					category,
+					language: languageValue,
+					releaseDate,
+					artists,
+					tags,
+					parodies,
+					circles,
+					characters,
+					urls
+				}}
 				{languages}
 				onApply={applyFetchedMetadata}
 			/>
@@ -294,6 +315,22 @@
 					/>
 					{#each tags as tag (tag)}
 						<input type="hidden" name="tags" value={tag} />
+					{/each}
+				</Field.Field>
+
+				<Field.Field>
+					<Field.Label>Source links</Field.Label>
+					<TagsInput.Root value={urls} onValueChange={(v) => (urls = v)} addOnPaste>
+						{#each urls as url (url)}
+							<TagsInput.Item value={url} class="max-w-full min-w-0">
+								<TagsInput.ItemText class="truncate" />
+								<TagsInput.ItemDelete />
+							</TagsInput.Item>
+						{/each}
+						<TagsInput.Input placeholder="Add source URL..." />
+					</TagsInput.Root>
+					{#each urls as url (url)}
+						<input type="hidden" name="urls" value={url} />
 					{/each}
 				</Field.Field>
 

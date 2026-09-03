@@ -116,5 +116,12 @@ func GetArchiveMetadata(ctx context.Context, q *sqlc.Queries, archiveID string) 
 		result.Characters = append(result.Characters, c.Name)
 	}
 
+	urls, err := q.GetArchiveUrls(ctx, archiveID)
+	if err != nil {
+		return nil, fmt.Errorf("get urls: %w", err)
+	}
+
+	result.URLs = urls
+
 	return result, nil
 }

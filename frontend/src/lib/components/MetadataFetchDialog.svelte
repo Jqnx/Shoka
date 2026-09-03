@@ -28,6 +28,7 @@
 		parodies: string[];
 		circles: string[];
 		characters: string[];
+		urls: string[];
 	};
 
 	type DiffField = {
@@ -167,12 +168,27 @@
 		addText('summary', 'Summary', cur.summary, result.summary);
 		addText('category', 'Category', cur.category, result.category);
 		addText('language', 'Language', cur.language, result.language, languageLabel);
-		addText('releaseDate', 'Release date', cur.releaseDate, result.release_date?.slice(0, 10) ?? null);
+		addText(
+			'releaseDate',
+			'Release date',
+			cur.releaseDate,
+			result.release_date?.slice(0, 10) ?? null
+		);
 		addList('artists', 'Artists', cur.artists, result.artists);
 		addList('tags', 'Tags', cur.tags, result.tags);
 		addList('parodies', 'Parodies', cur.parodies, result.parodies);
 		addList('circles', 'Circles', cur.circles, result.circles);
 		addList('characters', 'Characters', cur.characters, result.characters);
+		// URLs are additive by nature — an nhentai gallery link doesn't
+		// invalidate a hand-added e-hentai one — so the "new value" is the
+		// union of current and fetched, not a replacement. Every other field
+		// keeps replace behaviour.
+		addList(
+			'urls',
+			'Source links',
+			cur.urls,
+			result.urls ? [...new Set([...cur.urls, ...result.urls])] : null
+		);
 
 		return fields;
 	}
@@ -287,7 +303,8 @@
 				tags: preview.tags,
 				parodies: preview.parodies,
 				circles: preview.circles,
-				characters: preview.characters
+				characters: preview.characters,
+				urls: preview.urls?.map((u) => u.url) ?? null
 			};
 			fetched = asMetadata;
 			selected.clear();
@@ -368,11 +385,11 @@
 				{:else if searchResults}
 					Pick a result to compare against the current form.
 				{:else if mode === 'auto'}
-					Automatically picks the best match from the selected source and shows you the
-					differences. Nothing is saved until you hit Save changes below.
+					Automatically picks the best match from the selected source and shows you the differences.
+					Nothing is saved until you hit Save changes below.
 				{:else}
-					Pull metadata from a source and choose which fields to apply. Nothing is saved until
-					you hit Save changes below.
+					Pull metadata from a source and choose which fields to apply. Nothing is saved until you
+					hit Save changes below.
 				{/if}
 			</Dialog.Description>
 		</Dialog.Header>
@@ -449,9 +466,7 @@
 									class="h-16 w-12 shrink-0 rounded object-cover"
 								/>
 							{:else}
-								<div
-									class="flex h-16 w-12 shrink-0 items-center justify-center rounded bg-muted"
-								>
+								<div class="flex h-16 w-12 shrink-0 items-center justify-center rounded bg-muted">
 									<ImageOff class="size-4 text-muted-foreground" />
 								</div>
 							{/if}

@@ -23,6 +23,10 @@ type Result struct {
 	Parodies    []string   `json:"parodies"`
 	Circles     []string   `json:"circles"`
 	Characters  []string   `json:"characters"`
+	// URLs are the archive's source links (nhentai/e-hentai galleries,
+	// ComicInfo <Web>, hand-pasted). Unlike every other slice here they
+	// union across pipeline sources rather than first-wins — see merge().
+	URLs []string `json:"urls"`
 }
 
 // Input is what every source receives to identify the archive.
@@ -150,6 +154,12 @@ func ApplyMetadata(ctx context.Context, queries *sqlc.Queries, db *sql.DB, archi
 
 	if result.Characters != nil {
 		if err := applyCharacters(ctx, qtx, archiveID, result.Characters); err != nil {
+			return err
+		}
+	}
+
+	if result.URLs != nil {
+		if err := applyURLs(ctx, qtx, archiveID, result.URLs); err != nil {
 			return err
 		}
 	}
@@ -455,6 +465,54 @@ func applyParodies(ctx context.Context, q *sqlc.Queries, archiveID string, parod
 	if len(toRemove) > 0 {
 		if err := q.DecrementParodyCount(ctx, toRemove); err != nil {
 			return fmt.Errorf("decrement parody counts: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// applyURLs reconciles an archive's source links to the desired set. It
+// mirrors applyArtists but diffs on the URL string rather than integer IDs
+// (util.DiffIDs is []int64-only, and the set is small enough that a generic
+// helper isn't worth it). There are no counter tables for URLs, so there's
+// no increment/decrement step. A non-nil empty slice clears every link.
+func applyURLs(ctx context.Context, q *sqlc.Queries, archiveID string, urls []string) error {
+	desired := NormalizeURLs(urls)
+
+	current, err := q.GetArchiveUrls(ctx, archiveID)
+	if err != nil {
+		return fmt.Errorf("get current urls: %w", err)
+	}
+
+	desiredSet := make(map[string]struct{}, len(desired))
+	for _, u := range desired {
+		desiredSet[u] = struct{}{}
+	}
+
+	if len(desired) > 0 {
+		desiredJSON, _ := json.Marshal(desired)
+		if err := q.BulkAddArchiveURLs(ctx, sqlc.BulkAddArchiveURLsParams{
+			ArchiveID: archiveID,
+			Urls:      desiredJSON,
+		}); err != nil {
+			return fmt.Errorf("add urls: %w", err)
+		}
+	}
+
+	var toRemove []string
+
+	for _, u := range current {
+		if _, ok := desiredSet[u]; !ok {
+			toRemove = append(toRemove, u)
+		}
+	}
+
+	if len(toRemove) > 0 {
+		if err := q.RemoveArchiveUrl(ctx, sqlc.RemoveArchiveUrlParams{
+			ArchiveID: archiveID,
+			Urls:      toRemove,
+		}); err != nil {
+			return fmt.Errorf("remove urls: %w", err)
 		}
 	}
 

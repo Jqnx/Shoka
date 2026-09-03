@@ -78,11 +78,25 @@ type ArchiveResponse struct {
 	Circles    []string `json:"circles"`
 	Characters []string `json:"characters"`
 
+	// URLs is populated on the single-archive response only (GET
+	// /api/archives/{id} and the metadata preview endpoints); list/search
+	// responses leave it null to avoid an extra query per page.
+	URLs []ArchiveURLResponse `json:"urls"`
+
 	Progress *ProgressResponse `json:"progress"`
 
 	ThumbsReady bool `json:"thumbs_ready"`
 	IsFavorited bool `json:"is_favorited"`
 	Rating      *int `json:"rating"`
+}
+
+// ArchiveURLResponse is one source link on an archive. Source is derived
+// from the URL's host (see metadata.SourceFromURL), not stored — an
+// nhentai.net link is always "nhentai" regardless of which pipeline source
+// or manual paste produced it.
+type ArchiveURLResponse struct {
+	Source string `json:"source"`
+	URL    string `json:"url"`
 }
 
 type ProgressResponse struct {
@@ -759,6 +773,11 @@ func (h *ArchiveHandler) GetArchive(w http.ResponseWriter, r *http.Request) {
 // page_count is deliberately not editable here — it's a structural fact
 // about the archive file (used for pagination/thumbnail bounds checks
 // elsewhere), not curated metadata.
+//
+// urls follows the same omit/empty/replace rules as the other list fields:
+// omit the key to leave the links unchanged, send an empty array to clear
+// them, or send a full list to replace them. Each URL must be a valid
+// http(s) URL — the whole request is rejected otherwise.
 type UpdateArchiveRequest struct {
 	Title       *string    `json:"title"`
 	Summary     *string    `json:"summary"`
@@ -770,6 +789,7 @@ type UpdateArchiveRequest struct {
 	Parodies    []string   `json:"parodies"`
 	Circles     []string   `json:"circles"`
 	Characters  []string   `json:"characters"`
+	URLs        []string   `json:"urls"`
 }
 
 // UpdateArchive godoc
@@ -813,6 +833,13 @@ func (h *ArchiveHandler) UpdateArchive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	for _, u := range body.URLs {
+		if _, ok := metadata.SourceFromURL(u); !ok {
+			response.BadRequest(w, fmt.Sprintf("invalid source URL: %q", u))
+			return
+		}
+	}
+
 	if err := metadata.ApplyMetadata(r.Context(), h.queries, h.db, id, &metadata.Result{
 		Title:       body.Title,
 		Summary:     body.Summary,
@@ -824,6 +851,7 @@ func (h *ArchiveHandler) UpdateArchive(w http.ResponseWriter, r *http.Request) {
 		Parodies:    body.Parodies,
 		Circles:     body.Circles,
 		Characters:  body.Characters,
+		URLs:        body.URLs,
 	}); err != nil {
 		h.logger.Error("update archive failed", "id", id, "error", err)
 		response.InternalError(w, "failed to update archive")
@@ -1244,6 +1272,15 @@ func buildArchiveResponse(
 		resp.Parodies = meta.Parodies
 		resp.Circles = meta.Circles
 		resp.Characters = meta.Characters
+
+		for _, u := range meta.URLs {
+			source, ok := metadata.SourceFromURL(u)
+			if !ok {
+				continue
+			}
+
+			resp.URLs = append(resp.URLs, ArchiveURLResponse{Source: source, URL: u})
+		}
 	}
 
 	if progress != nil {

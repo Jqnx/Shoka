@@ -203,6 +203,12 @@ func merge(dst, src *Result) {
 	if len(dst.Characters) == 0 && len(src.Characters) > 0 {
 		dst.Characters = src.Characters
 	}
+	// URLs are the exception: union across sources rather than first-wins, so
+	// a ComicInfo e-hentai link and the nhentai source's own link both
+	// survive. NormalizeURLs dedupes by URL, keeping priority order.
+	if len(src.URLs) > 0 {
+		dst.URLs = NormalizeURLs(append(dst.URLs, src.URLs...))
+	}
 }
 
 // isComplete returns true if all fields in the result are populated.
