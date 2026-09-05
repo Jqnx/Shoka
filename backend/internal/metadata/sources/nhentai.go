@@ -114,6 +114,16 @@ func (s *NHentaiSource) Name() string  { return "nhentai" }
 func (s *NHentaiSource) Priority() int { return 10 }
 func (s *NHentaiSource) IsLocal() bool { return false }
 
+// Hosts implements metadata.HostAware, derived from nhentaiBaseURL so it
+// can't drift from the URLs this source actually generates.
+func (s *NHentaiSource) Hosts() []string {
+	if u, err := url.Parse(nhentaiBaseURL); err == nil {
+		return []string{u.Hostname()}
+	}
+
+	return nil
+}
+
 // Search implements SearchableSource, returns all results for manual selection.
 func (s *NHentaiSource) Search(ctx context.Context, input metadata.Input) ([]*metadata.SearchResult, error) {
 	params := url.Values{}

@@ -40,6 +40,15 @@ func NewPipeline(logger *slog.Logger, queries *sqlc.Queries, sources ...Source) 
 		return p.sources[i].Priority() < p.sources[j].Priority()
 	})
 
+	// Explicit rather than init()-based: SourceFromURL's registry should
+	// reflect the sources this pipeline was actually built with, not
+	// whatever happened to be import-side-effect-linked into the binary.
+	for _, source := range p.sources {
+		if aware, ok := source.(HostAware); ok {
+			RegisterSourceHost(source.Name(), aware.Hosts()...)
+		}
+	}
+
 	return p
 }
 
@@ -211,7 +220,10 @@ func merge(dst, src *Result) {
 	}
 }
 
-// isComplete returns true if all fields in the result are populated.
+// isComplete returns true if all fields in the result are populated,
+// including at least one source URL - otherwise the loop would break on a
+// fully-tagged ComicInfo result before ever reaching the lower-priority
+// sources (nhentai, e-hentai) that the URL union in merge() relies on.
 func isComplete(r *Result) bool {
 	return r.Title != nil &&
 		r.Summary != nil &&
@@ -220,7 +232,8 @@ func isComplete(r *Result) bool {
 		r.ReleaseDate != nil &&
 		r.PageCount != nil &&
 		len(r.Artists) > 0 &&
-		len(r.Tags) > 0
+		len(r.Tags) > 0 &&
+		len(r.URLs) > 0
 }
 
 // FetchWithSource runs a single named source.
@@ -249,7 +262,14 @@ func (p *Pipeline) FetchWithSource(ctx context.Context, name string, input Input
 
 	input.SourceConfig = settings
 
-	return found.Fetch(ctx, input)
+	result, err := found.Fetch(ctx, input)
+	if err != nil || result == nil {
+		return result, err
+	}
+
+	result.URLs = NormalizeURLs(result.URLs)
+
+	return result, nil
 }
 
 // SearchWithSource runs the Search method of a named remote source.
@@ -321,7 +341,14 @@ func (p *Pipeline) FetchFromSourceByID(ctx context.Context, name string, input I
 		return nil, fmt.Errorf("%w: %s", ErrNotSearchable, name)
 	}
 
-	return remote.FetchByID(ctx, input, id)
+	result, err := remote.FetchByID(ctx, input, id)
+	if err != nil || result == nil {
+		return result, err
+	}
+
+	result.URLs = NormalizeURLs(result.URLs)
+
+	return result, nil
 }
 
 // SourceIsLocal reports whether name is a registered source (known) and,

@@ -1,28 +1,30 @@
 package util
 
-// DiffIDs computes which IDs to add and which to remove
-// given the current set and the desired set.
-func DiffIDs(current, desired []int64) (toAdd, toRemove []int64) {
-	currentSet := make(map[int64]bool, len(current))
-	desiredSet := make(map[int64]bool, len(desired))
+// Diff computes which elements to add and which to remove given the
+// current set and the desired set. Works over any comparable element type
+// (int64 IDs, string URLs, ...) so callers with a small set don't need
+// their own hand-rolled diff.
+func Diff[T comparable](current, desired []T) (toAdd, toRemove []T) {
+	currentSet := make(map[T]bool, len(current))
+	desiredSet := make(map[T]bool, len(desired))
 
-	for _, id := range current {
-		currentSet[id] = true
+	for _, v := range current {
+		currentSet[v] = true
 	}
 
-	for _, id := range desired {
-		desiredSet[id] = true
+	for _, v := range desired {
+		desiredSet[v] = true
 	}
 
-	for _, id := range desired {
-		if !currentSet[id] {
-			toAdd = append(toAdd, id)
+	for _, v := range desired {
+		if !currentSet[v] {
+			toAdd = append(toAdd, v)
 		}
 	}
 
-	for _, id := range current {
-		if !desiredSet[id] {
-			toRemove = append(toRemove, id)
+	for _, v := range current {
+		if !desiredSet[v] {
+			toRemove = append(toRemove, v)
 		}
 	}
 

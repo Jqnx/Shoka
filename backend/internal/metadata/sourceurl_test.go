@@ -1,9 +1,22 @@
-package metadata
+package metadata_test
 
 import (
+	"log/slog"
+	"os"
 	"reflect"
 	"testing"
+
+	"Shoka/internal/metadata"
+	"Shoka/internal/metadata/sources"
 )
+
+// TestMain builds a pipeline with the sources under test so NewPipeline's
+// explicit host registration (see HostAware in sourceurl.go) runs before
+// SourceFromURL/NormalizeURLs are exercised below.
+func TestMain(m *testing.M) {
+	metadata.NewPipeline(slog.New(slog.DiscardHandler), nil, sources.NewNHentaiSource(), sources.NewEHentaiSource())
+	os.Exit(m.Run())
+}
 
 func TestSourceFromURL(t *testing.T) {
 	tests := []struct {
@@ -29,7 +42,7 @@ func TestSourceFromURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotSource, gotOK := SourceFromURL(tt.raw)
+			gotSource, gotOK := metadata.SourceFromURL(tt.raw)
 			if gotSource != tt.wantSource || gotOK != tt.wantOK {
 				t.Errorf("SourceFromURL(%q) = (%q, %v), want (%q, %v)",
 					tt.raw, gotSource, gotOK, tt.wantSource, tt.wantOK)
@@ -60,7 +73,7 @@ func TestNormalizeURLs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := NormalizeURLs(tt.in)
+			got := metadata.NormalizeURLs(tt.in)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NormalizeURLs(%#v) = %#v, want %#v", tt.in, got, tt.want)
 			}

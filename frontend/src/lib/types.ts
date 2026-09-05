@@ -41,6 +41,15 @@ export type Archive = {
 
 export type ArchiveSourceLink = { source: string; url: string };
 
+// Archive.urls (ArchiveSourceLink[]) and FetchedMetadata.urls (string[]) are
+// two different wire shapes for the same concept - the detail response
+// enriches each link with its derived source, the fetch/apply endpoints
+// don't. Go through this instead of an ad-hoc `.map((u) => u.url)` at each
+// call site so there's one place to update if that ever changes.
+export function sourceLinkUrls(links: ArchiveSourceLink[] | null | undefined): string[] {
+	return links?.map((l) => l.url) ?? [];
+}
+
 export type ArchiveListResponse = {
 	items: Archive[];
 	total: number;

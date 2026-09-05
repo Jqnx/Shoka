@@ -23,6 +23,11 @@ func (s *EHentaiSource) Name() string  { return "e-hentai" }
 func (s *EHentaiSource) Priority() int { return 11 }
 func (s *EHentaiSource) IsLocal() bool { return false }
 
+// Hosts implements metadata.HostAware - a gallery can live on either mirror.
+func (s *EHentaiSource) Hosts() []string {
+	return []string{"e-hentai.org", "exhentai.org"}
+}
+
 func (s *EHentaiSource) Fetch(ctx context.Context, input metadata.Input) (*metadata.Result, error) {
 	// search by title, authenticating with this library's configured cookies
 	galleryID, galleryToken, err := s.search(ctx, input.Title, input.SourceConfig.Cookies)

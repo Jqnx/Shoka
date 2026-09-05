@@ -12,7 +12,10 @@ CREATE TABLE archive_url (
 );
 
 -- +goose Down
-DROP TABLE IF EXISTS archive_url;
+-- Unlike the Up block's drop, this table may hold real rows by the time
+-- anyone rolls back (every archive's source links, once this feature has
+-- shipped), so rename-and-copy instead of dropping them outright.
+ALTER TABLE archive_url RENAME TO archive_url_new;
 
 CREATE TABLE archive_url (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,3 +25,8 @@ CREATE TABLE archive_url (
 );
 
 CREATE INDEX idx_url_archive_id ON archive_url (archive_id);
+
+INSERT INTO archive_url (url, archive_id)
+SELECT url, archive_id FROM archive_url_new;
+
+DROP TABLE archive_url_new;

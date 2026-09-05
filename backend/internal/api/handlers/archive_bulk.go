@@ -7,6 +7,7 @@ import (
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/jobs"
 	"Shoka/internal/metadata"
+	"Shoka/internal/util"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -42,18 +43,7 @@ type BulkResult struct {
 // list. De-duplication matters beyond tidiness: a repeated id would
 // otherwise be counted twice in the result totals.
 func normalizeBulkIDs(raw []string) ([]string, error) {
-	seen := make(map[string]bool, len(raw))
-
-	ids := make([]string, 0, len(raw))
-	for _, id := range raw {
-		id = strings.TrimSpace(id)
-		if id == "" || seen[id] {
-			continue
-		}
-
-		seen[id] = true
-		ids = append(ids, id)
-	}
+	ids := util.DedupeTrimmed(raw)
 
 	if len(ids) == 0 {
 		return nil, errors.New("ids is required and must contain at least one archive id")

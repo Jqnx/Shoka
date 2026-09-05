@@ -1,17 +1,40 @@
 package metadata
 
 import (
+	"Shoka/internal/util"
 	"net/url"
 	"strings"
 )
 
 // hostToSource maps a known gallery host to the metadata source name that
-// owns it, matching the corresponding Source.Name(). Hosts not listed here
-// fall back to the bare host (see SourceFromURL).
-var hostToSource = map[string]string{
-	"nhentai.net":  "nhentai",
-	"e-hentai.org": "e-hentai",
-	"exhentai.org": "e-hentai",
+// owns it, matching the corresponding Source.Name(). It starts empty and is
+// populated explicitly by NewPipeline (see HostAware), which registers the
+// hosts of every source it's constructed with - metadata can't import the
+// sources package directly (it would be a cycle, since sources imports
+// metadata for the Source interface), so this is how the two stay in sync
+// instead of a second hardcoded map here. Deliberately not populated via an
+// init() side effect: that would make SourceFromURL's behavior depend on
+// which packages happen to be linked in, rather than on which sources the
+// running pipeline actually has. Hosts not registered fall back to the bare
+// host (see SourceFromURL).
+var hostToSource = map[string]string{}
+
+// HostAware is implemented by a Source whose gallery URLs should be
+// recognized by SourceFromURL/NormalizeURLs. NewPipeline registers the hosts
+// of every HostAware source it's given.
+type HostAware interface {
+	// Hosts returns the gallery hostnames this source owns (e.g.
+	// "nhentai.net"), matching Source.Name().
+	Hosts() []string
+}
+
+// RegisterSourceHost associates one or more gallery hostnames with the
+// metadata source name that owns them. Called by NewPipeline for each
+// HostAware source - not intended to be called after startup.
+func RegisterSourceHost(name string, hosts ...string) {
+	for _, host := range hosts {
+		hostToSource[strings.ToLower(host)] = name
+	}
 }
 
 // SourceFromURL maps a URL to the metadata source that owns it, so a link's
@@ -47,34 +70,51 @@ func SourceFromURL(raw string) (source string, ok bool) {
 }
 
 // NormalizeURLs trims each entry, drops any that aren't valid http(s) URLs,
-// and dedupes by URL string while preserving first-seen order. Used by both
-// the pipeline merge and the PATCH handler so they agree on what a URL set
-// is.
+// and dedupes by a canonicalized key (scheme/case/"www."/trailing-slash
+// insensitive - see canonicalURLKey) while preserving first-seen order. Used
+// by both the pipeline merge and the PATCH handler so they agree on what a
+// URL set is.
 func NormalizeURLs(urls []string) []string {
 	if urls == nil {
 		return nil
 	}
 
-	seen := make(map[string]struct{}, len(urls))
-	out := make([]string, 0, len(urls))
+	trimmed := util.DedupeTrimmed(urls)
 
-	for _, raw := range urls {
-		trimmed := strings.TrimSpace(raw)
-		if trimmed == "" {
+	seen := make(map[string]struct{}, len(trimmed))
+	out := make([]string, 0, len(trimmed))
+
+	for _, raw := range trimmed {
+		if _, ok := SourceFromURL(raw); !ok {
 			continue
 		}
 
-		if _, ok := SourceFromURL(trimmed); !ok {
+		key := canonicalURLKey(raw)
+		if _, dup := seen[key]; dup {
 			continue
 		}
 
-		if _, dup := seen[trimmed]; dup {
-			continue
-		}
-
-		seen[trimmed] = struct{}{}
-		out = append(out, trimmed)
+		seen[key] = struct{}{}
+		out = append(out, raw)
 	}
 
 	return out
+}
+
+// canonicalURLKey reduces a URL to the parts that identify the same gallery
+// regardless of scheme, host case, a "www." prefix, or a trailing slash, so
+// e.g. "http://nhentai.net/g/1" and "https://www.nhentai.net/g/1/" dedupe as
+// the same link. Falls back to the raw string for anything unparseable so it
+// still participates in dedup rather than always surviving as unique.
+func canonicalURLKey(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+
+	host := strings.ToLower(u.Hostname())
+	host = strings.TrimPrefix(host, "www.")
+	path := strings.TrimSuffix(u.Path, "/")
+
+	return host + path + "?" + u.RawQuery
 }

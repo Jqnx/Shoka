@@ -194,7 +194,7 @@ func applyArtists(ctx context.Context, q *sqlc.Queries, archiveID string, artist
 		return fmt.Errorf("get current artists: %w", err)
 	}
 
-	toAdd, toRemove := util.DiffIDs(currentIDs, desiredIDs)
+	toAdd, toRemove := util.Diff(currentIDs, desiredIDs)
 
 	if len(toAdd) > 0 {
 		toAddJson, _ := json.Marshal(toAdd)
@@ -254,7 +254,7 @@ func applyCircles(ctx context.Context, q *sqlc.Queries, archiveID string, circle
 		return fmt.Errorf("get current circles: %w", err)
 	}
 
-	toAdd, toRemove := util.DiffIDs(currentIDs, desiredIDs)
+	toAdd, toRemove := util.Diff(currentIDs, desiredIDs)
 
 	if len(toAdd) > 0 {
 		toAddJson, _ := json.Marshal(toAdd)
@@ -314,7 +314,7 @@ func applyTags(ctx context.Context, q *sqlc.Queries, archiveID string, tags []st
 		return fmt.Errorf("get current tags: %w", err)
 	}
 
-	toAdd, toRemove := util.DiffIDs(currentIDs, desiredIDs)
+	toAdd, toRemove := util.Diff(currentIDs, desiredIDs)
 
 	if len(toAdd) > 0 {
 		toAddJson, _ := json.Marshal(toAdd)
@@ -374,7 +374,7 @@ func applyCharacters(ctx context.Context, q *sqlc.Queries, archiveID string, cha
 		return fmt.Errorf("get current characters: %w", err)
 	}
 
-	toAdd, toRemove := util.DiffIDs(currentIDs, desiredIDs)
+	toAdd, toRemove := util.Diff(currentIDs, desiredIDs)
 
 	if len(toAdd) > 0 {
 		toAddJson, _ := json.Marshal(toAdd)
@@ -434,7 +434,7 @@ func applyParodies(ctx context.Context, q *sqlc.Queries, archiveID string, parod
 		return fmt.Errorf("get current parodies: %w", err)
 	}
 
-	toAdd, toRemove := util.DiffIDs(currentIDs, desiredIDs)
+	toAdd, toRemove := util.Diff(currentIDs, desiredIDs)
 
 	if len(toAdd) > 0 {
 		toAddJson, _ := json.Marshal(toAdd)
@@ -472,10 +472,10 @@ func applyParodies(ctx context.Context, q *sqlc.Queries, archiveID string, parod
 }
 
 // applyURLs reconciles an archive's source links to the desired set. It
-// mirrors applyArtists but diffs on the URL string rather than integer IDs
-// (util.DiffIDs is []int64-only, and the set is small enough that a generic
-// helper isn't worth it). There are no counter tables for URLs, so there's
-// no increment/decrement step. A non-nil empty slice clears every link.
+// mirrors applyArtists, diffing on the URL string via util.Diff (now
+// generic over comparable element types) rather than integer IDs. There are
+// no counter tables for URLs, so there's no increment/decrement step. A
+// non-nil empty slice clears every link.
 func applyURLs(ctx context.Context, q *sqlc.Queries, archiveID string, urls []string) error {
 	desired := NormalizeURLs(urls)
 
@@ -484,26 +484,15 @@ func applyURLs(ctx context.Context, q *sqlc.Queries, archiveID string, urls []st
 		return fmt.Errorf("get current urls: %w", err)
 	}
 
-	desiredSet := make(map[string]struct{}, len(desired))
-	for _, u := range desired {
-		desiredSet[u] = struct{}{}
-	}
+	toAdd, toRemove := util.Diff(current, desired)
 
-	if len(desired) > 0 {
-		desiredJSON, _ := json.Marshal(desired)
+	if len(toAdd) > 0 {
+		toAddJSON, _ := json.Marshal(toAdd)
 		if err := q.BulkAddArchiveURLs(ctx, sqlc.BulkAddArchiveURLsParams{
 			ArchiveID: archiveID,
-			Urls:      desiredJSON,
+			Urls:      toAddJSON,
 		}); err != nil {
 			return fmt.Errorf("add urls: %w", err)
-		}
-	}
-
-	var toRemove []string
-
-	for _, u := range current {
-		if _, ok := desiredSet[u]; !ok {
-			toRemove = append(toRemove, u)
 		}
 	}
 

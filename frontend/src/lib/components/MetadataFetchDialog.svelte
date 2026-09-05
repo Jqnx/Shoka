@@ -9,12 +9,13 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { errorMessage } from '$lib/api';
 	import { METADATA_SOURCE_INFO, sourceInfo } from '$lib/metadata-sources';
-	import type {
-		Archive,
-		ArchiveLanguage,
-		FetchedMetadata,
-		MetadataSearchResult,
-		MetadataSourceInfo
+	import {
+		sourceLinkUrls,
+		type Archive,
+		type ArchiveLanguage,
+		type FetchedMetadata,
+		type MetadataSearchResult,
+		type MetadataSourceInfo
 	} from '$lib/types';
 
 	type CurrentMetadata = {
@@ -304,7 +305,7 @@
 				parodies: preview.parodies,
 				circles: preview.circles,
 				characters: preview.characters,
-				urls: preview.urls?.map((u) => u.url) ?? null
+				urls: preview.urls ? sourceLinkUrls(preview.urls) : null
 			};
 			fetched = asMetadata;
 			selected.clear();

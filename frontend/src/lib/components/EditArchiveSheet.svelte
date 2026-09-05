@@ -9,7 +9,15 @@
 	import MetadataFetchDialog from '$lib/components/MetadataFetchDialog.svelte';
 	import { Pencil } from '@lucide/svelte';
 	import { enhance, applyAction } from '$app/forms';
-	import type { Archive, ArchiveLanguage, Artist, Character, Parody, Tag } from '$lib/types';
+	import {
+		sourceLinkUrls,
+		type Archive,
+		type ArchiveLanguage,
+		type Artist,
+		type Character,
+		type Parody,
+		type Tag
+	} from '$lib/types';
 
 	let {
 		archive,
@@ -82,10 +90,9 @@
 	// svelte-ignore state_referenced_locally
 	let characters = $state(archive.characters ?? []);
 	// archive.urls is ArchiveSourceLink[] | null on the detail response;
-	// the edit form only works in raw URL strings. `?? []` for the same
-	// null-not-[] reason as the relations above.
+	// the edit form only works in raw URL strings (see sourceLinkUrls).
 	// svelte-ignore state_referenced_locally
-	let urls = $state(archive.urls?.map((u) => u.url) ?? []);
+	let urls = $state(sourceLinkUrls(archive.urls));
 
 	// A metadata fetch can hand back a category/language not yet reflected
 	// in `categories`/`languages` (those only cover values already saved
