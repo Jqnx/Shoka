@@ -37,9 +37,22 @@ export type Archive = {
 	thumbs_ready: boolean;
 	is_favorited: boolean;
 	rating: number | null;
+
+	// The 0-based page currently used as this archive's cover (see
+	// coverSrc() below) - defaults to 0, changeable via
+	// PUT /api/archives/{id}/cover.
+	cover_page: number;
 };
 
 export type ArchiveSourceLink = { source: string; url: string };
+
+// Builds the URL for an archive's cover image, versioned with cover_page so
+// the browser's long-lived immutable cache (see GetCover on the backend)
+// busts itself the moment the chosen page changes, without giving up
+// caching the rest of the time.
+export function coverSrc(archive: { id: string; cover_page: number }): string {
+	return `/api/archives/${archive.id}/cover?v=${archive.cover_page}`;
+}
 
 // Archive.urls (ArchiveSourceLink[]) and FetchedMetadata.urls (string[]) are
 // two different wire shapes for the same concept - the detail response
@@ -263,6 +276,7 @@ export type DuplicateArchive = {
 	id: string;
 	title: string;
 	library_id: string;
+	cover_page: number;
 	// Mean per-point Hamming distance to the group's first member (which is
 	// itself 0, i.e. the reference) - lower means more visually similar.
 	distance: number;

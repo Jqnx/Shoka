@@ -24,6 +24,9 @@ type BulkAddArchiveURLsParams struct {
 	Urls      interface{} `json:"urls"`
 }
 
+// `where true` is required, not vestigial: SQLite's grammar only accepts
+// ON CONFLICT after an INSERT...SELECT when the SELECT has a WHERE clause.
+// Dropping it is a syntax error ("near \"do\": syntax error"), not a no-op.
 func (q *Queries) BulkAddArchiveURLs(ctx context.Context, arg BulkAddArchiveURLsParams) error {
 	_, err := q.db.ExecContext(ctx, bulkAddArchiveURLs, arg.ArchiveID, arg.Urls)
 	return err

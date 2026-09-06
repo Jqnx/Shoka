@@ -456,6 +456,7 @@ func (h *LibraryHandler) GenerateLibraryCovers(w http.ResponseWriter, r *http.Re
 		if err := h.queue.Enqueue(r.Context(), jobs.JobTypeCover, jobs.CoverPayload{
 			ArchiveID: a.ID,
 			FilePath:  a.FilePath,
+			PageIndex: int(a.CoverPage),
 		}); err != nil {
 			h.logger.Error("enqueue cover job failed", "archive_id", a.ID, "error", err)
 		}

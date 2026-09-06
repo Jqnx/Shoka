@@ -13,6 +13,11 @@ const JobTypeCover = "cover"
 type CoverPayload struct {
 	FilePath  string `json:"file_path"`
 	ArchiveID string `json:"archive_id"`
+	// PageIndex is the 0-based page to use as the cover (archive.cover_page).
+	// Zero value is page 0 - the historical, only behaviour before covers
+	// became choosable - so every pre-existing enqueue site (scan, bulk
+	// regenerate) keeps working unchanged.
+	PageIndex int `json:"page_index"`
 }
 
 func NewCoverHandler(processor *image.Processor, log *slog.Logger) Handler {
@@ -33,7 +38,12 @@ func NewCoverHandler(processor *image.Processor, log *slog.Logger) Handler {
 			return fmt.Errorf("list pages: %w", err)
 		}
 
-		page := pages[0]
+		index := p.PageIndex
+		if index < 0 || index >= len(pages) {
+			index = 0
+		}
+
+		page := pages[index]
 
 		r, err := a.Extract(page)
 		if err != nil {

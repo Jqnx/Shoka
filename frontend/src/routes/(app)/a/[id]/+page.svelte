@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { enhance, applyAction } from '$app/forms';
 	import { cn } from '$lib/utils.js';
+	import { coverSrc } from '$lib/types';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
@@ -28,7 +29,8 @@
 		Heart,
 		Star,
 		Save,
-		Trash2
+		Trash2,
+		ImageMinus
 	} from '@lucide/svelte';
 
 	let { data, form } = $props();
@@ -43,6 +45,7 @@
 	let deletingArchive = $state(false);
 	let deleteFileToo = $state(false);
 	let savingMetadata = $state(false);
+	let resettingCover = $state(false);
 
 	// Archive.artists is just names (matching everywhere else metadata is
 	// stored free-text) - resolve to the matching artist's id, if any, from
@@ -122,7 +125,7 @@
 			<div
 				class="relative aspect-[2/3] w-full overflow-hidden rounded-lg border border-border bg-muted"
 			>
-				<img src="/api/archives/{a.id}/cover" alt={a.title} class="size-full object-cover" />
+				<img src={coverSrc(a)} alt={a.title} class="size-full object-cover" />
 				{#if a.progress}
 					<div class="absolute inset-x-0 top-0 h-1.5">
 						<div
@@ -138,7 +141,7 @@
 				{readLabel}
 			</Button>
 
-			{#if (form?.action === 'markRead' || form?.action === 'markUnread' || form?.action === 'toggleFavorite' || form?.action === 'setRating' || form?.action === 'clearRating' || form?.action === 'saveMetadata' || form?.action === 'deleteArchive') && form.error}
+			{#if (form?.action === 'markRead' || form?.action === 'markUnread' || form?.action === 'toggleFavorite' || form?.action === 'setRating' || form?.action === 'clearRating' || form?.action === 'saveMetadata' || form?.action === 'resetCover' || form?.action === 'deleteArchive') && form.error}
 				<p class="mt-1.5 text-center text-xs text-destructive">{form.error}</p>
 			{/if}
 		</div>
@@ -246,6 +249,26 @@
 										<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
 											<Save />
 											{savingMetadata ? 'Saving…' : 'Save metadata to file'}
+										</button>
+									{/snippet}
+								</DropdownMenu.Item>
+							</form>
+							<form
+								method="POST"
+								action="?/resetCover"
+								use:enhance={() => {
+									resettingCover = true;
+									return async ({ update }) => {
+										resettingCover = false;
+										await update();
+									};
+								}}
+							>
+								<DropdownMenu.Item disabled={a.cover_page === 0 || resettingCover}>
+									{#snippet child({ props })}
+										<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
+											<ImageMinus />
+											{resettingCover ? 'Resetting…' : 'Reset cover'}
 										</button>
 									{/snippet}
 								</DropdownMenu.Item>

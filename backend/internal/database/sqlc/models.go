@@ -26,6 +26,7 @@ type Archive struct {
 	PhashP25    *int64     `json:"phash_p25"`
 	PhashP50    *int64     `json:"phash_p50"`
 	PhashP75    *int64     `json:"phash_p75"`
+	CoverPage   int64      `json:"cover_page"`
 }
 
 type ArchiveArtist struct {

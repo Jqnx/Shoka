@@ -114,7 +114,7 @@ func (q *Queries) GetFavoritedArchiveIDs(ctx context.Context, arg GetFavoritedAr
 const getUserFavoriteArchiveList = `-- name: GetUserFavoriteArchiveList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, reading_progress.page, reading_progress.last_read, reading_progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, archive.cover_page, reading_progress.page, reading_progress.last_read, reading_progress.completed
 from archive
 join favorite_archive as fa on archive.id = fa.archive_id
 left join
@@ -149,6 +149,7 @@ type GetUserFavoriteArchiveListRow struct {
 	PhashP25    *int64     `json:"phash_p25"`
 	PhashP50    *int64     `json:"phash_p50"`
 	PhashP75    *int64     `json:"phash_p75"`
+	CoverPage   int64      `json:"cover_page"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
 	Completed   *bool      `json:"completed"`
@@ -181,6 +182,7 @@ func (q *Queries) GetUserFavoriteArchiveList(ctx context.Context, arg GetUserFav
 			&i.PhashP25,
 			&i.PhashP50,
 			&i.PhashP75,
+			&i.CoverPage,
 			&i.Page,
 			&i.LastRead,
 			&i.Completed,

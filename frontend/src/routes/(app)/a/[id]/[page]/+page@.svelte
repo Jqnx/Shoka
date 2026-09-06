@@ -11,4 +11,5 @@
 	backHref="/a/{data.archive.id}"
 	initialSettings={data.settings}
 	initialPage={data.initialPage}
+	initialCoverPage={data.archive.cover_page}
 />

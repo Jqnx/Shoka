@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import * as Popover from '$lib/components/ui/popover/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import { ChevronLeft, Settings } from '@lucide/svelte';
+	import { ChevronLeft, ImagePlus, Loader2, Settings } from '@lucide/svelte';
 	import ReaderSettingsPanel from './ReaderSettingsPanel.svelte';
 
 	let {
@@ -14,7 +14,11 @@
 		visible,
 		settings,
 		settingsOpen = $bindable(false),
-		onSettingsChange
+		onSettingsChange,
+		coverPage,
+		settingCover,
+		coverError,
+		onSetCover
 	}: {
 		title: string;
 		backHref: string;
@@ -24,7 +28,14 @@
 		settings: ReaderSettings;
 		settingsOpen?: boolean;
 		onSettingsChange: (patch: Partial<ReaderSettings>) => void;
+		/** 0-based page currently used as the archive's cover. */
+		coverPage: number;
+		settingCover: boolean;
+		coverError: string | null;
+		onSetCover: () => void;
 	} = $props();
+
+	const isCover = $derived(currentPage === coverPage);
 </script>
 
 <div
@@ -49,9 +60,29 @@
 		</a>
 	</div>
 
-	<p class="shrink-0 text-xs tabular-nums text-white/70">
+	<p class="shrink-0 text-xs text-white/70 tabular-nums">
 		{currentPage + 1} / {pageCount}
 	</p>
+
+	{#if coverError}
+		<p class="shrink-0 text-xs text-red-400">{coverError}</p>
+	{/if}
+
+	<Button
+		variant="ghost"
+		size="icon"
+		class="shrink-0 text-white hover:bg-white/10 hover:text-white disabled:opacity-40"
+		disabled={isCover || settingCover}
+		aria-label={isCover ? 'Current page is already the cover' : 'Set current page as cover'}
+		title={isCover ? 'Current page is already the cover' : 'Set current page as cover'}
+		onclick={onSetCover}
+	>
+		{#if settingCover}
+			<Loader2 class="size-5 animate-spin" />
+		{:else}
+			<ImagePlus class={isCover ? 'size-5 fill-current' : 'size-5'} />
+		{/if}
+	</Button>
 
 	<Popover.Root bind:open={settingsOpen}>
 		<Popover.Trigger>

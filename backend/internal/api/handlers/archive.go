@@ -88,6 +88,12 @@ type ArchiveResponse struct {
 	ThumbsReady bool `json:"thumbs_ready"`
 	IsFavorited bool `json:"is_favorited"`
 	Rating      *int `json:"rating"`
+
+	// CoverPage is the 0-based page currently used for the archive's cover
+	// (see GetCover) - callers append it as a `v` query param on the cover
+	// image URL to bust the cache when it changes without giving up the
+	// long-lived immutable cache the rest of the time.
+	CoverPage int `json:"cover_page"`
 }
 
 // ArchiveURLResponse is one source link on an archive. Source is derived
@@ -1264,6 +1270,7 @@ func buildArchiveResponse(
 		ThumbsReady: processor.ThumbsReady(archive.ID, int(archive.PageCount)),
 		IsFavorited: isFavorited,
 		Rating:      rating,
+		CoverPage:   int(archive.CoverPage),
 	}
 
 	if meta != nil {
@@ -1330,9 +1337,11 @@ func overlayResult(archive sqlc.Archive, result *metadata.Result) sqlc.Archive {
 // GetCover godoc
 //
 //	@Summary		Get the cover thumbnail for an archive
+//	@Description	Serves the thumbnail for archive.cover_page (page 0 by default, or whichever page was chosen via PUT .../cover). Callers should include the archive's cover_page as a `v` query param (see ArchiveResponse) to bust the long-lived cache when the chosen page changes - the response itself ignores the query string.
 //	@Tags			archives
 //	@Produce		image/webp
 //	@Param			id	path	string	true	"Archive ID"
+//	@Param			v	query	int		false	"Cache-busting version - the archive's current cover_page"
 //	@Success		200
 //	@Failure		404	{object}	response.Error
 //	@Router			/api/archives/{id}/cover [get]
@@ -1343,7 +1352,43 @@ func (h *ArchiveHandler) GetCover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	path := h.processor.ThumbPath(id, 0)
+	archive, err := h.queries.GetArchiveByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "archive not found")
+			return
+		}
+
+		h.logger.Error("get archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
+
+		return
+	}
+
+	// A rescan can shrink page_count out from under a previously-chosen
+	// cover_page (pages removed from the archive on disk) - clamp back to
+	// page 0 rather than serving a stale/out-of-range thumbnail path.
+	coverPage := int(archive.CoverPage)
+	if coverPage < 0 || coverPage >= int(archive.PageCount) {
+		coverPage = 0
+	}
+
+	path := h.processor.ThumbPath(id, coverPage)
+	if path == "" && coverPage != 0 {
+		// The chosen page's thumbnail hasn't been (re)generated yet (e.g. the
+		// cover job triggered by PUT .../cover is still queued) - fall back to
+		// page 0 rather than 404ing, but never cache this response, since it
+		// isn't actually the archive's chosen cover.
+		path = h.processor.ThumbPath(id, 0)
+		if path != "" {
+			w.Header().Set("Cache-Control", "no-store")
+			//nolint:gosec // G703: id is constrained to [A-Za-z0-9]+ by validArchiveID above, so path stays inside the cache root
+			http.ServeFile(w, r, path)
+
+			return
+		}
+	}
+
 	if path == "" {
 		response.NotFound(w, "cover not ready")
 		return
@@ -1352,6 +1397,132 @@ func (h *ArchiveHandler) GetCover(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	//nolint:gosec // G703: id is constrained to [A-Za-z0-9]+ by validArchiveID above, so path stays inside the cache root
 	http.ServeFile(w, r, path)
+}
+
+// SetCoverRequest selects which page an archive's cover thumbnail is drawn
+// from.
+type SetCoverRequest struct {
+	Page int `json:"page"`
+}
+
+// SetCover godoc
+//
+//	@Summary		Set which page is used as an archive's cover
+//	@Description	Changes archive.cover_page and enqueues thumbnail generation for that page if it doesn't already have one. Deliberately a separate endpoint from PATCH /api/archives/{id} - cover choice is presentation state, not metadata, so a later metadata source fetch (which goes through that endpoint) can never overwrite it.
+//	@Tags			archives
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path		string				true	"Archive ID"
+//	@Param			body	body		SetCoverRequest	true	"0-based page index to use as the cover"
+//	@Success		200	{object}	ArchiveResponse
+//	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/cover [put]
+func (h *ArchiveHandler) SetCover(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	userID := auth.UserIDFromContext(r.Context())
+
+	archive, err := h.queries.GetArchiveByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "archive not found")
+			return
+		}
+
+		h.logger.Error("get archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
+
+		return
+	}
+
+	var body SetCoverRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if body.Page < 0 || body.Page >= int(archive.PageCount) {
+		response.BadRequest(w, "page out of range")
+		return
+	}
+
+	if err := h.queries.UpdateArchiveCoverPage(r.Context(), sqlc.UpdateArchiveCoverPageParams{
+		ID:        id,
+		CoverPage: int64(body.Page),
+	}); err != nil {
+		h.logger.Error("update cover page failed", "id", id, "error", err)
+		response.InternalError(w, "failed to update cover")
+
+		return
+	}
+
+	if h.processor.ThumbPath(id, body.Page) == "" {
+		if err := h.queue.EnqueueOnce(r.Context(), jobs.JobTypeCover, jobs.CoverPayload{
+			ArchiveID: id,
+			FilePath:  archive.FilePath,
+			PageIndex: body.Page,
+		}); err != nil {
+			h.logger.Error("enqueue cover job failed", "id", id, "error", err)
+			response.InternalError(w, "failed to trigger cover generation")
+
+			return
+		}
+	}
+
+	archive, err = h.queries.GetArchiveByID(r.Context(), id)
+	if err != nil {
+		h.logger.Error("get updated archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get updated archive")
+
+		return
+	}
+
+	meta, err := database.GetArchiveMetadata(r.Context(), h.queries, id)
+	if err != nil {
+		h.logger.Error("get archive metadata failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get updated archive")
+
+		return
+	}
+
+	var progress *sqlc.ReadingProgress
+	if p, err := h.queries.GetProgressForArchive(r.Context(), sqlc.GetProgressForArchiveParams{
+		ArchiveID: id,
+		UserID:    userID,
+	}); err == nil {
+		progress = &p
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		h.logger.Error("get progress failed", "id", id, "error", err)
+	}
+
+	isFavorited, err := h.queries.ArchiveIsFavorited(r.Context(), sqlc.ArchiveIsFavoritedParams{
+		ArchiveID: id,
+		Uid:       userID,
+	})
+	if err != nil {
+		h.logger.Error("get favorite status failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get updated archive")
+
+		return
+	}
+
+	var rating *int
+
+	if v, err := h.queries.GetArchiveRating(r.Context(), sqlc.GetArchiveRatingParams{
+		ArchiveID: id,
+		Uid:       userID,
+	}); err == nil {
+		iv := int(v)
+		rating = &iv
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		h.logger.Error("get rating failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get updated archive")
+
+		return
+	}
+
+	response.JSON(w, http.StatusOK, h.buildResponse(archive, meta, progress, isFavorited, rating))
 }
 
 // GetPage godoc

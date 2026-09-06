@@ -3,7 +3,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { Search, Loader2 } from '@lucide/svelte';
-	import type { Library, SearchEntityResult, SearchResponse } from '$lib/types';
+	import { coverSrc, type Library, type SearchEntityResult, type SearchResponse } from '$lib/types';
 
 	let { libraries }: { libraries: Library[] } = $props();
 
@@ -209,7 +209,7 @@
 								class="gap-3 py-2"
 							>
 								<img
-									src="/api/archives/{archive.id}/cover"
+									src={coverSrc(archive)}
 									alt=""
 									class="h-16 w-11 shrink-0 rounded object-cover"
 								/>

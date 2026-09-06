@@ -6,6 +6,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { coverSrc } from '$lib/types';
 
 	let { data } = $props();
 
@@ -88,15 +89,13 @@
 		>
 			<CopyCheck class="mb-3 size-10 text-muted-foreground/40" />
 			<p class="text-base font-medium text-foreground">No duplicates found</p>
-			<p class="mt-1 max-w-md text-sm text-muted-foreground">
-				Nothing matched at this threshold.
-			</p>
+			<p class="mt-1 max-w-md text-sm text-muted-foreground">Nothing matched at this threshold.</p>
 		</div>
 	{:else}
 		<p class="mt-4 text-sm text-muted-foreground">
 			{data.groups.length}
-			{data.groups.length === 1 ? 'group' : 'groups'} · {totalArchives} archives. Larger groups are
-			chained matches, so treat them as progressively less certain.
+			{data.groups.length === 1 ? 'group' : 'groups'} · {totalArchives} archives. Larger groups are chained
+			matches, so treat them as progressively less certain.
 		</p>
 
 		<div class="mt-4 flex flex-col gap-4">
@@ -118,16 +117,10 @@
 									class="group flex flex-col gap-2 rounded-lg border border-border p-2 transition-colors hover:bg-accent/50"
 								>
 									<div class="relative aspect-[2/3] overflow-hidden rounded bg-muted">
-										<img
-											src="/api/archives/{archive.id}/cover"
-											alt=""
-											class="size-full object-cover"
-										/>
+										<img src={coverSrc(archive)} alt="" class="size-full object-cover" />
 										<div class="absolute top-1 left-1">
 											{#if j === 0}
-												<Badge variant="secondary" class="h-5 px-1.5 text-[10px]">
-													Reference
-												</Badge>
+												<Badge variant="secondary" class="h-5 px-1.5 text-[10px]">Reference</Badge>
 											{:else}
 												<Badge variant="outline" class="h-5 bg-background/90 px-1.5 text-[10px]">
 													Δ{archive.distance}

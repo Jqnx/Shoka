@@ -45,6 +45,7 @@ func (h *AdminHandler) GenerateCovers(w http.ResponseWriter, r *http.Request) {
 		if err := h.Queue.Enqueue(r.Context(), jobs.JobTypeCover, jobs.CoverPayload{
 			ArchiveID: a.ID,
 			FilePath:  a.FilePath,
+			PageIndex: int(a.CoverPage),
 		}); err != nil {
 			h.Log.Error("enqueue cover job failed", "archive_id", a.ID, "error", err)
 		}
@@ -90,6 +91,9 @@ type DuplicateArchive struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
 	LibraryID string `json:"library_id"`
+	// CoverPage lets the frontend build the same cache-busted cover URL used
+	// everywhere else (see ArchiveResponse.CoverPage).
+	CoverPage int `json:"cover_page"`
 	// Distance is the mean per-point Hamming distance to whichever *other*
 	// member of the group this archive matches most closely - lower means
 	// more visually similar. In a chained group (A close to B, B close to C)
@@ -171,6 +175,7 @@ func (h *AdminHandler) GetDuplicates(w http.ResponseWriter, r *http.Request) {
 
 	type candidate struct {
 		id, title, libraryID string
+		coverPage            int
 		hashes               [4]*int64
 	}
 
@@ -180,6 +185,7 @@ func (h *AdminHandler) GetDuplicates(w http.ResponseWriter, r *http.Request) {
 			id:        row.ID,
 			title:     row.Title,
 			libraryID: row.LibraryID,
+			coverPage: int(row.CoverPage),
 			hashes:    [4]*int64{row.PhashP0, row.PhashP25, row.PhashP50, row.PhashP75},
 		})
 	}
@@ -270,6 +276,7 @@ func (h *AdminHandler) GetDuplicates(w http.ResponseWriter, r *http.Request) {
 				ID:        c.id,
 				Title:     c.title,
 				LibraryID: c.libraryID,
+				CoverPage: c.coverPage,
 				Distance:  mean,
 				Distances: distances,
 			})

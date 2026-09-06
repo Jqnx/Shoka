@@ -108,6 +108,7 @@ func (s *Server) MountHandlers() {
 			r.Patch("/", archiveHandler.UpdateArchive)
 			r.Delete("/", archiveHandler.DeleteArchive)
 			r.Get("/cover", archiveHandler.GetCover)
+			r.Put("/cover", archiveHandler.SetCover)
 			r.Get("/pages/{index}", archiveHandler.GetPage)
 			r.Get("/pages/{index}/thumbnail", archiveHandler.GetPageThumbnail)
 			r.Post("/thumbnails", archiveHandler.GenerateThumbnails)

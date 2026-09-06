@@ -61,7 +61,7 @@ insert into archive (
   page_count
 )
 values (?, ?, ?, ?, ?, ?, ?)
-returning id, title, summary, language, category, page_count, file_path, file_size, mod_time, created_at, updated_at, release_date, library_id, phash_p0, phash_p25, phash_p50, phash_p75
+returning id, title, summary, language, category, page_count, file_path, file_size, mod_time, created_at, updated_at, release_date, library_id, phash_p0, phash_p25, phash_p50, phash_p75, cover_page
 `
 
 type CreateArchiveParams struct {
@@ -103,6 +103,7 @@ func (q *Queries) CreateArchive(ctx context.Context, arg CreateArchiveParams) (A
 		&i.PhashP25,
 		&i.PhashP50,
 		&i.PhashP75,
+		&i.CoverPage,
 	)
 	return i, err
 }
@@ -156,19 +157,23 @@ func (q *Queries) FilePathExists(ctx context.Context, filePath string) (bool, er
 const getAllArchiveFilePaths = `-- name: GetAllArchiveFilePaths :many
 ;
 
-select id, file_path, file_size, mod_time
+select id, file_path, file_size, mod_time, cover_page
 from archive
 `
 
 type GetAllArchiveFilePathsRow struct {
-	ID       string    `json:"id"`
-	FilePath string    `json:"file_path"`
-	FileSize int64     `json:"file_size"`
-	ModTime  time.Time `json:"mod_time"`
+	ID        string    `json:"id"`
+	FilePath  string    `json:"file_path"`
+	FileSize  int64     `json:"file_size"`
+	ModTime   time.Time `json:"mod_time"`
+	CoverPage int64     `json:"cover_page"`
 }
 
 // returns file paths for every archive across all libraries; used for
 // cross-library maintenance actions (e.g. regenerating all covers).
+// cover_page rides along so the maintenance "regenerate covers" actions can
+// re-run the cover job against the user's chosen page instead of resetting
+// every archive back to page 0.
 func (q *Queries) GetAllArchiveFilePaths(ctx context.Context) ([]GetAllArchiveFilePathsRow, error) {
 	rows, err := q.db.QueryContext(ctx, getAllArchiveFilePaths)
 	if err != nil {
@@ -183,6 +188,7 @@ func (q *Queries) GetAllArchiveFilePaths(ctx context.Context) ([]GetAllArchiveFi
 			&i.FilePath,
 			&i.FileSize,
 			&i.ModTime,
+			&i.CoverPage,
 		); err != nil {
 			return nil, err
 		}
@@ -200,7 +206,7 @@ func (q *Queries) GetAllArchiveFilePaths(ctx context.Context) ([]GetAllArchiveFi
 const getAllArchivePHashes = `-- name: GetAllArchivePHashes :many
 ;
 
-select id, title, library_id, phash_p0, phash_p25, phash_p50, phash_p75
+select id, title, library_id, cover_page, phash_p0, phash_p25, phash_p50, phash_p75
 from archive
 where phash_p0 is not null
    or phash_p25 is not null
@@ -212,6 +218,7 @@ type GetAllArchivePHashesRow struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
 	LibraryID string `json:"library_id"`
+	CoverPage int64  `json:"cover_page"`
 	PhashP0   *int64 `json:"phash_p0"`
 	PhashP25  *int64 `json:"phash_p25"`
 	PhashP50  *int64 `json:"phash_p50"`
@@ -236,6 +243,7 @@ func (q *Queries) GetAllArchivePHashes(ctx context.Context) ([]GetAllArchivePHas
 			&i.ID,
 			&i.Title,
 			&i.LibraryID,
+			&i.CoverPage,
 			&i.PhashP0,
 			&i.PhashP25,
 			&i.PhashP50,
@@ -257,7 +265,7 @@ func (q *Queries) GetAllArchivePHashes(ctx context.Context) ([]GetAllArchivePHas
 const getAllArchives = `-- name: GetAllArchives :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, reading_progress.page, reading_progress.last_read, reading_progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, archive.cover_page, reading_progress.page, reading_progress.last_read, reading_progress.completed
 from archive
 left join
     reading_progress
@@ -290,6 +298,7 @@ type GetAllArchivesRow struct {
 	PhashP25    *int64     `json:"phash_p25"`
 	PhashP50    *int64     `json:"phash_p50"`
 	PhashP75    *int64     `json:"phash_p75"`
+	CoverPage   int64      `json:"cover_page"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
 	Completed   *bool      `json:"completed"`
@@ -322,6 +331,7 @@ func (q *Queries) GetAllArchives(ctx context.Context, arg GetAllArchivesParams) 
 			&i.PhashP25,
 			&i.PhashP50,
 			&i.PhashP75,
+			&i.CoverPage,
 			&i.Page,
 			&i.LastRead,
 			&i.Completed,
@@ -342,7 +352,7 @@ func (q *Queries) GetAllArchives(ctx context.Context, arg GetAllArchivesParams) 
 const getArchiveByFilePath = `-- name: GetArchiveByFilePath :one
 ;
 
-select id, title, summary, language, category, page_count, file_path, file_size, mod_time, created_at, updated_at, release_date, library_id, phash_p0, phash_p25, phash_p50, phash_p75
+select id, title, summary, language, category, page_count, file_path, file_size, mod_time, created_at, updated_at, release_date, library_id, phash_p0, phash_p25, phash_p50, phash_p75, cover_page
 from archive
 where file_path = ?
 `
@@ -368,12 +378,13 @@ func (q *Queries) GetArchiveByFilePath(ctx context.Context, filePath string) (Ar
 		&i.PhashP25,
 		&i.PhashP50,
 		&i.PhashP75,
+		&i.CoverPage,
 	)
 	return i, err
 }
 
 const getArchiveByID = `-- name: GetArchiveByID :one
-select id, title, summary, language, category, page_count, file_path, file_size, mod_time, created_at, updated_at, release_date, library_id, phash_p0, phash_p25, phash_p50, phash_p75
+select id, title, summary, language, category, page_count, file_path, file_size, mod_time, created_at, updated_at, release_date, library_id, phash_p0, phash_p25, phash_p50, phash_p75, cover_page
 from archive
 where id = ?
 `
@@ -399,6 +410,7 @@ func (q *Queries) GetArchiveByID(ctx context.Context, id string) (Archive, error
 		&i.PhashP25,
 		&i.PhashP50,
 		&i.PhashP75,
+		&i.CoverPage,
 	)
 	return i, err
 }
@@ -406,16 +418,17 @@ func (q *Queries) GetArchiveByID(ctx context.Context, id string) (Archive, error
 const getArchiveFilePathsByLibrary = `-- name: GetArchiveFilePathsByLibrary :many
 ;
 
-select id, file_path, file_size, mod_time
+select id, file_path, file_size, mod_time, cover_page
 from archive
 where library_id = ?
 `
 
 type GetArchiveFilePathsByLibraryRow struct {
-	ID       string    `json:"id"`
-	FilePath string    `json:"file_path"`
-	FileSize int64     `json:"file_size"`
-	ModTime  time.Time `json:"mod_time"`
+	ID        string    `json:"id"`
+	FilePath  string    `json:"file_path"`
+	FileSize  int64     `json:"file_size"`
+	ModTime   time.Time `json:"mod_time"`
+	CoverPage int64     `json:"cover_page"`
 }
 
 // scoped to a single library so the scanner never mistakes another
@@ -434,6 +447,7 @@ func (q *Queries) GetArchiveFilePathsByLibrary(ctx context.Context, libraryID st
 			&i.FilePath,
 			&i.FileSize,
 			&i.ModTime,
+			&i.CoverPage,
 		); err != nil {
 			return nil, err
 		}
@@ -451,7 +465,7 @@ func (q *Queries) GetArchiveFilePathsByLibrary(ctx context.Context, libraryID st
 const getArchiveList = `-- name: GetArchiveList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, reading_progress.page, reading_progress.last_read, reading_progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, archive.cover_page, reading_progress.page, reading_progress.last_read, reading_progress.completed
 from archive
 left join
     reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = ?1
@@ -485,6 +499,7 @@ type GetArchiveListRow struct {
 	PhashP25    *int64     `json:"phash_p25"`
 	PhashP50    *int64     `json:"phash_p50"`
 	PhashP75    *int64     `json:"phash_p75"`
+	CoverPage   int64      `json:"cover_page"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
 	Completed   *bool      `json:"completed"`
@@ -522,6 +537,7 @@ func (q *Queries) GetArchiveList(ctx context.Context, arg GetArchiveListParams) 
 			&i.PhashP25,
 			&i.PhashP50,
 			&i.PhashP75,
+			&i.CoverPage,
 			&i.Page,
 			&i.LastRead,
 			&i.Completed,
@@ -660,6 +676,26 @@ func (q *Queries) UpdateArchive(ctx context.Context, arg UpdateArchiveParams) er
 		arg.ReleaseDate,
 		arg.ID,
 	)
+	return err
+}
+
+const updateArchiveCoverPage = `-- name: UpdateArchiveCoverPage :exec
+update archive
+set cover_page = ?,
+    updated_at = datetime('now')
+where id = ?
+`
+
+type UpdateArchiveCoverPageParams struct {
+	CoverPage int64  `json:"cover_page"`
+	ID        string `json:"id"`
+}
+
+// cover_page is presentation state, not metadata - deliberately its own
+// query rather than folded into UpdateArchive, so a metadata source fetch
+// (which goes through UpdateArchive/ApplyMetadata) can never clobber it.
+func (q *Queries) UpdateArchiveCoverPage(ctx context.Context, arg UpdateArchiveCoverPageParams) error {
+	_, err := q.db.ExecContext(ctx, updateArchiveCoverPage, arg.CoverPage, arg.ID)
 	return err
 }
 

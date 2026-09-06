@@ -27,14 +27,17 @@ where file_path = ?
 -- name: GetAllArchiveFilePaths :many
 -- returns file paths for every archive across all libraries; used for
 -- cross-library maintenance actions (e.g. regenerating all covers).
-select id, file_path, file_size, mod_time
+-- cover_page rides along so the maintenance "regenerate covers" actions can
+-- re-run the cover job against the user's chosen page instead of resetting
+-- every archive back to page 0.
+select id, file_path, file_size, mod_time, cover_page
 from archive
 ;
 
 -- name: GetArchiveFilePathsByLibrary :many
 -- scoped to a single library so the scanner never mistakes another
 -- library's archives for files that were removed from disk.
-select id, file_path, file_size, mod_time
+select id, file_path, file_size, mod_time, cover_page
 from archive
 where library_id = ?
 ;
@@ -123,6 +126,15 @@ set file_path = ?,
     updated_at = datetime('now')
 where id = ?;
 
+-- name: UpdateArchiveCoverPage :exec
+-- cover_page is presentation state, not metadata - deliberately its own
+-- query rather than folded into UpdateArchive, so a metadata source fetch
+-- (which goes through UpdateArchive/ApplyMetadata) can never clobber it.
+update archive
+set cover_page = ?,
+    updated_at = datetime('now')
+where id = ?;
+
 -- name: DeleteArchive :exec
 delete from archive
 where id = ?
@@ -154,7 +166,7 @@ where id = ?
 -- into two different library folders). Rows with no hashes at all are
 -- excluded; a row with only some points hashed is still useful (the
 -- comparison just has fewer points to work with).
-select id, title, library_id, phash_p0, phash_p25, phash_p50, phash_p75
+select id, title, library_id, cover_page, phash_p0, phash_p25, phash_p50, phash_p75
 from archive
 where phash_p0 is not null
    or phash_p25 is not null

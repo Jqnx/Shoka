@@ -57,7 +57,7 @@ func (q *Queries) GetAllCategory(ctx context.Context) ([]*string, error) {
 const getArchiveByCategory = `-- name: GetArchiveByCategory :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, reading_progress.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, archive.cover_page, reading_progress.page
 from archive
 left join
     reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = ?2
@@ -87,6 +87,7 @@ type GetArchiveByCategoryRow struct {
 	PhashP25    *int64     `json:"phash_p25"`
 	PhashP50    *int64     `json:"phash_p50"`
 	PhashP75    *int64     `json:"phash_p75"`
+	CoverPage   int64      `json:"cover_page"`
 	Page        *int64     `json:"page"`
 }
 
@@ -117,6 +118,7 @@ func (q *Queries) GetArchiveByCategory(ctx context.Context, arg GetArchiveByCate
 			&i.PhashP25,
 			&i.PhashP50,
 			&i.PhashP75,
+			&i.CoverPage,
 			&i.Page,
 		); err != nil {
 			return nil, err
@@ -135,7 +137,7 @@ func (q *Queries) GetArchiveByCategory(ctx context.Context, arg GetArchiveByCate
 const getArchiveByCategoryList = `-- name: GetArchiveByCategoryList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, reading_progress.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, archive.cover_page, reading_progress.page
 from archive
 left join
     reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = ?4
@@ -186,6 +188,7 @@ type GetArchiveByCategoryListRow struct {
 	PhashP25    *int64     `json:"phash_p25"`
 	PhashP50    *int64     `json:"phash_p50"`
 	PhashP75    *int64     `json:"phash_p75"`
+	CoverPage   int64      `json:"cover_page"`
 	Page        *int64     `json:"page"`
 }
 
@@ -221,6 +224,7 @@ func (q *Queries) GetArchiveByCategoryList(ctx context.Context, arg GetArchiveBy
 			&i.PhashP25,
 			&i.PhashP50,
 			&i.PhashP75,
+			&i.CoverPage,
 			&i.Page,
 		); err != nil {
 			return nil, err

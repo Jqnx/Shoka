@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Check } from '@lucide/svelte';
-	import type { Archive } from '$lib/types';
+	import { coverSrc, type Archive } from '$lib/types';
 
 	let {
 		archive,
@@ -130,7 +130,7 @@
 		     slightest wobble starts a drag, which fires pointercancel and
 		     kills an in-progress hold. -->
 		<img
-			src="/api/archives/{archive.id}/cover"
+			src={coverSrc(archive)}
 			alt={archive.title}
 			draggable="false"
 			class="absolute inset-0 size-full object-cover"

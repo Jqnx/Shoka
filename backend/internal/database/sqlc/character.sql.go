@@ -287,7 +287,7 @@ func (q *Queries) GetAllCharacter(ctx context.Context) ([]Character, error) {
 const getArchiveByCharacter = `-- name: GetArchiveByCharacter :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, reading_progress.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, archive.cover_page, reading_progress.page
 from archive
 join archive_character on archive.id = archive_character.archive_id
 join character on archive_character.character_id = character.id
@@ -319,6 +319,7 @@ type GetArchiveByCharacterRow struct {
 	PhashP25    *int64     `json:"phash_p25"`
 	PhashP50    *int64     `json:"phash_p50"`
 	PhashP75    *int64     `json:"phash_p75"`
+	CoverPage   int64      `json:"cover_page"`
 	Page        *int64     `json:"page"`
 }
 
@@ -349,6 +350,7 @@ func (q *Queries) GetArchiveByCharacter(ctx context.Context, arg GetArchiveByCha
 			&i.PhashP25,
 			&i.PhashP50,
 			&i.PhashP75,
+			&i.CoverPage,
 			&i.Page,
 		); err != nil {
 			return nil, err
@@ -367,7 +369,7 @@ func (q *Queries) GetArchiveByCharacter(ctx context.Context, arg GetArchiveByCha
 const getArchiveByCharacterList = `-- name: GetArchiveByCharacterList :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, reading_progress.page
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, archive.cover_page, reading_progress.page
 from archive
 join archive_character on archive.id = archive_character.archive_id
 join character on archive_character.character_id = character.id
@@ -420,6 +422,7 @@ type GetArchiveByCharacterListRow struct {
 	PhashP25    *int64     `json:"phash_p25"`
 	PhashP50    *int64     `json:"phash_p50"`
 	PhashP75    *int64     `json:"phash_p75"`
+	CoverPage   int64      `json:"cover_page"`
 	Page        *int64     `json:"page"`
 }
 
@@ -455,6 +458,7 @@ func (q *Queries) GetArchiveByCharacterList(ctx context.Context, arg GetArchiveB
 			&i.PhashP25,
 			&i.PhashP50,
 			&i.PhashP75,
+			&i.CoverPage,
 			&i.Page,
 		); err != nil {
 			return nil, err
@@ -623,7 +627,7 @@ func (q *Queries) GetArchiveIDsByCharacters(ctx context.Context, arg GetArchiveI
 const getArchivesByCharacterName = `-- name: GetArchivesByCharacterName :many
 ;
 
-select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, reading_progress.page, reading_progress.last_read, reading_progress.completed
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, archive.cover_page, reading_progress.page, reading_progress.last_read, reading_progress.completed
 from archive
 join archive_character on archive.id = archive_character.archive_id
 join character on archive_character.character_id = character.id
@@ -659,6 +663,7 @@ type GetArchivesByCharacterNameRow struct {
 	PhashP25    *int64     `json:"phash_p25"`
 	PhashP50    *int64     `json:"phash_p50"`
 	PhashP75    *int64     `json:"phash_p75"`
+	CoverPage   int64      `json:"cover_page"`
 	Page        *int64     `json:"page"`
 	LastRead    *time.Time `json:"last_read"`
 	Completed   *bool      `json:"completed"`
@@ -696,6 +701,7 @@ func (q *Queries) GetArchivesByCharacterName(ctx context.Context, arg GetArchive
 			&i.PhashP25,
 			&i.PhashP50,
 			&i.PhashP75,
+			&i.CoverPage,
 			&i.Page,
 			&i.LastRead,
 			&i.Completed,

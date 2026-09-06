@@ -15,7 +15,8 @@
 		pageCount,
 		backHref,
 		initialSettings,
-		initialPage
+		initialPage,
+		initialCoverPage
 	}: {
 		archiveId: string;
 		title: string;
@@ -25,6 +26,8 @@
 		// 0-based - already validated/clamped server-side against the
 		// archive's actual page count (see +page.server.ts).
 		initialPage: number;
+		// 0-based page currently used as the archive's cover (Archive.cover_page).
+		initialCoverPage: number;
 	} = $props();
 
 	// Settings only ever need to be seeded once from the server-loaded prop -
@@ -48,6 +51,34 @@
 
 	let toolbarVisible = $state(true);
 	let settingsOpen = $state(false);
+
+	// This component's own source of truth from here on, same pattern as
+	// `settings`/`currentPage` above - seeded once from the server load.
+	// svelte-ignore state_referenced_locally
+	let coverPage = $state(initialCoverPage);
+	let settingCover = $state(false);
+	let coverError = $state<string | null>(null);
+
+	async function setCover(page: number) {
+		settingCover = true;
+		coverError = null;
+		try {
+			const res = await fetch(`/api/archives/${archiveId}/cover`, {
+				method: 'PUT',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ page })
+			});
+			if (!res.ok) {
+				coverError = 'Failed to set cover.';
+				return;
+			}
+			coverPage = page;
+		} catch {
+			coverError = 'Failed to set cover.';
+		} finally {
+			settingCover = false;
+		}
+	}
 
 	const step = $derived(settings.page_layout === 'double' ? 2 : 1);
 
@@ -239,6 +270,10 @@
 		{settings}
 		bind:settingsOpen
 		onSettingsChange={updateSettings}
+		{coverPage}
+		{settingCover}
+		{coverError}
+		onSetCover={() => setCover(currentPage)}
 	/>
 
 	{#if settings.view_mode === 'scroll'}

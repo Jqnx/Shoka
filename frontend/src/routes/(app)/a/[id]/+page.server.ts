@@ -173,6 +173,23 @@ export const actions: Actions = {
 		return { action: 'clearRating' as const, success: true };
 	},
 
+	resetCover: async ({ fetch, params }) => {
+		const res = await fetch(`/api/archives/${params.id}/cover`, {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ page: 0 })
+		});
+
+		if (!res.ok) {
+			return fail(res.status, {
+				action: 'resetCover' as const,
+				error: await errorMessage(res, 'Failed to reset cover.')
+			});
+		}
+
+		return { action: 'resetCover' as const, success: true };
+	},
+
 	saveMetadata: async ({ fetch, params }) => {
 		const res = await fetch(`/api/archives/${params.id}/metadata/save`, { method: 'POST' });
 
