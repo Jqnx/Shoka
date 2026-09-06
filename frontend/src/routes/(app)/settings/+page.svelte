@@ -44,17 +44,12 @@
 	<title>Settings | Shoka</title>
 </svelte:head>
 
-<div class="mx-auto max-w-2xl p-4 sm:p-6">
-	<h1 class="text-2xl font-bold tracking-tight">Settings</h1>
+<div>
+	<h1 class="text-2xl font-bold tracking-tight">Account</h1>
 	<p class="mt-1 text-sm text-muted-foreground">Manage your account details.</p>
 
 	<Card.Root class="mt-6">
-		<form
-			class="contents"
-			method="POST"
-			action="?/updateProfile"
-			use:profileEnhance
-		>
+		<form class="contents" method="POST" action="?/updateProfile" use:profileEnhance>
 			<Card.Header>
 				<Card.Title>Profile</Card.Title>
 				<Card.Description>Your display name and username.</Card.Description>
@@ -91,12 +86,7 @@
 	</Card.Root>
 
 	<Card.Root class="mt-6">
-		<form
-			class="contents"
-			method="POST"
-			action="?/changePassword"
-			use:passwordEnhance
-		>
+		<form class="contents" method="POST" action="?/changePassword" use:passwordEnhance>
 			<Card.Header>
 				<Card.Title>Change password</Card.Title>
 				<Card.Description>Update the password used to sign in.</Card.Description>

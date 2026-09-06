@@ -65,6 +65,18 @@ make tidy   # Go module cleanup
 - **Auth**: Better-Auth with Drizzle ORM
   - Prefer JWT auth over sessions
 - **Styling**: Tailwind CSS 4 and shadcn-svelte
+- **Theming**: per-user, frontend-only (the Go backend never reads it). Built-in
+  palettes live in `src/lib/themes/presets/*`; the canonical token list is
+  `src/lib/themes/tokens.ts` (31 colours + `--radius`, driven off one array).
+  `hooks.server.ts` (`handleTheme`) resolves the active theme via a direct
+  Drizzle read (`src/lib/server/themes.ts`) and injects an `html:root { … }`
+  `<style>` block before the first byte (no flash); the client switches without
+  a reload via `src/lib/themes/theme.svelte.ts`. Tables `user_theme` /
+  `user_preferences` are in `db/schema.ts` (NOT `auth.schema.ts`). Token values
+  are injected into a `<style>` block, so `src/lib/schemas/theme.ts` allowlists
+  the exact value shape - treat it as a security control. `theme_id` is a plain
+  string (`rose-pine-moon` or `custom:<uuid>`); an unresolvable id falls back to
+  `shoka-dark`. `layout.css` keeps `:root`/`.dark` as the degraded-path fallback.
 - **API calls**: frontend calls backend at `localhost:8080` (configurable)
 
 ### External Services

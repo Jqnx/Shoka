@@ -22,7 +22,10 @@
 		user,
 		libraries,
 		...restProps
-	}: ComponentProps<typeof Sidebar.Root> & { user: User; libraries: LibraryType[] } = $props();
+	}: ComponentProps<typeof Sidebar.Root> & {
+		user: User;
+		libraries: LibraryType[];
+	} = $props();
 
 	const generalLinks = [{ path: '/', label: 'Home', icon: House }];
 
@@ -62,7 +65,7 @@
 					{#snippet child({ props })}
 						<a href={resolve('/')} {...props}>
 							<div
-								class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg"
+								class="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground"
 							>
 								<BookOpen class="size-4" />
 							</div>

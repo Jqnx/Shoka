@@ -4,9 +4,8 @@
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { resolve } from '$app/paths';
 	import { cn } from '$lib/utils.js';
-	import { toggleMode, mode } from 'mode-watcher';
 	import { enhance } from '$app/forms';
-	import { ChevronsUpDown, Heart, LogOut, Moon, Settings, Sun } from '@lucide/svelte';
+	import { ChevronsUpDown, Heart, LogOut, Settings } from '@lucide/svelte';
 	import type { User } from 'better-auth';
 
 	let { user }: { user: User } = $props();
@@ -76,15 +75,6 @@
 							Settings
 						</a>
 					{/snippet}
-				</DropdownMenu.Item>
-				<DropdownMenu.Item onclick={() => toggleMode()}>
-					{#if mode.current === 'dark'}
-						<Sun />
-						Light mode
-					{:else}
-						<Moon />
-						Dark mode
-					{/if}
 				</DropdownMenu.Item>
 				<DropdownMenu.Separator />
 				<form method="POST" action="/logout" use:enhance>

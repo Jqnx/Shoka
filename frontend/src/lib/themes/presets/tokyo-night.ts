@@ -1,0 +1,42 @@
+import type { Theme } from '../types';
+
+export const TOKYO_NIGHT: Theme = {
+	id: 'tokyo-night',
+	name: 'Tokyo Night',
+	family: 'Tokyo Night',
+	appearance: 'dark',
+	tokens: {
+		background: 'oklch(0.2263 0.0214 280.487)',
+		foreground: 'oklch(0.8456 0.0611 274.763)',
+		card: 'oklch(0.2819 0.0355 274.748)',
+		'card-foreground': 'oklch(0.8456 0.0611 274.763)',
+		popover: 'oklch(0.3056 0.0369 273.227)',
+		'popover-foreground': 'oklch(0.8456 0.0611 274.763)',
+		primary: 'oklch(0.719 0.1322 264.202)',
+		'primary-foreground': 'oklch(0.2263 0.0214 280.487)',
+		secondary: 'oklch(0.3056 0.0369 273.227)',
+		'secondary-foreground': 'oklch(0.8456 0.0611 274.763)',
+		muted: 'oklch(0.3056 0.0369 273.227)',
+		'muted-foreground': 'oklch(0.6138 0.0601 274.41)',
+		accent: 'oklch(0.3056 0.0369 273.227)',
+		'accent-foreground': 'oklch(0.8456 0.0611 274.763)',
+		destructive: 'oklch(0.7227 0.1589 10.276)',
+		border: 'oklch(0.3867 0.0537 273.882)',
+		input: 'oklch(0.3867 0.0537 273.882)',
+		ring: 'oklch(0.719 0.1322 264.202)',
+		'chart-1': 'oklch(0.82 0.1051 235.715)',
+		'chart-2': 'oklch(0.7953 0.1395 130.136)',
+		'chart-3': 'oklch(0.7839 0.1057 75.428)',
+		'chart-4': 'oklch(0.7227 0.1589 10.276)',
+		'chart-5': 'oklch(0.7515 0.1344 299.499)',
+		sidebar: 'oklch(0.204 0.0158 284.91)',
+		'sidebar-foreground': 'oklch(0.8456 0.0611 274.763)',
+		'sidebar-primary': 'oklch(0.719 0.1322 264.202)',
+		'sidebar-primary-foreground': 'oklch(0.2263 0.0214 280.487)',
+		'sidebar-accent': 'oklch(0.3056 0.0369 273.227)',
+		'sidebar-accent-foreground': 'oklch(0.8456 0.0611 274.763)',
+		'sidebar-border': 'oklch(0.3867 0.0537 273.882)',
+		'sidebar-ring': 'oklch(0.719 0.1322 264.202)',
+		radius: '0.625rem'
+	}
+};

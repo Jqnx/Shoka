@@ -1,0 +1,42 @@
+import type { Theme } from '../types';
+
+export const NORD: Theme = {
+	id: 'nord',
+	name: 'Nord',
+	family: 'Nord',
+	appearance: 'dark',
+	tokens: {
+		background: 'oklch(0.3244 0.0229 264.182)',
+		foreground: 'oklch(0.9513 0.0074 260.732)',
+		card: 'oklch(0.3792 0.029 266.471)',
+		'card-foreground': 'oklch(0.9513 0.0074 260.732)',
+		popover: 'oklch(0.4157 0.0324 264.131)',
+		'popover-foreground': 'oklch(0.9513 0.0074 260.732)',
+		primary: 'oklch(0.7746 0.0622 217.469)',
+		'primary-foreground': 'oklch(0.3244 0.0229 264.182)',
+		secondary: 'oklch(0.4157 0.0324 264.131)',
+		'secondary-foreground': 'oklch(0.9513 0.0074 260.732)',
+		muted: 'oklch(0.4157 0.0324 264.131)',
+		'muted-foreground': 'oklch(0.7486 0.0313 262.502)',
+		accent: 'oklch(0.4157 0.0324 264.131)',
+		'accent-foreground': 'oklch(0.9513 0.0074 260.732)',
+		destructive: 'oklch(0.6061 0.1206 15.342)',
+		border: 'oklch(0.4523 0.0352 264.131)',
+		input: 'oklch(0.4523 0.0352 264.131)',
+		ring: 'oklch(0.7746 0.0622 217.469)',
+		'chart-1': 'oklch(0.6965 0.0591 248.687)',
+		'chart-2': 'oklch(0.7683 0.0749 131.063)',
+		'chart-3': 'oklch(0.8549 0.0892 84.093)',
+		'chart-4': 'oklch(0.6061 0.1206 15.342)',
+		'chart-5': 'oklch(0.6921 0.0625 332.665)',
+		sidebar: 'oklch(0.3244 0.0229 264.182)',
+		'sidebar-foreground': 'oklch(0.9513 0.0074 260.732)',
+		'sidebar-primary': 'oklch(0.7746 0.0622 217.469)',
+		'sidebar-primary-foreground': 'oklch(0.3244 0.0229 264.182)',
+		'sidebar-accent': 'oklch(0.4157 0.0324 264.131)',
+		'sidebar-accent-foreground': 'oklch(0.9513 0.0074 260.732)',
+		'sidebar-border': 'oklch(0.4523 0.0352 264.131)',
+		'sidebar-ring': 'oklch(0.7746 0.0622 217.469)',
+		radius: '0.625rem'
+	}
+};

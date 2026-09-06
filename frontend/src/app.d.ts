@@ -15,6 +15,7 @@ declare global {
 		interface Locals {
 			user?: AppUser;
 			session?: Session;
+			theme?: import('$lib/themes/types').Theme;
 		}
 
 		// interface Error {}

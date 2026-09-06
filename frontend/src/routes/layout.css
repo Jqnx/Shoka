@@ -1,10 +1,17 @@
 @import 'tailwindcss';
-@import "tw-animate-css";
-@import "shadcn-svelte/tailwind.css";
-@import "@fontsource-variable/figtree";
+@import 'tw-animate-css';
+@import 'shadcn-svelte/tailwind.css';
+@import '@fontsource-variable/figtree';
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * These two blocks are the `shoka-light` / `shoka-dark` presets, duplicated
+ * from `$lib/themes/presets/shoka.ts` on purpose: they are the degraded-path
+ * fallback if the theme module fails to load or SSR injection is skipped.
+ * The live theme is injected as an `html:root { … }` block ahead of these
+ * (higher specificity) by `hooks.server.ts` / `$lib/themes/css.ts`.
+ */
 :root {
 	--background: oklch(1 0 0);
 	--foreground: oklch(0.145 0 0);
