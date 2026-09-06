@@ -105,6 +105,27 @@ func (lc *LanguageConverter) ToName(code string) (string, error) {
 	return "", fmt.Errorf("unknown ISO code: %s", code)
 }
 
+// DisplayName resolves an ISO-639-1 code to its full-length language name,
+// falling back to the raw code when it isn't recognised. A nil pointer is
+// returned as nil so "no language set" stays distinct from one that simply
+// failed to resolve. This is the canonical code -> label conversion every
+// archive response goes through.
+func (lc *LanguageConverter) DisplayName(code *string) *string {
+	if code == nil {
+		return nil
+	}
+
+	if name, err := lc.ToName(*code); err == nil {
+		return &name
+	}
+
+	// Unrecognised (or empty) code: hand back the value unchanged, but as a
+	// fresh pointer so the response never aliases the caller's string.
+	out := *code
+
+	return &out
+}
+
 func (lc *LanguageConverter) IsValidISO(code string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(code))
 	_, exists := lc.codeToName[normalized]

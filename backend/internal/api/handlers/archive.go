@@ -203,21 +203,11 @@ func buildArchiveListResponses(
 
 	items := make([]ArchiveResponse, 0, len(rows))
 	for _, row := range rows {
-		var lang string
-
-		if row.Language != nil {
-			if name, err := lc.ToName(*row.Language); err == nil {
-				lang = name
-			} else {
-				lang = *row.Language
-			}
-		}
-
 		resp := ArchiveResponse{
 			ID:          row.ID,
 			Title:       row.Title,
 			Summary:     row.Summary,
-			Language:    &lang,
+			Language:    lc.DisplayName(row.Language),
 			Category:    row.Category,
 			ReleaseDate: row.ReleaseDate,
 			PageCount:   int(row.PageCount),
@@ -517,13 +507,15 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	lc := language.NewLanguageConverter()
+
 	items := make([]ArchiveResponse, 0, len(rows))
 	for _, row := range rows {
 		resp := ArchiveResponse{
 			ID:          row.ID,
 			Title:       row.Title,
 			Summary:     row.Summary,
-			Language:    row.Language,
+			Language:    lc.DisplayName(row.Language),
 			Category:    row.Category,
 			ReleaseDate: row.ReleaseDate,
 			PageCount:   int(row.PageCount),
@@ -617,13 +609,15 @@ func (h *ArchiveHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	lc := language.NewLanguageConverter()
+
 	items := make([]ArchiveResponse, 0, len(rows))
 	for _, row := range rows {
 		resp := ArchiveResponse{
 			ID:          row.ID,
 			Title:       row.Title,
 			Summary:     row.Summary,
-			Language:    row.Language,
+			Language:    lc.DisplayName(row.Language),
 			Category:    row.Category,
 			ReleaseDate: row.ReleaseDate,
 			PageCount:   int(row.PageCount),
@@ -685,89 +679,15 @@ func (h *ArchiveHandler) GetArchive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// fetch relational metadata and progress concurrently
-	type result struct {
-		meta        *metadata.Result
-		progress    *sqlc.ReadingProgress
-		isFavorited bool
-		rating      *int
-		metaErr     error
-		progErr     error
-		favErr      error
-		ratingErr   error
-	}
-
-	ch := make(chan result, 1)
-
-	go func() {
-		var res result
-
-		res.meta, res.metaErr = database.GetArchiveMetadata(r.Context(), h.queries, id)
-
-		progress, err := h.queries.GetProgressForArchive(r.Context(), sqlc.GetProgressForArchiveParams{
-			ArchiveID: archive.ID,
-			UserID:    userID,
-		})
-		if err != nil {
-			res.progress = nil
-			res.progErr = err
-		} else {
-			res.progress = &progress
-			res.progErr = err
-		}
-
-		res.isFavorited, res.favErr = h.queries.ArchiveIsFavorited(r.Context(), sqlc.ArchiveIsFavoritedParams{
-			ArchiveID: archive.ID,
-			Uid:       userID,
-		})
-
-		rating, err := h.queries.GetArchiveRating(r.Context(), sqlc.GetArchiveRatingParams{
-			ArchiveID: archive.ID,
-			Uid:       userID,
-		})
-		if err != nil {
-			if !errors.Is(err, sql.ErrNoRows) {
-				res.ratingErr = err
-			}
-		} else {
-			r := int(rating)
-			res.rating = &r
-		}
-
-		ch <- res
-	}()
-
-	res := <-ch
-
-	if res.metaErr != nil {
-		h.logger.Error("get archive metadata failed", "id", id, "error", res.metaErr)
-		response.InternalError(w, "failed to get archive metadata")
+	resp, err := h.archiveResponseFor(r.Context(), archive, userID)
+	if err != nil {
+		h.logger.Error("build archive response failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
 
 		return
 	}
 
-	if res.progErr != nil && !errors.Is(res.progErr, sql.ErrNoRows) {
-		h.logger.Error("get progress failed", "id", id, "error", res.progErr)
-		response.InternalError(w, "failed to get reading progress")
-
-		return
-	}
-
-	if res.favErr != nil {
-		h.logger.Error("get favorite status failed", "id", id, "error", res.favErr)
-		response.InternalError(w, "failed to get favorite status")
-
-		return
-	}
-
-	if res.ratingErr != nil {
-		h.logger.Error("get rating failed", "id", id, "error", res.ratingErr)
-		response.InternalError(w, "failed to get rating")
-
-		return
-	}
-
-	response.JSON(w, http.StatusOK, h.buildResponse(archive, res.meta, res.progress, res.isFavorited, res.rating))
+	response.JSON(w, http.StatusOK, resp)
 }
 
 // UpdateArchiveRequest is a partial update: omitted fields are left
@@ -1231,6 +1151,55 @@ func (h *ArchiveHandler) buildResponse(
 	return buildArchiveResponse(h.processor, archive, meta, progress, isFavorited, rating)
 }
 
+// archiveResponseFor assembles the full ArchiveResponse for one archive:
+// its relational metadata plus this user's progress, favorite and rating
+// state. Shared by GetArchive and SetCover so the two can't drift. A
+// missing progress or rating row is not an error (the field is left nil);
+// any other query failure is returned wrapped.
+func (h *ArchiveHandler) archiveResponseFor(
+	ctx context.Context,
+	archive sqlc.Archive,
+	userID string,
+) (ArchiveResponse, error) {
+	meta, err := database.GetArchiveMetadata(ctx, h.queries, archive.ID)
+	if err != nil {
+		return ArchiveResponse{}, fmt.Errorf("get archive metadata: %w", err)
+	}
+
+	var progress *sqlc.ReadingProgress
+
+	if p, err := h.queries.GetProgressForArchive(ctx, sqlc.GetProgressForArchiveParams{
+		ArchiveID: archive.ID,
+		UserID:    userID,
+	}); err == nil {
+		progress = &p
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return ArchiveResponse{}, fmt.Errorf("get reading progress: %w", err)
+	}
+
+	isFavorited, err := h.queries.ArchiveIsFavorited(ctx, sqlc.ArchiveIsFavoritedParams{
+		ArchiveID: archive.ID,
+		Uid:       userID,
+	})
+	if err != nil {
+		return ArchiveResponse{}, fmt.Errorf("get favorite status: %w", err)
+	}
+
+	var rating *int
+
+	if v, err := h.queries.GetArchiveRating(ctx, sqlc.GetArchiveRatingParams{
+		ArchiveID: archive.ID,
+		Uid:       userID,
+	}); err == nil {
+		iv := int(v)
+		rating = &iv
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return ArchiveResponse{}, fmt.Errorf("get rating: %w", err)
+	}
+
+	return h.buildResponse(archive, meta, progress, isFavorited, rating), nil
+}
+
 // buildArchiveResponse is the shared ArchiveResponse builder — a
 // package-level function (rather than an ArchiveHandler method) so other
 // handlers that hold their own *image.Processor can build the same
@@ -1246,22 +1215,11 @@ func buildArchiveResponse(
 ) ArchiveResponse {
 	lc := language.NewLanguageConverter()
 
-	var (
-		lang string
-		err  error
-	)
-	if archive.Language != nil {
-		lang, err = lc.ToName(*archive.Language)
-		if err != nil {
-			lang = *archive.Language
-		}
-	}
-
 	resp := ArchiveResponse{
 		ID:          archive.ID,
 		Title:       archive.Title,
 		Summary:     archive.Summary,
-		Language:    &lang,
+		Language:    lc.DisplayName(archive.Language),
 		Category:    archive.Category,
 		ReleaseDate: archive.ReleaseDate,
 		PageCount:   int(archive.PageCount),
@@ -1374,19 +1332,13 @@ func (h *ArchiveHandler) GetCover(w http.ResponseWriter, r *http.Request) {
 	}
 
 	path := h.processor.ThumbPath(id, coverPage)
-	if path == "" && coverPage != 0 {
-		// The chosen page's thumbnail hasn't been (re)generated yet (e.g. the
-		// cover job triggered by PUT .../cover is still queued) - fall back to
-		// page 0 rather than 404ing, but never cache this response, since it
-		// isn't actually the archive's chosen cover.
-		path = h.processor.ThumbPath(id, 0)
-		if path != "" {
-			w.Header().Set("Cache-Control", "no-store")
-			//nolint:gosec // G703: id is constrained to [A-Za-z0-9]+ by validArchiveID above, so path stays inside the cache root
-			http.ServeFile(w, r, path)
 
-			return
-		}
+	// The chosen page's thumbnail hasn't been (re)generated yet (e.g. the
+	// cover job triggered by PUT .../cover is still queued) - fall back to
+	// page 0 rather than 404ing.
+	if path == "" && coverPage != 0 {
+		coverPage = 0
+		path = h.processor.ThumbPath(id, coverPage)
 	}
 
 	if path == "" {
@@ -1394,7 +1346,16 @@ func (h *ArchiveHandler) GetCover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	// Only the archive's actual chosen cover earns the long-lived immutable
+	// cache. Anything we clamped or fell back to is served no-store, so a
+	// client never pins the wrong image under its `?v=<cover_page>` URL once
+	// the real cover becomes available.
+	if coverPage == int(archive.CoverPage) {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	} else {
+		w.Header().Set("Cache-Control", "no-store")
+	}
+
 	//nolint:gosec // G703: id is constrained to [A-Za-z0-9]+ by validArchiveID above, so path stays inside the cache root
 	http.ServeFile(w, r, path)
 }
@@ -1421,6 +1382,11 @@ type SetCoverRequest struct {
 //	@Router			/api/archives/{id}/cover [put]
 func (h *ArchiveHandler) SetCover(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	if !validArchiveID(id) {
+		response.BadRequest(w, "invalid archive id")
+		return
+	}
+
 	userID := auth.UserIDFromContext(r.Context())
 
 	archive, err := h.queries.GetArchiveByID(r.Context(), id)
@@ -1478,51 +1444,15 @@ func (h *ArchiveHandler) SetCover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	meta, err := database.GetArchiveMetadata(r.Context(), h.queries, id)
+	resp, err := h.archiveResponseFor(r.Context(), archive, userID)
 	if err != nil {
-		h.logger.Error("get archive metadata failed", "id", id, "error", err)
+		h.logger.Error("build archive response failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get updated archive")
 
 		return
 	}
 
-	var progress *sqlc.ReadingProgress
-	if p, err := h.queries.GetProgressForArchive(r.Context(), sqlc.GetProgressForArchiveParams{
-		ArchiveID: id,
-		UserID:    userID,
-	}); err == nil {
-		progress = &p
-	} else if !errors.Is(err, sql.ErrNoRows) {
-		h.logger.Error("get progress failed", "id", id, "error", err)
-	}
-
-	isFavorited, err := h.queries.ArchiveIsFavorited(r.Context(), sqlc.ArchiveIsFavoritedParams{
-		ArchiveID: id,
-		Uid:       userID,
-	})
-	if err != nil {
-		h.logger.Error("get favorite status failed", "id", id, "error", err)
-		response.InternalError(w, "failed to get updated archive")
-
-		return
-	}
-
-	var rating *int
-
-	if v, err := h.queries.GetArchiveRating(r.Context(), sqlc.GetArchiveRatingParams{
-		ArchiveID: id,
-		Uid:       userID,
-	}); err == nil {
-		iv := int(v)
-		rating = &iv
-	} else if !errors.Is(err, sql.ErrNoRows) {
-		h.logger.Error("get rating failed", "id", id, "error", err)
-		response.InternalError(w, "failed to get updated archive")
-
-		return
-	}
-
-	response.JSON(w, http.StatusOK, h.buildResponse(archive, meta, progress, isFavorited, rating))
+	response.JSON(w, http.StatusOK, resp)
 }
 
 // GetPage godoc

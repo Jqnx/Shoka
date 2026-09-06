@@ -5,6 +5,7 @@ import (
 	"Shoka/internal/auth"
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/image"
+	"Shoka/internal/language"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -189,13 +190,15 @@ func (h *TagHandler) GetArchivesByTag(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	lc := language.NewLanguageConverter()
+
 	items := make([]ArchiveResponse, 0, len(rows))
 	for _, row := range rows {
 		resp := ArchiveResponse{
 			ID:          row.ID,
 			Title:       row.Title,
 			Summary:     row.Summary,
-			Language:    row.Language,
+			Language:    lc.DisplayName(row.Language),
 			Category:    row.Category,
 			ReleaseDate: row.ReleaseDate,
 			PageCount:   int(row.PageCount),

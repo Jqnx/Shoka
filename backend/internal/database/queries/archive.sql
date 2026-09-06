@@ -130,9 +130,10 @@ where id = ?;
 -- cover_page is presentation state, not metadata - deliberately its own
 -- query rather than folded into UpdateArchive, so a metadata source fetch
 -- (which goes through UpdateArchive/ApplyMetadata) can never clobber it.
+-- updated_at is left untouched on purpose: picking a cover page is not a
+-- content change and must not resurface the archive in "recently updated".
 update archive
-set cover_page = ?,
-    updated_at = datetime('now')
+set cover_page = ?
 where id = ?;
 
 -- name: DeleteArchive :exec

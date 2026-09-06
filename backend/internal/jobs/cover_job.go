@@ -38,6 +38,10 @@ func NewCoverHandler(processor *image.Processor, log *slog.Logger) Handler {
 			return fmt.Errorf("list pages: %w", err)
 		}
 
+		if len(pages) == 0 {
+			return fmt.Errorf("archive %s has no pages", p.ArchiveID)
+		}
+
 		index := p.PageIndex
 		if index < 0 || index >= len(pages) {
 			index = 0
