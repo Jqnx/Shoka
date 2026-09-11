@@ -12,6 +12,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import ThemePreviewCard from '$lib/components/theme/ThemePreviewCard.svelte';
 	import ThemeEditorDialog from '$lib/components/theme/ThemeEditorDialog.svelte';
+	import AvatarCard from '$lib/components/settings/AvatarCard.svelte';
 	import { theme as themeController } from '$lib/themes/theme.svelte';
 	import { DEFAULT_THEME_ID } from '$lib/themes/presets';
 	import type { Theme } from '$lib/themes/types';
@@ -122,6 +123,8 @@
 		<Tabs.Content value="account">
 			<h1 class="text-2xl font-bold tracking-tight">Account</h1>
 			<p class="mt-1 text-sm text-muted-foreground">Manage your account details.</p>
+
+			<AvatarCard user={data.user} />
 
 			<Card.Root class="mt-6">
 				<form class="contents" method="POST" action="?/updateProfile" use:profileEnhance>

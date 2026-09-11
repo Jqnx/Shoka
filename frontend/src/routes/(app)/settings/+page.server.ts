@@ -21,6 +21,15 @@ import {
 	setThemeCookie
 } from '$lib/server/themes';
 import type { Appearance } from '$lib/themes/types';
+import { MAX_UPLOAD_BYTES } from '$lib/schemas/avatar';
+import {
+	AvatarError,
+	deleteAvatarFile,
+	filenameFromImage,
+	isManagedAvatar,
+	processAvatar,
+	writeAvatar
+} from '$lib/server/avatars';
 
 const MAX_CUSTOM_THEMES = 20;
 
@@ -100,6 +109,87 @@ export const actions: Actions = {
 		}
 
 		return { profileForm: form };
+	},
+
+	// The uploaded file is expected to already be a client-side-cropped square
+	// (see AvatarCropDialog) - kept small enough that BODY_SIZE_LIMIT is a
+	// non-issue - but processAvatar() re-verifies and re-encodes it regardless.
+	uploadAvatar: async ({ request, locals }) => {
+		const user = locals.user!;
+		const formData = await request.formData();
+		const file = formData.get('avatar');
+
+		if (!(file instanceof File) || file.size === 0) {
+			return fail(400, { avatarError: 'No image provided.' });
+		}
+		if (file.size > MAX_UPLOAD_BYTES) {
+			return fail(400, { avatarError: 'Image is too large.' });
+		}
+
+		let processed: Buffer;
+		try {
+			processed = await processAvatar(Buffer.from(await file.arrayBuffer()));
+		} catch (e) {
+			if (e instanceof AvatarError) return fail(400, { avatarError: e.message });
+			throw e;
+		}
+
+		let filename: string;
+		try {
+			filename = await writeAvatar(processed);
+		} catch {
+			return fail(500, { avatarError: 'Could not save image.' });
+		}
+
+		// Captured before the DB write, per the ordering below.
+		const previousImage = user.image;
+
+		try {
+			await auth.api.updateUser({
+				headers: request.headers,
+				body: { image: `/avatars/${filename}` }
+			});
+		} catch (e) {
+			// The DB update failed, so the new file is already an orphan - clean
+			// it up now rather than leaving it for the GC script.
+			await deleteAvatarFile(filename);
+			if (e instanceof APIError) {
+				return fail(400, { avatarError: e.body?.message ?? 'Failed to update avatar.' });
+			}
+			throw e;
+		}
+
+		// Only delete the old file *after* the DB points at the new one - a
+		// crash here leaves an orphaned file (harmless, GC'd later) rather than
+		// a user.image pointing at nothing.
+		if (isManagedAvatar(previousImage)) {
+			await deleteAvatarFile(filenameFromImage(previousImage));
+		}
+
+		return { avatarUpdated: true };
+	},
+
+	removeAvatar: async ({ request, locals }) => {
+		const user = locals.user!;
+		const previousImage = user.image;
+
+		try {
+			await auth.api.updateUser({
+				headers: request.headers,
+				body: { image: null }
+			});
+		} catch (e) {
+			if (e instanceof APIError) {
+				return fail(400, { avatarError: e.body?.message ?? 'Failed to remove avatar.' });
+			}
+			throw e;
+		}
+
+		if (isManagedAvatar(previousImage)) {
+			await deleteAvatarFile(filenameFromImage(previousImage));
+		}
+
+		return { avatarRemoved: true };
 	},
 
 	changePassword: async (event) => {
