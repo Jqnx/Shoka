@@ -37,6 +37,6 @@ export const TOKYO_NIGHT: Theme = {
 		'sidebar-accent-foreground': 'oklch(0.8456 0.0611 274.763)',
 		'sidebar-border': 'oklch(0.3867 0.0537 273.882)',
 		'sidebar-ring': 'oklch(0.719 0.1322 264.202)',
-		radius: '0.625rem'
+		radius: '0rem'
 	}
 };

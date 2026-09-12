@@ -37,7 +37,7 @@ export const CATPPUCCIN_LATTE: Theme = {
 		'sidebar-accent-foreground': 'oklch(0.4355 0.043 279.325)',
 		'sidebar-border': 'oklch(0.8083 0.0174 271.198)',
 		'sidebar-ring': 'oklch(0.5547 0.2503 297.016)',
-		radius: '0.625rem'
+		radius: '0rem'
 	}
 };
 
@@ -78,7 +78,7 @@ export const CATPPUCCIN_FRAPPE: Theme = {
 		'sidebar-accent-foreground': 'oklch(0.8619 0.0526 273.347)',
 		'sidebar-border': 'oklch(0.5211 0.0386 273.999)',
 		'sidebar-ring': 'oklch(0.7648 0.1108 311.744)',
-		radius: '0.625rem'
+		radius: '0rem'
 	}
 };
 
@@ -119,7 +119,7 @@ export const CATPPUCCIN_MACCHIATO: Theme = {
 		'sidebar-accent-foreground': 'oklch(0.8708 0.0481 273.665)',
 		'sidebar-border': 'oklch(0.4939 0.0389 275.683)',
 		'sidebar-ring': 'oklch(0.7715 0.1259 303.898)',
-		radius: '0.625rem'
+		radius: '0rem'
 	}
 };
 
@@ -160,6 +160,6 @@ export const CATPPUCCIN_MOCHA: Theme = {
 		'sidebar-accent-foreground': 'oklch(0.8787 0.0426 272.277)',
 		'sidebar-border': 'oklch(0.4765 0.034 278.643)',
 		'sidebar-ring': 'oklch(0.7871 0.1187 304.769)',
-		radius: '0.625rem'
+		radius: '0rem'
 	}
 };

@@ -10,7 +10,9 @@
 		"skipLibCheck": true,
 		"sourceMap": true,
 		"strict": true,
-		"moduleResolution": "bundler"
+		"moduleResolution": "bundler",
+		// Without this, .ts files resolve .svelte imports via svelte's `*.svelte` wildcard, which has no named exports.
+		"plugins": [{ "name": "typescript-svelte-plugin" }]
 	}
 	// Path aliases are handled by https://svelte.dev/docs/kit/configuration#alias
 	// except $lib which is handled by https://svelte.dev/docs/kit/configuration#files

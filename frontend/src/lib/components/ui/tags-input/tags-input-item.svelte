@@ -73,7 +73,7 @@
 		if (root.activeIndex === item.index) root.activeIndex = null;
 	}}
 	class={cn(
-		'bg-secondary text-secondary-foreground data-active:ring-ring/50 flex items-center gap-1 rounded-md py-0.5 ps-2 pe-1 text-xs font-medium outline-none data-active:ring-2 data-disabled:pointer-events-none data-disabled:opacity-50',
+		'flex items-center gap-1 rounded-md bg-secondary py-0.5 ps-2 pe-1 text-xs font-medium text-secondary-foreground outline-none data-disabled:pointer-events-none data-disabled:opacity-50 data-active:ring-2 data-active:ring-ring/50',
 		className
 	)}
 	{...restProps}

@@ -88,7 +88,7 @@
 				aria-expanded={open}
 				tabindex={0}
 				class={cn(
-					'border-input dark:bg-input/30 has-data-[state=open]:border-ring has-data-[state=open]:ring-ring/50 flex min-h-8 w-full flex-wrap items-center gap-1.5 rounded-lg border bg-transparent px-2 py-1.5 text-sm shadow-xs outline-none has-data-[state=open]:ring-3',
+					'flex min-h-8 w-full flex-wrap items-center gap-1.5 rounded-lg border border-input bg-transparent px-2 py-1.5 text-sm shadow-xs outline-none has-data-[state=open]:border-ring has-data-[state=open]:ring-3 has-data-[state=open]:ring-ring/50 dark:bg-input/30',
 					className
 				)}
 			>
@@ -99,7 +99,7 @@
 							<button
 								type="button"
 								tabindex={-1}
-								class="text-muted-foreground hover:text-foreground focus-visible:text-foreground flex size-3.5 shrink-0 items-center justify-center rounded-sm outline-none"
+								class="flex size-3.5 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground"
 								onclick={(e) => remove(v, e)}
 							>
 								<XIcon class="size-3" />

@@ -21,7 +21,7 @@
 	tabindex={-1}
 	disabled={item.disabled}
 	class={cn(
-		'text-muted-foreground hover:text-foreground focus-visible:text-foreground flex size-3.5 shrink-0 items-center justify-center rounded-sm outline-none disabled:pointer-events-none',
+		'flex size-3.5 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none hover:text-foreground focus-visible:text-foreground disabled:pointer-events-none',
 		className
 	)}
 	onclick={(e) => {

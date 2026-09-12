@@ -8,8 +8,9 @@
 		value = $bindable(''),
 		class: className,
 		...restProps
-	}: WithElementRef<Omit<HTMLInputAttributes, 'value'>, HTMLInputElement> & { value?: string } =
-		$props();
+	}: WithElementRef<Omit<HTMLInputAttributes, 'value'>, HTMLInputElement> & {
+		value?: string;
+	} = $props();
 
 	const root = useTagsInputRoot();
 
@@ -58,7 +59,7 @@
 	data-slot="tags-input-input"
 	disabled={root.disabled}
 	class={cn(
-		'placeholder:text-muted-foreground min-w-24 flex-1 bg-transparent text-sm outline-none disabled:cursor-not-allowed',
+		'min-w-24 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed',
 		className
 	)}
 	onkeydown={handleKeydown}

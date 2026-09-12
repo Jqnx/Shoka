@@ -19,7 +19,7 @@
 	data-slot="tags-input-clear"
 	disabled={root.disabled || root.value.length === 0}
 	class={cn(
-		'text-muted-foreground hover:text-foreground text-xs outline-none disabled:pointer-events-none disabled:opacity-50',
+		'text-xs text-muted-foreground outline-none hover:text-foreground disabled:pointer-events-none disabled:opacity-50',
 		className
 	)}
 	onclick={() => root.clear()}

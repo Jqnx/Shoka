@@ -47,7 +47,7 @@
 	data-slot="tags-input"
 	data-disabled={disabled ? '' : undefined}
 	class={cn(
-		'border-input dark:bg-input/30 has-[input:focus-visible]:border-ring has-[input:focus-visible]:ring-ring/50 flex min-h-8 w-full flex-wrap items-center gap-1.5 rounded-lg border bg-transparent px-2 py-1.5 text-sm shadow-xs has-[input:focus-visible]:ring-3 data-disabled:pointer-events-none data-disabled:opacity-50',
+		'flex min-h-8 w-full flex-wrap items-center gap-1.5 rounded-lg border border-input bg-transparent px-2 py-1.5 text-sm shadow-xs has-[input:focus-visible]:border-ring has-[input:focus-visible]:ring-3 has-[input:focus-visible]:ring-ring/50 dark:bg-input/30 data-disabled:pointer-events-none data-disabled:opacity-50',
 		className
 	)}
 	onclick={(e) => {

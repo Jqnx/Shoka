@@ -42,7 +42,7 @@ export const SHOKA_LIGHT: Theme = {
 		'sidebar-accent-foreground': 'oklch(0.205 0 0)',
 		'sidebar-border': 'oklch(0.922 0 0)',
 		'sidebar-ring': 'oklch(0.708 0 0)',
-		radius: '0.625rem'
+		radius: '0rem'
 	}
 };
 
@@ -83,6 +83,6 @@ export const SHOKA_DARK: Theme = {
 		'sidebar-accent-foreground': 'oklch(0.985 0 0)',
 		'sidebar-border': 'oklch(1 0 0 / 10%)',
 		'sidebar-ring': 'oklch(0.556 0 0)',
-		radius: '0.625rem'
+		radius: '0rem'
 	}
 };
