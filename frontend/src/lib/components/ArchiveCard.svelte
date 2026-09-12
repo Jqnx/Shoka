@@ -173,7 +173,7 @@
 	<!-- Card body -->
 	<div class="flex flex-col gap-1 p-2">
 		<p
-			class="line-clamp-2 text-sm leading-tight font-medium text-card-foreground group-hover:text-foreground"
+			class="line-clamp-2 text-xs leading-tight font-medium text-card-foreground group-hover:text-foreground"
 		>
 			{archive.title}
 		</p>
