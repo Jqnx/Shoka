@@ -507,6 +507,14 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	metaByID, err := database.GetBulkArchiveMetadata(r.Context(), h.db, ids)
+	if err != nil {
+		h.logger.Error("get bulk archive metadata failed", "error", err)
+		response.InternalError(w, "failed to get archive metadata")
+
+		return
+	}
+
 	lc := language.NewLanguageConverter()
 
 	items := make([]ArchiveResponse, 0, len(rows))
@@ -532,6 +540,14 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 		}
 		if rating, ok := ratings[row.ID]; ok {
 			resp.Rating = &rating
+		}
+
+		if meta, ok := metaByID[row.ID]; ok {
+			resp.Artists = meta.Artists
+			resp.Tags = meta.Tags
+			resp.Parodies = meta.Parodies
+			resp.Circles = meta.Circles
+			resp.Characters = meta.Characters
 		}
 
 		items = append(items, resp)
