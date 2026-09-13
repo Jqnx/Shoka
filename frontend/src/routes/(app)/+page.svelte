@@ -46,8 +46,16 @@
 						</Carousel.Item>
 					{/each}
 				</Carousel.Content>
-				<Carousel.Previous class="-left-4" />
-				<Carousel.Next class="-right-4" />
+				<Carousel.Previous
+					variant="secondary"
+					size="icon-lg"
+					class="-left-4 shadow-md disabled:hidden"
+				/>
+				<Carousel.Next
+					variant="secondary"
+					size="icon-lg"
+					class="-right-4 shadow-md disabled:hidden"
+				/>
 			</Carousel.Root>
 		</section>
 	{/if}
@@ -75,8 +83,16 @@
 						</Carousel.Item>
 					{/each}
 				</Carousel.Content>
-				<Carousel.Previous class="-left-4" />
-				<Carousel.Next class="-right-4" />
+				<Carousel.Previous
+					variant="secondary"
+					size="icon-lg"
+					class="-left-4 shadow-md disabled:hidden"
+				/>
+				<Carousel.Next
+					variant="secondary"
+					size="icon-lg"
+					class="-right-4 shadow-md disabled:hidden"
+				/>
 			</Carousel.Root>
 		</section>
 	{/if}
@@ -104,8 +120,16 @@
 						</Carousel.Item>
 					{/each}
 				</Carousel.Content>
-				<Carousel.Previous class="-left-4" />
-				<Carousel.Next class="-right-4" />
+				<Carousel.Previous
+					variant="secondary"
+					size="icon-lg"
+					class="-left-4 shadow-md disabled:hidden"
+				/>
+				<Carousel.Next
+					variant="secondary"
+					size="icon-lg"
+					class="-right-4 shadow-md disabled:hidden"
+				/>
 			</Carousel.Root>
 		</section>
 	{/if}
