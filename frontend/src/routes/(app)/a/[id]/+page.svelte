@@ -191,7 +191,7 @@
 								</Button>
 							{/snippet}
 						</DropdownMenu.Trigger>
-						<DropdownMenu.Content align="end" class="min-w-44">
+						<DropdownMenu.Content align="end" class="w-auto min-w-44">
 							<form
 								method="POST"
 								action="?/markRead"
