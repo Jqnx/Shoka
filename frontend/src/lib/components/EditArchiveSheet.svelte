@@ -160,7 +160,7 @@
 			>
 		</Sheet.Header>
 
-		<div class="px-4">
+		<div class="px-4 pb-4">
 			<MetadataFetchDialog
 				archiveId={archive.id}
 				{libraryId}
