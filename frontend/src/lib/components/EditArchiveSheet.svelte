@@ -147,9 +147,8 @@
 <Sheet.Root bind:open>
 	<Sheet.Trigger>
 		{#snippet child({ props })}
-			<Button {...props} variant="outline" size="sm">
+			<Button {...props} variant="outline" size="icon" aria-label="Edit">
 				<Pencil />
-				Edit
 			</Button>
 		{/snippet}
 	</Sheet.Trigger>
