@@ -61,5 +61,6 @@ notes.txt
 
 .agents/
 .claude/
+.pi/
 agent/
 skills-lock.json
