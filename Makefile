@@ -1,8 +1,12 @@
-.PHONY: dev sqlc tidy lint lint/fix fmt dr docker-run dd docker-down help
+.PHONY: dev sqlc tidy lint lint/fix fmt docker/build run stop logs frontend/lock help
 
 APP_NAME   := Shoka
 BACKEND    := ./backend
 FRONTEND   := ./frontend
+
+# Must match NODE_VERSION in the Dockerfile — the lockfile is resolved under
+# the same Node major that installs it in the image.
+NODE_IMAGE := node:24-trixie-slim
 
 # Paths are relative to $(BACKEND), which every goose target cd's into first.
 GOOSE      := goose sqlite3 ./data/shoka.db -dir internal/database/migrations
@@ -26,17 +30,20 @@ dev/services: ## Start only background services
 	docker compose -f docker-compose.dev.yml up
 
 # ----- Production -----
+docker/build: ## Build the deployable Shoka image
+	docker compose build
+
 run: ## Start full production stack
 	docker compose up -d
- 
+
 stop: ## Stop all containers
 	docker compose down
- 
+
 logs: ## Tail all container logs
 	docker compose logs -f
- 
-logs/backend: ## Tail backend logs only
-	docker compose logs -f backend
+
+logs/app: ## Tail the Shoka container logs only
+	docker compose logs -f shoka
 
 
 # ----- Database -----
@@ -59,6 +66,11 @@ sqlc: ## Regenerate sqlc Go code from query files
 
 swag: ## Regenerate swaggo API docs
 	cd $(BACKEND) && swag init --parseDependency --parseInternal
+
+frontend/lock: ## Regenerate frontend/package-lock.json (pins the image's runtime deps)
+	docker run --rm -v "$(CURDIR)/frontend:/app" -w /app -u "$$(id -u):$$(id -g)" \
+		-e npm_config_cache=/tmp/npm $(NODE_IMAGE) \
+		npm install --package-lock-only --no-audit --no-fund
 
 # ----- Code Quality -----
 tidy: ## Tidy Go module dependencies

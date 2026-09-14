@@ -1,0 +1,36 @@
+# Everything the build doesn't need, plus anything that would leak host state
+# or secrets into the image.
+
+.git
+.gitignore
+*.md
+
+# Secrets and host-local config
+**/.env
+**/.env.*
+backend/data/
+cache/
+content/
+content-bak/
+
+# Build outputs and caches — rebuilt inside the image
+frontend/node_modules/
+frontend/build/
+frontend/.svelte-kit/
+backend/tmp/
+backend/main
+
+# Agent/editor/tooling
+.agents/
+.claude/
+.pi/
+agent/
+skills-lock.json
+.vscode/
+.idea/
+.zed/
+Makefile
+docker-compose*.yml
+Dockerfile
+.dockerignore
+*.user.js
