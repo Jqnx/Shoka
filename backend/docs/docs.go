@@ -25,6 +25,12 @@ const docTemplate = `{
                     "204": {
                         "description": "No Content"
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -63,6 +69,12 @@ const docTemplate = `{
                             }
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -89,6 +101,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/handlers.JobSnapshot"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -111,6 +129,12 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
                     },
                     "500": {
                         "description": "Internal Server Error",
@@ -154,6 +178,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.Error"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
                     "409": {
                         "description": "Conflict",
                         "schema": {
@@ -188,6 +218,12 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
                     },
                     "404": {
                         "description": "Not Found",
@@ -243,6 +279,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.Error"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -278,6 +320,12 @@ const docTemplate = `{
                     "204": {
                         "description": "No Content"
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -311,6 +359,12 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
                     },
                     "404": {
                         "description": "Not Found",
@@ -353,6 +407,12 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/handlers.LibrarySourceResponse"
                             }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
                         }
                     },
                     "500": {
@@ -411,6 +471,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.Error"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -430,6 +496,12 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
                     },
                     "500": {
                         "description": "Internal Server Error",
@@ -595,6 +667,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.Error"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -637,6 +715,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/response.Error"
                         }
@@ -888,6 +972,12 @@ const docTemplate = `{
                     "204": {
                         "description": "No Content"
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -945,6 +1035,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.Error"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -962,6 +1058,7 @@ const docTemplate = `{
         },
         "/api/archives/{id}/cover": {
             "get": {
+                "description": "Serves the thumbnail for archive.cover_page (page 0 by default, or whichever page was chosen via PUT .../cover). Callers should include the archive's cover_page as a ` + "`" + `v` + "`" + ` query param (see ArchiveResponse) to bust the long-lived cache when the chosen page changes - the response itself ignores the query string.",
                 "produces": [
                     "image/webp"
                 ],
@@ -976,6 +1073,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Cache-busting version - the archive's current cover_page",
+                        "name": "v",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -984,6 +1087,69 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Changes archive.cover_page and enqueues thumbnail generation for that page if it doesn't already have one. Deliberately a separate endpoint from PATCH /api/archives/{id} - cover choice is presentation state, not metadata, so a later metadata source fetch (which goes through that endpoint) can never overwrite it.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "archives"
+                ],
+                "summary": "Set which page is used as an archive's cover",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Archive ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "0-based page index to use as the cover",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.SetCoverRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ArchiveResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/response.Error"
                         }
@@ -1343,6 +1509,12 @@ const docTemplate = `{
                     "204": {
                         "description": "thumbnails already ready"
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -1471,6 +1643,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.Error"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
                     "409": {
                         "description": "Conflict",
                         "schema": {
@@ -1585,6 +1763,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.Error"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -1632,6 +1816,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/response.Error"
                         }
@@ -1801,6 +1991,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/response.Error"
                         }
@@ -2003,6 +2199,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/response.Error"
                         }
@@ -2283,6 +2485,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.Error"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -2323,6 +2531,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/response.Error"
                         }
@@ -2450,6 +2664,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/metadata.Result"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -2484,6 +2704,12 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
                     },
                     "404": {
                         "description": "Not Found",
@@ -2537,6 +2763,12 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/metadata.Result"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
                         }
                     },
                     "404": {
@@ -2602,6 +2834,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.Error"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
                     "404": {
                         "description": "Not Found",
                         "schema": {
@@ -2655,6 +2893,12 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/handlers.ArchiveResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
                         }
                     },
                     "404": {
@@ -2793,6 +3037,10 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "cover_page": {
+                    "description": "CoverPage is the 0-based page currently used for the archive's cover\n(see GetCover) - callers append it as a ` + "`" + `v` + "`" + ` query param on the cover\nimage URL to bust the cache when it changes without giving up the\nlong-lived immutable cache the rest of the time.",
+                    "type": "integer"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -2842,6 +3090,24 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                },
+                "urls": {
+                    "description": "URLs is populated on the single-archive response only (GET\n/api/archives/{id} and the metadata preview endpoints); list/search\nresponses leave it null to avoid an extra query per page.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.ArchiveURLResponse"
+                    }
+                }
+            }
+        },
+        "handlers.ArchiveURLResponse": {
+            "type": "object",
+            "properties": {
+                "source": {
+                    "type": "string"
+                },
+                "url": {
                     "type": "string"
                 }
             }
@@ -3068,6 +3334,10 @@ const docTemplate = `{
         "handlers.DuplicateArchive": {
             "type": "object",
             "properties": {
+                "cover_page": {
+                    "description": "CoverPage lets the frontend build the same cache-busted cover URL used\neverywhere else (see ArchiveResponse.CoverPage).",
+                    "type": "integer"
+                },
                 "distance": {
                     "description": "Distance is the mean per-point Hamming distance to whichever *other*\nmember of the group this archive matches most closely - lower means\nmore visually similar. In a chained group (A close to B, B close to C)\nthis reports the real match, not the distance to an arbitrary anchor.",
                     "type": "integer"
@@ -3378,6 +3648,14 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.SetCoverRequest": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                }
+            }
+        },
         "handlers.SetRatingRequest": {
             "type": "object",
             "properties": {
@@ -3482,6 +3760,12 @@ const docTemplate = `{
                 },
                 "title": {
                     "type": "string"
+                },
+                "urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -3637,6 +3921,13 @@ const docTemplate = `{
                 },
                 "title": {
                     "type": "string"
+                },
+                "urls": {
+                    "description": "URLs are the archive's source links (nhentai/e-hentai galleries,\nComicInfo \u003cWeb\u003e, hand-pasted). Unlike every other slice here they\nunion across pipeline sources rather than first-wins — see merge().",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

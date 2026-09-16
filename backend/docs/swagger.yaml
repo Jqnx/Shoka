@@ -29,6 +29,13 @@ definitions:
         items:
           type: string
         type: array
+      cover_page:
+        description: |-
+          CoverPage is the 0-based page currently used for the archive's cover
+          (see GetCover) - callers append it as a `v` query param on the cover
+          image URL to bust the cache when it changes without giving up the
+          long-lived immutable cache the rest of the time.
+        type: integer
       created_at:
         type: string
       file_path:
@@ -62,6 +69,21 @@ definitions:
       title:
         type: string
       updated_at:
+        type: string
+      urls:
+        description: |-
+          URLs is populated on the single-archive response only (GET
+          /api/archives/{id} and the metadata preview endpoints); list/search
+          responses leave it null to avoid an extra query per page.
+        items:
+          $ref: '#/definitions/handlers.ArchiveURLResponse'
+        type: array
+    type: object
+  handlers.ArchiveURLResponse:
+    properties:
+      source:
+        type: string
+      url:
         type: string
     type: object
   handlers.ArtistListResponse:
@@ -214,6 +236,11 @@ definitions:
     type: object
   handlers.DuplicateArchive:
     properties:
+      cover_page:
+        description: |-
+          CoverPage lets the frontend build the same cache-busted cover URL used
+          everywhere else (see ArchiveResponse.CoverPage).
+        type: integer
       distance:
         description: |-
           Distance is the mean per-point Hamming distance to whichever *other*
@@ -431,6 +458,11 @@ definitions:
       tags:
         $ref: '#/definitions/handlers.SearchEntityResponse'
     type: object
+  handlers.SetCoverRequest:
+    properties:
+      page:
+        type: integer
+    type: object
   handlers.SetRatingRequest:
     properties:
       rating:
@@ -502,6 +534,10 @@ definitions:
         type: array
       title:
         type: string
+      urls:
+        items:
+          type: string
+        type: array
     type: object
   handlers.UpdateArtistRequest:
     properties:
@@ -609,6 +645,14 @@ definitions:
         type: array
       title:
         type: string
+      urls:
+        description: |-
+          URLs are the archive's source links (nhentai/e-hentai galleries,
+          ComicInfo <Web>, hand-pasted). Unlike every other slice here they
+          union across pipeline sources rather than first-wins — see merge().
+        items:
+          type: string
+        type: array
     type: object
   metadata.SearchResult:
     properties:
@@ -663,6 +707,10 @@ paths:
       responses:
         "204":
           description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "500":
           description: Internal Server Error
           schema:
@@ -697,6 +745,10 @@ paths:
             items:
               $ref: '#/definitions/handlers.DuplicateGroup'
             type: array
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "500":
           description: Internal Server Error
           schema:
@@ -716,6 +768,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/handlers.JobSnapshot'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "500":
           description: Internal Server Error
           schema:
@@ -736,6 +792,10 @@ paths:
       responses:
         "200":
           description: OK
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "500":
           description: Internal Server Error
           schema:
@@ -763,6 +823,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "409":
           description: Conflict
           schema:
@@ -787,6 +851,10 @@ paths:
       responses:
         "204":
           description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "404":
           description: Not Found
           schema:
@@ -825,6 +893,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "404":
           description: Not Found
           schema:
@@ -849,6 +921,10 @@ paths:
       responses:
         "204":
           description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "404":
           description: Not Found
           schema:
@@ -871,6 +947,10 @@ paths:
       responses:
         "204":
           description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "404":
           description: Not Found
           schema:
@@ -899,6 +979,10 @@ paths:
             items:
               $ref: '#/definitions/handlers.LibrarySourceResponse'
             type: array
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "500":
           description: Internal Server Error
           schema:
@@ -936,6 +1020,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "500":
           description: Internal Server Error
           schema:
@@ -951,6 +1039,10 @@ paths:
       responses:
         "204":
           description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "500":
           description: Internal Server Error
           schema:
@@ -1063,6 +1155,10 @@ paths:
       responses:
         "204":
           description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "404":
           description: Not Found
           schema:
@@ -1104,6 +1200,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "404":
           description: Not Found
           schema:
@@ -1117,12 +1217,21 @@ paths:
       - archives
   /api/archives/{id}/cover:
     get:
+      description: Serves the thumbnail for archive.cover_page (page 0 by default,
+        or whichever page was chosen via PUT .../cover). Callers should include the
+        archive's cover_page as a `v` query param (see ArchiveResponse) to bust the
+        long-lived cache when the chosen page changes - the response itself ignores
+        the query string.
       parameters:
       - description: Archive ID
         in: path
         name: id
         required: true
         type: string
+      - description: Cache-busting version - the archive's current cover_page
+        in: query
+        name: v
+        type: integer
       produces:
       - image/webp
       responses:
@@ -1133,6 +1242,52 @@ paths:
           schema:
             $ref: '#/definitions/response.Error'
       summary: Get the cover thumbnail for an archive
+      tags:
+      - archives
+    put:
+      consumes:
+      - application/json
+      description: Changes archive.cover_page and enqueues thumbnail generation for
+        that page if it doesn't already have one. Deliberately a separate endpoint
+        from PATCH /api/archives/{id} - cover choice is presentation state, not metadata,
+        so a later metadata source fetch (which goes through that endpoint) can never
+        overwrite it.
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 0-based page index to use as the cover
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.SetCoverRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ArchiveResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Set which page is used as an archive's cover
       tags:
       - archives
   /api/archives/{id}/favorite:
@@ -1379,6 +1534,10 @@ paths:
           description: generation started
         "204":
           description: thumbnails already ready
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "404":
           description: Not Found
           schema:
@@ -1453,6 +1612,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "500":
           description: Internal Server Error
           schema:
@@ -1490,6 +1653,10 @@ paths:
             $ref: '#/definitions/handlers.BulkResult'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/response.Error'
         "500":
@@ -1699,6 +1866,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "409":
           description: Conflict
           schema:
@@ -1725,6 +1896,10 @@ paths:
           description: No Content
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/response.Error'
         "500":
@@ -1791,6 +1966,10 @@ paths:
             $ref: '#/definitions/handlers.ArtistResponse'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/response.Error'
         "404":
@@ -1902,6 +2081,10 @@ paths:
           description: No Content
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/response.Error'
         "500":
@@ -2036,6 +2219,10 @@ paths:
           description: No Content
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/response.Error'
         "500":
@@ -2226,6 +2413,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "500":
           description: Internal Server Error
           schema:
@@ -2253,6 +2444,10 @@ paths:
           description: No Content
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/response.Error'
         "500":
@@ -2355,6 +2550,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/metadata.Result'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "404":
           description: Not Found
           schema:
@@ -2387,6 +2586,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/metadata.Result'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "404":
           description: Not Found
           schema:
@@ -2427,6 +2630,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/handlers.ArchiveResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "404":
           description: Not Found
           schema:
@@ -2469,6 +2676,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "404":
           description: Not Found
           schema:
@@ -2492,6 +2703,10 @@ paths:
       responses:
         "204":
           description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
         "404":
           description: Not Found
           schema:
