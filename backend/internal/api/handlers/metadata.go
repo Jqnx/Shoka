@@ -65,6 +65,7 @@ func (h *MetadataHandler) GetSources(w http.ResponseWriter, r *http.Request) {
 //	@Produce		json
 //	@Param			id	path		string	true	"Archive ID"
 //	@Success		200	{object}	metadata.Result
+//	@Failure		403	{object}	response.Error
 //	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/archives/{id}/metadata [post]
@@ -102,6 +103,7 @@ func (h *MetadataHandler) FetchMetadata(w http.ResponseWriter, r *http.Request) 
 //	@Param			id		path		string	true	"Archive ID"
 //	@Param			source	path		string	true	"Source name (e.g. e-hentai, nhentai, comicinfo.xml)"
 //	@Success		200		{object}	metadata.Result
+//	@Failure		403		{object}	response.Error
 //	@Failure		404		{object}	response.Error
 //	@Failure		500		{object}	response.Error
 //	@Router			/archives/{id}/metadata/{source} [post]
@@ -149,6 +151,7 @@ func (h *MetadataHandler) FetchMetadataFromSource(w http.ResponseWriter, r *http
 //	@Tags			metadata
 //	@Param			id	path	string	true	"Archive ID"
 //	@Success		204
+//	@Failure		403	{object}	response.Error
 //	@Failure		404	{object}	response.Error
 //	@Failure		422	{object}	response.Error
 //	@Failure		500	{object}	response.Error
@@ -210,6 +213,7 @@ func (h *MetadataHandler) SaveMetadataToFile(w http.ResponseWriter, r *http.Requ
 //	@Param			source	path		string	true	"Source name"
 //	@Param			q		query		string	false	"Override search query (defaults to archive title)"
 //	@Success		200		{array}		metadata.SearchResult
+//	@Failure		403		{object}	response.Error
 //	@Failure		400		{object}	response.Error
 //	@Failure		404		{object}	response.Error
 //	@Failure		422		{object}	response.Error
@@ -263,6 +267,7 @@ func (h *MetadataHandler) SearchMetadataSource(w http.ResponseWriter, r *http.Re
 //	@Param			source	path	string	true	"Source name"
 //	@Param			source_id	path	string	true	"Source-specific result ID"
 //	@Success		200	{object}	ArchiveResponse
+//	@Failure		403	{object}	response.Error
 //	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/archives/{id}/metadata/{source}/{source_id} [post]

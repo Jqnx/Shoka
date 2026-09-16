@@ -4,11 +4,15 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import AddLibraryDialog from '$lib/components/add-library-dialog.svelte';
 	import { enhance } from '$app/forms';
+	import { page } from '$app/state';
+	import { can } from '$lib/auth/permissions';
 	import { cn } from '$lib/utils.js';
 	import type { Library } from '$lib/types';
 	import { Ellipsis, FolderOpen, ImageUp, RefreshCw, Settings, Trash2 } from '@lucide/svelte';
 
 	let { data, form } = $props();
+
+	const canCreate = $derived(can(page.data.user, { library: ['create'] }));
 
 	// The dialog lives outside the {#each} so it isn't torn down with the
 	// dropdown that opens it; the row is carried here instead.
@@ -31,7 +35,9 @@
 			<p class="mt-1 text-sm text-muted-foreground">Folders to scan for media.</p>
 		</div>
 
-		<AddLibraryDialog types={data.libraryTypes} />
+		{#if canCreate}
+			<AddLibraryDialog types={data.libraryTypes} />
+		{/if}
 	</div>
 
 	{#if form?.error}

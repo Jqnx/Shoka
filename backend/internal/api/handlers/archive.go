@@ -744,6 +744,7 @@ type UpdateArchiveRequest struct {
 //	@Param			id		path		string					true	"Archive ID"
 //	@Param			body	body	UpdateArchiveRequest	true	"Fields to update"
 //	@Success		200	{object}	ArchiveResponse
+//	@Failure		403	{object}	response.Error
 //	@Failure		400	{object}	response.Error
 //	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
@@ -864,6 +865,7 @@ func (h *ArchiveHandler) UpdateArchive(w http.ResponseWriter, r *http.Request) {
 //	@Param			id			path	string	true	"Archive ID"
 //	@Param			delete_file	query	bool	false	"Also delete the archive file from disk"	default(false)
 //	@Success		204
+//	@Failure		403	{object}	response.Error
 //	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/archives/{id} [delete]
@@ -1392,6 +1394,7 @@ type SetCoverRequest struct {
 //	@Param			id		path		string				true	"Archive ID"
 //	@Param			body	body		SetCoverRequest	true	"0-based page index to use as the cover"
 //	@Success		200	{object}	ArchiveResponse
+//	@Failure		403	{object}	response.Error
 //	@Failure		400	{object}	response.Error
 //	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
@@ -1591,6 +1594,7 @@ func (h *ArchiveHandler) GetPageThumbnail(w http.ResponseWriter, r *http.Request
 //	@Param			id	path	string	true	"Archive ID"
 //	@Success		202	{object}	nil	"generation started"
 //	@Success		204	{object}	nil	"thumbnails already ready"
+//	@Failure		403	{object}	response.Error
 //	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/archives/{id}/thumbnails [post]

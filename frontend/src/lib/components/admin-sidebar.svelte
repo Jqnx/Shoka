@@ -10,26 +10,44 @@
 		House,
 		LayoutDashboard,
 		Library,
+		UsersRound,
 		Wrench
 	} from '@lucide/svelte';
-	import type { User } from 'better-auth';
 	import type { ComponentProps } from 'svelte';
+	import { can, type Permissions } from '$lib/auth/permissions';
 
 	let {
 		ref = $bindable(null),
 		user,
 		...restProps
-	}: ComponentProps<typeof Sidebar.Root> & { user: User } = $props();
+	}: ComponentProps<typeof Sidebar.Root> & { user: NonNullable<App.Locals['user']> } = $props();
 
 	const generalLinks = [{ path: '/', label: 'Home', icon: House }];
 
-	const managementLinks = [
+	type NavLink = { path: string; label: string; icon: typeof House; needs?: Permissions };
+
+	const allManagementLinks: NavLink[] = [
 		{ path: '/admin', label: 'Overview', icon: LayoutDashboard },
-		{ path: '/admin/libraries', label: 'Libraries', icon: Library },
-		{ path: '/admin/duplicates', label: 'Duplicates', icon: CopyCheck },
-		{ path: '/admin/jobs', label: 'Jobs', icon: Activity },
-		{ path: '/admin/maintenance', label: 'Maintenance', icon: Wrench }
+		{ path: '/admin/libraries', label: 'Libraries', icon: Library, needs: { library: ['read'] } },
+		{
+			path: '/admin/duplicates',
+			label: 'Duplicates',
+			icon: CopyCheck,
+			needs: { maintenance: ['read'] }
+		},
+		{ path: '/admin/jobs', label: 'Jobs', icon: Activity, needs: { job: ['read'] } },
+		{
+			path: '/admin/maintenance',
+			label: 'Maintenance',
+			icon: Wrench,
+			needs: { maintenance: ['read'] }
+		},
+		{ path: '/admin/users', label: 'Users', icon: UsersRound, needs: { user: ['list'] } }
 	];
+
+	const managementLinks = $derived(
+		allManagementLinks.filter((link) => !link.needs || can(user, link.needs))
+	);
 </script>
 
 {#snippet navMenu(links: typeof generalLinks)}
@@ -58,7 +76,7 @@
 					{#snippet child({ props })}
 						<a href={resolve('/')} {...props}>
 							<div
-								class="bg-sidebar-primary text-sidebar-primary-foreground flex aspect-square size-8 items-center justify-center rounded-lg"
+								class="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground"
 							>
 								<BookOpen class="size-4" />
 							</div>

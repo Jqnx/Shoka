@@ -9,16 +9,28 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import BulkEditDialog from '$lib/components/BulkEditDialog.svelte';
-	import { Search, CheckSquare, Square, Ellipsis, Check, RotateCcw, Sparkles } from '@lucide/svelte';
+	import {
+		Search,
+		CheckSquare,
+		Square,
+		Ellipsis,
+		Check,
+		RotateCcw,
+		Sparkles
+	} from '@lucide/svelte';
 	import { enhance } from '$app/forms';
 	import type { ActionResult } from '@sveltejs/kit';
 	import { cn } from '$lib/utils.js';
 	import { goto, afterNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { can } from '$lib/auth/permissions';
 	import { SvelteSet } from 'svelte/reactivity';
 
 	let { data, form } = $props();
+
+	const canEdit = $derived(can(page.data.user, { archive: ['update'] }));
+	const canFetchMetadata = $derived(can(page.data.user, { metadata: ['fetch'] }));
 
 	let selectionMode = $state(false);
 	let bulkPending = $state(false);
@@ -47,9 +59,7 @@
 
 	// Lowest priority number first, matching the order the pipeline itself
 	// would try them in.
-	const sourceOptions = $derived(
-		[...data.metadataSources].sort((a, b) => a.priority - b.priority)
-	);
+	const sourceOptions = $derived([...data.metadataSources].sort((a, b) => a.priority - b.priority));
 	const identifySourceLabel = $derived(
 		identifySource === ALL_SOURCES ? 'All sources' : identifySource
 	);
@@ -60,9 +70,7 @@
 		identify: 'queued for identification',
 		edit: 'updated'
 	};
-	const allSelected = $derived(
-		data.archives.length > 0 && selectedCount === data.archives.length
-	);
+	const allSelected = $derived(data.archives.length > 0 && selectedCount === data.archives.length);
 
 	function exitSelection() {
 		selectionMode = false;
@@ -96,13 +104,7 @@
 	// retry without rebuilding it.
 	function bulkSubmit() {
 		bulkPending = true;
-		return async ({
-			result,
-			update
-		}: {
-			result: ActionResult;
-			update: () => Promise<void>;
-		}) => {
+		return async ({ result, update }: { result: ActionResult; update: () => Promise<void> }) => {
 			await update();
 			bulkPending = false;
 			if (result.type !== 'failure') {
@@ -164,9 +166,7 @@
 						{selectedCount}
 						{selectedCount === 1 ? 'archive' : 'archives'} selected
 					</h1>
-					<p class="text-sm text-muted-foreground">
-						Press Esc to exit.
-					</p>
+					<p class="text-sm text-muted-foreground">Press Esc to exit.</p>
 				{:else}
 					<h1 class="text-base font-semibold">{data.library.name}</h1>
 					<p class="text-sm text-muted-foreground">
@@ -178,16 +178,18 @@
 
 			<div class="flex items-center gap-2">
 				{#if selectionMode}
-					<BulkEditDialog
-						ids={selectedList}
-						categories={data.categories}
-						languages={data.languages}
-						allArtists={data.artists}
-						allTags={data.tags}
-						allCharacters={data.characters}
-						allParodies={data.parodies}
-						onDone={exitSelection}
-					/>
+					{#if canEdit}
+						<BulkEditDialog
+							ids={selectedList}
+							categories={data.categories}
+							languages={data.languages}
+							allArtists={data.artists}
+							allTags={data.tags}
+							allCharacters={data.characters}
+							allParodies={data.parodies}
+							onDone={exitSelection}
+						/>
+					{/if}
 
 					<DropdownMenu.Root>
 						<DropdownMenu.Trigger>
@@ -201,14 +203,13 @@
 						<DropdownMenu.Content align="end" class="min-w-44">
 							{@render bulkItem('?/bulkProgress', 'Mark as read', Check, 'true')}
 							{@render bulkItem('?/bulkProgress', 'Mark as unread', RotateCcw, 'false')}
-							<DropdownMenu.Separator />
-							<DropdownMenu.Item
-								disabled={bulkPending}
-								onSelect={() => (identifyOpen = true)}
-							>
-								<Sparkles />
-								Identify
-							</DropdownMenu.Item>
+							{#if canFetchMetadata}
+								<DropdownMenu.Separator />
+								<DropdownMenu.Item disabled={bulkPending} onSelect={() => (identifyOpen = true)}>
+									<Sparkles />
+									Identify
+								</DropdownMenu.Item>
+							{/if}
 						</DropdownMenu.Content>
 					</DropdownMenu.Root>
 
@@ -239,9 +240,7 @@
 								>
 									<Select.Trigger class="w-full">{identifySourceLabel}</Select.Trigger>
 									<Select.Content>
-										<Select.Item value={ALL_SOURCES} label="All sources">
-											All sources
-										</Select.Item>
+										<Select.Item value={ALL_SOURCES} label="All sources">All sources</Select.Item>
 										{#each sourceOptions as source (source.name)}
 											<Select.Item
 												value={source.name}
@@ -298,7 +297,11 @@
 						{/if}
 					</Button>
 				{:else}
-					<Select.Root type="single" value={sortValue} onValueChange={(v) => updateParam('sort', v)}>
+					<Select.Root
+						type="single"
+						value={sortValue}
+						onValueChange={(v) => updateParam('sort', v)}
+					>
 						<Select.Trigger class="h-8 w-[190px]">
 							{sortLabel}
 						</Select.Trigger>

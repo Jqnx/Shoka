@@ -145,6 +145,7 @@ type CreateLibraryRequest struct {
 //	@Accept			json
 //	@Param			body	body	CreateLibraryRequest	true	"Library to create"
 //	@Success		201	{object}	LibraryResponse
+//	@Failure		403	{object}	response.Error
 //	@Failure		400	{object}	response.Error
 //	@Failure		409	{object}	response.Error
 //	@Failure		500	{object}	response.Error
@@ -276,6 +277,7 @@ type UpdateLibraryRequest struct {
 //	@Param			id		path		string					true	"Library ID"
 //	@Param			body	body	UpdateLibraryRequest	true	"Fields to update"
 //	@Success		200	{object}	LibraryResponse
+//	@Failure		403	{object}	response.Error
 //	@Failure		400	{object}	response.Error
 //	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
@@ -355,6 +357,7 @@ func (h *LibraryHandler) UpdateLibrary(w http.ResponseWriter, r *http.Request) {
 //	@Tags			admin
 //	@Param			id	path	string	true	"Library ID"
 //	@Success		204
+//	@Failure		403	{object}	response.Error
 //	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/admin/libraries/{id} [delete]
@@ -391,6 +394,7 @@ func (h *LibraryHandler) DeleteLibrary(w http.ResponseWriter, r *http.Request) {
 //	@Tags			admin
 //	@Param			id	path	string	true	"Library ID"
 //	@Success		204
+//	@Failure		403	{object}	response.Error
 //	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/admin/libraries/{id}/scan [post]
@@ -426,6 +430,7 @@ func (h *LibraryHandler) ScanLibrary(w http.ResponseWriter, r *http.Request) {
 //	@Tags			admin
 //	@Param			id	path	string	true	"Library ID"
 //	@Success		204
+//	@Failure		403	{object}	response.Error
 //	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/admin/libraries/{id}/covers [post]
@@ -481,6 +486,7 @@ type LibrarySourceResponse struct {
 //	@Produce		json
 //	@Param			id	path		string	true	"Library ID"
 //	@Success		200	{array}		LibrarySourceResponse
+//	@Failure		403	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/admin/libraries/{id}/sources [get]
 func (h *LibraryHandler) GetLibrarySources(w http.ResponseWriter, r *http.Request) {
@@ -538,6 +544,7 @@ type UpdateLibrarySourceRequest struct {
 //	@Param			source	path		string						true	"Source name (e.g. nhentai, e-hentai, comicinfo, filename)"
 //	@Param			body	body	UpdateLibrarySourceRequest	true	"Source settings"
 //	@Success		200	{object}	LibrarySourceResponse
+//	@Failure		403	{object}	response.Error
 //	@Failure		400	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/admin/libraries/{id}/sources/{source} [patch]

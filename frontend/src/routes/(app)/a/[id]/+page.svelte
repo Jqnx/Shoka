@@ -32,9 +32,15 @@
 		Trash2,
 		ImageMinus
 	} from '@lucide/svelte';
+	import { can } from '$lib/auth/permissions';
 
 	let { data, form } = $props();
 	const a = $derived(data.archive);
+
+	const canEdit = $derived(can(page.data.user, { archive: ['update'] }));
+	const canDelete = $derived(can(page.data.user, { archive: ['delete'] }));
+	const canSetCover = $derived(can(page.data.user, { archive: ['cover'] }));
+	const canWriteMetadata = $derived(can(page.data.user, { metadata: ['write'] }));
 
 	let markingRead = $state(false);
 	let markingUnread = $state(false);
@@ -173,16 +179,18 @@
 							<Heart class={cn('size-4', a.is_favorited && 'fill-red-500 stroke-red-500')} />
 						</Button>
 					</form>
-					<EditArchiveSheet
-						archive={a}
-						{libraryId}
-						categories={data.categories}
-						languages={data.languages}
-						allArtists={data.allArtists}
-						allTags={data.allTags}
-						allCharacters={data.allCharacters}
-						allParodies={data.allParodies}
-					/>
+					{#if canEdit}
+						<EditArchiveSheet
+							archive={a}
+							{libraryId}
+							categories={data.categories}
+							languages={data.languages}
+							allArtists={data.allArtists}
+							allTags={data.allTags}
+							allCharacters={data.allCharacters}
+							allParodies={data.allParodies}
+						/>
+					{/if}
 					<DropdownMenu.Root>
 						<DropdownMenu.Trigger>
 							{#snippet child({ props })}
@@ -233,57 +241,63 @@
 									{/snippet}
 								</DropdownMenu.Item>
 							</form>
-							<form
-								method="POST"
-								action="?/saveMetadata"
-								use:enhance={() => {
-									savingMetadata = true;
-									return async ({ update }) => {
-										savingMetadata = false;
-										await update();
-									};
-								}}
-							>
-								<DropdownMenu.Item disabled={savingMetadata}>
-									{#snippet child({ props })}
-										<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
-											<Save />
-											{savingMetadata ? 'Saving…' : 'Save metadata to file'}
-										</button>
-									{/snippet}
+							{#if canWriteMetadata}
+								<form
+									method="POST"
+									action="?/saveMetadata"
+									use:enhance={() => {
+										savingMetadata = true;
+										return async ({ update }) => {
+											savingMetadata = false;
+											await update();
+										};
+									}}
+								>
+									<DropdownMenu.Item disabled={savingMetadata}>
+										{#snippet child({ props })}
+											<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
+												<Save />
+												{savingMetadata ? 'Saving…' : 'Save metadata to file'}
+											</button>
+										{/snippet}
+									</DropdownMenu.Item>
+								</form>
+							{/if}
+							{#if canSetCover}
+								<form
+									method="POST"
+									action="?/resetCover"
+									use:enhance={() => {
+										resettingCover = true;
+										return async ({ update }) => {
+											resettingCover = false;
+											await update();
+										};
+									}}
+								>
+									<DropdownMenu.Item disabled={a.cover_page === 0 || resettingCover}>
+										{#snippet child({ props })}
+											<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
+												<ImageMinus />
+												{resettingCover ? 'Resetting…' : 'Reset cover'}
+											</button>
+										{/snippet}
+									</DropdownMenu.Item>
+								</form>
+							{/if}
+							{#if canDelete}
+								<DropdownMenu.Separator />
+								<DropdownMenu.Item
+									variant="destructive"
+									onSelect={() => {
+										deleteFileToo = false;
+										deleteDialogOpen = true;
+									}}
+								>
+									<Trash2 />
+									Delete
 								</DropdownMenu.Item>
-							</form>
-							<form
-								method="POST"
-								action="?/resetCover"
-								use:enhance={() => {
-									resettingCover = true;
-									return async ({ update }) => {
-										resettingCover = false;
-										await update();
-									};
-								}}
-							>
-								<DropdownMenu.Item disabled={a.cover_page === 0 || resettingCover}>
-									{#snippet child({ props })}
-										<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
-											<ImageMinus />
-											{resettingCover ? 'Resetting…' : 'Reset cover'}
-										</button>
-									{/snippet}
-								</DropdownMenu.Item>
-							</form>
-							<DropdownMenu.Separator />
-							<DropdownMenu.Item
-								variant="destructive"
-								onSelect={() => {
-									deleteFileToo = false;
-									deleteDialogOpen = true;
-								}}
-							>
-								<Trash2 />
-								Delete
-							</DropdownMenu.Item>
+							{/if}
 						</DropdownMenu.Content>
 					</DropdownMenu.Root>
 

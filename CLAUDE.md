@@ -56,6 +56,10 @@ make tidy   # Go module cleanup
   - `Manager.runScheduler` (`scheduler.go`) polls `ListLibrariesDueForScan` every minute and enqueues via `EnqueueOnce`. Due-ness is measured from `library.last_scanned_at`, which `ScanLibrary` sets after every scan *attempt* — including failures, so a library that can't be scanned doesn't get re-enqueued on every tick.
   - Watchers hang off `Manager.baseCtx` (captured in `Start`), never a request context — deriving one from `r.Context()` kills the watcher when the HTTP response is written.
 - **Metadata pipeline**: `internal/metadata/` — pluggable sources (ComicInfo XML, filename parsing, e-Hentai, nHentai)
+- **Authorization (RBAC)**: two roles, `user` (default) and `admin`. `authMiddleware` resolves the session's role/banned flag from the shared `user` table and puts the role on the request context; `requirePermission(resource, action)` in `internal/api/middleware.go` gates each mutating route in `routes.go`. Reads are ungated for any authenticated user, and per-user data (progress, favourites, ratings, reader settings) is scoped by `auth.UserIDFromContext` rather than by role.
+  - The role matrix lives in **two** places and must be kept in sync: `backend/internal/auth/rbac.go` and `frontend/src/lib/auth/permissions.ts` (the canonical better-auth `createAccessControl` definition). The frontend copy only hides UI and guards loads/actions — the Go copy is what actually enforces, because `hooks.server.ts` proxies `/api/*` straight through without consulting `locals.user`, and several components call the API directly from the browser.
+  - `internal/auth/rbac_test.go` locks the mirror down: every permission referenced by a route must exist in the statement set, and every statement must be granted by some role. Add a permission on one side and the test tells you about the other.
+  - The `role`/`banned` columns are **frontend-owned** (better-auth `admin` plugin, Drizzle migration `frontend/drizzle/0003_*`). Go only reads them — do not add a Goose migration for them.
 - **Config**: `viper` loading from `data/config.yaml` with env overrides (`HOST`, `PORT`, `LOG_LEVEL`)
 
 ### Frontend (`/frontend`)
@@ -64,6 +68,9 @@ make tidy   # Go module cleanup
 - **Database**: SQLite3 with WAL mode - shared with backend
 - **Auth**: Better-Auth with Drizzle ORM
   - Prefer JWT auth over sessions
+  - The `admin` plugin provides roles/bans. `src/lib/auth/permissions.ts` holds the canonical statement set plus `can(user, …)` / `canAccessAdmin(user)` — it lives outside `$lib/server/` on purpose so components can hide controls with it. Mirrored in `backend/internal/auth/rbac.go` (see the backend RBAC note above).
+  - The first account created becomes `admin` via a root-level `databaseHooks.user.create.before` in `auth.ts`; every later signup gets `user`. Signup stays publicly open.
+  - A load guard does **not** protect a form action — guard both. Admin routes re-check their own permission in each `+page.server.ts` load *and* in every mutating action.
 - **Styling**: Tailwind CSS 4 and shadcn-svelte
 - **Theming**: per-user, frontend-only (the Go backend never reads it). Built-in
   palettes live in `src/lib/themes/presets/*`; the canonical token list is

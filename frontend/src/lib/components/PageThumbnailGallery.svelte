@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { ImageOff } from '@lucide/svelte';
+	import { can } from '$lib/auth/permissions';
 
 	let {
 		archiveId,
@@ -29,7 +31,11 @@
 			return;
 		}
 
-		fetch(`/api/archives/${archiveId}/thumbnails`, { method: 'POST' }).catch(() => {});
+		// The stream is readable by anyone, so a user without generation rights
+		// still fills in whatever an admin has already kicked off.
+		if (can(page.data.user, { archive: ['thumbnail'] })) {
+			fetch(`/api/archives/${archiveId}/thumbnails`, { method: 'POST' }).catch(() => {});
+		}
 
 		const source = new EventSource(`/api/archives/${archiveId}/thumbnails/events`);
 

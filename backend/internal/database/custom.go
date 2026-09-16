@@ -5,38 +5,49 @@ import (
 	"Shoka/internal/metadata"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 )
 
-// GetSession looks up a Better Auth session token and returns the owning user ID.
-// Returns ("", nil) if the token does not exist or has expired.
-func GetSession(ctx context.Context, db *sql.DB, token string) (string, error) {
+// Session is the authenticated caller resolved from a Better Auth session
+// token. Role and Banned come from the frontend-owned admin plugin columns.
+type Session struct {
+	UserID string
+	Role   string
+	Banned bool
+}
+
+// GetSession looks up a Better Auth session token and returns the owning user.
+// Returns (nil, nil) if the token does not exist or has expired.
+func GetSession(ctx context.Context, db *sql.DB, token string) (*Session, error) {
 	var (
-		userID    string
+		session   Session
 		expiresAt int64
 	)
 
 	err := db.QueryRowContext(ctx, `
-        SELECT user_id, expires_at
-        FROM session
-        WHERE token = ?
+        SELECT s.user_id, s.expires_at,
+               COALESCE(u.role, 'user'), COALESCE(u.banned, 0)
+        FROM session s
+        JOIN user u ON u.id = s.user_id
+        WHERE s.token = ?
         LIMIT 1
-    `, token).Scan(&userID, &expiresAt)
+    `, token).Scan(&session.UserID, &expiresAt, &session.Role, &session.Banned)
 
-	if err == sql.ErrNoRows {
-		return "", nil
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
 	}
 
 	if err != nil {
-		return "", fmt.Errorf("session lookup: %w", err)
+		return nil, fmt.Errorf("session lookup: %w", err)
 	}
 
 	if time.Now().After(time.UnixMilli(expiresAt)) {
-		return "", nil
+		return nil, nil
 	}
 
-	return userID, nil
+	return &session, nil
 }
 
 func GetArchiveMetadata(ctx context.Context, q *sqlc.Queries, archiveID string) (*metadata.Result, error) {

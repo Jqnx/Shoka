@@ -239,6 +239,7 @@ type UpdateTagDescriptionRequest struct {
 //	@Param			id		path	int							true	"Tag ID"
 //	@Param			body	body	UpdateTagDescriptionRequest	true	"Description"
 //	@Success		204
+//	@Failure		403	{object}	response.Error
 //	@Failure		400	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/tags/{id} [patch]
@@ -274,6 +275,7 @@ func (h *TagHandler) UpdateTagDescription(w http.ResponseWriter, r *http.Request
 //	@Tags			tags
 //	@Param			id	path	int	true	"Tag ID"
 //	@Success		204
+//	@Failure		403	{object}	response.Error
 //	@Failure		400	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/tags/{id} [delete]

@@ -265,6 +265,7 @@ type CreateArtistRequest struct {
 //	@Produce		json
 //	@Param			body	body	CreateArtistRequest	true	"Artist to create"
 //	@Success		201	{object}	ArtistResponse
+//	@Failure		403	{object}	response.Error
 //	@Failure		400	{object}	response.Error
 //	@Failure		409	{object}	response.Error
 //	@Failure		500	{object}	response.Error
@@ -369,6 +370,7 @@ type UpdateArtistRequest struct {
 //	@Param			id		path		int						true	"Artist ID"
 //	@Param			body	body	UpdateArtistRequest	true	"Fields to update"
 //	@Success		200	{object}	ArtistResponse
+//	@Failure		403	{object}	response.Error
 //	@Failure		400	{object}	response.Error
 //	@Failure		404	{object}	response.Error
 //	@Failure		409	{object}	response.Error
@@ -500,6 +502,7 @@ func (h *ArtistHandler) UpdateArtist(w http.ResponseWriter, r *http.Request) {
 //	@Tags			artists
 //	@Param			id	path	int	true	"Artist ID"
 //	@Success		204
+//	@Failure		403	{object}	response.Error
 //	@Failure		400	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/artists/{id} [delete]

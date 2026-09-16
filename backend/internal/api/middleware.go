@@ -19,14 +19,37 @@ func authMiddleware(db *sql.DB) func(http.Handler) http.Handler {
 				return
 			}
 
-			userID, err := database.GetSession(r.Context(), db, token)
-			if err != nil || userID == "" {
+			session, err := database.GetSession(r.Context(), db, token)
+			if err != nil || session == nil {
 				response.Unauthorized(w)
 				return
 			}
 
-			ctx := auth.WithUserID(r.Context(), userID)
+			// Banning deletes the user's sessions, so this is normally
+			// unreachable - it's here so a stale token can't outlive a ban.
+			if session.Banned {
+				response.Forbidden(w, "account is banned")
+				return
+			}
+
+			ctx := auth.WithRole(auth.WithUserID(r.Context(), session.UserID), session.Role)
 			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
+}
+
+// requirePermission gates a route behind the role matrix in internal/auth.
+// Must be mounted inside the authMiddleware group - it reads the role that
+// puts on the request context.
+func requirePermission(resource, action string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !auth.Can(auth.RoleFromContext(r.Context()), resource, action) {
+				response.Forbidden(w, "insufficient permissions")
+				return
+			}
+
+			next.ServeHTTP(w, r)
 		})
 	}
 }

@@ -177,6 +177,7 @@ type BulkMetadataRequest struct {
 //	@Produce		json
 //	@Param			body	body	BulkMetadataRequest	true	"Archives to identify, optionally pinned to one source"
 //	@Success		202	{object}	BulkResult
+//	@Failure		403	{object}	response.Error
 //	@Failure		400	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/archives/bulk/metadata [post]
@@ -347,6 +348,7 @@ func mergeNames(existing, add []string) []string {
 //	@Produce		json
 //	@Param			body	body	BulkUpdateArchivesRequest	true	"Archives and relations to add"
 //	@Success		200	{object}	BulkResult
+//	@Failure		403	{object}	response.Error
 //	@Failure		400	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/archives/bulk [patch]

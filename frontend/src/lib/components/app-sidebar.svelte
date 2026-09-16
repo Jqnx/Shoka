@@ -13,9 +13,9 @@
 		Tags,
 		Users
 	} from '@lucide/svelte';
-	import type { User } from 'better-auth';
 	import type { Library as LibraryType } from '$lib/types';
 	import type { ComponentProps } from 'svelte';
+	import { canAccessAdmin } from '$lib/auth/permissions';
 
 	let {
 		ref = $bindable(null),
@@ -23,13 +23,15 @@
 		libraries,
 		...restProps
 	}: ComponentProps<typeof Sidebar.Root> & {
-		user: User;
+		user: NonNullable<App.Locals['user']>;
 		libraries: LibraryType[];
 	} = $props();
 
 	const generalLinks = [{ path: '/', label: 'Home', icon: House }];
 
-	const adminLinks = [{ path: '/admin', label: 'Admin', icon: Settings }];
+	const adminLinks = $derived(
+		canAccessAdmin(user) ? [{ path: '/admin', label: 'Admin', icon: Settings }] : []
+	);
 
 	const metadataLinks = [
 		{ path: '/artist', label: 'Artists', icon: Paintbrush },

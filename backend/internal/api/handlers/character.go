@@ -229,6 +229,7 @@ func (h *CharacterHandler) GetArchivesByCharacter(w http.ResponseWriter, r *http
 //	@Tags			characters
 //	@Param			id	path	int	true	"Character ID"
 //	@Success		204
+//	@Failure		403	{object}	response.Error
 //	@Failure		400	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/characters/{id} [delete]

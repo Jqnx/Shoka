@@ -30,6 +30,7 @@ func NewAdminHandler(queries *sqlc.Queries, queue *jobs.Queue, logger *slog.Logg
 //	@Summary		Enqueue cover generation for all archives
 //	@Tags			admin
 //	@Success		204
+//	@Failure		403	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/admin/covers [post]
 func (h *AdminHandler) GenerateCovers(w http.ResponseWriter, r *http.Request) {
@@ -60,6 +61,7 @@ func (h *AdminHandler) GenerateCovers(w http.ResponseWriter, r *http.Request) {
 //	@Description	Backfills the hashes GET /api/admin/duplicates compares. Safe to re-run - each job overwrites that archive's hashes in place, so this is also how you re-hash the library after a change to which pages get sampled.
 //	@Tags			admin
 //	@Success		204
+//	@Failure		403	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/admin/phashes [post]
 func (h *AdminHandler) GeneratePHashes(w http.ResponseWriter, r *http.Request) {
@@ -154,6 +156,7 @@ func comparePHashes(a, b [4]*int64, threshold int) (mean, compared int, matched 
 //	@Produce		json
 //	@Param			threshold	query		int	false	"Max per-point Hamming distance (0-20) for a sample point to count as matching"	default(8)
 //	@Success		200			{array}		DuplicateGroup
+//	@Failure		403			{object}	response.Error
 //	@Failure		500			{object}	response.Error
 //	@Router			/api/admin/duplicates [get]
 func (h *AdminHandler) GetDuplicates(w http.ResponseWriter, r *http.Request) {

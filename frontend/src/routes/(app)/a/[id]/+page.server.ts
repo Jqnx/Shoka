@@ -2,6 +2,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { Archive, ArchiveLanguage, Artist, Character, Parody, Tag } from '$lib/types';
 import { errorMessage } from '$lib/server/api';
+import { can } from '$lib/auth/permissions';
 
 export const load: PageServerLoad = async ({ fetch, params }) => {
 	const [archiveRes, categoriesRes, languagesRes, artistsRes, tagsRes, charactersRes, parodiesRes] =
@@ -29,7 +30,11 @@ export const load: PageServerLoad = async ({ fetch, params }) => {
 };
 
 export const actions: Actions = {
-	update: async ({ request, fetch, params }) => {
+	update: async ({ request, fetch, params, locals }) => {
+		if (!can(locals.user, { archive: ['update'] })) {
+			return fail(403, { error: 'You cannot edit archives.' });
+		}
+
 		const form = await request.formData();
 
 		const title = String(form.get('title') ?? '').trim();
@@ -173,7 +178,11 @@ export const actions: Actions = {
 		return { action: 'clearRating' as const, success: true };
 	},
 
-	resetCover: async ({ fetch, params }) => {
+	resetCover: async ({ fetch, params, locals }) => {
+		if (!can(locals.user, { archive: ['cover'] })) {
+			return fail(403, { action: 'resetCover' as const, error: 'You cannot change covers.' });
+		}
+
 		const res = await fetch(`/api/archives/${params.id}/cover`, {
 			method: 'PUT',
 			headers: { 'content-type': 'application/json' },
@@ -190,7 +199,11 @@ export const actions: Actions = {
 		return { action: 'resetCover' as const, success: true };
 	},
 
-	saveMetadata: async ({ fetch, params }) => {
+	saveMetadata: async ({ fetch, params, locals }) => {
+		if (!can(locals.user, { metadata: ['write'] })) {
+			return fail(403, { action: 'saveMetadata' as const, error: 'You cannot write metadata.' });
+		}
+
 		const res = await fetch(`/api/archives/${params.id}/metadata/save`, { method: 'POST' });
 
 		if (!res.ok) {
@@ -203,7 +216,11 @@ export const actions: Actions = {
 		return { action: 'saveMetadata' as const, success: true };
 	},
 
-	deleteArchive: async ({ request, fetch, params, url }) => {
+	deleteArchive: async ({ request, fetch, params, url, locals }) => {
+		if (!can(locals.user, { archive: ['delete'] })) {
+			return fail(403, { action: 'deleteArchive' as const, error: 'You cannot delete archives.' });
+		}
+
 		const form = await request.formData();
 		const deleteFile = form.get('delete_file') === 'true';
 

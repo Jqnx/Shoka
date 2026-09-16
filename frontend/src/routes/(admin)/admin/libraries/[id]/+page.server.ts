@@ -2,8 +2,11 @@ import { error, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { Library, LibrarySource } from '$lib/types';
 import { errorMessage } from '$lib/server/api';
+import { can } from '$lib/auth/permissions';
 
-export const load: PageServerLoad = async ({ fetch, params }) => {
+export const load: PageServerLoad = async ({ fetch, params, locals }) => {
+	if (!can(locals.user, { library: ['read'] })) error(403, 'You cannot manage libraries.');
+
 	const [librariesRes, sourcesRes] = await Promise.all([
 		fetch('/api/libraries'),
 		fetch(`/api/admin/libraries/${params.id}/sources`)
@@ -19,7 +22,11 @@ export const load: PageServerLoad = async ({ fetch, params }) => {
 };
 
 export const actions: Actions = {
-	updateGeneral: async ({ request, fetch, params }) => {
+	updateGeneral: async ({ request, fetch, params, locals }) => {
+		if (!can(locals.user, { library: ['update'] })) {
+			return fail(403, { action: 'updateGeneral' as const, error: 'You cannot update libraries.' });
+		}
+
 		const form = await request.formData();
 		const name = String(form.get('name') ?? '').trim();
 
@@ -55,9 +62,18 @@ export const actions: Actions = {
 		return { action: 'updateGeneral' as const, success: true };
 	},
 
-	updateSource: async ({ request, fetch, params }) => {
+	updateSource: async ({ request, fetch, params, locals }) => {
 		const form = await request.formData();
 		const source = String(form.get('source') ?? '');
+
+		if (!can(locals.user, { library: ['update'] })) {
+			return fail(403, {
+				action: 'updateSource' as const,
+				source,
+				error: 'You cannot update libraries.'
+			});
+		}
+
 		const enabled = form.get('enabled') === 'true';
 		const cookies = String(form.get('cookies') ?? '');
 		const apiKey = String(form.get('api_key') ?? '');

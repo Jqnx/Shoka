@@ -9,6 +9,8 @@
 	import MetadataFetchDialog from '$lib/components/MetadataFetchDialog.svelte';
 	import { Pencil } from '@lucide/svelte';
 	import { enhance, applyAction } from '$app/forms';
+	import { page } from '$app/state';
+	import { can } from '$lib/auth/permissions';
 	import {
 		sourceLinkUrls,
 		type Archive,
@@ -58,6 +60,8 @@
 	function resolveLanguageCode(name: string | null) {
 		return languages.find((l) => l.name === name)?.code ?? '';
 	}
+
+	const canFetchMetadata = $derived(can(page.data.user, { metadata: ['fetch'] }));
 
 	let open = $state(false);
 	let saving = $state(false);
@@ -160,27 +164,29 @@
 			>
 		</Sheet.Header>
 
-		<div class="px-4 pb-4">
-			<MetadataFetchDialog
-				archiveId={archive.id}
-				{libraryId}
-				current={{
-					title,
-					summary,
-					category,
-					language: languageValue,
-					releaseDate,
-					artists,
-					tags,
-					parodies,
-					circles,
-					characters,
-					urls
-				}}
-				{languages}
-				onApply={applyFetchedMetadata}
-			/>
-		</div>
+		{#if canFetchMetadata}
+			<div class="px-4 pb-4">
+				<MetadataFetchDialog
+					archiveId={archive.id}
+					{libraryId}
+					current={{
+						title,
+						summary,
+						category,
+						language: languageValue,
+						releaseDate,
+						artists,
+						tags,
+						parodies,
+						circles,
+						characters,
+						urls
+					}}
+					{languages}
+					onApply={applyFetchedMetadata}
+				/>
+			</div>
+		{/if}
 
 		<form
 			method="POST"

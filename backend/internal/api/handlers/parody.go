@@ -229,6 +229,7 @@ func (h *ParodyHandler) GetArchivesByParody(w http.ResponseWriter, r *http.Reque
 //	@Tags			parodies
 //	@Param			id	path	int	true	"Parody ID"
 //	@Success		204
+//	@Failure		403	{object}	response.Error
 //	@Failure		400	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/parodies/{id} [delete]

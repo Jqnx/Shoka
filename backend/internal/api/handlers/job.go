@@ -161,6 +161,7 @@ func (h *JobHandler) snapshot(ctx context.Context) (*JobSnapshot, error) {
 //	@Tags			admin
 //	@Produce		json
 //	@Success		200	{object}	JobSnapshot
+//	@Failure		403	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/admin/jobs [get]
 func (h *JobHandler) GetJobs(w http.ResponseWriter, r *http.Request) {
@@ -182,6 +183,7 @@ func (h *JobHandler) GetJobs(w http.ResponseWriter, r *http.Request) {
 //	@Tags			admin
 //	@Produce		text/event-stream
 //	@Success		200
+//	@Failure		403	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/admin/jobs/events [get]
 func (h *JobHandler) StreamJobEvents(w http.ResponseWriter, r *http.Request) {

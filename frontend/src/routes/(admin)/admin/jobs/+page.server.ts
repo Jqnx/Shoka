@@ -1,6 +1,8 @@
+import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { JobSnapshot } from '$lib/types';
 import { errorMessage } from '$lib/server/api';
+import { can } from '$lib/auth/permissions';
 
 // Rendered until the SSE stream delivers its first snapshot (and whenever the
 // initial fetch fails), so the page always has a well-formed shape to render.
@@ -10,7 +12,9 @@ const EMPTY_SNAPSHOT: JobSnapshot = {
 	recent_failures: []
 };
 
-export const load: PageServerLoad = async ({ fetch }) => {
+export const load: PageServerLoad = async ({ fetch, locals }) => {
+	if (!can(locals.user, { job: ['read'] })) error(403, 'You cannot view jobs.');
+
 	const res = await fetch('/api/admin/jobs');
 
 	return {
