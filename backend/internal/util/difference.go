@@ -1,3 +1,4 @@
+// Package util holds small generic helpers shared across the backend.
 package util
 
 // Diff computes which elements to add and which to remove given the

@@ -71,7 +71,7 @@ func (z *zipArchive) ReadFile(file string) ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
-			defer rc.Close()
+			defer func() { _ = rc.Close() }()
 
 			return io.ReadAll(rc)
 		}

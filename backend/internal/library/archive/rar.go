@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -26,7 +25,7 @@ func openRar(path string) (Archive, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open rar: %w", err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	var pages []Page
 
@@ -100,7 +99,7 @@ func (r *rarArchive) ReadFile(file string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	for {
 		header, err := reader.Next()
@@ -131,62 +130,14 @@ func (r *rarArchive) WriteFile(name string, data []byte) error {
 	if err != nil {
 		return fmt.Errorf("open rar: %w", err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
-	for {
-		header, err := reader.Next()
-		if errors.Is(err, io.EOF) {
-			break
-		}
-
-		if err != nil {
-			return fmt.Errorf("read rar entry: %w", err)
-		}
-
-		if header.IsDir {
-			continue
-		}
-		// skip any existing metadata file
-		if strings.EqualFold(filepath.Base(header.Name), name) {
-			continue
-		}
-
-		fw, err := w.Create(header.Name)
-		if err != nil {
-			return fmt.Errorf("create zip entry %s: %w", header.Name, err)
-		}
-
-		if err := copyArchiveEntry(fw, reader, header.Name); err != nil {
-			return err
-		}
+	if err := copyRarEntries(w, reader, name); err != nil {
+		return err
 	}
 
-	fw, err := w.Create(name)
-	if err != nil {
-		return fmt.Errorf("create %s: %w", name, err)
-	}
-
-	if _, err := fw.Write(data); err != nil {
-		return fmt.Errorf("write %s: %w", name, err)
-	}
-
-	if err := w.Close(); err != nil {
-		return fmt.Errorf("close zip writer: %w", err)
-	}
-
-	tmp := zipPath + ".tmp"
-	//nolint:gosec // library archive file, deliberately group/other-readable so the frontend process can serve it
-	if err := os.WriteFile(tmp, buf.Bytes(), 0o644); err != nil {
-		return fmt.Errorf("write temp file: %w", err)
-	}
-
-	if err := os.Rename(tmp, zipPath); err != nil {
-		_ = os.Remove(tmp)
-		return fmt.Errorf("write cbz: %w", err)
-	}
-
-	if err := os.Remove(r.path); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("remove original archive: %w", err)
+	if err := finishCBZ(w, &buf, name, data, zipPath, r.path); err != nil {
+		return err
 	}
 
 	r.path = zipPath

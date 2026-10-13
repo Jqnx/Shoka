@@ -8,12 +8,16 @@ import (
 	"strings"
 )
 
-type LanguageConverter struct {
+// Converter converts between full-length language names and their
+// ISO-639-1 codes in both directions.
+type Converter struct {
 	nameToCode map[string]string
 	codeToName map[string]string
 }
 
-func NewLanguageConverter() *LanguageConverter {
+// NewConverter returns a converter populated with the supported
+// languages in both directions.
+func NewConverter() *Converter {
 	nameToCode := map[string]string{
 		"english":    "en",
 		"spanish":    "es",
@@ -68,13 +72,15 @@ func NewLanguageConverter() *LanguageConverter {
 		codeToName[code] = name
 	}
 
-	return &LanguageConverter{
+	return &Converter{
 		nameToCode: nameToCode,
 		codeToName: codeToName,
 	}
 }
 
-func (lc *LanguageConverter) ToISO(name string) (string, error) {
+// ToISO resolves a language name or ISO-639-1 code to its two-letter code,
+// reporting an error when the input is empty or not a supported language.
+func (lc *Converter) ToISO(name string) (string, error) {
 	if name == "" {
 		return "", errors.New("empty language input")
 	}
@@ -96,7 +102,9 @@ func (lc *LanguageConverter) ToISO(name string) (string, error) {
 	return "", fmt.Errorf("unknown language: %s", name)
 }
 
-func (lc *LanguageConverter) ToName(code string) (string, error) {
+// ToName resolves an ISO-639-1 code to its full-length language name,
+// reporting an error for unknown codes.
+func (lc *Converter) ToName(code string) (string, error) {
 	normalized := strings.ToLower(strings.TrimSpace(code))
 	if name, exists := lc.codeToName[normalized]; exists {
 		return name, nil
@@ -110,7 +118,7 @@ func (lc *LanguageConverter) ToName(code string) (string, error) {
 // returned as nil so "no language set" stays distinct from one that simply
 // failed to resolve. This is the canonical code -> label conversion every
 // archive response goes through.
-func (lc *LanguageConverter) DisplayName(code *string) *string {
+func (lc *Converter) DisplayName(code *string) *string {
 	if code == nil {
 		return nil
 	}
@@ -126,14 +134,16 @@ func (lc *LanguageConverter) DisplayName(code *string) *string {
 	return &out
 }
 
-func (lc *LanguageConverter) IsValidISO(code string) bool {
+// IsValidISO reports whether code is a supported ISO-639-1 language code.
+func (lc *Converter) IsValidISO(code string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(code))
 	_, exists := lc.codeToName[normalized]
 
 	return exists
 }
 
-func (lc *LanguageConverter) IsValidName(name string) bool {
+// IsValidName reports whether name is a supported full-length language name.
+func (lc *Converter) IsValidName(name string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(name))
 	_, exists := lc.nameToCode[normalized]
 

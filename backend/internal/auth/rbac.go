@@ -1,3 +1,5 @@
+// Package auth carries the caller identity through requests and enforces the
+// role/permission matrix used by the API handlers.
 package auth
 
 import (

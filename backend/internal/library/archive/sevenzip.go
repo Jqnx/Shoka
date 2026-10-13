@@ -72,7 +72,7 @@ func (z *sevenZipArchive) ReadFile(file string) ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
-			defer rc.Close()
+			defer func() { _ = rc.Close() }()
 
 			return io.ReadAll(rc)
 		}
@@ -82,18 +82,18 @@ func (z *sevenZipArchive) ReadFile(file string) ([]byte, error) {
 }
 
 // WriteFile() adds a new file to the archive.
-func (s *sevenZipArchive) WriteFile(name string, data []byte) error {
-	zipPath := strings.TrimSuffix(s.path, filepath.Ext(s.path)) + ".cbz"
+func (z *sevenZipArchive) WriteFile(name string, data []byte) error {
+	zipPath := strings.TrimSuffix(z.path, filepath.Ext(z.path)) + ".cbz"
 
 	var buf bytes.Buffer
 
 	w := zip.NewWriter(&buf)
 
-	f, err := os.Open(s.path)
+	f, err := os.Open(z.path)
 	if err != nil {
 		return fmt.Errorf("open 7z: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	info, err := f.Stat()
 	if err != nil {
@@ -105,12 +105,28 @@ func (s *sevenZipArchive) WriteFile(name string, data []byte) error {
 		return fmt.Errorf("open 7z reader: %w", err)
 	}
 
-	for _, entry := range reader.File {
+	if err := copySevenZipEntries(w, reader.File, name); err != nil {
+		return err
+	}
+
+	if err := finishCBZ(w, &buf, name, data, zipPath, z.path); err != nil {
+		return err
+	}
+
+	z.path = zipPath
+
+	return nil
+}
+
+// copySevenZipEntries copies every non-directory entry except skipName from
+// the source archive into the zip writer.
+func copySevenZipEntries(w *zip.Writer, entries []*sevenzip.File, skipName string) error {
+	for _, entry := range entries {
 		if entry.FileInfo().IsDir() {
 			continue
 		}
 		// skip any existing metadata file
-		if strings.EqualFold(filepath.Base(entry.Name), name) {
+		if strings.EqualFold(filepath.Base(entry.Name), skipName) {
 			continue
 		}
 
@@ -118,36 +134,6 @@ func (s *sevenZipArchive) WriteFile(name string, data []byte) error {
 			return err
 		}
 	}
-
-	fw, err := w.Create(name)
-	if err != nil {
-		return fmt.Errorf("create %s: %w", name, err)
-	}
-
-	if _, err := fw.Write(data); err != nil {
-		return fmt.Errorf("write %s: %w", name, err)
-	}
-
-	if err := w.Close(); err != nil {
-		return fmt.Errorf("close zip writer: %w", err)
-	}
-
-	tmp := zipPath + ".tmp"
-	//nolint:gosec // library archive file, deliberately group/other-readable so the frontend process can serve it
-	if err := os.WriteFile(tmp, buf.Bytes(), 0o644); err != nil {
-		return fmt.Errorf("write temp file: %w", err)
-	}
-
-	if err := os.Rename(tmp, zipPath); err != nil {
-		_ = os.Remove(tmp)
-		return fmt.Errorf("write cbz: %w", err)
-	}
-
-	if err := os.Remove(s.path); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("remove original archive: %w", err)
-	}
-
-	s.path = zipPath
 
 	return nil
 }

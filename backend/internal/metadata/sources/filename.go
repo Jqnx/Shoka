@@ -68,17 +68,29 @@ var (
 	sizePattern           = regexp.MustCompile(`\([x]\d+\)\s*`)
 )
 
+// FilenameSource extracts artist, circle, parody and title information from
+// the release filename using bracket/parenthesis heuristics. It is a
+// best-effort fallback for archives without an embedded ComicInfo.xml.
 type FilenameSource struct{}
 
+// NewFilenameSource returns a FilenameSource with no external dependencies.
 func NewFilenameSource() *FilenameSource {
 	return &FilenameSource{}
 }
 
-func (s *FilenameSource) Name() string  { return "filename" }
+// Name returns the stable source identifier, "filename".
+func (s *FilenameSource) Name() string { return "filename" }
+
+// Priority returns 3: heuristics rank below an explicit ComicInfo.xml.
 func (s *FilenameSource) Priority() int { return 3 }
+
+// IsLocal reports true: the source only inspects the input filename.
 func (s *FilenameSource) IsLocal() bool { return true }
 
-func (s *FilenameSource) Fetch(ctx context.Context, input metadata.Input) (*metadata.Result, error) {
+// Fetch parses the input filename into metadata, stripping magazine, event and
+// resolution noise before splitting the remainder into title, artist, circle
+// and parodies. It always returns a non-nil result and never fails.
+func (s *FilenameSource) Fetch(_ context.Context, input metadata.Input) (*metadata.Result, error) {
 	base := strings.TrimSuffix(filepath.Base(input.FilePath), filepath.Ext(input.FilePath))
 	result := &metadata.Result{}
 
@@ -88,36 +100,11 @@ func (s *FilenameSource) Fetch(ctx context.Context, input metadata.Input) (*meta
 
 	// Match for [Circle (Artist)]
 	if m := circleArtistPattern.FindStringSubmatch(base); m != nil {
-		circle := strings.ToLower(strings.TrimSpace(m[1]))
-		artist := strings.ToLower(strings.TrimSpace(m[2]))
-
-		if circle != "" {
-			circle = strings.Trim(circle, "[]() ")
-			result.Circles = []string{circle}
-		}
-
-		if artist != "" {
-			artist = strings.Trim(artist, "[]() ")
-			result.Artists = []string{artist}
-		}
+		applyCircleArtist(result, m)
 
 		base = circleArtistPattern.ReplaceAllString(base, "")
 	} else {
-		// Match for [Artist]
-		brackets := bracketPattern.FindAllStringSubmatch(base, -1)
-		if len(brackets) > 0 {
-			result.Artists = []string{strings.ToLower(strings.TrimSpace(brackets[0][1]))}
-
-			lc := language.NewLanguageConverter()
-			for _, part := range brackets {
-				if lc.IsValidName(part[1]) {
-					iso, _ := lc.ToISO(part[1])
-					result.Language = &iso
-				}
-			}
-		}
-
-		base = bracketPattern.ReplaceAllString(base, "")
+		base = applyArtistBrackets(result, base)
 	}
 
 	// Match for (Parody)
@@ -143,6 +130,42 @@ func (s *FilenameSource) Fetch(ctx context.Context, input metadata.Input) (*meta
 	}
 
 	return result, nil
+}
+
+// applyCircleArtist records a "[Circle (Artist)]" match, lower-casing and
+// trimming the bracket/paren residue each capture may still carry. An empty
+// capture leaves its field unset.
+func applyCircleArtist(result *metadata.Result, m []string) {
+	circle := strings.ToLower(strings.TrimSpace(m[1]))
+	if circle != "" {
+		result.Circles = []string{strings.Trim(circle, "[]() ")}
+	}
+
+	artist := strings.ToLower(strings.TrimSpace(m[2]))
+	if artist != "" {
+		result.Artists = []string{strings.Trim(artist, "[]() ")}
+	}
+}
+
+// applyArtistBrackets handles the "[Artist] [Language]" fallback: the first
+// bracket names the artist and any bracket naming a language sets the
+// language field. It returns base with every bracket stripped, which is what
+// the subsequent parody/title parsing expects.
+func applyArtistBrackets(result *metadata.Result, base string) string {
+	brackets := bracketPattern.FindAllStringSubmatch(base, -1)
+	if len(brackets) > 0 {
+		result.Artists = []string{strings.ToLower(strings.TrimSpace(brackets[0][1]))}
+
+		lc := language.NewConverter()
+		for _, part := range brackets {
+			if lc.IsValidName(part[1]) {
+				iso, _ := lc.ToISO(part[1])
+				result.Language = &iso
+			}
+		}
+	}
+
+	return bracketPattern.ReplaceAllString(base, "")
 }
 
 func (s *FilenameSource) isMagazine(name string, blocklist []string) bool {

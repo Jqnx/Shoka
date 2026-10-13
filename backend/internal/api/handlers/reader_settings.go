@@ -12,11 +12,14 @@ import (
 	"slices"
 )
 
+// ReaderSettingsHandler serves the per-user reader settings endpoints.
 type ReaderSettingsHandler struct {
 	queries *sqlc.Queries
 	logger  *slog.Logger
 }
 
+// NewReaderSettingsHandler returns a ReaderSettingsHandler backed by the
+// given queries.
 func NewReaderSettingsHandler(queries *sqlc.Queries, log *slog.Logger) *ReaderSettingsHandler {
 	return &ReaderSettingsHandler{
 		queries: queries,
@@ -46,6 +49,8 @@ var (
 	validBackgrounds       = []string{"black", "white", "gray"}
 )
 
+// ReaderSettingsResponse is a user's reader preferences as returned by the
+// API.
 type ReaderSettingsResponse struct {
 	ViewMode         string `json:"view_mode"`
 	ReadingDirection string `json:"reading_direction"`
@@ -92,6 +97,8 @@ func (h *ReaderSettingsHandler) GetReaderSettings(w http.ResponseWriter, r *http
 	response.JSON(w, http.StatusOK, readerSettingsFromRow(row))
 }
 
+// UpdateReaderSettingsRequest carries the reader settings fields to change;
+// omitted fields keep their current value.
 type UpdateReaderSettingsRequest struct {
 	ViewMode         *string `json:"view_mode"`
 	ReadingDirection *string `json:"reading_direction"`
@@ -121,29 +128,25 @@ func (h *ReaderSettingsHandler) UpdateReaderSettings(w http.ResponseWriter, r *h
 		return
 	}
 
-	if err := validateOneOf("view_mode", body.ViewMode, validViewModes); err != nil {
-		response.BadRequest(w, err.Error())
-		return
+	// Each field is validated the same way, against a different allowed set -
+	// so the five checks are one table-driven pass.
+	validations := []struct {
+		field   string
+		value   *string
+		allowed []string
+	}{
+		{"view_mode", body.ViewMode, validViewModes},
+		{"reading_direction", body.ReadingDirection, validReadingDirections},
+		{"page_layout", body.PageLayout, validPageLayouts},
+		{"fit_mode", body.FitMode, validFitModes},
+		{"background", body.Background, validBackgrounds},
 	}
 
-	if err := validateOneOf("reading_direction", body.ReadingDirection, validReadingDirections); err != nil {
-		response.BadRequest(w, err.Error())
-		return
-	}
-
-	if err := validateOneOf("page_layout", body.PageLayout, validPageLayouts); err != nil {
-		response.BadRequest(w, err.Error())
-		return
-	}
-
-	if err := validateOneOf("fit_mode", body.FitMode, validFitModes); err != nil {
-		response.BadRequest(w, err.Error())
-		return
-	}
-
-	if err := validateOneOf("background", body.Background, validBackgrounds); err != nil {
-		response.BadRequest(w, err.Error())
-		return
+	for _, v := range validations {
+		if err := validateOneOf(v.field, v.value, v.allowed); err != nil {
+			response.BadRequest(w, err.Error())
+			return
+		}
 	}
 
 	// Overlay the request onto whatever's current (falling back to defaults
@@ -160,6 +163,29 @@ func (h *ReaderSettingsHandler) UpdateReaderSettings(w http.ResponseWriter, r *h
 		return
 	}
 
+	current = overlayReaderSettings(current, body)
+
+	row, err := h.queries.UpsertReaderSettings(r.Context(), sqlc.UpsertReaderSettingsParams{
+		UserID:           userID,
+		ViewMode:         current.ViewMode,
+		ReadingDirection: current.ReadingDirection,
+		PageLayout:       current.PageLayout,
+		FitMode:          current.FitMode,
+		Background:       current.Background,
+	})
+	if err != nil {
+		h.logger.Error("upsert reader settings failed", "error", err)
+		response.InternalError(w, "failed to update reader settings")
+
+		return
+	}
+
+	response.JSON(w, http.StatusOK, readerSettingsFromRow(row))
+}
+
+// overlayReaderSettings applies the request's present fields onto current and
+// leaves the rest as they were - the "partial" half of the partial PATCH.
+func overlayReaderSettings(current ReaderSettingsResponse, body UpdateReaderSettingsRequest) ReaderSettingsResponse {
 	if body.ViewMode != nil {
 		current.ViewMode = *body.ViewMode
 	}
@@ -180,22 +206,7 @@ func (h *ReaderSettingsHandler) UpdateReaderSettings(w http.ResponseWriter, r *h
 		current.Background = *body.Background
 	}
 
-	row, err := h.queries.UpsertReaderSettings(r.Context(), sqlc.UpsertReaderSettingsParams{
-		UserID:           userID,
-		ViewMode:         current.ViewMode,
-		ReadingDirection: current.ReadingDirection,
-		PageLayout:       current.PageLayout,
-		FitMode:          current.FitMode,
-		Background:       current.Background,
-	})
-	if err != nil {
-		h.logger.Error("upsert reader settings failed", "error", err)
-		response.InternalError(w, "failed to update reader settings")
-
-		return
-	}
-
-	response.JSON(w, http.StatusOK, readerSettingsFromRow(row))
+	return current
 }
 
 func validateOneOf(field string, value *string, allowed []string) error {

@@ -20,6 +20,9 @@ import (
 
 var supportedExtensions = []string{".cbz", ".cbr", ".zip", ".rar", ".7z"}
 
+// JobQueue is the slice of the job queue the scanner needs. Enqueue always
+// adds a job; EnqueueOnce skips the enqueue when an identical job (same
+// type and payload) is already pending or running.
 type JobQueue interface {
 	Enqueue(ctx context.Context, jobType string, payload any) error
 	EnqueueOnce(ctx context.Context, jobType string, payload any) error
@@ -42,6 +45,8 @@ type ArchiveScanner struct {
 	log     *slog.Logger
 }
 
+// NewArchiveScanner returns the Scanner for doujinshi libraries, which
+// reconciles the archive files on disk with the archives table.
 func NewArchiveScanner(cfg *config.Config, queries *sqlc.Queries, queue JobQueue, log *slog.Logger) *ArchiveScanner {
 	return &ArchiveScanner{
 		cfg:     cfg,
@@ -82,7 +87,7 @@ func (s *ArchiveScanner) Scan(ctx context.Context, lib sqlc.Library) error {
 }
 
 // walk() recursively walks a directory and adds any files it finds to the found map.
-func (s *ArchiveScanner) walk(ctx context.Context, root string, found map[string]fs.FileInfo) error {
+func (s *ArchiveScanner) walk(_ context.Context, root string, found map[string]fs.FileInfo) error {
 	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			s.log.Warn("could not access path", "path", path, "error", err)
@@ -185,7 +190,10 @@ func (s *ArchiveScanner) addArchive(ctx context.Context, lib sqlc.Library, path 
 	}
 
 	pages, err := a.Pages()
-	a.Close()
+
+	// The archive is only read here, so a close failure has nothing to act
+	// on; the pages and any read error still matter.
+	_ = a.Close()
 
 	if err != nil {
 		return fmt.Errorf("list pages: %w", err)

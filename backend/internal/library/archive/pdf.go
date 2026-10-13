@@ -39,11 +39,11 @@ package archive
 //	}, nil
 //}
 //
-//func (p *pdfArchive) Pages() ([]Page, error) {
+// func (p *pdfArchive) Pages() ([]Page, error) {
 //	return p.pages, nil
 //}
 //
-//func (p *pdfArchive) Extract(page Page) (io.ReadCloser, error) {
+// func (p *pdfArchive) Extract(page Page) (io.ReadCloser, error) {
 //	img, err := p.doc.ImageDPI(page.Index, 150.0)
 //	if err != nil {
 //		return nil, fmt.Errorf("failed to render pdf page %d: %w", page.Index, err)
@@ -57,6 +57,6 @@ package archive
 //	return io.NopCloser(&buf), nil
 //}
 //
-//func (p *pdfArchive) Close() error {
+// func (p *pdfArchive) Close() error {
 //	return p.doc.Close()
 //}

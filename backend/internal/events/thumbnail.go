@@ -31,6 +31,8 @@ type ThumbnailBroadcaster struct {
 	subs map[string]map[chan ThumbnailEvent]struct{}
 }
 
+// NewThumbnailBroadcaster returns an empty broadcaster ready to accept
+// subscribers and published progress events.
 func NewThumbnailBroadcaster() *ThumbnailBroadcaster {
 	return &ThumbnailBroadcaster{
 		subs: make(map[string]map[chan ThumbnailEvent]struct{}),

@@ -85,6 +85,8 @@ func (h *ArchiveHandler) partitionExisting(r *http.Request, ids []string) ([]sql
 	return rows, failed, nil
 }
 
+// BulkProgressRequest marks the listed archives read or clears their
+// reading progress entirely.
 type BulkProgressRequest struct {
 	IDs []string `json:"ids"`
 	// Read true marks every archive finished (its own last page); false
@@ -160,6 +162,8 @@ func (h *ArchiveHandler) BulkUpdateProgress(w http.ResponseWriter, r *http.Reque
 	})
 }
 
+// BulkMetadataRequest lists archives to identify, optionally pinned to a
+// single named metadata source.
 type BulkMetadataRequest struct {
 	IDs []string `json:"ids"`
 	// Source optionally pins the fetch to one named metadata source
@@ -365,9 +369,7 @@ func (h *ArchiveHandler) BulkUpdateArchives(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if body.Artists == nil && body.Tags == nil && body.Parodies == nil &&
-		body.Circles == nil && body.Characters == nil &&
-		body.Language == nil && body.Category == nil {
+	if !body.hasUpdate() {
 		response.BadRequest(w, "at least one of artists, tags, parodies, circles, characters, language or category is required")
 		return
 	}
@@ -421,24 +423,7 @@ func (h *ArchiveHandler) BulkUpdateArchives(w http.ResponseWriter, r *http.Reque
 	succeeded := 0
 
 	for _, id := range existingIDs {
-		existing := current[id]
-		if existing == nil {
-			existing = &metadata.Result{}
-		}
-
-		result := &metadata.Result{
-			// Scalars are passed straight through: ApplyMetadata's
-			// coalesce leaves a nil one untouched.
-			Language:   body.Language,
-			Category:   body.Category,
-			Artists:    mergeNames(existing.Artists, body.Artists),
-			Tags:       mergeNames(existing.Tags, body.Tags),
-			Parodies:   mergeNames(existing.Parodies, body.Parodies),
-			Circles:    mergeNames(existing.Circles, body.Circles),
-			Characters: mergeNames(existing.Characters, body.Characters),
-		}
-
-		if err := metadata.ApplyMetadata(r.Context(), h.queries, h.db, id, result); err != nil {
+		if err := metadata.ApplyMetadata(r.Context(), h.queries, h.db, id, bulkUpdateResult(current[id], &body)); err != nil {
 			h.logger.Error("bulk update archive failed", "archive_id", id, "error", err)
 			failed = append(failed, BulkFailure{ID: id, Error: "failed to update archive"})
 
@@ -453,4 +438,33 @@ func (h *ArchiveHandler) BulkUpdateArchives(w http.ResponseWriter, r *http.Reque
 		Succeeded: succeeded,
 		Failed:    failed,
 	})
+}
+
+// hasUpdate reports whether the request asks for at least one change. A
+// request that omits every field would otherwise succeed while doing nothing,
+// which reads as a bug to the caller.
+func (b *BulkUpdateArchivesRequest) hasUpdate() bool {
+	return b.Artists != nil || b.Tags != nil || b.Parodies != nil ||
+		b.Circles != nil || b.Characters != nil ||
+		b.Language != nil || b.Category != nil
+}
+
+// bulkUpdateResult builds the metadata to apply to one archive: the request's
+// scalars, with the submitted relation lists merged into the archive's
+// current ones. Scalars pass straight through, since ApplyMetadata's coalesce
+// leaves a nil one untouched.
+func bulkUpdateResult(current *metadata.Result, body *BulkUpdateArchivesRequest) *metadata.Result {
+	if current == nil {
+		current = &metadata.Result{}
+	}
+
+	return &metadata.Result{
+		Language:   body.Language,
+		Category:   body.Category,
+		Artists:    mergeNames(current.Artists, body.Artists),
+		Tags:       mergeNames(current.Tags, body.Tags),
+		Parodies:   mergeNames(current.Parodies, body.Parodies),
+		Circles:    mergeNames(current.Circles, body.Circles),
+		Characters: mergeNames(current.Characters, body.Characters),
+	}
 }

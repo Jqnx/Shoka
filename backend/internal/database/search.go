@@ -57,7 +57,7 @@ func SearchEntities(ctx context.Context, db *sql.DB, table, query string, limit 
 	if err != nil {
 		return nil, 0, fmt.Errorf("search %s: %w", table, err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []EntitySearchResult
 

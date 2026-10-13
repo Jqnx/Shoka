@@ -9,12 +9,16 @@ import (
 	"path/filepath"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/pressly/goose/v3"
+
+	_ "github.com/mattn/go-sqlite3" // registers the "sqlite3" driver for database/sql
 )
 
-var DatabaseFile string = "shoka.db"
+// DatabaseFile is the name of the SQLite database file stored in config.DataDir.
+var DatabaseFile = "shoka.db"
 
+// New opens the SQLite database in config.DataDir, enabling WAL mode, foreign
+// keys, and a busy timeout, and verifies the connection is usable.
 func New() (*sql.DB, error) {
 	dsn := fmt.Sprintf("file:%s?_journal_mode=WAL&_fk=ON&_busy_timeout=5000", filepath.Join(config.DataDir, DatabaseFile))
 
@@ -37,6 +41,7 @@ func New() (*sql.DB, error) {
 //go:embed migrations/*.sql
 var migrations embed.FS
 
+// Migrate applies all embedded goose migrations to the given database.
 func Migrate(db *sql.DB) error {
 	goose.SetBaseFS(migrations)
 

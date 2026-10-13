@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 )
 
+// ThumbDir returns the directory that holds an archive's thumbnails.
 func (p *Processor) ThumbDir(archiveID string) string {
 	return filepath.Join(p.cacheDir, archiveID, "thumbs")
 }
@@ -14,6 +15,8 @@ func (p *Processor) thumbPath(archiveID string, index int) string {
 	return filepath.Join(p.ThumbDir(archiveID), fmt.Sprintf("%03d.webp", index+1))
 }
 
+// ThumbPath returns the path to a page's thumbnail, or "" when it has not
+// been generated yet.
 func (p *Processor) ThumbPath(archiveID string, index int) string {
 	path := p.thumbPath(archiveID, index)
 	if _, err := os.Stat(path); err != nil {
@@ -23,6 +26,8 @@ func (p *Processor) ThumbPath(archiveID string, index int) string {
 	return path
 }
 
+// ThumbsReady reports whether every page of a pageCount-page archive has a
+// generated thumbnail on disk.
 func (p *Processor) ThumbsReady(archiveID string, pageCount int) bool {
 	for i := range pageCount {
 		if p.ThumbPath(archiveID, i) == "" {
@@ -49,10 +54,10 @@ func writeFileAtomic(destPath string, data []byte) error {
 	}
 
 	tmpPath := tmp.Name()
-	defer os.Remove(tmpPath) // no-op once successfully renamed
+	defer func() { _ = os.Remove(tmpPath) }() // no-op once successfully renamed
 
 	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
+		_ = tmp.Close()
 		return fmt.Errorf("write temp file: %w", err)
 	}
 

@@ -95,6 +95,7 @@ func NormalizeURLs(urls []string) []string {
 		}
 
 		seen[key] = struct{}{}
+
 		out = append(out, raw)
 	}
 

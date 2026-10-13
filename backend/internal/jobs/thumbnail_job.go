@@ -9,8 +9,11 @@ import (
 	"log/slog"
 )
 
+// JobTypeThumbnail is the job type that generates an archive's per-page
+// thumbnails.
 const JobTypeThumbnail = "thumbnail"
 
+// ThumbnailPayload identifies the archive and backing file to thumbnail.
 type ThumbnailPayload struct {
 	FilePath  string `json:"file_path"`
 	ArchiveID string `json:"archive_id"`
@@ -46,7 +49,7 @@ func NewThumbnailHandler(processor *image.Processor, broadcaster *events.Thumbna
 		if err != nil {
 			return fmt.Errorf("open archive: %w", err)
 		}
-		defer a.Close()
+		defer func() { _ = a.Close() }()
 
 		pages, err := a.Pages()
 		if err != nil {
@@ -70,7 +73,7 @@ func NewThumbnailHandler(processor *image.Processor, broadcaster *events.Thumbna
 			}
 
 			err = processor.GenerateThumbnail(ctx, p.ArchiveID, page.Index, r)
-			r.Close()
+			_ = r.Close()
 
 			if err != nil {
 				return err

@@ -1,3 +1,5 @@
+// Package image renders archive pages and thumbnails with libvips and caches
+// the resulting WebP bytes on disk and in a small in-memory LRU.
 package image
 
 import (
@@ -10,12 +12,16 @@ import (
 
 const lruSize = 128 // number of pages to keep in the LRU
 
+// Cache serves processed page images, keeping a bounded LRU of recently
+// requested pages so hot archives are not re-decoded on every request.
 type Cache struct {
 	processor *Processor
 	lru       *lru.Cache[string, []byte]
 	log       *slog.Logger
 }
 
+// NewCache returns a Cache that renders through processor and starts with an
+// empty LRU.
 func NewCache(processor *Processor, log *slog.Logger) (*Cache, error) {
 	l, err := lru.New[string, []byte](lruSize)
 	if err != nil {
@@ -62,7 +68,7 @@ func (c *Cache) extractAndProcess(filePath string, index int) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open archive: %w", err)
 	}
-	defer a.Close()
+	defer func() { _ = a.Close() }()
 
 	pages, err := a.Pages()
 	if err != nil {
@@ -77,7 +83,7 @@ func (c *Cache) extractAndProcess(filePath string, index int) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("extract page %d: %w", index, err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	return c.processor.ProcessToBytes(r)
 }

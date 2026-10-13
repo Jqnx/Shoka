@@ -47,7 +47,7 @@ isn't. Rebuild with the current toolchain, e.g.
 ### Backend (`/backend`)
 
 - **Router**: `chi/v5` — routes defined in `internal/api/routes.go`
-- **Handlers**: `internal/api/handlers/` — one file per domain (archive, metadata, admin)
+- **Handlers**: `internal/api/handlers/` — one file per domain (archive, metadata, admin, …), plus a focused file wherever a shape is genuinely shared: `taxonomy.go` (characters, parodies, tags and artists list/page/delete the same way — the per-entity file then holds little more than its swagger blocks), `duplicates.go`, `feeds.go`, `library_create.go`, `library_sources.go`, `archive_user_state.go`. `characters_parodies.go` holds both entities because they are identical apart from the name.
 - **Database**: SQLite3 with WAL mode via `sqlc` for type-safe queries
   - SQL queries live in `internal/database/queries/*.sql`
   - Generated Go code in `internal/database/sqlc/` — never edit these files directly

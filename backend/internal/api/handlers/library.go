@@ -2,18 +2,15 @@ package handlers
 
 import (
 	"Shoka/internal/api/response"
-	"Shoka/internal/database"
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/jobs"
 	"Shoka/internal/library"
-	"Shoka/internal/util"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -33,6 +30,8 @@ var defaultLibrarySources = []struct {
 	{"nhentai", false},
 }
 
+// LibraryHandler manages library CRUD, scans, covers, and per-library
+// metadata source settings.
 type LibraryHandler struct {
 	queries *sqlc.Queries
 	queue   *jobs.Queue
@@ -40,6 +39,8 @@ type LibraryHandler struct {
 	logger  *slog.Logger
 }
 
+// NewLibraryHandler returns a LibraryHandler backed by queries, the job
+// queue, and the library manager.
 func NewLibraryHandler(queries *sqlc.Queries, queue *jobs.Queue, manager *library.Manager, log *slog.Logger) *LibraryHandler {
 	return &LibraryHandler{
 		queries: queries,
@@ -49,6 +50,7 @@ func NewLibraryHandler(queries *sqlc.Queries, queue *jobs.Queue, manager *librar
 	}
 }
 
+// LibraryResponse is the library payload returned by the library endpoints.
 type LibraryResponse struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
@@ -107,6 +109,8 @@ func (h *LibraryHandler) GetLibraries(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, items)
 }
 
+// LibraryTypeResponse describes a library type and whether a scanner
+// currently supports it.
 type LibraryTypeResponse struct {
 	Type      string `json:"type"`
 	Supported bool   `json:"supported"`
@@ -120,7 +124,7 @@ type LibraryTypeResponse struct {
 //	@Produce		json
 //	@Success		200	{array}		LibraryTypeResponse
 //	@Router			/api/libraries/types [get]
-func (h *LibraryHandler) GetLibraryTypes(w http.ResponseWriter, r *http.Request) {
+func (h *LibraryHandler) GetLibraryTypes(w http.ResponseWriter, _ *http.Request) {
 	items := make([]LibraryTypeResponse, 0, len(library.AllLibraryTypes))
 	for _, t := range library.AllLibraryTypes {
 		items = append(items, LibraryTypeResponse{
@@ -132,6 +136,7 @@ func (h *LibraryHandler) GetLibraryTypes(w http.ResponseWriter, r *http.Request)
 	response.JSON(w, http.StatusOK, items)
 }
 
+// CreateLibraryRequest is the JSON body accepted by CreateLibrary.
 type CreateLibraryRequest struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
@@ -151,99 +156,26 @@ type CreateLibraryRequest struct {
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/admin/libraries [post]
 func (h *LibraryHandler) CreateLibrary(w http.ResponseWriter, r *http.Request) {
-	var body CreateLibraryRequest
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.BadRequest(w, "invalid request body")
+	body, ok := h.decodeCreateLibraryRequest(w, r)
+	if !ok {
 		return
 	}
 
-	body.Name = strings.TrimSpace(body.Name)
-
-	body.Path = strings.TrimSpace(body.Path)
-	if body.Type == "" {
-		body.Type = "doujinshi"
-	}
-
-	if body.Name == "" || body.Path == "" {
-		response.BadRequest(w, "name and path are required")
+	absPath, ok := resolveLibraryPath(w, body.libraryPath)
+	if !ok {
 		return
 	}
 
-	if !h.manager.SupportsType(body.Type) {
-		response.UnprocessableEntity(w, fmt.Sprintf("library type %q is not supported yet", body.Type))
+	if !h.checkLibraryOverlap(w, r, absPath) {
 		return
 	}
 
-	absPath, err := filepath.Abs(body.Path)
-	if err != nil {
-		response.BadRequest(w, "invalid path")
+	lib, ok := h.insertLibrary(w, r, body, absPath)
+	if !ok {
 		return
 	}
 
-	info, err := os.Stat(absPath)
-	if err != nil || !info.IsDir() {
-		response.BadRequest(w, "path does not exist or is not a directory")
-		return
-	}
-
-	existing, err := h.queries.ListLibraries(r.Context())
-	if err != nil {
-		h.logger.Error("list libraries failed", "error", err)
-		response.InternalError(w, "failed to validate library path")
-
-		return
-	}
-
-	if overlap, ok := findOverlappingLibrary(existing, absPath); ok {
-		response.BadRequest(w, fmt.Sprintf("path overlaps with existing library %q (%s)", overlap.Name, overlap.Path))
-		return
-	}
-
-	var lib sqlc.Library
-
-	for range 5 {
-		id, err := util.GenerateID()
-		if err != nil {
-			response.InternalError(w, "failed to generate id")
-			return
-		}
-
-		lib, err = h.queries.CreateLibrary(r.Context(), sqlc.CreateLibraryParams{
-			ID:   id,
-			Name: body.Name,
-			Path: absPath,
-			Type: body.Type,
-		})
-		if err == nil {
-			break
-		}
-
-		if !database.IsUniqueConstraintError(err) {
-			h.logger.Error("create library failed", "error", err)
-			response.InternalError(w, "failed to create library")
-
-			return
-		}
-
-		h.logger.Warn("library id collision, retrying")
-	}
-
-	if lib.ID == "" {
-		response.InternalError(w, "failed to create library")
-		return
-	}
-
-	for _, src := range defaultLibrarySources {
-		if _, err := h.queries.UpsertLibrarySource(r.Context(), sqlc.UpsertLibrarySourceParams{
-			LibraryID:         lib.ID,
-			Source:            src.Name,
-			Enabled:           boolToInt(src.Enabled),
-			MagazineBlocklist: "[]",
-			MiscBlocklist:     "[]",
-		}); err != nil {
-			h.logger.Error("seed library source failed", "library_id", lib.ID, "source", src.Name, "error", err)
-		}
-	}
+	h.seedDefaultLibrarySources(r.Context(), lib.ID)
 
 	h.manager.OnLibraryChanged(lib)
 
@@ -470,6 +402,7 @@ func (h *LibraryHandler) GenerateLibraryCovers(w http.ResponseWriter, r *http.Re
 	response.NoContent(w)
 }
 
+// LibrarySourceResponse is a library's per-source metadata settings.
 type LibrarySourceResponse struct {
 	Source            string   `json:"source"`
 	Enabled           bool     `json:"enabled"`
@@ -502,19 +435,7 @@ func (h *LibraryHandler) GetLibrarySources(w http.ResponseWriter, r *http.Reques
 
 	items := make([]LibrarySourceResponse, len(rows))
 	for i, row := range rows {
-		items[i] = LibrarySourceResponse{
-			Source:            row.Source,
-			Enabled:           row.Enabled != 0,
-			MagazineBlocklist: unmarshalStringSlice(row.MagazineBlocklist),
-			MiscBlocklist:     unmarshalStringSlice(row.MiscBlocklist),
-		}
-		if row.Cookies != nil {
-			items[i].Cookies = *row.Cookies
-		}
-
-		if row.ApiKey != nil {
-			items[i].APIKey = *row.ApiKey
-		}
+		items[i] = librarySourceResponse(row)
 	}
 
 	response.JSON(w, http.StatusOK, items)
@@ -575,38 +496,11 @@ func (h *LibraryHandler) UpdateLibrarySource(w http.ResponseWriter, r *http.Requ
 		Enabled:           existing.Enabled,
 		Cookies:           existing.Cookies,
 		ApiKey:            existing.ApiKey,
-		MagazineBlocklist: existing.MagazineBlocklist,
-		MiscBlocklist:     existing.MiscBlocklist,
-	}
-	if params.MagazineBlocklist == "" {
-		params.MagazineBlocklist = "[]"
+		MagazineBlocklist: orEmptyJSONList(existing.MagazineBlocklist),
+		MiscBlocklist:     orEmptyJSONList(existing.MiscBlocklist),
 	}
 
-	if params.MiscBlocklist == "" {
-		params.MiscBlocklist = "[]"
-	}
-
-	if body.Enabled != nil {
-		params.Enabled = boolToInt(*body.Enabled)
-	}
-
-	if body.Cookies != nil {
-		params.Cookies = body.Cookies
-	}
-
-	if body.APIKey != nil {
-		params.ApiKey = body.APIKey
-	}
-
-	if body.MagazineBlocklist != nil {
-		magazineJSON, _ := json.Marshal(body.MagazineBlocklist)
-		params.MagazineBlocklist = string(magazineJSON)
-	}
-
-	if body.MiscBlocklist != nil {
-		miscJSON, _ := json.Marshal(body.MiscBlocklist)
-		params.MiscBlocklist = string(miscJSON)
-	}
+	applyLibrarySourceUpdate(&params, body)
 
 	row, err := h.queries.UpsertLibrarySource(r.Context(), params)
 	if err != nil {
@@ -616,21 +510,7 @@ func (h *LibraryHandler) UpdateLibrarySource(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	resp := LibrarySourceResponse{
-		Source:            row.Source,
-		Enabled:           row.Enabled != 0,
-		MagazineBlocklist: unmarshalStringSlice(row.MagazineBlocklist),
-		MiscBlocklist:     unmarshalStringSlice(row.MiscBlocklist),
-	}
-	if row.Cookies != nil {
-		resp.Cookies = *row.Cookies
-	}
-
-	if row.ApiKey != nil {
-		resp.APIKey = *row.ApiKey
-	}
-
-	response.JSON(w, http.StatusOK, resp)
+	response.JSON(w, http.StatusOK, librarySourceResponse(row))
 }
 
 func boolToInt(b bool) int64 {

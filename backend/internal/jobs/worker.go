@@ -7,9 +7,11 @@ import (
 	"time"
 )
 
-// Every job type must implement this function signature.
+// Handler is the function signature every job type implements.
 type Handler func(ctx context.Context, job *Job) error
 
+// Worker polls the queue for claimable jobs and dispatches each to the
+// handler registered for its type.
 type Worker struct {
 	queue      *Queue
 	handlers   map[string]Handler
@@ -18,6 +20,8 @@ type Worker struct {
 	interval   time.Duration
 }
 
+// NewWorker returns a Worker that polls its queue once per second and starts
+// with no handlers registered.
 func NewWorker(queue *Queue, log *slog.Logger) *Worker {
 	return &Worker{
 		queue:      queue,
@@ -28,7 +32,8 @@ func NewWorker(queue *Queue, log *slog.Logger) *Worker {
 	}
 }
 
-// Register() associates a job type with its handler function.
+// Register associates a job type with its handler. limit caps how many jobs
+// of that type may run concurrently; a non-positive limit leaves it unbounded.
 func (w *Worker) Register(jobType string, handler Handler, limit int) {
 	w.handlers[jobType] = handler
 	if limit > 0 {
@@ -36,7 +41,7 @@ func (w *Worker) Register(jobType string, handler Handler, limit int) {
 	}
 }
 
-// Start() begins polling in a goroutine. Cancel the context to stop it.
+// Start begins polling in a goroutine. Cancel ctx to stop it.
 func (w *Worker) Start(ctx context.Context) {
 	go w.run(ctx)
 
@@ -90,19 +95,7 @@ func (w *Worker) processNext(ctx context.Context) {
 	}
 
 	if err := handler(ctx, job); err != nil {
-		log.Warn("job failed", "error", err)
-
-		if job.Attempts < job.MaxAttempts {
-			if reqErr := w.queue.requeueForRetry(ctx, job.ID, job.Attempts); reqErr != nil {
-				log.Error("failed to requeue job for retry", "error", reqErr)
-			} else {
-				log.Info("job requeued for retry", "backoff_seconds", job.Attempts*job.Attempts*30)
-			}
-		} else if failErr := w.queue.markFailed(ctx, job.ID, err); failErr != nil {
-			log.Error("failed to mark job as failed", "error", failErr)
-		} else {
-			log.Error("job exceeded max attempts, marked failed")
-		}
+		w.handleJobFailure(ctx, job, err, log)
 
 		return
 	}
@@ -113,4 +106,30 @@ func (w *Worker) processNext(ctx context.Context) {
 	}
 
 	log.Info("job completed")
+}
+
+// handleJobFailure requeues a failed job for another attempt, or marks it
+// failed for good once it has used up its attempts. Requeue/mark failures
+// are logged, never returned: the worker's poll loop has no caller to
+// propagate them to.
+func (w *Worker) handleJobFailure(ctx context.Context, job *Job, handlerErr error, log *slog.Logger) {
+	log.Warn("job failed", "error", handlerErr)
+
+	if job.Attempts < job.MaxAttempts {
+		if reqErr := w.queue.requeueForRetry(ctx, job.ID, job.Attempts); reqErr != nil {
+			log.Error("failed to requeue job for retry", "error", reqErr)
+			return
+		}
+
+		log.Info("job requeued for retry", "backoff_seconds", job.Attempts*job.Attempts*30)
+
+		return
+	}
+
+	if failErr := w.queue.markFailed(ctx, job.ID, handlerErr); failErr != nil {
+		log.Error("failed to mark job as failed", "error", failErr)
+		return
+	}
+
+	log.Error("job exceeded max attempts, marked failed")
 }

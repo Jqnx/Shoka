@@ -24,6 +24,7 @@ const defaultSearchLimit = 5
 
 const maxSearchLimit = 50
 
+// SearchHandler serves the cross-category search endpoint.
 type SearchHandler struct {
 	queries   *sqlc.Queries
 	db        *sql.DB
@@ -31,6 +32,8 @@ type SearchHandler struct {
 	logger    *slog.Logger
 }
 
+// NewSearchHandler returns a SearchHandler backed by the given queries,
+// database, and image processor.
 func NewSearchHandler(queries *sqlc.Queries, db *sql.DB, processor *image.Processor, log *slog.Logger) *SearchHandler {
 	return &SearchHandler{
 		queries:   queries,
@@ -120,12 +123,7 @@ func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	limit := defaultSearchLimit
-	if l := q.Get("limit"); l != "" {
-		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= maxSearchLimit {
-			limit = v
-		}
-	}
+	limit := searchLimit(r)
 
 	query := strings.TrimSpace(q.Get("q"))
 	if utf8.RuneCountInString(query) < searchMinQueryRunes {
@@ -157,52 +155,63 @@ func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	artists, artistTotal, err := database.SearchEntities(ctx, h.db, "artist", query, int64(limit))
-	if err != nil {
-		h.logger.Error("search artists failed", "error", err)
-		response.InternalError(w, "failed to search artists")
+	entities := make(map[string]SearchEntityResponse, len(searchEntityCategories))
 
-		return
-	}
+	for _, category := range searchEntityCategories {
+		items, total, err := database.SearchEntities(ctx, h.db, category.table, query, int64(limit))
+		if err != nil {
+			h.logger.Error("search "+category.label+" failed", "error", err)
+			response.InternalError(w, "failed to search "+category.label)
 
-	circles, circleTotal, err := database.SearchEntities(ctx, h.db, "circle", query, int64(limit))
-	if err != nil {
-		h.logger.Error("search circles failed", "error", err)
-		response.InternalError(w, "failed to search circles")
+			return
+		}
 
-		return
-	}
-
-	tags, tagTotal, err := database.SearchEntities(ctx, h.db, "tag", query, int64(limit))
-	if err != nil {
-		h.logger.Error("search tags failed", "error", err)
-		response.InternalError(w, "failed to search tags")
-
-		return
-	}
-
-	parodies, parodyTotal, err := database.SearchEntities(ctx, h.db, "parody", query, int64(limit))
-	if err != nil {
-		h.logger.Error("search parodies failed", "error", err)
-		response.InternalError(w, "failed to search parodies")
-
-		return
-	}
-
-	characters, characterTotal, err := database.SearchEntities(ctx, h.db, "character", query, int64(limit))
-	if err != nil {
-		h.logger.Error("search characters failed", "error", err)
-		response.InternalError(w, "failed to search characters")
-
-		return
+		entities[category.table] = toSearchEntityResponse(items, total)
 	}
 
 	response.JSON(w, http.StatusOK, SearchResponse{
 		Archives:   SearchArchiveResponse{Items: archiveItems, Total: archiveTotal},
-		Artists:    toSearchEntityResponse(artists, artistTotal),
-		Circles:    toSearchEntityResponse(circles, circleTotal),
-		Tags:       toSearchEntityResponse(tags, tagTotal),
-		Parodies:   toSearchEntityResponse(parodies, parodyTotal),
-		Characters: toSearchEntityResponse(characters, characterTotal),
+		Artists:    entities["artist"],
+		Circles:    entities["circle"],
+		Tags:       entities["tag"],
+		Parodies:   entities["parody"],
+		Characters: entities["character"],
 	})
+}
+
+// searchEntityCategory is one metadata-entity category Search queries: the
+// entity table to search and the plural noun its log and error messages use.
+type searchEntityCategory struct {
+	table string
+	label string
+}
+
+// searchEntityCategories are the entity categories behind a search response,
+// in the order their queries are issued. Every one runs the same algorithm
+// against a different table, so Search loops over this rather than repeating
+// the same five call-and-check blocks.
+var searchEntityCategories = []searchEntityCategory{
+	{"artist", "artists"},
+	{"circle", "circles"},
+	{"tag", "tags"},
+	{"parody", "parodies"},
+	{"character", "characters"},
+}
+
+// searchLimit reads the per-category result cap. It is not parsePagination:
+// that one caps at the list endpoints' maxListLimit (and so could never fall
+// back below the cap it was asked for), while this endpoint's cap is
+// maxSearchLimit.
+func searchLimit(r *http.Request) int {
+	raw := r.URL.Query().Get("limit")
+	if raw == "" {
+		return defaultSearchLimit
+	}
+
+	v, err := strconv.Atoi(raw)
+	if err != nil || v < 1 || v > maxSearchLimit {
+		return defaultSearchLimit
+	}
+
+	return v
 }

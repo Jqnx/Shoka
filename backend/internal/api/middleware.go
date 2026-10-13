@@ -1,3 +1,6 @@
+// Package api exposes the HTTP API: it wires the chi router, the auth and
+// permission middleware, and delegates each route to a handler in
+// internal/api/handlers.
 package api
 
 import (

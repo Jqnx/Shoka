@@ -12,6 +12,9 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// testToken is the session token the auth fixtures store and send back.
+const testToken = "tok"
+
 // Mirrors the frontend-owned Better Auth columns the middleware reads.
 func newAuthDB(t *testing.T) *sql.DB {
 	t.Helper()
@@ -21,11 +24,11 @@ func newAuthDB(t *testing.T) *sql.DB {
 		t.Fatalf("open: %v", err)
 	}
 
-	t.Cleanup(func() { db.Close() })
+	t.Cleanup(func() { _ = db.Close() })
 	// :memory: is per-connection, so the fixture would vanish behind the pool.
 	db.SetMaxOpenConns(1)
 
-	_, err = db.Exec(`
+	_, err = db.ExecContext(t.Context(), `
 		CREATE TABLE user (id TEXT PRIMARY KEY, role TEXT, banned INTEGER);
 		CREATE TABLE session (token TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at INTEGER NOT NULL);
 	`)
@@ -39,11 +42,11 @@ func newAuthDB(t *testing.T) *sql.DB {
 func addSession(t *testing.T, db *sql.DB, token, userID string, role any, banned bool, expires time.Time) {
 	t.Helper()
 
-	if _, err := db.Exec(`INSERT INTO user (id, role, banned) VALUES (?, ?, ?)`, userID, role, banned); err != nil {
+	if _, err := db.ExecContext(t.Context(), `INSERT INTO user (id, role, banned) VALUES (?, ?, ?)`, userID, role, banned); err != nil {
 		t.Fatalf("insert user: %v", err)
 	}
 
-	_, err := db.Exec(
+	_, err := db.ExecContext(t.Context(),
 		`INSERT INTO session (token, user_id, expires_at) VALUES (?, ?, ?)`,
 		token, userID, expires.UnixMilli(),
 	)
@@ -93,19 +96,19 @@ func TestAuthMiddleware(t *testing.T) {
 		{name: "no token", want: http.StatusUnauthorized},
 		{name: "unknown token", token: "nope", sendAuth: true, want: http.StatusUnauthorized},
 		{
-			name: "expired session", token: "tok", role: auth.RoleAdmin, sendAuth: true,
+			name: "expired session", token: testToken, role: auth.RoleAdmin, sendAuth: true,
 			expires: time.Now().Add(-time.Hour), want: http.StatusUnauthorized,
 		},
 		{
-			name: "banned user", token: "tok", role: auth.RoleAdmin, banned: true, sendAuth: true,
+			name: "banned user", token: testToken, role: auth.RoleAdmin, banned: true, sendAuth: true,
 			expires: future, want: http.StatusForbidden,
 		},
 		{
-			name: "valid session", token: "tok", role: auth.RoleUser, sendAuth: true,
+			name: "valid session", token: testToken, role: auth.RoleUser, sendAuth: true,
 			expires: future, want: http.StatusTeapot,
 		},
 		{
-			name: "null role is accepted", token: "tok", role: nil, sendAuth: true,
+			name: "null role is accepted", token: testToken, role: nil, sendAuth: true,
 			expires: future, want: http.StatusTeapot,
 		},
 	}
@@ -119,7 +122,7 @@ func TestAuthMiddleware(t *testing.T) {
 				addSession(t, db, tt.token, "u1", tt.role, tt.banned, tt.expires)
 			}
 
-			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 			if tt.sendAuth {
 				req.Header.Set("Authorization", "Bearer "+tt.token)
 			}
@@ -156,10 +159,10 @@ func TestRequirePermission(t *testing.T) {
 			t.Parallel()
 
 			db := newAuthDB(t)
-			addSession(t, db, "tok", "u1", tt.role, false, time.Now().Add(time.Hour))
+			addSession(t, db, testToken, "u1", tt.role, false, time.Now().Add(time.Hour))
 
-			req := httptest.NewRequest(http.MethodGet, "/", nil)
-			req.Header.Set("Authorization", "Bearer tok")
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+			req.Header.Set("Authorization", "Bearer "+testToken)
 
 			rec := httptest.NewRecorder()
 			guardedRouter(db, tt.permission).ServeHTTP(rec, req)

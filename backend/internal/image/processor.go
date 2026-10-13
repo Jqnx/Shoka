@@ -20,11 +20,14 @@ const (
 	pageQuality  = 85
 )
 
+// Processor renders images with libvips and owns the on-disk cache layout
+// (per-archive thumbnail and page directories) beneath cacheDir.
 type Processor struct {
 	cacheDir string
 	log      *slog.Logger
 }
 
+// NewProcessor returns a Processor whose cache lives under cacheDir.
 func NewProcessor(cacheDir string, log *slog.Logger) *Processor {
 	return &Processor{
 		cacheDir: cacheDir,
@@ -52,7 +55,7 @@ func (p *Processor) processImage(r io.Reader, destPath string, maxWidth, quality
 		}
 	}
 
-	img.RemoveMetadata()
+	_ = img.RemoveMetadata()
 
 	ep := vips.NewWebpExportParams()
 	ep.Quality = quality
@@ -88,7 +91,7 @@ func (p *Processor) ProcessToBytes(r io.Reader) ([]byte, error) {
 		}
 	}
 
-	img.RemoveMetadata()
+	_ = img.RemoveMetadata()
 
 	ep := vips.NewWebpExportParams()
 	ep.Quality = pageQuality
@@ -103,8 +106,9 @@ func (p *Processor) ProcessToBytes(r io.Reader) ([]byte, error) {
 	return bytes, nil
 }
 
-// GenerateThumbnail() generates a thumbnail for a given archive page.
-func (p *Processor) GenerateThumbnail(ctx context.Context, archiveID string, index int, r io.Reader) error {
+// GenerateThumbnail renders the page read from r as index's thumbnail,
+// skipping the work when that thumbnail already exists on disk.
+func (p *Processor) GenerateThumbnail(_ context.Context, archiveID string, index int, r io.Reader) error {
 	if err := util.EnsureDir(p.ThumbDir(archiveID)); err != nil {
 		return err
 	}

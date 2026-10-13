@@ -11,24 +11,36 @@ import (
 	"sort"
 )
 
+// Errors a caller can match against when running a source by name:
+// ErrUnknownSource for a name no source is registered under, ErrDisabledSource
+// for a source that is off in the archive's library, and ErrNotSearchable for
+// a source that lacks the capability being requested.
 var (
 	ErrUnknownSource  = errors.New("unknown metadata source")
 	ErrDisabledSource = errors.New("metadata source is disabled")
 	ErrNotSearchable  = errors.New("metadata source does not support search")
 )
 
+// Pipeline runs an ordered set of metadata sources against an archive and
+// merges their results. Sources are sorted by priority at construction time,
+// and the pipeline holds the queries needed to resolve per-library settings.
 type Pipeline struct {
 	sources []Source
 	queries *sqlc.Queries
 	logger  *slog.Logger
 }
 
+// SourceInfo describes a registered source and whether it is enabled for a
+// given library. The admin UI uses it to list the available sources.
 type SourceInfo struct {
 	Name     string `json:"name"`
 	Priority int    `json:"priority"`
 	Enabled  bool   `json:"enabled"`
 }
 
+// NewPipeline returns a Pipeline over the given sources, sorted by ascending
+// priority (lower runs first). It also registers the gallery hosts of every
+// HostAware source so that SourceFromURL can map links back to a source.
 func NewPipeline(logger *slog.Logger, queries *sqlc.Queries, sources ...Source) *Pipeline {
 	p := &Pipeline{
 		sources: sources,
@@ -169,6 +181,20 @@ func (p *Pipeline) run(ctx context.Context, input Input, localOnly bool) (*Resul
 
 // merge copies fields from src into dst only if dst's field is not yet set.
 func merge(dst, src *Result) {
+	mergeScalars(dst, src)
+	mergeSlices(dst, src)
+
+	// URLs are the exception: union across sources rather than first-wins, so
+	// a ComicInfo e-hentai link and the nhentai source's own link both
+	// survive. NormalizeURLs dedupes by URL, keeping priority order.
+	if len(src.URLs) > 0 {
+		dst.URLs = NormalizeURLs(append(dst.URLs, src.URLs...))
+	}
+}
+
+// mergeScalars fills dst's still-unset scalar fields from src: the first
+// source to provide a value wins.
+func mergeScalars(dst, src *Result) {
 	if dst.Title == nil && src.Title != nil {
 		dst.Title = src.Title
 	}
@@ -192,31 +218,24 @@ func merge(dst, src *Result) {
 	if dst.PageCount == nil && src.PageCount != nil {
 		dst.PageCount = src.PageCount
 	}
-	// for slices, only copy if dst is empty
-	if len(dst.Artists) == 0 && len(src.Artists) > 0 {
-		dst.Artists = src.Artists
-	}
+}
 
-	if len(dst.Tags) == 0 && len(src.Tags) > 0 {
-		dst.Tags = src.Tags
-	}
-
-	if len(dst.Parodies) == 0 && len(src.Parodies) > 0 {
-		dst.Parodies = src.Parodies
-	}
-
-	if len(dst.Circles) == 0 && len(src.Circles) > 0 {
-		dst.Circles = src.Circles
-	}
-
-	if len(dst.Characters) == 0 && len(src.Characters) > 0 {
-		dst.Characters = src.Characters
-	}
-	// URLs are the exception: union across sources rather than first-wins, so
-	// a ComicInfo e-hentai link and the nhentai source's own link both
-	// survive. NormalizeURLs dedupes by URL, keeping priority order.
-	if len(src.URLs) > 0 {
-		dst.URLs = NormalizeURLs(append(dst.URLs, src.URLs...))
+// mergeSlices fills dst's still-empty relational slices from src, one entry
+// per first-wins field.
+func mergeSlices(dst, src *Result) {
+	for _, f := range []struct {
+		dst *[]string
+		src []string
+	}{
+		{&dst.Artists, src.Artists},
+		{&dst.Tags, src.Tags},
+		{&dst.Parodies, src.Parodies},
+		{&dst.Circles, src.Circles},
+		{&dst.Characters, src.Characters},
+	} {
+		if len(*f.dst) == 0 && len(f.src) > 0 {
+			*f.dst = f.src
+		}
 	}
 }
 

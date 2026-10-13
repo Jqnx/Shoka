@@ -1,3 +1,7 @@
+// Package library manages Shoka's configured libraries: it watches each
+// library's directory for changes, scans it into the archives table, and
+// queues the follow-up jobs (covers, perceptual hashes, metadata) that
+// indexing needs.
 package library
 
 import (
@@ -33,10 +37,14 @@ type Manager struct {
 	// captured in Start. Never derive a watcher from a request context —
 	// OnLibraryChanged runs in HTTP handlers, so the watcher would die as
 	// soon as the response is written.
+	//nolint:containedctx // deliberately stored: watchers outlive the request that may start them
 	baseCtx context.Context
 	cancels map[string]context.CancelFunc // library ID -> stop func for its watcher
 }
 
+// NewManager returns a Manager owning no libraries yet — call Start to
+// load them and begin watching. The manager's logger is tagged with the
+// library_manager component.
 func NewManager(cfg *config.Config, queries *sqlc.Queries, queue JobQueue, log *slog.Logger) *Manager {
 	logger := log.With("component", "library_manager")
 

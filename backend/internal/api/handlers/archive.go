@@ -36,6 +36,8 @@ func validArchiveID(id string) bool {
 	return archiveIDPattern.MatchString(id)
 }
 
+// ArchiveHandler serves the archive CRUD, browsing, progress, and cover
+// endpoints, coordinating the image cache and the metadata pipeline.
 type ArchiveHandler struct {
 	queries     *sqlc.Queries
 	db          *sql.DB
@@ -47,6 +49,9 @@ type ArchiveHandler struct {
 	pipeline    *metadata.Pipeline
 }
 
+// NewArchiveHandler returns an ArchiveHandler wired to the given database,
+// image processor and cache, job queue, thumbnail broadcaster, and metadata
+// pipeline.
 func NewArchiveHandler(queries *sqlc.Queries, db *sql.DB, log *slog.Logger, processor *image.Processor, cache *image.Cache, queue *jobs.Queue, broadcaster *events.ThumbnailBroadcaster, pipeline *metadata.Pipeline) *ArchiveHandler {
 	return &ArchiveHandler{
 		queries:     queries,
@@ -60,6 +65,8 @@ func NewArchiveHandler(queries *sqlc.Queries, db *sql.DB, log *slog.Logger, proc
 	}
 }
 
+// ArchiveResponse is the API representation of an archive, including its
+// related metadata names, progress, favorites, and cover state.
 type ArchiveResponse struct {
 	ID          string     `json:"id"`
 	Title       string     `json:"title"`
@@ -105,12 +112,14 @@ type ArchiveURLResponse struct {
 	URL    string `json:"url"`
 }
 
+// ProgressResponse is a user's reading progress for a single archive.
 type ProgressResponse struct {
 	CurrentPage int       `json:"current_page"`
 	LastRead    time.Time `json:"last_read"`
 	Completed   bool      `json:"completed"`
 }
 
+// ArchiveListResponse is a paginated page of archives.
 type ArchiveListResponse struct {
 	Items []ArchiveResponse `json:"items"`
 	Total int64             `json:"total"`
@@ -118,6 +127,7 @@ type ArchiveListResponse struct {
 	Limit int               `json:"limit"`
 }
 
+// SortOptionResponse is one selectable sort field offered to clients.
 type SortOptionResponse struct {
 	Value       string `json:"value"`
 	DisplayName string `json:"display_name"`
@@ -199,7 +209,7 @@ func buildArchiveListResponses(
 		return nil, fmt.Errorf("get archive ratings: %w", err)
 	}
 
-	lc := language.NewLanguageConverter()
+	lc := language.NewConverter()
 
 	items := make([]ArchiveResponse, 0, len(rows))
 	for _, row := range rows {
@@ -252,7 +262,7 @@ func buildArchiveListResponses(
 //	@Produce		json
 //	@Success		200	{array}		SortOptionResponse
 //	@Router			/api/archives/sort-options [get]
-func (h *ArchiveHandler) GetArchiveSortOptions(w http.ResponseWriter, r *http.Request) {
+func (h *ArchiveHandler) GetArchiveSortOptions(w http.ResponseWriter, _ *http.Request) {
 	items := make([]SortOptionResponse, 0, len(database.SortOptions))
 	for _, opt := range database.SortOptions {
 		items = append(items, SortOptionResponse{
@@ -292,6 +302,8 @@ func (h *ArchiveHandler) GetCategories(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, categories)
 }
 
+// LanguageResponse is one language in use, pairing its code with a
+// human-readable display name.
 type LanguageResponse struct {
 	Code string `json:"code"`
 	Name string `json:"name"`
@@ -300,7 +312,7 @@ type LanguageResponse struct {
 // GetLanguages godoc
 //
 //	@Summary		List all languages
-//	@Description	Returns every distinct language code currently in use across all libraries, paired with a display name (see language.LanguageConverter; falls back to the raw code if unrecognized). Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.
+//	@Description	Returns every distinct language code currently in use across all libraries, paired with a display name (see language.Converter; falls back to the raw code if unrecognized). Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.
 //	@Tags			archives
 //	@Produce		json
 //	@Success		200	{array}		LanguageResponse
@@ -315,7 +327,7 @@ func (h *ArchiveHandler) GetLanguages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lc := language.NewLanguageConverter()
+	lc := language.NewConverter()
 
 	languages := make([]LanguageResponse, 0, len(rows))
 	for _, code := range rows {
@@ -380,20 +392,7 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	page := 1
-	limit := 24
-
-	if p := q.Get("page"); p != "" {
-		if v, err := strconv.Atoi(p); err == nil && v > 0 {
-			page = v
-		}
-	}
-
-	if l := q.Get("limit"); l != "" {
-		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 100 {
-			limit = v
-		}
-	}
+	page, limit := parsePagination(r, defaultArchiveLimit)
 
 	filter := database.ArchiveFilter{
 		LibraryID:  libraryID,
@@ -449,21 +448,7 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
 
-	page := 1
-	limit := 24
-
-	if p := r.URL.Query().Get("page"); p != "" {
-		if v, err := strconv.Atoi(p); err == nil && v > 0 {
-			page = v
-		}
-	}
-
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 100 {
-			limit = v
-		}
-	}
-
+	page, limit := parsePagination(r, defaultArchiveLimit)
 	offset := int64((page - 1) * limit)
 
 	total, err := h.queries.CountRecentlyReadArchives(r.Context(), userID)
@@ -515,46 +500,8 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	lc := language.NewLanguageConverter()
-
-	items := make([]ArchiveResponse, 0, len(rows))
-	for _, row := range rows {
-		resp := ArchiveResponse{
-			ID:          row.ID,
-			Title:       row.Title,
-			Summary:     row.Summary,
-			Language:    lc.DisplayName(row.Language),
-			Category:    row.Category,
-			ReleaseDate: row.ReleaseDate,
-			PageCount:   int(row.PageCount),
-			FilePath:    row.FilePath,
-			CreatedAt:   row.CreatedAt,
-			UpdatedAt:   row.UpdatedAt,
-			ThumbsReady: h.processor.ThumbsReady(row.ID, int(row.PageCount)),
-			IsFavorited: favorited[row.ID],
-			Progress: &ProgressResponse{
-				CurrentPage: int(row.Page),
-				LastRead:    row.LastRead,
-				Completed:   row.Completed,
-			},
-		}
-		if rating, ok := ratings[row.ID]; ok {
-			resp.Rating = &rating
-		}
-
-		if meta, ok := metaByID[row.ID]; ok {
-			resp.Artists = meta.Artists
-			resp.Tags = meta.Tags
-			resp.Parodies = meta.Parodies
-			resp.Circles = meta.Circles
-			resp.Characters = meta.Characters
-		}
-
-		items = append(items, resp)
-	}
-
 	response.JSON(w, http.StatusOK, ArchiveListResponse{
-		Items: items,
+		Items: h.recentlyReadResponses(rows, favorited, ratings, metaByID),
 		Total: total,
 		Page:  page,
 		Limit: limit,
@@ -575,21 +522,7 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 func (h *ArchiveHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 	userID := auth.UserIDFromContext(r.Context())
 
-	page := 1
-	limit := 24
-
-	if p := r.URL.Query().Get("page"); p != "" {
-		if v, err := strconv.Atoi(p); err == nil && v > 0 {
-			page = v
-		}
-	}
-
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 100 {
-			limit = v
-		}
-	}
-
+	page, limit := parsePagination(r, defaultArchiveLimit)
 	offset := int64((page - 1) * limit)
 
 	total, err := h.queries.CountUserFavoriteArchive(r.Context(), userID)
@@ -625,43 +558,8 @@ func (h *ArchiveHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lc := language.NewLanguageConverter()
-
-	items := make([]ArchiveResponse, 0, len(rows))
-	for _, row := range rows {
-		resp := ArchiveResponse{
-			ID:          row.ID,
-			Title:       row.Title,
-			Summary:     row.Summary,
-			Language:    lc.DisplayName(row.Language),
-			Category:    row.Category,
-			ReleaseDate: row.ReleaseDate,
-			PageCount:   int(row.PageCount),
-			FilePath:    row.FilePath,
-			CreatedAt:   row.CreatedAt,
-			UpdatedAt:   row.UpdatedAt,
-			ThumbsReady: h.processor.ThumbsReady(row.ID, int(row.PageCount)),
-			IsFavorited: true,
-		}
-		if rating, ok := ratings[row.ID]; ok {
-			resp.Rating = &rating
-		}
-
-		if row.Page != nil {
-			resp.Progress = &ProgressResponse{
-				CurrentPage: int(*row.Page),
-				Completed:   row.Completed != nil && *row.Completed,
-			}
-			if row.LastRead != nil {
-				resp.Progress.LastRead = *row.LastRead
-			}
-		}
-
-		items = append(items, resp)
-	}
-
 	response.JSON(w, http.StatusOK, ArchiveListResponse{
-		Items: items,
+		Items: h.favoriteFeedResponses(rows, ratings),
 		Total: total,
 		Page:  page,
 		Limit: limit,
@@ -818,15 +716,7 @@ func (h *ArchiveHandler) UpdateArchive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var progress *sqlc.ReadingProgress
-	if p, err := h.queries.GetProgressForArchive(r.Context(), sqlc.GetProgressForArchiveParams{
-		ArchiveID: id,
-		UserID:    userID,
-	}); err == nil {
-		progress = &p
-	} else if !errors.Is(err, sql.ErrNoRows) {
-		h.logger.Error("get progress failed", "id", id, "error", err)
-	}
+	progress := h.bestEffortProgress(r.Context(), id, userID)
 
 	isFavorited, err := h.queries.ArchiveIsFavorited(r.Context(), sqlc.ArchiveIsFavoritedParams{
 		ArchiveID: id,
@@ -839,15 +729,8 @@ func (h *ArchiveHandler) UpdateArchive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var rating *int
-
-	if v, err := h.queries.GetArchiveRating(r.Context(), sqlc.GetArchiveRatingParams{
-		ArchiveID: id,
-		Uid:       userID,
-	}); err == nil {
-		iv := int(v)
-		rating = &iv
-	} else if !errors.Is(err, sql.ErrNoRows) {
+	rating, err := h.userArchiveRating(r.Context(), id, userID)
+	if err != nil {
 		h.logger.Error("get rating failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get updated archive")
 
@@ -907,6 +790,8 @@ func (h *ArchiveHandler) DeleteArchive(w http.ResponseWriter, r *http.Request) {
 	response.NoContent(w)
 }
 
+// UpdateProgressRequest is the body of the reading-progress update, with an
+// optional explicit completed flag.
 type UpdateProgressRequest struct {
 	Page int `json:"page"`
 	// Completed: omit to auto-derive (true once page reaches the archives
@@ -1073,6 +958,7 @@ func (h *ArchiveHandler) RemoveFavorite(w http.ResponseWriter, r *http.Request) 
 	response.NoContent(w)
 }
 
+// SetRatingRequest carries a 1-5 star rating to apply to an archive.
 type SetRatingRequest struct {
 	// Rating is 1-5, matching a classic 5-star rating widget. There's no
 	// 0/"unset" value here — clearing a rating is DELETE .../rating.
@@ -1231,7 +1117,7 @@ func buildArchiveResponse(
 	isFavorited bool,
 	rating *int,
 ) ArchiveResponse {
-	lc := language.NewLanguageConverter()
+	lc := language.NewConverter()
 
 	resp := ArchiveResponse{
 		ID:          archive.ID,
@@ -1528,7 +1414,8 @@ func (h *ArchiveHandler) GetPage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "image/webp")
 	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 	w.WriteHeader(http.StatusOK)
-	w.Write(data)
+	//nolint:gosec // data is WebP image bytes decoded from the archive by the page cache, served with the explicit content type set above
+	_, _ = w.Write(data)
 }
 
 // GetPageThumbnail godoc
@@ -1686,7 +1573,7 @@ func (h *ArchiveHandler) StreamThumbnailEvents(w http.ResponseWriter, r *http.Re
 
 	for i := range pageCount {
 		if h.processor.ThumbPath(archive.ID, i) != "" {
-			response.SSEEvent(w, "ready", map[string]int{"index": i})
+			_ = response.SSEEvent(w, "ready", map[string]int{"index": i})
 		} else {
 			allReady = false
 		}
@@ -1695,7 +1582,8 @@ func (h *ArchiveHandler) StreamThumbnailEvents(w http.ResponseWriter, r *http.Re
 	flusher.Flush()
 
 	if allReady {
-		response.SSEEvent(w, "done", thumbnailDoneEvent{Done: true})
+		_ = response.SSEEvent(w, "done", thumbnailDoneEvent{Done: true})
+
 		flusher.Flush()
 
 		return
@@ -1713,13 +1601,15 @@ func (h *ArchiveHandler) StreamThumbnailEvents(w http.ResponseWriter, r *http.Re
 			}
 
 			if event.Done {
-				response.SSEEvent(w, "done", thumbnailDoneEvent{Done: true, Error: event.Error})
+				_ = response.SSEEvent(w, "done", thumbnailDoneEvent{Done: true, Error: event.Error})
+
 				flusher.Flush()
 
 				return
 			}
 
-			response.SSEEvent(w, "ready", map[string]int{"index": event.Index})
+			_ = response.SSEEvent(w, "ready", map[string]int{"index": event.Index})
+
 			flusher.Flush()
 		}
 	}

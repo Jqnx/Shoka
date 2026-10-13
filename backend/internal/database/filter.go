@@ -10,6 +10,9 @@ import (
 	"unicode/utf8"
 )
 
+// ArchiveFilter describes the criteria, ordering, and paging applied when
+// listing archives. Zero values mean the corresponding condition is not
+// applied; HasPHash is tri-state.
 type ArchiveFilter struct {
 	LibraryID  string
 	Query      string
@@ -46,6 +49,8 @@ type SortOption struct {
 // needs two comparable points). Backs the has_phash filter.
 const hasNoPHashExpr = "(archive.phash_p0 IS NULL AND archive.phash_p25 IS NULL AND archive.phash_p50 IS NULL AND archive.phash_p75 IS NULL)"
 
+// SortOptions holds every sort order accepted by the archive list, in the
+// order they are offered to clients.
 var SortOptions = []SortOption{
 	{"title_asc", "Title (A–Z)", "archive.title ASC"},
 	{"title_desc", "Title (Z–A)", "archive.title DESC"},
@@ -155,6 +160,8 @@ func buildWhere(f ArchiveFilter) (string, []any) {
 	return sb.String(), args
 }
 
+// ListArchives returns one page of archives matching f, along with the total
+// number of rows matching the filter regardless of limit and offset.
 func ListArchives(ctx context.Context, db *sql.DB, f ArchiveFilter) ([]sqlc.GetArchiveListRow, int64, error) {
 	orderBy := resolveSort(f.Sort)
 	whereSQL, whereArgs := buildWhere(f)
@@ -187,7 +194,7 @@ func ListArchives(ctx context.Context, db *sql.DB, f ArchiveFilter) ([]sqlc.GetA
 	if err != nil {
 		return nil, 0, fmt.Errorf("list archives: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var items []sqlc.GetArchiveListRow
 
@@ -240,7 +247,7 @@ func getRelationNames(ctx context.Context, db *sql.DB, joinTable, entityTable, j
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var archiveID, name string
@@ -332,7 +339,7 @@ func CanonicalNames(ctx context.Context, db *sql.DB, table string, names []strin
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var name string

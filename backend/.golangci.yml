@@ -114,6 +114,13 @@ linters:
       # generated code — sqlc output and swaggo docs (also auto-detected by header)
       - internal/database/sqlc
       - docs
+    rules:
+      # Swagger's "@Param body body <Type>" repeats the word because the first is
+      # the parameter name and the second its location. Not a typo, and rewording
+      # it would change the generated API docs.
+      - linters:
+          - dupword
+        source: '^\s*//\s*@Param'
 
   settings:
     dupl:

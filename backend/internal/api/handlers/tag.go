@@ -2,24 +2,24 @@ package handlers
 
 import (
 	"Shoka/internal/api/response"
-	"Shoka/internal/auth"
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/image"
-	"Shoka/internal/language"
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"strconv"
 
 	"github.com/go-chi/chi/v5"
 )
 
+// TagHandler serves tag listing, description updates, and archive lookups.
 type TagHandler struct {
 	queries   *sqlc.Queries
 	logger    *slog.Logger
 	processor *image.Processor
 }
 
+// NewTagHandler returns a TagHandler backed by queries and the shared image
+// processor.
 func NewTagHandler(queries *sqlc.Queries, log *slog.Logger, processor *image.Processor) *TagHandler {
 	return &TagHandler{
 		queries:   queries,
@@ -28,6 +28,7 @@ func NewTagHandler(queries *sqlc.Queries, log *slog.Logger, processor *image.Pro
 	}
 }
 
+// TagResponse is the tag payload returned by the list endpoints.
 type TagResponse struct {
 	ID          int64   `json:"id"`
 	Name        string  `json:"name"`
@@ -35,12 +36,16 @@ type TagResponse struct {
 	Count       int64   `json:"count"`
 }
 
+// TagListResponse is a single page of tags plus the total count.
 type TagListResponse struct {
 	Items []TagResponse `json:"items"`
 	Total int64         `json:"total"`
 	Page  int           `json:"page"`
 	Limit int           `json:"limit"`
 }
+
+// tagItem maps a tag row to the tag payload.
+func tagItem(row sqlc.Tag) TagResponse { return TagResponse(row) }
 
 // GetTags godoc
 //
@@ -53,58 +58,15 @@ type TagListResponse struct {
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/tags [get]
 func (h *TagHandler) GetTags(w http.ResponseWriter, r *http.Request) {
-	page := 1
-	limit := 50
-
-	if p := r.URL.Query().Get("page"); p != "" {
-		if v, err := strconv.Atoi(p); err == nil && v > 0 {
-			page = v
-		}
-	}
-
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 100 {
-			limit = v
-		}
-	}
-
-	offset := int64((page - 1) * limit)
-
-	total, err := h.queries.CountTags(r.Context())
-	if err != nil {
-		h.logger.Error("count tags failed", "error", err)
-		response.InternalError(w, "failed to count tags")
-
+	page, ok := listTaxonomy(
+		w, r, h.logger, "tags",
+		h.queries.CountTags, h.queries.GetTagList, tagItem,
+	)
+	if !ok {
 		return
 	}
 
-	rows, err := h.queries.GetTagList(r.Context(), sqlc.GetTagListParams{
-		Limit:  int64(limit),
-		Offset: offset,
-	})
-	if err != nil {
-		h.logger.Error("list tags failed", "error", err)
-		response.InternalError(w, "failed to list tags")
-
-		return
-	}
-
-	items := make([]TagResponse, 0, len(rows))
-	for _, row := range rows {
-		items = append(items, TagResponse{
-			ID:          row.ID,
-			Name:        row.Name,
-			Description: row.Description,
-			Count:       row.Count,
-		})
-	}
-
-	response.JSON(w, http.StatusOK, TagListResponse{
-		Items: items,
-		Total: total,
-		Page:  page,
-		Limit: limit,
-	})
+	response.JSON(w, http.StatusOK, TagListResponse(page))
 }
 
 // GetAllTags godoc
@@ -116,22 +78,9 @@ func (h *TagHandler) GetTags(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/tags/all [get]
 func (h *TagHandler) GetAllTags(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.queries.GetAllTags(r.Context())
-	if err != nil {
-		h.logger.Error("get all tags failed", "error", err)
-		response.InternalError(w, "failed to get tags")
-
+	items, ok := allTaxonomy(w, r, h.logger, "tags", h.queries.GetAllTags, tagItem)
+	if !ok {
 		return
-	}
-
-	items := make([]TagResponse, 0, len(rows))
-	for _, row := range rows {
-		items = append(items, TagResponse{
-			ID:          row.ID,
-			Name:        row.Name,
-			Description: row.Description,
-			Count:       row.Count,
-		})
 	}
 
 	response.JSON(w, http.StatusOK, items)
@@ -149,84 +98,14 @@ func (h *TagHandler) GetAllTags(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/tags/{name} [get]
 func (h *TagHandler) GetArchivesByTag(w http.ResponseWriter, r *http.Request) {
-	name := chi.URLParam(r, "name")
-	userID := auth.UserIDFromContext(r.Context())
-
-	page := 1
-	limit := 24
-
-	if p := r.URL.Query().Get("page"); p != "" {
-		if v, err := strconv.Atoi(p); err == nil && v > 0 {
-			page = v
-		}
-	}
-
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 100 {
-			limit = v
-		}
-	}
-
-	offset := int64((page - 1) * limit)
-
-	total, err := h.queries.TotalArchiveWithTag(r.Context(), name)
-	if err != nil {
-		h.logger.Error("count archives by tag failed", "error", err)
-		response.InternalError(w, "failed to count archives")
-
-		return
-	}
-
-	rows, err := h.queries.GetArchivesByTagName(r.Context(), sqlc.GetArchivesByTagNameParams{
-		Name:   name,
-		Uid:    userID,
-		Limit:  int64(limit),
-		Offset: offset,
-	})
-	if err != nil {
-		h.logger.Error("list archives by tag failed", "error", err)
-		response.InternalError(w, "failed to list archives")
-
-		return
-	}
-
-	lc := language.NewLanguageConverter()
-
-	items := make([]ArchiveResponse, 0, len(rows))
-	for _, row := range rows {
-		resp := ArchiveResponse{
-			ID:          row.ID,
-			Title:       row.Title,
-			Summary:     row.Summary,
-			Language:    lc.DisplayName(row.Language),
-			Category:    row.Category,
-			ReleaseDate: row.ReleaseDate,
-			PageCount:   int(row.PageCount),
-			CreatedAt:   row.CreatedAt,
-			UpdatedAt:   row.UpdatedAt,
-			ThumbsReady: h.processor.ThumbsReady(row.ID, int(row.PageCount)),
-		}
-		if row.Page != nil {
-			resp.Progress = &ProgressResponse{
-				CurrentPage: int(*row.Page),
-				Completed:   row.Completed != nil && *row.Completed,
-			}
-			if row.LastRead != nil {
-				resp.Progress.LastRead = *row.LastRead
-			}
-		}
-
-		items = append(items, resp)
-	}
-
-	response.JSON(w, http.StatusOK, ArchiveListResponse{
-		Items: items,
-		Total: total,
-		Page:  page,
-		Limit: limit,
-	})
+	archivesByName(
+		w, r, h.logger, "tag", chi.URLParam(r, "name"),
+		h.queries.TotalArchiveWithTag, h.queries.GetArchivesByTagName, h.processor,
+	)
 }
 
+// UpdateTagDescriptionRequest is the JSON body accepted by
+// UpdateTagDescription.
 type UpdateTagDescriptionRequest struct {
 	Description *string `json:"description"`
 }
@@ -244,9 +123,8 @@ type UpdateTagDescriptionRequest struct {
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/tags/{id} [patch]
 func (h *TagHandler) UpdateTagDescription(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil {
-		response.BadRequest(w, "invalid tag id")
+	id, ok := pathID(w, r, "tag")
+	if !ok {
 		return
 	}
 
@@ -280,9 +158,8 @@ func (h *TagHandler) UpdateTagDescription(w http.ResponseWriter, r *http.Request
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/tags/{id} [delete]
 func (h *TagHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil {
-		response.BadRequest(w, "invalid tag id")
+	id, ok := pathID(w, r, "tag")
+	if !ok {
 		return
 	}
 

@@ -13,6 +13,9 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// Server owns the chi router together with the shared services every handler
+// borrows: the SQL queries and DB pool, job queue, image cache and processor,
+// metadata pipeline, library manager, thumbnail broadcaster, and logger.
 type Server struct {
 	Router     *chi.Mux
 	Queries    *sqlc.Queries
@@ -26,6 +29,8 @@ type Server struct {
 	DB         *sql.DB
 }
 
+// New assembles a Server from the already-constructed services and mounts the
+// middleware chain and all routes before returning it.
 func New(queries *sqlc.Queries, logger *slog.Logger, queue *jobs.Queue, cache *image.Cache, processor *image.Processor, pipeline *metadata.Pipeline, libraries *library.Manager, thumbnails *events.ThumbnailBroadcaster, db *sql.DB) *Server {
 	router := chi.NewRouter()
 	server := &Server{

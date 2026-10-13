@@ -33,11 +33,15 @@ const (
 // database, where GetJobCounts returns only statuses that have rows.
 var jobStatuses = [4]string{"pending", "running", "done", "failed"}
 
+// JobHandler serves the background job queue's status, snapshot, and live
+// event-stream endpoints.
 type JobHandler struct {
 	Log     *slog.Logger
 	Queries *sqlc.Queries
 }
 
+// NewJobHandler returns a JobHandler that reads the queue through queries
+// and logs under the "job" handler scope.
 func NewJobHandler(queries *sqlc.Queries, logger *slog.Logger) *JobHandler {
 	return &JobHandler{
 		Queries: queries,
@@ -45,6 +49,7 @@ func NewJobHandler(queries *sqlc.Queries, logger *slog.Logger) *JobHandler {
 	}
 }
 
+// JobView is the API representation of a single background job.
 type JobView struct {
 	ID     int64  `json:"id"`
 	Type   string `json:"type"`
@@ -60,6 +65,8 @@ type JobView struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+// JobSnapshot is the monitor's point-in-time view of the queue: totals by
+// status plus the most relevant active and recently failed jobs.
 type JobSnapshot struct {
 	// Counts is keyed by status and always contains all four statuses.
 	Counts map[string]int64 `json:"counts"`
@@ -242,32 +249,46 @@ func (h *JobHandler) StreamJobEvents(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 
 		case <-poll.C:
-			snapshot, err := h.snapshot(ctx)
-			if err != nil {
-				// Transient read failure (a locked database, say): log it
-				// and keep the stream open rather than dropping the client,
-				// which would otherwise reconnect into the same error.
-				h.Log.Error("get job snapshot failed", "error", err)
-				continue
-			}
-
-			encoded, err := json.Marshal(snapshot)
-			if err != nil {
-				h.Log.Error("marshal job snapshot failed", "error", err)
-				continue
-			}
-
-			if bytes.Equal(encoded, lastSent) {
+			snap, encoded, ok := h.nextJobSnapshot(ctx, lastSent)
+			if !ok {
 				continue
 			}
 
 			lastSent = encoded
 
-			if err := response.SSEEvent(w, "snapshot", snapshot); err != nil {
+			if err := response.SSEEvent(w, "snapshot", snap); err != nil {
 				return
 			}
 
 			flusher.Flush()
 		}
 	}
+}
+
+// nextJobSnapshot fetches a fresh snapshot for the poll tick and encodes it.
+// It reports ok=false when there is nothing to send: either the read or the
+// marshal failed (logged here), or the encoded form is identical to the last
+// one sent. A transient failure - a locked database, say - must leave the
+// stream open rather than dropping the client, which would otherwise
+// reconnect straight into the same error.
+func (h *JobHandler) nextJobSnapshot(ctx context.Context, lastSent []byte) (*JobSnapshot, []byte, bool) {
+	snapshot, err := h.snapshot(ctx)
+	if err != nil {
+		h.Log.Error("get job snapshot failed", "error", err)
+
+		return nil, nil, false
+	}
+
+	encoded, err := json.Marshal(snapshot)
+	if err != nil {
+		h.Log.Error("marshal job snapshot failed", "error", err)
+
+		return nil, nil, false
+	}
+
+	if bytes.Equal(encoded, lastSent) {
+		return nil, nil, false
+	}
+
+	return snapshot, encoded, true
 }

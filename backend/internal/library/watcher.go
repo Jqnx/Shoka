@@ -21,6 +21,8 @@ type Watcher struct {
 	log       *slog.Logger
 }
 
+// NewWatcher returns a Watcher for a single library's directory. The
+// returned logger is tagged with the watcher component and library ID.
 func NewWatcher(queue JobQueue, libraryID, dir string, log *slog.Logger) *Watcher {
 	return &Watcher{
 		queue:     queue,
@@ -30,6 +32,9 @@ func NewWatcher(queue JobQueue, libraryID, dir string, log *slog.Logger) *Watche
 	}
 }
 
+// Start registers fsnotify watches for w.dir and all of its
+// subdirectories, then spawns the goroutine that rescans the library on
+// changes until ctx is cancelled.
 func (w *Watcher) Start(ctx context.Context) error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -76,7 +81,9 @@ func (w *Watcher) Start(ctx context.Context) error {
 }
 
 func (w *Watcher) run(ctx context.Context, watcher *fsnotify.Watcher) {
-	defer watcher.Close()
+	// run owns watcher for its whole lifetime; a close failure on shutdown
+	// has no caller left to report to.
+	defer func() { _ = watcher.Close() }()
 
 	// Debounce Timer
 	// We wait 5s after the last event before scanning
@@ -97,29 +104,7 @@ func (w *Watcher) run(ctx context.Context, watcher *fsnotify.Watcher) {
 				return
 			}
 
-			// New directories need to be watched explicitly so files copied
-			// into them are picked up too.
-			if event.Has(fsnotify.Create) {
-				if info, err := os.Stat(event.Name); err == nil && info.IsDir() {
-					w.watchNewDir(watcher, event.Name)
-				}
-			}
-
-			if event.Has(fsnotify.Create) || event.Has(fsnotify.Remove) || event.Has(fsnotify.Rename) {
-				w.log.Debug("fs event detected", "op", event.Op, "path", event.Name)
-
-				if debounce != nil {
-					debounce.Stop()
-				}
-
-				debounce = time.AfterFunc(5*time.Second, func() {
-					w.log.Info("triggering scan after fs event")
-
-					if err := w.queue.EnqueueOnce(ctx, jobs.JobTypeScan, jobs.ScanPayload{LibraryID: w.libraryID}); err != nil {
-						w.log.Error("scan triggered by watcher failed", "error", err)
-					}
-				})
-			}
+			debounce = w.handleEvent(ctx, watcher, event, debounce)
 
 		case err, ok := <-watcher.Errors:
 			if !ok {
@@ -129,6 +114,38 @@ func (w *Watcher) run(ctx context.Context, watcher *fsnotify.Watcher) {
 			w.log.Error("watcher error", "error", err)
 		}
 	}
+}
+
+// handleEvent reacts to a single fsnotify event: newly created directories
+// are added to the watch set, and create/remove/rename events (re)arm the
+// debounce timer that triggers a scoped rescan. It returns the timer the
+// run loop should keep, so the caller stays a plain select loop.
+func (w *Watcher) handleEvent(ctx context.Context, watcher *fsnotify.Watcher, event fsnotify.Event, debounce *time.Timer) *time.Timer {
+	// New directories need to be watched explicitly so files copied
+	// into them are picked up too.
+	if event.Has(fsnotify.Create) {
+		if info, err := os.Stat(event.Name); err == nil && info.IsDir() {
+			w.watchNewDir(watcher, event.Name)
+		}
+	}
+
+	if !event.Has(fsnotify.Create) && !event.Has(fsnotify.Remove) && !event.Has(fsnotify.Rename) {
+		return debounce
+	}
+
+	w.log.Debug("fs event detected", "op", event.Op, "path", event.Name)
+
+	if debounce != nil {
+		debounce.Stop()
+	}
+
+	return time.AfterFunc(5*time.Second, func() {
+		w.log.Info("triggering scan after fs event")
+
+		if err := w.queue.EnqueueOnce(ctx, jobs.JobTypeScan, jobs.ScanPayload{LibraryID: w.libraryID}); err != nil {
+			w.log.Error("scan triggered by watcher failed", "error", err)
+		}
+	})
 }
 
 // watchNewDir adds newly created directories (and any subdirectories they

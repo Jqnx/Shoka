@@ -10,11 +10,14 @@ import (
 	"time"
 )
 
+// Queue wraps the job-table queries and implements the enqueue, claim,
+// retry, and completion transitions the worker relies on.
 type Queue struct {
 	queries *sqlc.Queries
 	log     *slog.Logger
 }
 
+// NewQueue returns a Queue backed by the given job-table queries.
 func NewQueue(queries *sqlc.Queries, log *slog.Logger) *Queue {
 	return &Queue{
 		queries: queries,
@@ -22,6 +25,8 @@ func NewQueue(queries *sqlc.Queries, log *slog.Logger) *Queue {
 	}
 }
 
+// Enqueue marshals payload and inserts a new job of jobType that becomes
+// immediately claimable by a worker.
 func (q *Queue) Enqueue(ctx context.Context, jobType string, payload any) error {
 	b, err := json.Marshal(payload)
 	if err != nil {
@@ -70,6 +75,8 @@ func (q *Queue) EnqueueOnce(ctx context.Context, jobType string, payload any) er
 	return q.enqueue(ctx, jobType, string(b))
 }
 
+// EnqueueAfter inserts a job of jobType that only becomes claimable once
+// delay has elapsed.
 func (q *Queue) EnqueueAfter(ctx context.Context, jobType string, payload any, delay time.Duration) error {
 	b, err := json.Marshal(payload)
 	if err != nil {

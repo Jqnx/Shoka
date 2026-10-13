@@ -7,6 +7,7 @@ import (
 	"log/slog"
 )
 
+// JobTypeScan is the job type that scans a single library.
 const JobTypeScan = "scan"
 
 // ScanPayload always targets a single library — the app has no "scan
@@ -24,7 +25,9 @@ type Scannable interface {
 	ScanLibrary(ctx context.Context, libraryID string) error
 }
 
-func NewScanHandler(scanner Scannable, log *slog.Logger) Handler {
+// NewScanHandler returns a Handler that scans the library named in the job
+// payload through the given Scannable.
+func NewScanHandler(scanner Scannable, _ *slog.Logger) Handler {
 	return func(ctx context.Context, job *Job) error {
 		var p ScanPayload
 		if err := job.Decode(&p); err != nil {

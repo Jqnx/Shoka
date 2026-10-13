@@ -10,8 +10,10 @@ import (
 	"log/slog"
 )
 
+// JobTypePHash is the job type that computes an archive's perceptual hashes.
 const JobTypePHash = "phash"
 
+// PHashPayload identifies the archive and backing file to hash.
 type PHashPayload struct {
 	FilePath  string `json:"file_path"`
 	ArchiveID string `json:"archive_id"`
@@ -61,7 +63,7 @@ func NewPHashHandler(processor *image.Processor, queries *sqlc.Queries, log *slo
 		if err != nil {
 			return fmt.Errorf("open archive: %w", err)
 		}
-		defer a.Close()
+		defer func() { _ = a.Close() }()
 
 		pages, err := a.Pages()
 		if err != nil {
@@ -123,7 +125,7 @@ func hashPage(processor *image.Processor, a archive.Archive, page archive.Page) 
 	if err != nil {
 		return 0, fmt.Errorf("extract page: %w", err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	data, err := io.ReadAll(r)
 	if err != nil {

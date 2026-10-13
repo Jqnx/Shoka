@@ -853,7 +853,7 @@ const docTemplate = `{
         },
         "/api/archives/languages": {
             "get": {
-                "description": "Returns every distinct language code currently in use across all libraries, paired with a display name (see language.LanguageConverter; falls back to the raw code if unrecognized). Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.",
+                "description": "Returns every distinct language code currently in use across all libraries, paired with a display name (see language.Converter; falls back to the raw code if unrecognized). Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.",
                 "produces": [
                     "application/json"
                 ],

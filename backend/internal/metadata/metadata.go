@@ -1,11 +1,12 @@
+// Package metadata defines the metadata sources that enrich an archive
+// (ComicInfo, filename parsing, gallery APIs) plus the pipeline that runs
+// them by priority and merges their results into the archive's own tables.
 package metadata
 
 import (
 	"Shoka/internal/database/sqlc"
-	"Shoka/internal/util"
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -74,11 +75,16 @@ type Source interface {
 	Fetch(ctx context.Context, input Input) (*Result, error)
 }
 
+// SearchableSource is a Source that can also be searched by title, returning
+// candidate galleries for the user to pick from manually.
 type SearchableSource interface {
 	Source
 	Search(ctx context.Context, input Input) ([]*SearchResult, error)
 }
 
+// SearchResult is one candidate gallery returned by a source's Search. It
+// carries only the fields needed to render a picker row; Full stays nil until
+// the user selects the result and FetchByID populates it.
 type SearchResult struct {
 	ID         string     `json:"id"`
 	Title      string     `json:"title"`
@@ -92,6 +98,9 @@ type SearchResult struct {
 	Full *Result `json:"full"`
 }
 
+// RemoteSource is a SearchableSource that can fetch the full metadata for a
+// single gallery identified by the source-specific ID the user picked from
+// search results.
 type RemoteSource interface {
 	SearchableSource
 	// FetchByID fetches full metadata for a source-specific ID chosen by the
@@ -100,12 +109,22 @@ type RemoteSource interface {
 	FetchByID(ctx context.Context, input Input, id string) (*Result, error)
 }
 
+// ApplyMetadata writes result into the archive's metadata tables in a single
+// transaction: the flat archive columns are overwritten outright, while each
+// relational field (artists, circles, tags, parodies, characters, and urls)
+// is reconciled against the archive's current links.
+//
+// Relational fields are checked with != nil rather than len() > 0
+// deliberately: a non-nil empty slice clears the relation entirely (e.g. a
+// manual edit removing all tags), while a nil slice — the zero value, what
+// pipeline sources leave a field at when they have nothing to contribute —
+// means "don't touch this".
 func ApplyMetadata(ctx context.Context, queries *sqlc.Queries, db *sql.DB, archiveID string, result *Result) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }() // no-op once committed
 
 	qtx := queries.WithTx(tx)
 
@@ -128,32 +147,23 @@ func ApplyMetadata(ctx context.Context, queries *sqlc.Queries, db *sql.DB, archi
 	// non-nil empty slice (e.g. a manual edit removing all tags), while a
 	// nil slice (the zero value — what pipeline sources leave a field at
 	// when they have nothing to contribute) still means "don't touch this."
-	if result.Artists != nil {
-		if err := applyArtists(ctx, qtx, archiveID, result.Artists); err != nil {
-			return err
-		}
+	relations := []struct {
+		names []string
+		rel   relationSpec
+	}{
+		{result.Artists, artistsRelation},
+		{result.Circles, circlesRelation},
+		{result.Tags, tagsRelation},
+		{result.Parodies, parodiesRelation},
+		{result.Characters, charactersRelation},
 	}
 
-	if result.Circles != nil {
-		if err := applyCircles(ctx, qtx, archiveID, result.Circles); err != nil {
-			return err
+	for _, r := range relations {
+		if r.names == nil {
+			continue
 		}
-	}
 
-	if result.Tags != nil {
-		if err := applyTags(ctx, qtx, archiveID, result.Tags); err != nil {
-			return err
-		}
-	}
-
-	if result.Parodies != nil {
-		if err := applyParodies(ctx, qtx, archiveID, result.Parodies); err != nil {
-			return err
-		}
-	}
-
-	if result.Characters != nil {
-		if err := applyCharacters(ctx, qtx, archiveID, result.Characters); err != nil {
+		if err := applyRelation(ctx, qtx, archiveID, r.names, r.rel); err != nil {
 			return err
 		}
 	}
@@ -166,343 +176,6 @@ func ApplyMetadata(ctx context.Context, queries *sqlc.Queries, db *sql.DB, archi
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit transaction: %w", err)
-	}
-
-	return nil
-}
-
-func applyArtists(ctx context.Context, q *sqlc.Queries, archiveID string, artists []string) error {
-	artistsJson, _ := json.Marshal(artists)
-
-	err := q.BulkAddArtists(ctx, artistsJson)
-	if err != nil {
-		return fmt.Errorf("upsert artists: %w", err)
-	}
-
-	rows, err := q.BulkGetArtists(ctx, artists)
-	if err != nil {
-		return fmt.Errorf("get artists: %w", err)
-	}
-
-	desiredIDs := make([]int64, len(rows))
-	for i, row := range rows {
-		desiredIDs[i] = row.ID
-	}
-
-	currentIDs, err := q.GetArchiveArtistIDs(ctx, archiveID)
-	if err != nil {
-		return fmt.Errorf("get current artists: %w", err)
-	}
-
-	toAdd, toRemove := util.Diff(currentIDs, desiredIDs)
-
-	if len(toAdd) > 0 {
-		toAddJson, _ := json.Marshal(toAdd)
-		if err := q.BulkAddArchiveArtists(ctx, sqlc.BulkAddArchiveArtistsParams{
-			ArchiveID: &archiveID,
-			Artists:   toAddJson,
-		}); err != nil {
-			return fmt.Errorf("link artists: %w", err)
-		}
-	}
-
-	if len(toRemove) > 0 {
-		toRemoveJson, _ := json.Marshal(toRemove)
-		if err := q.BulkRemoveArtistFromArchive(ctx, sqlc.BulkRemoveArtistFromArchiveParams{
-			ArchiveID: &archiveID,
-			Artists:   toRemoveJson,
-		}); err != nil {
-			return fmt.Errorf("unlink artists: %w", err)
-		}
-	}
-
-	if len(toAdd) > 0 {
-		if err := q.IncrementArtistCount(ctx, toAdd); err != nil {
-			return fmt.Errorf("increment artist counts: %w", err)
-		}
-	}
-
-	if len(toRemove) > 0 {
-		if err := q.DecrementArtistCount(ctx, toRemove); err != nil {
-			return fmt.Errorf("decrement artist counts: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func applyCircles(ctx context.Context, q *sqlc.Queries, archiveID string, circles []string) error {
-	circleJson, _ := json.Marshal(circles)
-
-	err := q.BulkAddCircle(ctx, circleJson)
-	if err != nil {
-		return fmt.Errorf("upsert circles: %w", err)
-	}
-
-	rows, err := q.BulkGetCircle(ctx, circles)
-	if err != nil {
-		return fmt.Errorf("get circles: %w", err)
-	}
-
-	desiredIDs := make([]int64, len(rows))
-	for i, row := range rows {
-		desiredIDs[i] = row.ID
-	}
-
-	currentIDs, err := q.GetArchiveCircleIDs(ctx, archiveID)
-	if err != nil {
-		return fmt.Errorf("get current circles: %w", err)
-	}
-
-	toAdd, toRemove := util.Diff(currentIDs, desiredIDs)
-
-	if len(toAdd) > 0 {
-		toAddJson, _ := json.Marshal(toAdd)
-		if err := q.BulkAddArchiveCircle(ctx, sqlc.BulkAddArchiveCircleParams{
-			ArchiveID: &archiveID,
-			Circle:    toAddJson,
-		}); err != nil {
-			return fmt.Errorf("link circles: %w", err)
-		}
-	}
-
-	if len(toRemove) > 0 {
-		toRemoveJson, _ := json.Marshal(toRemove)
-		if err := q.BulkRemoveCircleFromArchive(ctx, sqlc.BulkRemoveCircleFromArchiveParams{
-			ArchiveID: &archiveID,
-			Circle:    toRemoveJson,
-		}); err != nil {
-			return fmt.Errorf("unlink circles: %w", err)
-		}
-	}
-
-	if len(toAdd) > 0 {
-		if err := q.IncrementCircleCount(ctx, toAdd); err != nil {
-			return fmt.Errorf("increment circle counts: %w", err)
-		}
-	}
-
-	if len(toRemove) > 0 {
-		if err := q.DecrementCircleCount(ctx, toRemove); err != nil {
-			return fmt.Errorf("decrement circle counts: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func applyTags(ctx context.Context, q *sqlc.Queries, archiveID string, tags []string) error {
-	tagsJson, _ := json.Marshal(tags)
-
-	err := q.BulkAddTags(ctx, tagsJson)
-	if err != nil {
-		return fmt.Errorf("upsert tags: %w", err)
-	}
-
-	rows, err := q.BulkGetTags(ctx, tags)
-	if err != nil {
-		return fmt.Errorf("get tags: %w", err)
-	}
-
-	desiredIDs := make([]int64, len(rows))
-	for i, row := range rows {
-		desiredIDs[i] = row.ID
-	}
-
-	currentIDs, err := q.GetArchiveTagIDs(ctx, archiveID)
-	if err != nil {
-		return fmt.Errorf("get current tags: %w", err)
-	}
-
-	toAdd, toRemove := util.Diff(currentIDs, desiredIDs)
-
-	if len(toAdd) > 0 {
-		toAddJson, _ := json.Marshal(toAdd)
-		if err := q.BulkAddArchiveTags(ctx, sqlc.BulkAddArchiveTagsParams{
-			ArchiveID: &archiveID,
-			Tags:      toAddJson,
-		}); err != nil {
-			return fmt.Errorf("link tags: %w", err)
-		}
-	}
-
-	if len(toRemove) > 0 {
-		toRemoveJson, _ := json.Marshal(toRemove)
-		if err := q.BulkRemoveTagFromArchive(ctx, sqlc.BulkRemoveTagFromArchiveParams{
-			ArchiveID: &archiveID,
-			Tags:      toRemoveJson,
-		}); err != nil {
-			return fmt.Errorf("unlink tags: %w", err)
-		}
-	}
-
-	if len(toAdd) > 0 {
-		if err := q.IncrementTagCount(ctx, toAdd); err != nil {
-			return fmt.Errorf("increment tag counts: %w", err)
-		}
-	}
-
-	if len(toRemove) > 0 {
-		if err := q.DecrementTagCount(ctx, toRemove); err != nil {
-			return fmt.Errorf("decrement tag counts: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func applyCharacters(ctx context.Context, q *sqlc.Queries, archiveID string, characters []string) error {
-	charactersJson, _ := json.Marshal(characters)
-
-	err := q.BulkAddCharacters(ctx, charactersJson)
-	if err != nil {
-		return fmt.Errorf("upsert characters: %w", err)
-	}
-
-	rows, err := q.BulkGetCharacters(ctx, characters)
-	if err != nil {
-		return fmt.Errorf("get characters: %w", err)
-	}
-
-	desiredIDs := make([]int64, len(rows))
-	for i, row := range rows {
-		desiredIDs[i] = row.ID
-	}
-
-	currentIDs, err := q.GetArchiveCharacterIDs(ctx, archiveID)
-	if err != nil {
-		return fmt.Errorf("get current characters: %w", err)
-	}
-
-	toAdd, toRemove := util.Diff(currentIDs, desiredIDs)
-
-	if len(toAdd) > 0 {
-		toAddJson, _ := json.Marshal(toAdd)
-		if err := q.BulkAddArchiveCharacters(ctx, sqlc.BulkAddArchiveCharactersParams{
-			ArchiveID:  &archiveID,
-			Characters: toAddJson,
-		}); err != nil {
-			return fmt.Errorf("link characters: %w", err)
-		}
-	}
-
-	if len(toRemove) > 0 {
-		toRemoveJson, _ := json.Marshal(toRemove)
-		if err := q.BulkRemoveCharactersFromArchive(ctx, sqlc.BulkRemoveCharactersFromArchiveParams{
-			ArchiveID:  &archiveID,
-			Characters: toRemoveJson,
-		}); err != nil {
-			return fmt.Errorf("unlink characters: %w", err)
-		}
-	}
-
-	if len(toAdd) > 0 {
-		if err := q.IncrementCharacterCount(ctx, toAdd); err != nil {
-			return fmt.Errorf("increment character counts: %w", err)
-		}
-	}
-
-	if len(toRemove) > 0 {
-		if err := q.DecrementCharacterCount(ctx, toRemove); err != nil {
-			return fmt.Errorf("decrement character counts: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func applyParodies(ctx context.Context, q *sqlc.Queries, archiveID string, parodies []string) error {
-	parodiesJson, _ := json.Marshal(parodies)
-
-	err := q.BulkAddParodies(ctx, parodiesJson)
-	if err != nil {
-		return fmt.Errorf("upsert parodies: %w", err)
-	}
-
-	rows, err := q.BulkGetParodies(ctx, parodies)
-	if err != nil {
-		return fmt.Errorf("get parodies: %w", err)
-	}
-
-	desiredIDs := make([]int64, len(rows))
-	for i, row := range rows {
-		desiredIDs[i] = row.ID
-	}
-
-	currentIDs, err := q.GetArchiveParodyIDs(ctx, archiveID)
-	if err != nil {
-		return fmt.Errorf("get current parodies: %w", err)
-	}
-
-	toAdd, toRemove := util.Diff(currentIDs, desiredIDs)
-
-	if len(toAdd) > 0 {
-		toAddJson, _ := json.Marshal(toAdd)
-		if err := q.BulkAddArchiveParodies(ctx, sqlc.BulkAddArchiveParodiesParams{
-			ArchiveID: &archiveID,
-			Parodies:  toAddJson,
-		}); err != nil {
-			return fmt.Errorf("link parodies: %w", err)
-		}
-	}
-
-	if len(toRemove) > 0 {
-		toRemoveJson, _ := json.Marshal(toRemove)
-		if err := q.BulkRemoveParodiesFromArchive(ctx, sqlc.BulkRemoveParodiesFromArchiveParams{
-			ArchiveID: &archiveID,
-			Parodies:  toRemoveJson,
-		}); err != nil {
-			return fmt.Errorf("unlink parodies: %w", err)
-		}
-	}
-
-	if len(toAdd) > 0 {
-		if err := q.IncrementParodyCount(ctx, toAdd); err != nil {
-			return fmt.Errorf("increment parody counts: %w", err)
-		}
-	}
-
-	if len(toRemove) > 0 {
-		if err := q.DecrementParodyCount(ctx, toRemove); err != nil {
-			return fmt.Errorf("decrement parody counts: %w", err)
-		}
-	}
-
-	return nil
-}
-
-// applyURLs reconciles an archive's source links to the desired set. It
-// mirrors applyArtists, diffing on the URL string via util.Diff (now
-// generic over comparable element types) rather than integer IDs. There are
-// no counter tables for URLs, so there's no increment/decrement step. A
-// non-nil empty slice clears every link.
-func applyURLs(ctx context.Context, q *sqlc.Queries, archiveID string, urls []string) error {
-	desired := NormalizeURLs(urls)
-
-	current, err := q.GetArchiveUrls(ctx, archiveID)
-	if err != nil {
-		return fmt.Errorf("get current urls: %w", err)
-	}
-
-	toAdd, toRemove := util.Diff(current, desired)
-
-	if len(toAdd) > 0 {
-		toAddJSON, _ := json.Marshal(toAdd)
-		if err := q.BulkAddArchiveURLs(ctx, sqlc.BulkAddArchiveURLsParams{
-			ArchiveID: archiveID,
-			Urls:      toAddJSON,
-		}); err != nil {
-			return fmt.Errorf("add urls: %w", err)
-		}
-	}
-
-	if len(toRemove) > 0 {
-		if err := q.RemoveArchiveUrl(ctx, sqlc.RemoveArchiveUrlParams{
-			ArchiveID: archiveID,
-			Urls:      toRemove,
-		}); err != nil {
-			return fmt.Errorf("remove urls: %w", err)
-		}
 	}
 
 	return nil

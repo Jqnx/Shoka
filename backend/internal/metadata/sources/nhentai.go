@@ -77,6 +77,8 @@ type nhentaiTag struct {
 	Slug string `json:"slug"`
 }
 
+// NhentaiError is the error object nhentai's API returns in place of a result
+// when a request is rejected, e.g. for an invalid or missing API key.
 type NhentaiError struct {
 	Error string `json:"error"`
 }
@@ -88,6 +90,9 @@ type nhentaiCDNServers struct {
 	ThumbServers []string `json:"thumb_servers"`
 }
 
+// NHentaiSource queries the nhentai gallery API, matching by URL ID for exact
+// lookups or by title search. Requests are rate limited to respect the
+// anonymous endpoint's per-IP quota, and the CDN server list is cached.
 type NHentaiSource struct {
 	client  *http.Client
 	limiter *rate.Limiter
@@ -103,6 +108,8 @@ var nhentaiLanguageTagIDs = map[int]string{
 	29963: "zh",
 }
 
+// NewNHentaiSource returns an NHentaiSource with a 15 s timeout HTTP client
+// and a rate limiter matching nhentai's anonymous request interval.
 func NewNHentaiSource() *NHentaiSource {
 	return &NHentaiSource{
 		client:  &http.Client{Timeout: 15 * time.Second},
@@ -110,8 +117,13 @@ func NewNHentaiSource() *NHentaiSource {
 	}
 }
 
-func (s *NHentaiSource) Name() string  { return "nhentai" }
+// Name returns the stable source identifier, "nhentai".
+func (s *NHentaiSource) Name() string { return "nhentai" }
+
+// Priority returns 10: ID-based lookups are precise, title searches less so.
 func (s *NHentaiSource) Priority() int { return 10 }
+
+// IsLocal reports false: the source reaches the nhentai API over the network.
 func (s *NHentaiSource) IsLocal() bool { return false }
 
 // Hosts implements metadata.HostAware, derived from nhentaiBaseURL so it
@@ -134,7 +146,7 @@ func (s *NHentaiSource) Search(ctx context.Context, input metadata.Input) ([]*me
 	if err != nil {
 		return nil, fmt.Errorf("search request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusTooManyRequests {
 		return nil, errors.New("nhentai rate limit exceeded")
@@ -194,7 +206,7 @@ func (s *NHentaiSource) search(ctx context.Context, title, apiKey string) (int, 
 	if err != nil {
 		return 0, fmt.Errorf("search request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusTooManyRequests {
 		return 0, errors.New("nhentai rate limit exceeded")
@@ -222,7 +234,7 @@ func (s *NHentaiSource) fetchGallery(ctx context.Context, id int, apiKey string)
 	if err != nil {
 		return nil, fmt.Errorf("gallery request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, nil
@@ -248,17 +260,7 @@ func (s *NHentaiSource) fetchGallery(ctx context.Context, id int, apiKey string)
 func (s *NHentaiSource) toResult(g *nhentaiGalleryDetail) *metadata.Result {
 	result := &metadata.Result{}
 
-	// prefer english title, fall back to pretty, then japanese
-	title := g.Title.English
-	if title == "" {
-		title = g.Title.Pretty
-	}
-
-	if title == "" {
-		title = g.Title.Japanese
-	}
-
-	if title != "" {
+	if title := preferredTitle(g.Title); title != "" {
 		result.Title = &title
 	}
 
@@ -275,33 +277,7 @@ func (s *NHentaiSource) toResult(g *nhentaiGalleryDetail) *metadata.Result {
 		result.ReleaseDate = &t
 	}
 
-	for _, tag := range g.Tags {
-		name := tag.Name
-		switch tag.Type {
-		case "artist":
-			result.Artists = append(result.Artists, name)
-		case "group":
-			result.Circles = append(result.Circles, name)
-		case "parody":
-			result.Parodies = append(result.Parodies, name)
-		case "character":
-			result.Characters = append(result.Characters, name)
-		case "language":
-			// normalise language tag — nhentai uses "english", "japanese" etc.
-			lang := strings.ToLower(name)
-			if lang != "translated" && lang != "" {
-				lc := language.NewLanguageConverter()
-				langISO, _ := lc.ToISO(lang)
-				result.Language = &langISO
-			} else {
-				result.Language = nil
-			}
-		case "category":
-			result.Category = &name
-		case "tag":
-			result.Tags = append(result.Tags, name)
-		}
-	}
+	applyGalleryTags(result, g.Tags)
 
 	// NOTE: Don't know for sure yet if i'm keeping this
 
@@ -311,6 +287,60 @@ func (s *NHentaiSource) toResult(g *nhentaiGalleryDetail) *metadata.Result {
 	}
 
 	return result
+}
+
+// preferredTitle picks nhentai's best available title: english, then the
+// romanised "pretty" form, then japanese.
+func preferredTitle(t nhentaiTitle) string {
+	if t.English != "" {
+		return t.English
+	}
+
+	if t.Pretty != "" {
+		return t.Pretty
+	}
+
+	return t.Japanese
+}
+
+// applyGalleryTags folds nhentai's typed tag list into result, appending one
+// entry per relational tag and mapping the singletons (language, category).
+func applyGalleryTags(result *metadata.Result, tags []nhentaiTag) {
+	for _, tag := range tags {
+		switch tag.Type {
+		case "artist":
+			result.Artists = append(result.Artists, tag.Name)
+		case "group":
+			result.Circles = append(result.Circles, tag.Name)
+		case "parody":
+			result.Parodies = append(result.Parodies, tag.Name)
+		case "character":
+			result.Characters = append(result.Characters, tag.Name)
+		case "language":
+			applyLanguageTag(result, tag.Name)
+		case "category":
+			category := tag.Name
+			result.Category = &category
+		case "tag":
+			result.Tags = append(result.Tags, tag.Name)
+		}
+	}
+}
+
+// applyLanguageTag normalises a nhentai language tag ("english", "japanese",
+// ...) to ISO via the language converter. "translated" is a scanlation
+// marker rather than a language, so it clears the field.
+func applyLanguageTag(result *metadata.Result, name string) {
+	lang := strings.ToLower(name)
+	if lang == "translated" || lang == "" {
+		result.Language = nil
+
+		return
+	}
+
+	lc := language.NewConverter()
+	langISO, _ := lc.ToISO(lang)
+	result.Language = &langISO
 }
 
 // doRequest waits for the rate limiter, executes the request, and retries once
@@ -346,7 +376,7 @@ func (s *NHentaiSource) doRequest(ctx context.Context, rawURL, apiKey string) (*
 			return resp, nil
 		}
 
-		resp.Body.Close()
+		_ = resp.Body.Close()
 
 		wait := 60 * time.Second
 
@@ -441,7 +471,7 @@ func (s *NHentaiSource) fetchCDNServers(ctx context.Context, apiKey string) ([]s
 	if err != nil {
 		return nil, fmt.Errorf("cdn request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("nhentai cdn returned %d", resp.StatusCode)

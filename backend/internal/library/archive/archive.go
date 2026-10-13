@@ -1,3 +1,6 @@
+// Package archive exposes the image-archive formats Shoka libraries use
+// (zip/cbz, rar/cbr and 7z) behind a single Archive interface, listing an
+// archive's pages and rewriting individual entries.
 package archive
 
 import (
@@ -35,12 +38,18 @@ func copyArchiveEntry(dst io.Writer, src io.Reader, name string) error {
 	return nil
 }
 
+// Page describes one image entry inside an archive: the entry's filename,
+// its uncompressed size in bytes, and its ordinal index — the latter set
+// only by formats that address pages by position rather than by name.
 type Page struct {
 	Index    int
 	Filename string
 	Size     int64
 }
 
+// Archive is the common interface over the supported container formats.
+// It lists and extracts pages, reads and rewrites individual entries, and
+// releases the underlying reader through Close.
 type Archive interface {
 	Path() string
 	Pages() ([]Page, error)
@@ -50,7 +59,8 @@ type Archive interface {
 	Close() error
 }
 
-// Open() opens an archive.
+// Open detects the archive format of path and returns the matching
+// Archive implementation, or an error if the format is unsupported.
 func Open(path string) (Archive, error) {
 	mtype, err := mimetype.DetectFile(path)
 	if err != nil {

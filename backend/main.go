@@ -1,3 +1,5 @@
+// Command shoka runs the self-hosted doujinshi library server: it loads the
+// configuration, opens the database, and serves the API until interrupted.
 package main
 
 import (
@@ -53,7 +55,7 @@ func run(cfg *config.Config, log *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("connect to database: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	if err := database.Migrate(db); err != nil {
 		return fmt.Errorf("migrate database: %w", err)
@@ -65,7 +67,9 @@ func run(cfg *config.Config, log *slog.Logger) error {
 
 	// Initialize Services
 	vips.LoggingSettings(nil, vips.LogLevelWarning)
-	vips.Startup(nil)
+	// libvips has no error recovery path here: a failure is only reported to
+	// stderr, so there is nothing to act on.
+	_ = vips.Startup(nil)
 
 	defer vips.Shutdown()
 

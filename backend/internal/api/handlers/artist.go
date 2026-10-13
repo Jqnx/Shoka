@@ -2,11 +2,9 @@ package handlers
 
 import (
 	"Shoka/internal/api/response"
-	"Shoka/internal/auth"
 	"Shoka/internal/database"
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/image"
-	"Shoka/internal/language"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -19,6 +17,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// ArtistHandler serves artist CRUD and the archives linked to an artist.
 type ArtistHandler struct {
 	queries   *sqlc.Queries
 	db        *sql.DB
@@ -26,6 +25,8 @@ type ArtistHandler struct {
 	processor *image.Processor
 }
 
+// NewArtistHandler returns an ArtistHandler backed by queries, db, and the
+// shared image processor.
 func NewArtistHandler(queries *sqlc.Queries, db *sql.DB, log *slog.Logger, processor *image.Processor) *ArtistHandler {
 	return &ArtistHandler{
 		queries:   queries,
@@ -35,6 +36,8 @@ func NewArtistHandler(queries *sqlc.Queries, db *sql.DB, log *slog.Logger, proce
 	}
 }
 
+// ArtistResponse is the artist payload returned by the list endpoints and
+// CreateArtist/UpdateArtist.
 type ArtistResponse struct {
 	ID      int64    `json:"id"`
 	Name    string   `json:"name"`
@@ -43,6 +46,7 @@ type ArtistResponse struct {
 	URLs    []string `json:"urls,omitempty"`
 }
 
+// ArtistListResponse is a single page of artists plus the total count.
 type ArtistListResponse struct {
 	Items []ArtistResponse `json:"items"`
 	Total int64            `json:"total"`
@@ -61,21 +65,7 @@ type ArtistListResponse struct {
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/artists [get]
 func (h *ArtistHandler) GetArtists(w http.ResponseWriter, r *http.Request) {
-	page := 1
-	limit := 50
-
-	if p := r.URL.Query().Get("page"); p != "" {
-		if v, err := strconv.Atoi(p); err == nil && v > 0 {
-			page = v
-		}
-	}
-
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 100 {
-			limit = v
-		}
-	}
-
+	page, limit := parsePagination(r, defaultListLimit)
 	offset := int64((page - 1) * limit)
 
 	total, err := h.queries.TotalArtists(r.Context())
@@ -251,6 +241,7 @@ func (h *ArtistHandler) addURLs(ctx context.Context, q *sqlc.Queries, artistID i
 	return nil
 }
 
+// CreateArtistRequest is the JSON body accepted by CreateArtist.
 type CreateArtistRequest struct {
 	Name    string   `json:"name"`
 	Aliases []string `json:"aliases"`
@@ -290,7 +281,7 @@ func (h *ArtistHandler) CreateArtist(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	qtx := h.queries.WithTx(tx)
 
@@ -352,6 +343,7 @@ func (h *ArtistHandler) CreateArtist(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusCreated, resp)
 }
 
+// UpdateArtistRequest is the JSON body accepted by UpdateArtist.
 type UpdateArtistRequest struct {
 	Name *string `json:"name"`
 	// Aliases/URLs: omit to leave unchanged, send [] to clear, or send a
@@ -377,9 +369,8 @@ type UpdateArtistRequest struct {
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/artists/{id} [patch]
 func (h *ArtistHandler) UpdateArtist(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil {
-		response.BadRequest(w, "invalid artist id")
+	id, ok := pathID(w, r, "artist")
+	if !ok {
 		return
 	}
 
@@ -387,6 +378,7 @@ func (h *ArtistHandler) UpdateArtist(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			response.NotFound(w, "artist not found")
+
 			return
 		}
 
@@ -396,19 +388,9 @@ func (h *ArtistHandler) UpdateArtist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var body UpdateArtistRequest
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		response.BadRequest(w, "invalid request body")
+	name, body, ok := updateArtistBody(w, r, current.Name)
+	if !ok {
 		return
-	}
-
-	name := current.Name
-	if body.Name != nil {
-		name = strings.TrimSpace(*body.Name)
-		if name == "" {
-			response.BadRequest(w, "name cannot be empty")
-			return
-		}
 	}
 
 	tx, err := h.db.BeginTx(r.Context(), nil)
@@ -418,63 +400,11 @@ func (h *ArtistHandler) UpdateArtist(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
-	qtx := h.queries.WithTx(tx)
-
-	artist, err := qtx.UpdateArtistByID(r.Context(), sqlc.UpdateArtistByIDParams{Name: name, ID: id})
-	if err != nil {
-		if database.IsUniqueConstraintError(err) {
-			response.Conflict(w, "an artist with this name already exists")
-			return
-		}
-
-		h.logger.Error("update artist failed", "id", id, "error", err)
-		response.InternalError(w, "failed to update artist")
-
+	artist, ok := h.applyArtistUpdate(w, r, h.queries.WithTx(tx), id, name, body)
+	if !ok {
 		return
-	}
-
-	if body.Aliases != nil {
-		if err := qtx.RemoveArtistAliases(r.Context(), id); err != nil {
-			h.logger.Error("clear artist aliases failed", "id", id, "error", err)
-			response.InternalError(w, "failed to update artist")
-
-			return
-		}
-
-		if err := h.addAliases(r.Context(), qtx, id, body.Aliases); err != nil {
-			if database.IsUniqueConstraintError(err) {
-				response.Conflict(w, "an alias with this value is already in use")
-				return
-			}
-
-			h.logger.Error("update artist aliases failed", "id", id, "error", err)
-			response.InternalError(w, "failed to update artist")
-
-			return
-		}
-	}
-
-	if body.URLs != nil {
-		if err := qtx.RemoveArtistUrls(r.Context(), id); err != nil {
-			h.logger.Error("clear artist urls failed", "id", id, "error", err)
-			response.InternalError(w, "failed to update artist")
-
-			return
-		}
-
-		if err := h.addURLs(r.Context(), qtx, id, body.URLs); err != nil {
-			if database.IsUniqueConstraintError(err) {
-				response.Conflict(w, "a url with this value is already in use")
-				return
-			}
-
-			h.logger.Error("update artist urls failed", "id", id, "error", err)
-			response.InternalError(w, "failed to update artist")
-
-			return
-		}
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -486,13 +416,96 @@ func (h *ArtistHandler) UpdateArtist(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := h.artistDetail(r.Context(), artist)
 	if err != nil {
-		h.logger.Error("get artist detail failed", "id", id, "error", err)
+		h.logger.Error("get artist detail failed", "id", artist.ID, "error", err)
 		response.InternalError(w, "failed to update artist")
 
 		return
 	}
 
 	response.JSON(w, http.StatusOK, resp)
+}
+
+// updateArtistBody decodes the PATCH body and resolves the artist's new name,
+// keeping current when the body omits it. It writes the 400 response and
+// returns false on a bad request.
+func updateArtistBody(w http.ResponseWriter, r *http.Request, current string) (string, UpdateArtistRequest, bool) {
+	var body UpdateArtistRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.BadRequest(w, "invalid request body")
+
+		return "", body, false
+	}
+
+	name := current
+	if body.Name != nil {
+		name = strings.TrimSpace(*body.Name)
+		if name == "" {
+			response.BadRequest(w, "name cannot be empty")
+
+			return "", body, false
+		}
+	}
+
+	return name, body, true
+}
+
+// applyArtistUpdate renames the artist and reconciles the aliases and urls
+// the request asked to replace, all inside qtx. It writes the failure
+// response and returns false on error.
+func (h *ArtistHandler) applyArtistUpdate(w http.ResponseWriter, r *http.Request, qtx *sqlc.Queries, id int64, name string, body UpdateArtistRequest) (sqlc.Artist, bool) {
+	artist, err := qtx.UpdateArtistByID(r.Context(), sqlc.UpdateArtistByIDParams{Name: name, ID: id})
+	if err != nil {
+		if database.IsUniqueConstraintError(err) {
+			response.Conflict(w, "an artist with this name already exists")
+
+			return sqlc.Artist{}, false
+		}
+
+		h.logger.Error("update artist failed", "id", id, "error", err)
+		response.InternalError(w, "failed to update artist")
+
+		return sqlc.Artist{}, false
+	}
+
+	// Aliases and urls are replaced the same way, so they share one loop.
+	links := []struct {
+		plural   string
+		values   []string
+		clear    func(context.Context, int64) error
+		insert   func(context.Context, *sqlc.Queries, int64, []string) error
+		conflict string
+	}{
+		{"aliases", body.Aliases, qtx.RemoveArtistAliases, h.addAliases, "an alias with this value is already in use"},
+		{"urls", body.URLs, qtx.RemoveArtistUrls, h.addURLs, "a url with this value is already in use"},
+	}
+
+	for _, link := range links {
+		if link.values == nil {
+			continue
+		}
+
+		if err := link.clear(r.Context(), id); err != nil {
+			h.logger.Error("clear artist "+link.plural+" failed", "id", id, "error", err)
+			response.InternalError(w, "failed to update artist")
+
+			return sqlc.Artist{}, false
+		}
+
+		if err := link.insert(r.Context(), qtx, id, link.values); err != nil {
+			if database.IsUniqueConstraintError(err) {
+				response.Conflict(w, link.conflict)
+
+				return sqlc.Artist{}, false
+			}
+
+			h.logger.Error("update artist "+link.plural+" failed", "id", id, "error", err)
+			response.InternalError(w, "failed to update artist")
+
+			return sqlc.Artist{}, false
+		}
+	}
+
+	return artist, true
 }
 
 // DeleteArtist godoc
@@ -507,9 +520,8 @@ func (h *ArtistHandler) UpdateArtist(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/artists/{id} [delete]
 func (h *ArtistHandler) DeleteArtist(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil {
-		response.BadRequest(w, "invalid artist id")
+	id, ok := pathID(w, r, "artist")
+	if !ok {
 		return
 	}
 
@@ -536,85 +548,10 @@ func (h *ArtistHandler) DeleteArtist(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/artists/{id}/archives [get]
 func (h *ArtistHandler) GetArchivesByArtist(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
-	if err != nil {
-		response.BadRequest(w, "invalid artist id")
+	id, ok := pathID(w, r, "artist")
+	if !ok {
 		return
 	}
 
-	userID := auth.UserIDFromContext(r.Context())
-
-	page := 1
-	limit := 24
-
-	if p := r.URL.Query().Get("page"); p != "" {
-		if v, err := strconv.Atoi(p); err == nil && v > 0 {
-			page = v
-		}
-	}
-
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if v, err := strconv.Atoi(l); err == nil && v > 0 && v <= 100 {
-			limit = v
-		}
-	}
-
-	offset := int64((page - 1) * limit)
-
-	total, err := h.queries.TotalArchiveWithArtist(r.Context(), id)
-	if err != nil {
-		h.logger.Error("count archives by artist failed", "id", id, "error", err)
-		response.InternalError(w, "failed to count archives")
-
-		return
-	}
-
-	rows, err := h.queries.GetArchivesByArtistID(r.Context(), sqlc.GetArchivesByArtistIDParams{
-		ID:     id,
-		Uid:    userID,
-		Limit:  int64(limit),
-		Offset: offset,
-	})
-	if err != nil {
-		h.logger.Error("list archives by artist failed", "id", id, "error", err)
-		response.InternalError(w, "failed to list archives")
-
-		return
-	}
-
-	lc := language.NewLanguageConverter()
-
-	items := make([]ArchiveResponse, 0, len(rows))
-	for _, row := range rows {
-		resp := ArchiveResponse{
-			ID:          row.ID,
-			Title:       row.Title,
-			Summary:     row.Summary,
-			Language:    lc.DisplayName(row.Language),
-			Category:    row.Category,
-			ReleaseDate: row.ReleaseDate,
-			PageCount:   int(row.PageCount),
-			CreatedAt:   row.CreatedAt,
-			UpdatedAt:   row.UpdatedAt,
-			ThumbsReady: h.processor.ThumbsReady(row.ID, int(row.PageCount)),
-		}
-		if row.Page != nil {
-			resp.Progress = &ProgressResponse{
-				CurrentPage: int(*row.Page),
-				Completed:   row.Completed != nil && *row.Completed,
-			}
-			if row.LastRead != nil {
-				resp.Progress.LastRead = *row.LastRead
-			}
-		}
-
-		items = append(items, resp)
-	}
-
-	response.JSON(w, http.StatusOK, ArchiveListResponse{
-		Items: items,
-		Total: total,
-		Page:  page,
-		Limit: limit,
-	})
+	archivesByID(w, r, h.logger, id, h.queries.TotalArchiveWithArtist, h.queries.GetArchivesByArtistID, h.processor)
 }

@@ -10,11 +10,16 @@ import (
 	"log/slog"
 )
 
+// JobTypeMetadata and JobTypeMetadataRemote are the job types that run the
+// local and remote metadata pipelines respectively.
 const (
 	JobTypeMetadata       = "metadata"
 	JobTypeMetadataRemote = "metadata/remote"
 )
 
+// MetadataPayload identifies the archive to fetch metadata for and,
+// optionally, pins the fetch to a single named source instead of running the
+// whole pipeline.
 type MetadataPayload struct {
 	ArchiveID string
 	// Source optionally pins the job to one named metadata source instead

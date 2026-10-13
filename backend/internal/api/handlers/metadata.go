@@ -19,6 +19,8 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+// MetadataHandler serves the metadata source, search, fetch, and
+// ComicInfo.xml export endpoints.
 type MetadataHandler struct {
 	queries   *sqlc.Queries
 	pipeline  *metadata.Pipeline
@@ -27,6 +29,8 @@ type MetadataHandler struct {
 	processor *image.Processor
 }
 
+// NewMetadataHandler returns a MetadataHandler backed by the given queries,
+// database, metadata pipeline, and image processor.
 func NewMetadataHandler(queries *sqlc.Queries, db *sql.DB, pipeline *metadata.Pipeline, processor *image.Processor, logger *slog.Logger) *MetadataHandler {
 	return &MetadataHandler{
 		queries:   queries,
@@ -182,7 +186,7 @@ func (h *MetadataHandler) SaveMetadataToFile(w http.ResponseWriter, r *http.Requ
 		response.InternalError(w, "failed to open archive")
 		return
 	}
-	defer a.Close()
+	defer func() { _ = a.Close() }()
 
 	if err := a.WriteFile("ComicInfo.xml", data); err != nil {
 		response.UnprocessableEntity(w, err.Error())
@@ -192,12 +196,15 @@ func (h *MetadataHandler) SaveMetadataToFile(w http.ResponseWriter, r *http.Requ
 	// if the archive path changed (RAR → CBZ conversion) update the DB
 	if updatedPath := a.Path(); updatedPath != arch.FilePath {
 		info, _ := os.Stat(updatedPath)
-		h.queries.UpdateFilePath(r.Context(), sqlc.UpdateFilePathParams{
+
+		if err := h.queries.UpdateFilePath(r.Context(), sqlc.UpdateFilePathParams{
 			ID:       id,
 			FilePath: updatedPath,
 			FileSize: info.Size(),
 			ModTime:  info.ModTime(),
-		})
+		}); err != nil {
+			h.logger.Error("update archive file path failed", "id", id, "error", err)
+		}
 	}
 
 	response.NoContent(w)

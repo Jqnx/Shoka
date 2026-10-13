@@ -1,3 +1,6 @@
+// Package sources provides the metadata providers Shoka scrapes or parses to
+// enrich a library entry: local parsers (ComicInfo.xml, filename heuristics)
+// and remote gallery APIs (nhentai, e-hentai).
 package sources
 
 import (
@@ -26,22 +29,34 @@ type comicInfoXML struct {
 	Web         string `xml:"Web"`
 }
 
+// ComicInfoSource reads metadata from a ComicInfo.xml file embedded in a
+// local archive. It is the highest-priority source when the sidecar exists,
+// since that data was curated deliberately for the file.
 type ComicInfoSource struct{}
 
+// NewComicInfoSource returns a ComicInfoSource with no external dependencies.
 func NewComicInfoSource() *ComicInfoSource {
 	return &ComicInfoSource{}
 }
 
-func (s *ComicInfoSource) Name() string  { return "comicinfo" }
+// Name returns the stable source identifier, "comicinfo".
+func (s *ComicInfoSource) Name() string { return "comicinfo" }
+
+// Priority returns 1: an embedded ComicInfo.xml outranks every scrape.
 func (s *ComicInfoSource) Priority() int { return 1 }
+
+// IsLocal reports true: the source only reads the local archive.
 func (s *ComicInfoSource) IsLocal() bool { return true }
 
-func (s *ComicInfoSource) Fetch(ctx context.Context, input metadata.Input) (*metadata.Result, error) {
+// Fetch opens the archive and parses its ComicInfo.xml. It returns a nil
+// result without error when the archive has no such entry, so later sources
+// can supply the metadata instead.
+func (s *ComicInfoSource) Fetch(_ context.Context, input metadata.Input) (*metadata.Result, error) {
 	a, err := archive.Open(input.FilePath)
 	if err != nil {
 		return nil, fmt.Errorf("open archive: %w", err)
 	}
-	defer a.Close()
+	defer func() { _ = a.Close() }()
 
 	data, err := a.ReadFile("ComicInfo.xml")
 	if err != nil {
@@ -115,6 +130,9 @@ func (s *ComicInfoSource) parse(data []byte) (*metadata.Result, error) {
 	return result, nil
 }
 
+// MarshalComicInfo serialises a metadata.Result into ComicInfo.xml bytes,
+// including the XML header. Only the fields the schema supports are written;
+// multi-valued fields are joined with the separators the spec expects.
 func MarshalComicInfo(result *metadata.Result) ([]byte, error) {
 	info := comicInfoXML{}
 

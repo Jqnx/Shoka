@@ -1,14 +1,17 @@
 package metadata_test
 
 import (
+	"Shoka/internal/metadata"
+	"Shoka/internal/metadata/sources"
 	"log/slog"
 	"os"
 	"reflect"
 	"testing"
-
-	"Shoka/internal/metadata"
-	"Shoka/internal/metadata/sources"
 )
+
+// nhentaiSource is the source name that SourceFromURL reports for gallery
+// links hosted on nhentai.net.
+const nhentaiSource = "nhentai"
 
 // TestMain builds a pipeline with the sources under test so NewPipeline's
 // explicit host registration (see HostAware in sourceurl.go) runs before
@@ -19,18 +22,20 @@ func TestMain(m *testing.M) {
 }
 
 func TestSourceFromURL(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		raw        string
 		wantSource string
 		wantOK     bool
 	}{
-		{"nhentai gallery", "https://nhentai.net/g/123/", "nhentai", true},
-		{"nhentai with www", "https://www.nhentai.net/g/123/", "nhentai", true},
+		{"nhentai gallery", "https://nhentai.net/g/123/", nhentaiSource, true},
+		{"nhentai with www", "https://www.nhentai.net/g/123/", nhentaiSource, true},
 		{"e-hentai", "https://e-hentai.org/g/456/abc/", "e-hentai", true},
 		{"exhentai maps to e-hentai", "https://exhentai.org/g/456/abc/", "e-hentai", true},
-		{"http scheme allowed", "http://nhentai.net/g/1/", "nhentai", true},
-		{"uppercase host", "https://NHentai.NET/g/1/", "nhentai", true},
+		{"http scheme allowed", "http://nhentai.net/g/1/", nhentaiSource, true},
+		{"uppercase host", "https://NHentai.NET/g/1/", nhentaiSource, true},
 		{"unknown host returns bare host", "https://example.com/x", "example.com", true},
 		{"unknown host strips www", "https://www.example.com/x", "example.com", true},
 		{"non-http scheme rejected", "ftp://nhentai.net/g/1/", "", false},
@@ -42,6 +47,8 @@ func TestSourceFromURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			gotSource, gotOK := metadata.SourceFromURL(tt.raw)
 			if gotSource != tt.wantSource || gotOK != tt.wantOK {
 				t.Errorf("SourceFromURL(%q) = (%q, %v), want (%q, %v)",
@@ -52,6 +59,8 @@ func TestSourceFromURL(t *testing.T) {
 }
 
 func TestNormalizeURLs(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		in   []string
@@ -73,6 +82,8 @@ func TestNormalizeURLs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := metadata.NormalizeURLs(tt.in)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NormalizeURLs(%#v) = %#v, want %#v", tt.in, got, tt.want)

@@ -6,10 +6,13 @@ import (
 	"net/http"
 )
 
+// JSON sets the JSON content type, writes status, then encodes data as the
+// body. The status is already committed, so an encoding failure cannot be
+// reported to the client and is deliberately ignored.
 func JSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(data)
 }
 
 // SSEHeaders sets the headers required for a Server-Sent Events stream and
@@ -35,13 +38,16 @@ func SSEEvent(w http.ResponseWriter, event string, data any) error {
 	return err
 }
 
+// NoContent replies 204 with no body.
 func NoContent(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// File replies 200 with data under contentType, marked immutable so clients
+// may cache covers and page images for a year.
 func File(w http.ResponseWriter, data []byte, contentType string) {
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Cache-Control", "max-age=31536000, immutable")
 	w.WriteHeader(http.StatusOK)
-	w.Write(data)
+	_, _ = w.Write(data)
 }

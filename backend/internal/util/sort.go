@@ -7,6 +7,8 @@ import (
 
 var digitRun = regexp.MustCompile(`\d+`)
 
+// NaturalLess reports whether a sorts before b using natural ordering, so
+// digit runs compare by numeric value ("page2" before "page10").
 func NaturalLess(a, b string) bool {
 	for {
 		if b == "" {

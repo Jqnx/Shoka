@@ -1,3 +1,5 @@
+// Package config loads the application configuration from the YAML file in
+// DataDir, applies environment overrides, and validates the result.
 package config
 
 import (
@@ -15,10 +17,16 @@ import (
 )
 
 var (
-	ConfigFile string = "config.yaml"
-	DataDir    string = "./data"
+	// ConfigFile is the name of the YAML configuration file loaded from DataDir.
+	ConfigFile = "config.yaml"
+
+	// DataDir is the directory holding the configuration file and other runtime state.
+	DataDir = "./data"
 )
 
+// LoadConfig reads the YAML configuration from DataDir, creating it with
+// defaults if it does not exist yet, then applies environment overrides and
+// validates the result.
 func LoadConfig() (*Config, error) {
 	if err := util.EnsureDir(DataDir); err != nil {
 		return nil, err
@@ -32,16 +40,7 @@ func LoadConfig() (*Config, error) {
 
 	// Read config file, create new one with defaults if one doesn't exist
 	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := errors.AsType[viper.ConfigFileNotFoundError](err); ok {
-			_, err := os.Create(filepath.Join(DataDir, ConfigFile))
-			if err != nil {
-				return nil, err
-			}
-
-			if err := viper.WriteConfig(); err != nil {
-				return nil, err
-			}
-		} else {
+		if err := createDefaultConfig(err); err != nil {
 			return nil, err
 		}
 	}
@@ -64,6 +63,21 @@ func LoadConfig() (*Config, error) {
 	return &c, nil
 }
 
+// createDefaultConfig writes a fresh config file with the registered
+// defaults when readErr says no config file exists yet. Any other read
+// failure — or a failure actually creating the file — is returned as-is.
+func createDefaultConfig(readErr error) error {
+	if _, ok := errors.AsType[viper.ConfigFileNotFoundError](readErr); !ok {
+		return readErr
+	}
+
+	if _, err := os.Create(filepath.Join(DataDir, ConfigFile)); err != nil {
+		return err
+	}
+
+	return viper.WriteConfig()
+}
+
 func setDefaults() {
 	// Directories
 	viper.SetDefault("temp_dir", "./tmp")
@@ -75,7 +89,8 @@ func setDefaults() {
 }
 
 func getEnv(c *Config) error {
-	godotenv.Load()
+	// A missing .env file is expected; environment variables may come from the real environment.
+	_ = godotenv.Load()
 
 	if os.Getenv("HOST") == "" {
 		c.Server.Host = "localhost"
@@ -103,6 +118,8 @@ func getEnv(c *Config) error {
 	return nil
 }
 
+// Validate reports whether the resolved configuration is usable, checking the
+// server host, the server port range, and the log level.
 func (c *Config) Validate() error {
 	ip := net.ParseIP(c.Server.Host)
 	if ip == nil && c.Server.Host != "localhost" {
