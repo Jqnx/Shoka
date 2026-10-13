@@ -2,7 +2,7 @@ import { error, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { Library, LibraryType } from '$lib/types';
 import { errorMessage } from '$lib/server/api';
-import { guard } from '$lib/server/guards';
+import { guard } from '$lib/server/guard';
 import { can } from '$lib/auth/permissions';
 
 export const load: PageServerLoad = async ({ fetch, locals }) => {

@@ -49,7 +49,7 @@ func TestCan(t *testing.T) {
 func TestUserRoleGrantsNothing(t *testing.T) {
 	t.Parallel()
 
-	for _, permission := range AllPermissions {
+	for _, permission := range allPermissions {
 		if Can(RoleUser, permission) {
 			t.Errorf("user should not be granted %s:%s", permission.Resource, permission.Action)
 		}

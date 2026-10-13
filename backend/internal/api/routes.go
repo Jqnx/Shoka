@@ -126,7 +126,8 @@ func (s *Server) MountHandlers() {
 			r.With(requirePermission(auth.MetadataWrite)).Post("/save", metadataHandler.SaveMetadataToFile)
 			r.With(requirePermission(auth.MetadataFetch)).Post("/{source}", metadataHandler.FetchMetadataFromSource)
 			r.With(requirePermission(auth.MetadataFetch)).Get("/{source}/search", metadataHandler.SearchMetadataSource)
-			r.With(requirePermission(auth.MetadataApply)).Post("/{source}/{source_id}", metadataHandler.ApplyMetadataFromSource)
+			r.With(requirePermission(auth.MetadataApply)).
+				Post("/{source}/{source_id}", metadataHandler.ApplyMetadataFromSource)
 		})
 
 		r.Route("/api/admin", func(r chi.Router) {
@@ -144,7 +145,8 @@ func (s *Server) MountHandlers() {
 					r.With(requirePermission(auth.LibraryScan)).Post("/scan", libraryHandler.ScanLibrary)
 					r.With(requirePermission(auth.MaintenanceRun)).Post("/covers", libraryHandler.GenerateLibraryCovers)
 					r.With(requirePermission(auth.LibraryRead)).Get("/sources", libraryHandler.GetLibrarySources)
-					r.With(requirePermission(auth.LibraryUpdate)).Patch("/sources/{source}", libraryHandler.UpdateLibrarySource)
+					r.With(requirePermission(auth.LibraryUpdate)).
+						Patch("/sources/{source}", libraryHandler.UpdateLibrarySource)
 				})
 			})
 		})

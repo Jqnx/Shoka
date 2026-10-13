@@ -97,9 +97,9 @@ var (
 	SessionDelete = Permission{ResourceSession, ActionDelete}
 )
 
-// AllPermissions is every permission the system knows about, independent of
+// allPermissions is every permission the system knows about, independent of
 // who holds it.
-var AllPermissions = []Permission{
+var allPermissions = []Permission{
 	ArchiveUpdate,
 	ArchiveDelete,
 	ArchiveCover,
@@ -133,8 +133,8 @@ var AllPermissions = []Permission{
 }
 
 // statements is every permission, grouped by resource. Derived from
-// AllPermissions so the two can never disagree.
-var statements = permissionsByResource(AllPermissions)
+// allPermissions so the two can never disagree.
+var statements = permissionsByResource(allPermissions)
 
 func permissionsByResource(permissions []Permission) map[string][]string {
 	byResource := make(map[string][]string, len(permissions))

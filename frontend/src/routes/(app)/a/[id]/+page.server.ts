@@ -2,7 +2,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { Archive, ArchiveLanguage, Artist, Character, Parody, Tag } from '$lib/types';
 import { errorMessage } from '$lib/server/api';
-import { guard } from '$lib/server/guards';
+import { guard } from '$lib/server/guard';
 
 export const load: PageServerLoad = async ({ fetch, params }) => {
 	const [archiveRes, categoriesRes, languagesRes, artistsRes, tagsRes, charactersRes, parodiesRes] =

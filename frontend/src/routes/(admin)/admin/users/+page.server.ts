@@ -6,10 +6,12 @@ import type { Actions, PageServerLoad } from './$types';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { user as userTable } from '$lib/server/db/auth.schema';
-import { guard } from '$lib/server/guards';
+import { guard } from '$lib/server/guard';
 import { ADMIN_ROLE, can, DEFAULT_ROLE } from '$lib/auth/permissions';
 
 const PAGE_SIZE = 25;
+
+const LAST_ADMIN_ERROR = 'This is the last admin - promote someone else first.';
 
 export type ManagedUser = {
 	id: string;
@@ -36,16 +38,17 @@ async function isLastAdmin(userId: string) {
 }
 
 // better-auth performs the write on its own connection, so the last-admin
-// check and the mutation it guards can't share a transaction. Chaining the two
-// guarded actions through this queue is what keeps two concurrent demotions
-// from both passing the check and leaving the instance with no admin; a
-// multi-process deployment would need a database-level guard instead.
-let adminMutations: Promise<unknown> = Promise.resolve();
+// check and the mutation it guards can't share a transaction. Route modules are
+// evaluated once per server, so this queue is process-wide: chaining the two
+// guarded mutations through it is what keeps two concurrent demotions from both
+// passing the check and leaving the instance with no admin. A multi-process
+// deployment would need a database-level guard instead.
+let adminMutationQueue: Promise<unknown> = Promise.resolve();
 
 function serializeAdminMutation<T>(mutation: () => Promise<T>): Promise<T> {
-	const result = adminMutations.then(mutation, mutation);
+	const result = adminMutationQueue.then(mutation, mutation);
 
-	adminMutations = result.then(
+	adminMutationQueue = result.then(
 		() => undefined,
 		() => undefined
 	);
@@ -54,15 +57,13 @@ function serializeAdminMutation<T>(mutation: () => Promise<T>): Promise<T> {
 }
 
 /**
- * Maps a better-auth APIError to a form failure. Any other exception is a bug,
- * not a bad request, and is rethrown so the action fails loudly.
+ * Maps a better-auth APIError to a form failure. Anything else is a bug, not a
+ * bad request, and is rethrown so the action fails loudly.
  */
 function apiFailure(e: unknown, fallback: string): ActionFailure<{ error: string }> {
-	if (e instanceof APIError) {
-		return fail(e.statusCode, { error: e.body?.message ?? fallback });
-	}
+	if (!(e instanceof APIError)) throw e;
 
-	throw e;
+	return fail(e.statusCode, { error: e.body?.message ?? fallback });
 }
 
 export const load: PageServerLoad = async ({ locals, request, url }) => {
@@ -161,10 +162,7 @@ export const actions: Actions = {
 
 		return serializeAdminMutation(async () => {
 			if (role !== ADMIN_ROLE && (await isLastAdmin(userId))) {
-				return fail(409, {
-					action: 'setRole' as const,
-					error: 'This is the last admin - promote someone else first.'
-				});
+				return fail(409, { action: 'setRole' as const, error: LAST_ADMIN_ERROR });
 			}
 
 			try {
@@ -231,10 +229,7 @@ export const actions: Actions = {
 
 		return serializeAdminMutation(async () => {
 			if (await isLastAdmin(userId)) {
-				return fail(409, {
-					action: 'delete' as const,
-					error: 'This is the last admin - promote someone else first.'
-				});
+				return fail(409, { action: 'delete' as const, error: LAST_ADMIN_ERROR });
 			}
 
 			try {

@@ -52,19 +52,26 @@ func addSession(t *testing.T, db *sql.DB, token, userID string, role any, banned
 	}
 }
 
-// Wraps a sentinel handler in the same middleware pair routes.go mounts. The
-// zero Permission means "no gate", which the authMiddleware cases rely on.
-func newGuardedRouter(db *sql.DB, permission auth.Permission) http.Handler {
+// Sentinels so a test can assert "reached the handler" without a status it
+// would otherwise have to share with a real response.
+func teapotHandler(w http.ResponseWriter, _ *http.Request) {
+	w.WriteHeader(http.StatusTeapot)
+}
+
+// Wraps the sentinel in the auth middleware alone.
+func authOnlyRouter(db *sql.DB) http.Handler {
 	r := chi.NewRouter()
 	r.Use(authMiddleware(db))
+	r.Get("/", teapotHandler)
 
-	handler := func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) }
+	return r
+}
 
-	if permission == (auth.Permission{}) {
-		r.Get("/", handler)
-	} else {
-		r.With(requirePermission(permission)).Get("/", handler)
-	}
+// Wraps the sentinel in the same middleware pair routes.go mounts.
+func guardedRouter(db *sql.DB, permission auth.Permission) http.Handler {
+	r := chi.NewRouter()
+	r.Use(authMiddleware(db))
+	r.With(requirePermission(permission)).Get("/", teapotHandler)
 
 	return r
 }
@@ -118,7 +125,7 @@ func TestAuthMiddleware(t *testing.T) {
 			}
 
 			rec := httptest.NewRecorder()
-			newGuardedRouter(db, auth.Permission{}).ServeHTTP(rec, req)
+			authOnlyRouter(db).ServeHTTP(rec, req)
 
 			if rec.Code != tt.want {
 				t.Errorf("status = %d, want %d", rec.Code, tt.want)
@@ -155,7 +162,7 @@ func TestRequirePermission(t *testing.T) {
 			req.Header.Set("Authorization", "Bearer tok")
 
 			rec := httptest.NewRecorder()
-			newGuardedRouter(db, tt.permission).ServeHTTP(rec, req)
+			guardedRouter(db, tt.permission).ServeHTTP(rec, req)
 
 			if rec.Code != tt.want {
 				t.Errorf("status = %d, want %d", rec.Code, tt.want)

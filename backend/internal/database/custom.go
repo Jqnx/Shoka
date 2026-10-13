@@ -1,7 +1,6 @@
 package database
 
 import (
-	"Shoka/internal/auth"
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/metadata"
 	"context"
@@ -15,6 +14,9 @@ import (
 // token. Role and Banned come from the frontend-owned admin plugin columns.
 type Session struct {
 	UserID string
+	// Role is "" when the column is NULL. That is the same thing the
+	// permission matrix does with any unrecognised role - grants nothing - so
+	// the empty string is the honest default rather than a substitute role.
 	Role   string
 	Banned bool
 }
@@ -29,12 +31,12 @@ func GetSession(ctx context.Context, db *sql.DB, token string) (*Session, error)
 
 	err := db.QueryRowContext(ctx, `
         SELECT s.user_id, s.expires_at,
-               COALESCE(u.role, ?), COALESCE(u.banned, 0)
+               COALESCE(u.role, ''), COALESCE(u.banned, 0)
         FROM session s
         JOIN user u ON u.id = s.user_id
         WHERE s.token = ?
         LIMIT 1
-    `, auth.RoleUser, token).Scan(&session.UserID, &expiresAt, &session.Role, &session.Banned)
+    `, token).Scan(&session.UserID, &expiresAt, &session.Role, &session.Banned)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil

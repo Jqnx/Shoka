@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { errorMessage } from '$lib/server/api';
-import { guard } from '$lib/server/guards';
+import { guard } from '$lib/server/guard';
 import type {
 	Artist,
 	ArchiveLanguage,
