@@ -2,7 +2,7 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { Archive, ArchiveLanguage, Artist, Character, Parody, Tag } from '$lib/types';
 import { errorMessage } from '$lib/server/api';
-import { can } from '$lib/auth/permissions';
+import { guard } from '$lib/server/guards';
 
 export const load: PageServerLoad = async ({ fetch, params }) => {
 	const [archiveRes, categoriesRes, languagesRes, artistsRes, tagsRes, charactersRes, parodiesRes] =
@@ -31,9 +31,13 @@ export const load: PageServerLoad = async ({ fetch, params }) => {
 
 export const actions: Actions = {
 	update: async ({ request, fetch, params, locals }) => {
-		if (!can(locals.user, { archive: ['update'] })) {
-			return fail(403, { error: 'You cannot edit archives.' });
-		}
+		const denied = guard(
+			locals.user,
+			{ archive: ['update'] },
+			'update',
+			'You cannot edit archives.'
+		);
+		if (denied) return denied;
 
 		const form = await request.formData();
 
@@ -179,9 +183,13 @@ export const actions: Actions = {
 	},
 
 	resetCover: async ({ fetch, params, locals }) => {
-		if (!can(locals.user, { archive: ['cover'] })) {
-			return fail(403, { action: 'resetCover' as const, error: 'You cannot change covers.' });
-		}
+		const denied = guard(
+			locals.user,
+			{ archive: ['cover'] },
+			'resetCover',
+			'You cannot change covers.'
+		);
+		if (denied) return denied;
 
 		const res = await fetch(`/api/archives/${params.id}/cover`, {
 			method: 'PUT',
@@ -200,9 +208,13 @@ export const actions: Actions = {
 	},
 
 	saveMetadata: async ({ fetch, params, locals }) => {
-		if (!can(locals.user, { metadata: ['write'] })) {
-			return fail(403, { action: 'saveMetadata' as const, error: 'You cannot write metadata.' });
-		}
+		const denied = guard(
+			locals.user,
+			{ metadata: ['write'] },
+			'saveMetadata',
+			'You cannot write metadata.'
+		);
+		if (denied) return denied;
 
 		const res = await fetch(`/api/archives/${params.id}/metadata/save`, { method: 'POST' });
 
@@ -217,9 +229,13 @@ export const actions: Actions = {
 	},
 
 	deleteArchive: async ({ request, fetch, params, url, locals }) => {
-		if (!can(locals.user, { archive: ['delete'] })) {
-			return fail(403, { action: 'deleteArchive' as const, error: 'You cannot delete archives.' });
-		}
+		const denied = guard(
+			locals.user,
+			{ archive: ['delete'] },
+			'deleteArchive',
+			'You cannot delete archives.'
+		);
+		if (denied) return denied;
 
 		const form = await request.formData();
 		const deleteFile = form.get('delete_file') === 'true';

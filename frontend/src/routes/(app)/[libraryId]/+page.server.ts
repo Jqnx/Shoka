@@ -1,7 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { errorMessage } from '$lib/server/api';
-import { can } from '$lib/auth/permissions';
+import { guard } from '$lib/server/guards';
 import type {
 	Artist,
 	ArchiveLanguage,
@@ -159,9 +159,13 @@ export const actions: Actions = {
 	},
 
 	bulkIdentify: async ({ request, fetch, locals }) => {
-		if (!can(locals.user, { metadata: ['fetch'] })) {
-			return fail(403, { action: 'bulkIdentify' as const, error: 'You cannot fetch metadata.' });
-		}
+		const denied = guard(
+			locals.user,
+			{ metadata: ['fetch'] },
+			'bulkIdentify',
+			'You cannot fetch metadata.'
+		);
+		if (denied) return denied;
 
 		const form = await request.formData();
 		const ids = form.getAll('ids').map(String);
@@ -188,9 +192,13 @@ export const actions: Actions = {
 	},
 
 	bulkEdit: async ({ request, fetch, locals }) => {
-		if (!can(locals.user, { archive: ['update'] })) {
-			return fail(403, { action: 'bulkEdit' as const, error: 'You cannot edit archives.' });
-		}
+		const denied = guard(
+			locals.user,
+			{ archive: ['update'] },
+			'bulkEdit',
+			'You cannot edit archives.'
+		);
+		if (denied) return denied;
 
 		const form = await request.formData();
 		const ids = form.getAll('ids').map(String);

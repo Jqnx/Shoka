@@ -2,6 +2,7 @@ import { error, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { Library, LibrarySource } from '$lib/types';
 import { errorMessage } from '$lib/server/api';
+import { guard } from '$lib/server/guards';
 import { can } from '$lib/auth/permissions';
 
 export const load: PageServerLoad = async ({ fetch, params, locals }) => {
@@ -23,9 +24,13 @@ export const load: PageServerLoad = async ({ fetch, params, locals }) => {
 
 export const actions: Actions = {
 	updateGeneral: async ({ request, fetch, params, locals }) => {
-		if (!can(locals.user, { library: ['update'] })) {
-			return fail(403, { action: 'updateGeneral' as const, error: 'You cannot update libraries.' });
-		}
+		const denied = guard(
+			locals.user,
+			{ library: ['update'] },
+			'updateGeneral',
+			'You cannot update libraries.'
+		);
+		if (denied) return denied;
 
 		const form = await request.formData();
 		const name = String(form.get('name') ?? '').trim();
@@ -66,6 +71,8 @@ export const actions: Actions = {
 		const form = await request.formData();
 		const source = String(form.get('source') ?? '');
 
+		// Not using `guard`: the page renders this error on the matching source
+		// card, so the payload has to carry the source name.
 		if (!can(locals.user, { library: ['update'] })) {
 			return fail(403, {
 				action: 'updateSource' as const,

@@ -52,17 +52,18 @@ func addSession(t *testing.T, db *sql.DB, token, userID string, role any, banned
 	}
 }
 
-// Wraps a sentinel handler in the same middleware pair routes.go mounts.
-func newGuardedRouter(db *sql.DB, resource, action string) http.Handler {
+// Wraps a sentinel handler in the same middleware pair routes.go mounts. The
+// zero Permission means "no gate", which the authMiddleware cases rely on.
+func newGuardedRouter(db *sql.DB, permission auth.Permission) http.Handler {
 	r := chi.NewRouter()
 	r.Use(authMiddleware(db))
 
 	handler := func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) }
 
-	if resource == "" {
+	if permission == (auth.Permission{}) {
 		r.Get("/", handler)
 	} else {
-		r.With(requirePermission(resource, action)).Get("/", handler)
+		r.With(requirePermission(permission)).Get("/", handler)
 	}
 
 	return r
@@ -117,7 +118,7 @@ func TestAuthMiddleware(t *testing.T) {
 			}
 
 			rec := httptest.NewRecorder()
-			newGuardedRouter(db, "", "").ServeHTTP(rec, req)
+			newGuardedRouter(db, auth.Permission{}).ServeHTTP(rec, req)
 
 			if rec.Code != tt.want {
 				t.Errorf("status = %d, want %d", rec.Code, tt.want)
@@ -130,18 +131,17 @@ func TestRequirePermission(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name     string
-		role     any
-		resource string
-		action   string
-		want     int
+		name       string
+		role       any
+		permission auth.Permission
+		want       int
 	}{
-		{"admin may update archives", auth.RoleAdmin, auth.ResourceArchive, auth.ActionUpdate, http.StatusTeapot},
-		{"admin may create libraries", auth.RoleAdmin, auth.ResourceLibrary, auth.ActionCreate, http.StatusTeapot},
-		{"user may not update archives", auth.RoleUser, auth.ResourceArchive, auth.ActionUpdate, http.StatusForbidden},
-		{"user may not create libraries", auth.RoleUser, auth.ResourceLibrary, auth.ActionCreate, http.StatusForbidden},
-		{"null role may not update archives", nil, auth.ResourceArchive, auth.ActionUpdate, http.StatusForbidden},
-		{"unknown role may not update archives", "librarian", auth.ResourceArchive, auth.ActionUpdate, http.StatusForbidden},
+		{"admin may update archives", auth.RoleAdmin, auth.ArchiveUpdate, http.StatusTeapot},
+		{"admin may create libraries", auth.RoleAdmin, auth.LibraryCreate, http.StatusTeapot},
+		{"user may not update archives", auth.RoleUser, auth.ArchiveUpdate, http.StatusForbidden},
+		{"user may not create libraries", auth.RoleUser, auth.LibraryCreate, http.StatusForbidden},
+		{"null role may not update archives", nil, auth.ArchiveUpdate, http.StatusForbidden},
+		{"unknown role may not update archives", "librarian", auth.ArchiveUpdate, http.StatusForbidden},
 	}
 
 	for _, tt := range tests {
@@ -155,7 +155,7 @@ func TestRequirePermission(t *testing.T) {
 			req.Header.Set("Authorization", "Bearer tok")
 
 			rec := httptest.NewRecorder()
-			newGuardedRouter(db, tt.resource, tt.action).ServeHTTP(rec, req)
+			newGuardedRouter(db, tt.permission).ServeHTTP(rec, req)
 
 			if rec.Code != tt.want {
 				t.Errorf("status = %d, want %d", rec.Code, tt.want)

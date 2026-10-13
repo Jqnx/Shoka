@@ -2,6 +2,7 @@ import { error, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import type { Library, LibraryType } from '$lib/types';
 import { errorMessage } from '$lib/server/api';
+import { guard } from '$lib/server/guards';
 import { can } from '$lib/auth/permissions';
 
 export const load: PageServerLoad = async ({ fetch, locals }) => {
@@ -20,9 +21,13 @@ export const load: PageServerLoad = async ({ fetch, locals }) => {
 
 export const actions: Actions = {
 	create: async ({ request, fetch, locals }) => {
-		if (!can(locals.user, { library: ['create'] })) {
-			return fail(403, { action: 'create' as const, error: 'You cannot create libraries.' });
-		}
+		const denied = guard(
+			locals.user,
+			{ library: ['create'] },
+			'create',
+			'You cannot create libraries.'
+		);
+		if (denied) return denied;
 
 		const form = await request.formData();
 		const name = String(form.get('name') ?? '').trim();
@@ -50,9 +55,8 @@ export const actions: Actions = {
 	},
 
 	scan: async ({ request, fetch, locals }) => {
-		if (!can(locals.user, { library: ['scan'] })) {
-			return fail(403, { action: 'scan' as const, error: 'You cannot scan libraries.' });
-		}
+		const denied = guard(locals.user, { library: ['scan'] }, 'scan', 'You cannot scan libraries.');
+		if (denied) return denied;
 
 		const form = await request.formData();
 		const id = String(form.get('id') ?? '');
@@ -70,12 +74,13 @@ export const actions: Actions = {
 	},
 
 	regenerateCovers: async ({ request, fetch, locals }) => {
-		if (!can(locals.user, { maintenance: ['run'] })) {
-			return fail(403, {
-				action: 'regenerateCovers' as const,
-				error: 'You cannot run maintenance jobs.'
-			});
-		}
+		const denied = guard(
+			locals.user,
+			{ maintenance: ['run'] },
+			'regenerateCovers',
+			'You cannot run maintenance jobs.'
+		);
+		if (denied) return denied;
 
 		const form = await request.formData();
 		const id = String(form.get('id') ?? '');
@@ -93,9 +98,13 @@ export const actions: Actions = {
 	},
 
 	delete: async ({ request, fetch, locals }) => {
-		if (!can(locals.user, { library: ['delete'] })) {
-			return fail(403, { action: 'delete' as const, error: 'You cannot delete libraries.' });
-		}
+		const denied = guard(
+			locals.user,
+			{ library: ['delete'] },
+			'delete',
+			'You cannot delete libraries.'
+		);
+		if (denied) return denied;
 
 		const form = await request.formData();
 		const id = String(form.get('id') ?? '');

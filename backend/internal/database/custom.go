@@ -1,6 +1,7 @@
 package database
 
 import (
+	"Shoka/internal/auth"
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/metadata"
 	"context"
@@ -28,12 +29,12 @@ func GetSession(ctx context.Context, db *sql.DB, token string) (*Session, error)
 
 	err := db.QueryRowContext(ctx, `
         SELECT s.user_id, s.expires_at,
-               COALESCE(u.role, 'user'), COALESCE(u.banned, 0)
+               COALESCE(u.role, ?), COALESCE(u.banned, 0)
         FROM session s
         JOIN user u ON u.id = s.user_id
         WHERE s.token = ?
         LIMIT 1
-    `, token).Scan(&session.UserID, &expiresAt, &session.Role, &session.Banned)
+    `, auth.RoleUser, token).Scan(&session.UserID, &expiresAt, &session.Role, &session.Banned)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil

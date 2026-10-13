@@ -1,6 +1,7 @@
 import { error, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { errorMessage } from '$lib/server/api';
+import { guard } from '$lib/server/guards';
 import { can } from '$lib/auth/permissions';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -9,12 +10,13 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 export const actions: Actions = {
 	regenerateCovers: async ({ fetch, locals }) => {
-		if (!can(locals.user, { maintenance: ['run'] })) {
-			return fail(403, {
-				action: 'regenerateCovers' as const,
-				error: 'You cannot run maintenance jobs.'
-			});
-		}
+		const denied = guard(
+			locals.user,
+			{ maintenance: ['run'] },
+			'regenerateCovers',
+			'You cannot run maintenance jobs.'
+		);
+		if (denied) return denied;
 
 		const res = await fetch('/api/admin/covers', { method: 'POST' });
 
@@ -29,12 +31,13 @@ export const actions: Actions = {
 	},
 
 	generatePHashes: async ({ fetch, locals }) => {
-		if (!can(locals.user, { maintenance: ['run'] })) {
-			return fail(403, {
-				action: 'generatePHashes' as const,
-				error: 'You cannot run maintenance jobs.'
-			});
-		}
+		const denied = guard(
+			locals.user,
+			{ maintenance: ['run'] },
+			'generatePHashes',
+			'You cannot run maintenance jobs.'
+		);
+		if (denied) return denied;
 
 		const res = await fetch('/api/admin/phashes', { method: 'POST' });
 

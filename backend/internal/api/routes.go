@@ -68,32 +68,26 @@ func (s *Server) MountHandlers() {
 		// an archive id, but keeping them adjacent makes that ordering
 		// obvious to the next reader.
 		r.Route("/api/archives/bulk", func(r chi.Router) {
-			r.With(requirePermission(auth.ResourceArchive, auth.ActionUpdate)).
-				Patch("/", archiveHandler.BulkUpdateArchives)
+			r.With(requirePermission(auth.ArchiveUpdate)).Patch("/", archiveHandler.BulkUpdateArchives)
 			r.Put("/progress", archiveHandler.BulkUpdateProgress)
-			r.With(requirePermission(auth.ResourceMetadata, auth.ActionFetch)).
-				Post("/metadata", archiveHandler.BulkFetchMetadata)
+			r.With(requirePermission(auth.MetadataFetch)).Post("/metadata", archiveHandler.BulkFetchMetadata)
 		})
 		r.Get("/api/tags", tagHandler.GetTags)
 		r.Get("/api/tags/all", tagHandler.GetAllTags)
 		r.Route("/api/tags/{id}", func(r chi.Router) {
-			r.With(requirePermission(auth.ResourceTaxonomy, auth.ActionUpdate)).
-				Patch("/", tagHandler.UpdateTagDescription)
-			r.With(requirePermission(auth.ResourceTaxonomy, auth.ActionDelete)).
-				Delete("/", tagHandler.DeleteTag)
+			r.With(requirePermission(auth.TaxonomyUpdate)).Patch("/", tagHandler.UpdateTagDescription)
+			r.With(requirePermission(auth.TaxonomyDelete)).Delete("/", tagHandler.DeleteTag)
 		})
 		r.Get("/api/tags/{name}", tagHandler.GetArchivesByTag)
 
 		r.Get("/api/characters", characterHandler.GetCharacters)
 		r.Get("/api/characters/all", characterHandler.GetAllCharacters)
-		r.With(requirePermission(auth.ResourceTaxonomy, auth.ActionDelete)).
-			Delete("/api/characters/{id}", characterHandler.DeleteCharacter)
+		r.With(requirePermission(auth.TaxonomyDelete)).Delete("/api/characters/{id}", characterHandler.DeleteCharacter)
 		r.Get("/api/characters/{name}", characterHandler.GetArchivesByCharacter)
 
 		r.Get("/api/parodies", parodyHandler.GetParodies)
 		r.Get("/api/parodies/all", parodyHandler.GetAllParodies)
-		r.With(requirePermission(auth.ResourceTaxonomy, auth.ActionDelete)).
-			Delete("/api/parodies/{id}", parodyHandler.DeleteParody)
+		r.With(requirePermission(auth.TaxonomyDelete)).Delete("/api/parodies/{id}", parodyHandler.DeleteParody)
 		r.Get("/api/parodies/{name}", parodyHandler.GetArchivesByParody)
 
 		r.Route("/api/reader-settings", func(r chi.Router) {
@@ -102,30 +96,23 @@ func (s *Server) MountHandlers() {
 		})
 
 		r.Get("/api/artists", artistHandler.GetArtists)
-		r.With(requirePermission(auth.ResourceTaxonomy, auth.ActionCreate)).
-			Post("/api/artists", artistHandler.CreateArtist)
+		r.With(requirePermission(auth.TaxonomyCreate)).Post("/api/artists", artistHandler.CreateArtist)
 		r.Get("/api/artists/all", artistHandler.GetAllArtists)
 		r.Route("/api/artists/{id}", func(r chi.Router) {
 			r.Get("/", artistHandler.GetArtist)
-			r.With(requirePermission(auth.ResourceTaxonomy, auth.ActionUpdate)).
-				Patch("/", artistHandler.UpdateArtist)
-			r.With(requirePermission(auth.ResourceTaxonomy, auth.ActionDelete)).
-				Delete("/", artistHandler.DeleteArtist)
+			r.With(requirePermission(auth.TaxonomyUpdate)).Patch("/", artistHandler.UpdateArtist)
+			r.With(requirePermission(auth.TaxonomyDelete)).Delete("/", artistHandler.DeleteArtist)
 			r.Get("/archives", artistHandler.GetArchivesByArtist)
 		})
 		r.Route("/api/archives/{id}", func(r chi.Router) {
 			r.Get("/", archiveHandler.GetArchive)
-			r.With(requirePermission(auth.ResourceArchive, auth.ActionUpdate)).
-				Patch("/", archiveHandler.UpdateArchive)
-			r.With(requirePermission(auth.ResourceArchive, auth.ActionDelete)).
-				Delete("/", archiveHandler.DeleteArchive)
+			r.With(requirePermission(auth.ArchiveUpdate)).Patch("/", archiveHandler.UpdateArchive)
+			r.With(requirePermission(auth.ArchiveDelete)).Delete("/", archiveHandler.DeleteArchive)
 			r.Get("/cover", archiveHandler.GetCover)
-			r.With(requirePermission(auth.ResourceArchive, auth.ActionCover)).
-				Put("/cover", archiveHandler.SetCover)
+			r.With(requirePermission(auth.ArchiveCover)).Put("/cover", archiveHandler.SetCover)
 			r.Get("/pages/{index}", archiveHandler.GetPage)
 			r.Get("/pages/{index}/thumbnail", archiveHandler.GetPageThumbnail)
-			r.With(requirePermission(auth.ResourceArchive, auth.ActionThumbnail)).
-				Post("/thumbnails", archiveHandler.GenerateThumbnails)
+			r.With(requirePermission(auth.ArchiveThumbnail)).Post("/thumbnails", archiveHandler.GenerateThumbnails)
 			r.Get("/thumbnails/events", archiveHandler.StreamThumbnailEvents)
 			r.Put("/progress", archiveHandler.UpdateProgress)
 			r.Delete("/progress", archiveHandler.DeleteProgress)
@@ -135,46 +122,29 @@ func (s *Server) MountHandlers() {
 			r.Delete("/rating", archiveHandler.RemoveRating)
 		})
 		r.Route("/api/archives/{id}/metadata", func(r chi.Router) {
-			r.With(requirePermission(auth.ResourceMetadata, auth.ActionFetch)).
-				Post("/", metadataHandler.FetchMetadata)
-			r.With(requirePermission(auth.ResourceMetadata, auth.ActionWrite)).
-				Post("/save", metadataHandler.SaveMetadataToFile)
-			r.With(requirePermission(auth.ResourceMetadata, auth.ActionFetch)).
-				Post("/{source}", metadataHandler.FetchMetadataFromSource)
-			r.With(requirePermission(auth.ResourceMetadata, auth.ActionFetch)).
-				Get("/{source}/search", metadataHandler.SearchMetadataSource)
-			r.With(requirePermission(auth.ResourceMetadata, auth.ActionApply)).
-				Post("/{source}/{source_id}", metadataHandler.ApplyMetadataFromSource)
+			r.With(requirePermission(auth.MetadataFetch)).Post("/", metadataHandler.FetchMetadata)
+			r.With(requirePermission(auth.MetadataWrite)).Post("/save", metadataHandler.SaveMetadataToFile)
+			r.With(requirePermission(auth.MetadataFetch)).Post("/{source}", metadataHandler.FetchMetadataFromSource)
+			r.With(requirePermission(auth.MetadataFetch)).Get("/{source}/search", metadataHandler.SearchMetadataSource)
+			r.With(requirePermission(auth.MetadataApply)).Post("/{source}/{source_id}", metadataHandler.ApplyMetadataFromSource)
 		})
 
 		r.Route("/api/admin", func(r chi.Router) {
-			r.With(requirePermission(auth.ResourceMaintenance, auth.ActionRun)).
-				Post("/covers", adminHandler.GenerateCovers)
-			r.With(requirePermission(auth.ResourceMaintenance, auth.ActionRun)).
-				Post("/phashes", adminHandler.GeneratePHashes)
-			r.With(requirePermission(auth.ResourceMaintenance, auth.ActionRead)).
-				Get("/duplicates", adminHandler.GetDuplicates)
-			r.With(requirePermission(auth.ResourceJob, auth.ActionRead)).
-				Get("/jobs", jobHandler.GetJobs)
-			r.With(requirePermission(auth.ResourceJob, auth.ActionRead)).
-				Get("/jobs/events", jobHandler.StreamJobEvents)
+			r.With(requirePermission(auth.MaintenanceRun)).Post("/covers", adminHandler.GenerateCovers)
+			r.With(requirePermission(auth.MaintenanceRun)).Post("/phashes", adminHandler.GeneratePHashes)
+			r.With(requirePermission(auth.MaintenanceRead)).Get("/duplicates", adminHandler.GetDuplicates)
+			r.With(requirePermission(auth.JobRead)).Get("/jobs", jobHandler.GetJobs)
+			r.With(requirePermission(auth.JobRead)).Get("/jobs/events", jobHandler.StreamJobEvents)
 
 			r.Route("/libraries", func(r chi.Router) {
-				r.With(requirePermission(auth.ResourceLibrary, auth.ActionCreate)).
-					Post("/", libraryHandler.CreateLibrary)
+				r.With(requirePermission(auth.LibraryCreate)).Post("/", libraryHandler.CreateLibrary)
 				r.Route("/{id}", func(r chi.Router) {
-					r.With(requirePermission(auth.ResourceLibrary, auth.ActionUpdate)).
-						Patch("/", libraryHandler.UpdateLibrary)
-					r.With(requirePermission(auth.ResourceLibrary, auth.ActionDelete)).
-						Delete("/", libraryHandler.DeleteLibrary)
-					r.With(requirePermission(auth.ResourceLibrary, auth.ActionScan)).
-						Post("/scan", libraryHandler.ScanLibrary)
-					r.With(requirePermission(auth.ResourceMaintenance, auth.ActionRun)).
-						Post("/covers", libraryHandler.GenerateLibraryCovers)
-					r.With(requirePermission(auth.ResourceLibrary, auth.ActionRead)).
-						Get("/sources", libraryHandler.GetLibrarySources)
-					r.With(requirePermission(auth.ResourceLibrary, auth.ActionUpdate)).
-						Patch("/sources/{source}", libraryHandler.UpdateLibrarySource)
+					r.With(requirePermission(auth.LibraryUpdate)).Patch("/", libraryHandler.UpdateLibrary)
+					r.With(requirePermission(auth.LibraryDelete)).Delete("/", libraryHandler.DeleteLibrary)
+					r.With(requirePermission(auth.LibraryScan)).Post("/scan", libraryHandler.ScanLibrary)
+					r.With(requirePermission(auth.MaintenanceRun)).Post("/covers", libraryHandler.GenerateLibraryCovers)
+					r.With(requirePermission(auth.LibraryRead)).Get("/sources", libraryHandler.GetLibrarySources)
+					r.With(requirePermission(auth.LibraryUpdate)).Patch("/sources/{source}", libraryHandler.UpdateLibrarySource)
 				})
 			})
 		})

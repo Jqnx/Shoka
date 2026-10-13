@@ -1,10 +1,12 @@
 import { error, fail } from '@sveltejs/kit';
+import type { ActionFailure } from '@sveltejs/kit';
 import { APIError } from 'better-auth';
-import { and, count, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { user as userTable } from '$lib/server/db/auth.schema';
+import { guard } from '$lib/server/guards';
 import { ADMIN_ROLE, can, DEFAULT_ROLE } from '$lib/auth/permissions';
 
 const PAGE_SIZE = 25;
@@ -13,33 +15,53 @@ export type ManagedUser = {
 	id: string;
 	name: string;
 	email: string;
-	username?: string | null;
 	image?: string | null;
 	role?: string | null;
 	banned?: boolean | null;
-	createdAt: string | Date;
+	createdAt: Date;
 };
 
 // Demoting or deleting the last admin would lock everyone out of the admin
-// section with no way back short of editing the database by hand.
+// section with no way back short of editing the database by hand. Asking for
+// two admin ids answers that in a single query - getting both back means
+// someone else can still get in.
 async function isLastAdmin(userId: string) {
-	const [{ total }] = await db
-		.select({ total: count() })
+	const admins = await db
+		.select({ id: userTable.id })
 		.from(userTable)
-		.where(eq(userTable.role, ADMIN_ROLE));
+		.where(eq(userTable.role, ADMIN_ROLE))
+		.limit(2);
 
-	if (total > 1) return false;
-
-	const [{ total: matches }] = await db
-		.select({ total: count() })
-		.from(userTable)
-		.where(and(eq(userTable.id, userId), eq(userTable.role, ADMIN_ROLE)));
-
-	return matches > 0;
+	return admins.length === 1 && admins[0].id === userId;
 }
 
-function apiFailure(e: unknown, fallback: string) {
-	if (e instanceof APIError) return fail(e.statusCode, { error: e.body?.message ?? fallback });
+// better-auth performs the write on its own connection, so the last-admin
+// check and the mutation it guards can't share a transaction. Chaining the two
+// guarded actions through this queue is what keeps two concurrent demotions
+// from both passing the check and leaving the instance with no admin; a
+// multi-process deployment would need a database-level guard instead.
+let adminMutations: Promise<unknown> = Promise.resolve();
+
+function serializeAdminMutation<T>(mutation: () => Promise<T>): Promise<T> {
+	const result = adminMutations.then(mutation, mutation);
+
+	adminMutations = result.then(
+		() => undefined,
+		() => undefined
+	);
+
+	return result;
+}
+
+/**
+ * Maps a better-auth APIError to a form failure. Any other exception is a bug,
+ * not a bad request, and is rethrown so the action fails loudly.
+ */
+function apiFailure(e: unknown, fallback: string): ActionFailure<{ error: string }> {
+	if (e instanceof APIError) {
+		return fail(e.statusCode, { error: e.body?.message ?? fallback });
+	}
+
 	throw e;
 }
 
@@ -60,8 +82,18 @@ export const load: PageServerLoad = async ({ locals, request, url }) => {
 		}
 	});
 
+	const users: ManagedUser[] = result.users.map((user) => ({
+		id: user.id,
+		name: user.name,
+		email: user.email,
+		image: user.image ?? null,
+		role: user.role ?? null,
+		banned: user.banned ?? null,
+		createdAt: user.createdAt
+	}));
+
 	return {
-		users: result.users as ManagedUser[],
+		users,
 		total: result.total,
 		page,
 		pageSize: PAGE_SIZE,
@@ -71,9 +103,8 @@ export const load: PageServerLoad = async ({ locals, request, url }) => {
 
 export const actions: Actions = {
 	create: async ({ request, locals }) => {
-		if (!can(locals.user, { user: ['create'] })) {
-			return fail(403, { error: 'You cannot create users.' });
-		}
+		const denied = guard(locals.user, { user: ['create'] }, 'create', 'You cannot create users.');
+		if (denied) return denied;
 
 		const form = await request.formData();
 		const username = String(form.get('username') ?? '').trim();
@@ -112,35 +143,43 @@ export const actions: Actions = {
 	},
 
 	setRole: async ({ request, locals }) => {
-		if (!can(locals.user, { user: ['set-role'] })) {
-			return fail(403, { error: 'You cannot change roles.' });
-		}
+		const denied = guard(
+			locals.user,
+			{ user: ['set-role'] },
+			'setRole',
+			'You cannot change roles.'
+		);
+		if (denied) return denied;
 
 		const form = await request.formData();
 		const userId = String(form.get('id') ?? '');
 		const role = String(form.get('role') ?? '');
 
 		if (userId === locals.user?.id) {
-			return fail(400, { error: 'You cannot change your own role.' });
+			return fail(400, { action: 'setRole' as const, error: 'You cannot change your own role.' });
 		}
 
-		if (role !== ADMIN_ROLE && (await isLastAdmin(userId))) {
-			return fail(409, { error: 'This is the last admin - promote someone else first.' });
-		}
+		return serializeAdminMutation(async () => {
+			if (role !== ADMIN_ROLE && (await isLastAdmin(userId))) {
+				return fail(409, {
+					action: 'setRole' as const,
+					error: 'This is the last admin - promote someone else first.'
+				});
+			}
 
-		try {
-			await auth.api.setRole({ headers: request.headers, body: { userId, role } });
-		} catch (e) {
-			return apiFailure(e, 'Failed to change the role.');
-		}
+			try {
+				await auth.api.setRole({ headers: request.headers, body: { userId, role } });
+			} catch (e) {
+				return apiFailure(e, 'Failed to change the role.');
+			}
 
-		return { action: 'setRole' as const, success: true };
+			return { action: 'setRole' as const, success: true };
+		});
 	},
 
 	setBanned: async ({ request, locals }) => {
-		if (!can(locals.user, { user: ['ban'] })) {
-			return fail(403, { error: 'You cannot ban users.' });
-		}
+		const denied = guard(locals.user, { user: ['ban'] }, 'setBanned', 'You cannot ban users.');
+		if (denied) return denied;
 
 		const form = await request.formData();
 		const userId = String(form.get('id') ?? '');
@@ -161,9 +200,13 @@ export const actions: Actions = {
 	},
 
 	revokeSessions: async ({ request, locals }) => {
-		if (!can(locals.user, { session: ['revoke'] })) {
-			return fail(403, { error: 'You cannot revoke sessions.' });
-		}
+		const denied = guard(
+			locals.user,
+			{ session: ['revoke'] },
+			'revokeSessions',
+			'You cannot revoke sessions.'
+		);
+		if (denied) return denied;
 
 		const form = await request.formData();
 
@@ -180,23 +223,27 @@ export const actions: Actions = {
 	},
 
 	delete: async ({ request, locals }) => {
-		if (!can(locals.user, { user: ['delete'] })) {
-			return fail(403, { error: 'You cannot delete users.' });
-		}
+		const denied = guard(locals.user, { user: ['delete'] }, 'delete', 'You cannot delete users.');
+		if (denied) return denied;
 
 		const form = await request.formData();
 		const userId = String(form.get('id') ?? '');
 
-		if (await isLastAdmin(userId)) {
-			return fail(409, { error: 'This is the last admin - promote someone else first.' });
-		}
+		return serializeAdminMutation(async () => {
+			if (await isLastAdmin(userId)) {
+				return fail(409, {
+					action: 'delete' as const,
+					error: 'This is the last admin - promote someone else first.'
+				});
+			}
 
-		try {
-			await auth.api.removeUser({ headers: request.headers, body: { userId } });
-		} catch (e) {
-			return apiFailure(e, 'Failed to delete the user.');
-		}
+			try {
+				await auth.api.removeUser({ headers: request.headers, body: { userId } });
+			} catch (e) {
+				return apiFailure(e, 'Failed to delete the user.');
+			}
 
-		return { action: 'delete' as const, success: true };
+			return { action: 'delete' as const, success: true };
+		});
 	}
 };

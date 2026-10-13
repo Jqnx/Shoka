@@ -20,6 +20,10 @@ export const auth = betterAuth({
 				// Root-level hooks run after plugin hooks, so this overrides the
 				// admin plugin's defaultRole and the very first account owns the
 				// instance. Every later signup keeps `user`.
+				//
+				// Check-then-act with no transaction: two simultaneous first
+				// signups could both be promoted. Left alone because there is
+				// nothing to protect yet on a fresh instance.
 				before: async (user) => {
 					const [{ total }] = await db.select({ total: count() }).from(userTable);
 					if (total > 0) return;
