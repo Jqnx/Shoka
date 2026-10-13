@@ -32,7 +32,15 @@ make sqlc                        # Regenerate Go code from SQL queries (after ed
 ```bash
 make swag   # Regenerate Swagger API docs (after editing handler annotations)
 make tidy   # Go module cleanup
+make lint   # golangci-lint (gofumpt + goimports plus the linters in backend/.golangci.yml)
 ```
+
+`make lint` and `make swag` both shell out to a CLI that parses the stdlib. After a Go
+toolchain upgrade, reinstall whichever one breaks rather than chasing its `--version`:
+an older build aborts in stdlib typechecking (`method must have no type parameters` on
+`math/rand/v2`) before it ever reaches project code, which looks like a repo error but
+isn't. Rebuild with the current toolchain, e.g.
+`go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`.
 
 ## Architecture
 

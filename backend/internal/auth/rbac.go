@@ -55,6 +55,7 @@ const (
 // admins included.
 type Permission struct{ Resource, Action string }
 
+// Permissions the Go routes gate on.
 var (
 	ArchiveUpdate    = Permission{ResourceArchive, ActionUpdate}
 	ArchiveDelete    = Permission{ResourceArchive, ActionDelete}
@@ -79,9 +80,11 @@ var (
 
 	MaintenanceRead = Permission{ResourceMaintenance, ActionRead}
 	MaintenanceRun  = Permission{ResourceMaintenance, ActionRun}
+)
 
-	// better-auth's own admin statements. Only the frontend serves these
-	// routes, but they belong to the same matrix.
+// better-auth's own admin statements. Only the frontend serves these routes,
+// but they belong to the same matrix.
+var (
 	UserCreate      = Permission{ResourceUser, ActionCreate}
 	UserList        = Permission{ResourceUser, ActionList}
 	UserSetRole     = Permission{ResourceUser, ActionSetRole}

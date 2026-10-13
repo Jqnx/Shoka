@@ -98,8 +98,10 @@ func frontendStatements(t *testing.T) map[string][]string {
 
 	source := string(data)
 
-	body, ok := between(source, "export const statement = {", "} as const;")
-	if !ok {
+	_, afterOpen, hasOpen := strings.Cut(source, "export const statement = {")
+	body, _, hasClose := strings.Cut(afterOpen, "} as const;")
+
+	if !hasOpen || !hasClose {
 		t.Fatalf("%s: couldn't find the `statement` literal", frontendPath)
 	}
 
@@ -107,6 +109,7 @@ func frontendStatements(t *testing.T) map[string][]string {
 	quoted := regexp.MustCompile(`'([^']*)'`)
 
 	parsed := map[string][]string{}
+
 	for _, match := range entry.FindAllStringSubmatch(body, -1) {
 		actions := []string{}
 		for _, action := range quoted.FindAllStringSubmatch(match[2], -1) {
@@ -121,17 +124,6 @@ func frontendStatements(t *testing.T) map[string][]string {
 	}
 
 	return parsed
-}
-
-func between(s, open, close string) (string, bool) {
-	_, rest, found := strings.Cut(s, open)
-	if !found {
-		return "", false
-	}
-
-	body, _, found := strings.Cut(rest, close)
-
-	return body, found
 }
 
 func sameActions(a, b []string) bool {
