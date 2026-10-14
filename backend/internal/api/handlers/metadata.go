@@ -50,7 +50,7 @@ func NewMetadataHandler(queries *sqlc.Queries, db *sql.DB, pipeline *metadata.Pi
 //	@Param			library_id	query		string	true	"Library ID"
 //	@Success		200	{array}		metadata.SourceInfo
 //	@Failure		400	{object}	response.Error
-//	@Router			/metadata/sources [get]
+//	@Router			/api/metadata/sources [get]
 func (h *MetadataHandler) GetSources(w http.ResponseWriter, r *http.Request) {
 	libraryID := r.URL.Query().Get("library_id")
 	if libraryID == "" {
@@ -72,7 +72,7 @@ func (h *MetadataHandler) GetSources(w http.ResponseWriter, r *http.Request) {
 //	@Failure		403	{object}	response.Error
 //	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
-//	@Router			/archives/{id}/metadata [post]
+//	@Router			/api/archives/{id}/metadata [post]
 func (h *MetadataHandler) FetchMetadata(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -110,7 +110,7 @@ func (h *MetadataHandler) FetchMetadata(w http.ResponseWriter, r *http.Request) 
 //	@Failure		403		{object}	response.Error
 //	@Failure		404		{object}	response.Error
 //	@Failure		500		{object}	response.Error
-//	@Router			/archives/{id}/metadata/{source} [post]
+//	@Router			/api/archives/{id}/metadata/{source} [post]
 func (h *MetadataHandler) FetchMetadataFromSource(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	sourceName := chi.URLParam(r, "source")
@@ -159,7 +159,7 @@ func (h *MetadataHandler) FetchMetadataFromSource(w http.ResponseWriter, r *http
 //	@Failure		404	{object}	response.Error
 //	@Failure		422	{object}	response.Error
 //	@Failure		500	{object}	response.Error
-//	@Router			/archives/{id}/metadata/save [post]
+//	@Router			/api/archives/{id}/metadata/save [post]
 func (h *MetadataHandler) SaveMetadataToFile(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
@@ -224,7 +224,7 @@ func (h *MetadataHandler) SaveMetadataToFile(w http.ResponseWriter, r *http.Requ
 //	@Failure		400		{object}	response.Error
 //	@Failure		404		{object}	response.Error
 //	@Failure		422		{object}	response.Error
-//	@Router			/archives/{id}/metadata/{source}/search [get]
+//	@Router			/api/archives/{id}/metadata/{source}/search [get]
 func (h *MetadataHandler) SearchMetadataSource(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	sourceName := chi.URLParam(r, "source")
@@ -277,7 +277,7 @@ func (h *MetadataHandler) SearchMetadataSource(w http.ResponseWriter, r *http.Re
 //	@Failure		403	{object}	response.Error
 //	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
-//	@Router			/archives/{id}/metadata/{source}/{source_id} [post]
+//	@Router			/api/archives/{id}/metadata/{source}/{source_id} [post]
 func (h *MetadataHandler) ApplyMetadataFromSource(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	sourceName := chi.URLParam(r, "source")

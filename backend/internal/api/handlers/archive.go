@@ -575,7 +575,7 @@ func (h *ArchiveHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 //	@Success		200	{object}	ArchiveResponse
 //	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
-//	@Router			/archives/{id} [get]
+//	@Router			/api/archives/{id} [get]
 func (h *ArchiveHandler) GetArchive(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	userID := auth.UserIDFromContext(r.Context())

@@ -35,7 +35,7 @@ func NewTestHandler(queries *sqlc.Queries, processor *image.Processor, log *slog
 // @Param example query string false "example"
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} response.Error
-// @Router /test [get].
+// @Router /api/test [get].
 func (t *TestHandler) GetTest(w http.ResponseWriter, _ *http.Request) {
 	response.JSON(w, http.StatusOK, map[string]string{"status": "test"})
 }

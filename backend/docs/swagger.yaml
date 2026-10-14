@@ -1170,6 +1170,31 @@ paths:
       summary: Delete an archive
       tags:
       - archives
+    get:
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ArchiveResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Get a single archive
+      tags:
+      - archives
     patch:
       consumes:
       - application/json
@@ -1333,6 +1358,195 @@ paths:
       summary: Favorite an archive
       tags:
       - archives
+  /api/archives/{id}/metadata:
+    post:
+      description: Runs the full metadata pipeline for the given archive and applies
+        results
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/metadata.Result'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Fetch metadata for an archive
+      tags:
+      - metadata
+  /api/archives/{id}/metadata/{source}:
+    post:
+      description: Runs a single named metadata source for the given archive
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Source name (e.g. e-hentai, nhentai, comicinfo.xml)
+        in: path
+        name: source
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/metadata.Result'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Fetch metadata from a specific source
+      tags:
+      - metadata
+  /api/archives/{id}/metadata/{source}/{source_id}:
+    post:
+      description: Fetches full metadata by source-specific ID and returns a preview
+        of the archive as it would look with that metadata applied — it does NOT save
+        anything. Use PATCH /api/archives/{id} to actually persist the (possibly user-edited)
+        values.
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Source name
+        in: path
+        name: source
+        required: true
+        type: string
+      - description: Source-specific result ID
+        in: path
+        name: source_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ArchiveResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Preview metadata from a specific source result
+      tags:
+      - metadata
+  /api/archives/{id}/metadata/{source}/search:
+    get:
+      description: Returns a list of candidates from a remote source for manual selection
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Source name
+        in: path
+        name: source
+        required: true
+        type: string
+      - description: Override search query (defaults to archive title)
+        in: query
+        name: q
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/metadata.SearchResult'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Search a metadata source
+      tags:
+      - metadata
+  /api/archives/{id}/metadata/save:
+    post:
+      description: Writes current metadata as ComicInfo.xml into the archive file
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Save metadata to archive
+      tags:
+      - metadata
   /api/archives/{id}/pages/{index}:
     get:
       parameters:
@@ -2179,6 +2393,32 @@ paths:
       summary: List library types
       tags:
       - libraries
+  /api/metadata/sources:
+    get:
+      description: Returns all registered metadata sources and their enabled state
+        for a library
+      parameters:
+      - description: Library ID
+        in: query
+        name: library_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/metadata.SourceInfo'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List metadata sources
+      tags:
+      - metadata
   /api/parodies:
     get:
       parameters:
@@ -2507,248 +2747,7 @@ paths:
       summary: List every tag
       tags:
       - tags
-  /archives/{id}:
-    get:
-      parameters:
-      - description: Archive ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.ArchiveResponse'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.Error'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.Error'
-      summary: Get a single archive
-      tags:
-      - archives
-  /archives/{id}/metadata:
-    post:
-      description: Runs the full metadata pipeline for the given archive and applies
-        results
-      parameters:
-      - description: Archive ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/metadata.Result'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/response.Error'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.Error'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.Error'
-      summary: Fetch metadata for an archive
-      tags:
-      - metadata
-  /archives/{id}/metadata/{source}:
-    post:
-      description: Runs a single named metadata source for the given archive
-      parameters:
-      - description: Archive ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Source name (e.g. e-hentai, nhentai, comicinfo.xml)
-        in: path
-        name: source
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/metadata.Result'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/response.Error'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.Error'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.Error'
-      summary: Fetch metadata from a specific source
-      tags:
-      - metadata
-  /archives/{id}/metadata/{source}/{source_id}:
-    post:
-      description: Fetches full metadata by source-specific ID and returns a preview
-        of the archive as it would look with that metadata applied — it does NOT save
-        anything. Use PATCH /api/archives/{id} to actually persist the (possibly user-edited)
-        values.
-      parameters:
-      - description: Archive ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Source name
-        in: path
-        name: source
-        required: true
-        type: string
-      - description: Source-specific result ID
-        in: path
-        name: source_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.ArchiveResponse'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/response.Error'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.Error'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.Error'
-      summary: Preview metadata from a specific source result
-      tags:
-      - metadata
-  /archives/{id}/metadata/{source}/search:
-    get:
-      description: Returns a list of candidates from a remote source for manual selection
-      parameters:
-      - description: Archive ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Source name
-        in: path
-        name: source
-        required: true
-        type: string
-      - description: Override search query (defaults to archive title)
-        in: query
-        name: q
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/metadata.SearchResult'
-            type: array
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/response.Error'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/response.Error'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.Error'
-        "422":
-          description: Unprocessable Entity
-          schema:
-            $ref: '#/definitions/response.Error'
-      summary: Search a metadata source
-      tags:
-      - metadata
-  /archives/{id}/metadata/save:
-    post:
-      description: Writes current metadata as ComicInfo.xml into the archive file
-      parameters:
-      - description: Archive ID
-        in: path
-        name: id
-        required: true
-        type: string
-      responses:
-        "204":
-          description: No Content
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/response.Error'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/response.Error'
-        "422":
-          description: Unprocessable Entity
-          schema:
-            $ref: '#/definitions/response.Error'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.Error'
-      summary: Save metadata to archive
-      tags:
-      - metadata
-  /metadata/sources:
-    get:
-      description: Returns all registered metadata sources and their enabled state
-        for a library
-      parameters:
-      - description: Library ID
-        in: query
-        name: library_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/metadata.SourceInfo'
-            type: array
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/response.Error'
-      summary: List metadata sources
-      tags:
-      - metadata
-  /test:
+  /api/test:
     get:
       description: Example Description
       parameters:
