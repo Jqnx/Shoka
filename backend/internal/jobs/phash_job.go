@@ -59,6 +59,17 @@ func NewPHashHandler(processor *image.Processor, queries *sqlc.Queries, log *slo
 			return fmt.Errorf("decode payload: %w", err)
 		}
 
+		gone, err := archiveGone(ctx, queries, p.ArchiveID)
+		if err != nil {
+			return fmt.Errorf("check archive %s: %w", p.ArchiveID, err)
+		}
+
+		if gone {
+			log.Info("archive deleted, skipping phash", "archive_id", p.ArchiveID)
+
+			return nil
+		}
+
 		a, err := archive.Open(p.FilePath)
 		if err != nil {
 			return fmt.Errorf("open archive: %w", err)

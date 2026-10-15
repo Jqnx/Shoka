@@ -642,6 +642,22 @@ func (q *Queries) GetFilePathByID(ctx context.Context, id string) (string, error
 	return file_path, err
 }
 
+const hasArchive = `-- name: HasArchive :one
+;
+
+select exists (select 1 from archive where id = ?) = 1
+`
+
+// Polled by the per-archive jobs before they do any work: a job whose archive
+// row is gone must not write cache or hit the network. A row read
+// (GetArchiveByID) would scan 18 columns for the same answer.
+func (q *Queries) HasArchive(ctx context.Context, id string) (bool, error) {
+	row := q.db.QueryRowContext(ctx, hasArchive, id)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const listArchiveIDsByLibrary = `-- name: ListArchiveIDsByLibrary :many
 ;
 

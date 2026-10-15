@@ -97,9 +97,9 @@ func run(cfg *config.Config, log *slog.Logger) error {
 
 	// Register worker handlers
 	worker.Register(jobs.JobTypeScan, jobs.NewScanHandler(libraries, log), 1)
-	worker.Register(jobs.JobTypeCover, jobs.NewCoverHandler(images, log), 5)
+	worker.Register(jobs.JobTypeCover, jobs.NewCoverHandler(images, queries, log), 5)
 	worker.Register(jobs.JobTypePHash, jobs.NewPHashHandler(images, queries, log), 3)
-	worker.Register(jobs.JobTypeThumbnail, jobs.NewThumbnailHandler(images, thumbnails, log), 3)
+	worker.Register(jobs.JobTypeThumbnail, jobs.NewThumbnailHandler(images, thumbnails, queries, log), 3)
 	worker.Register(jobs.JobTypeMetadata, jobs.NewMetadataHandler(pipeline, queries, db, queue, log), 5)
 	worker.Register(jobs.JobTypeMetadataRemote, jobs.NewRemoteMetadataHandler(pipeline, queries, db, log), 1)
 

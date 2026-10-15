@@ -149,6 +149,13 @@ from archive
 where library_id = ?
 ;
 
+-- name: HasArchive :one
+-- Polled by the per-archive jobs before they do any work: a job whose archive
+-- row is gone must not write cache or hit the network. A row read
+-- (GetArchiveByID) would scan 18 columns for the same answer.
+select exists (select 1 from archive where id = ?) = 1
+;
+
 -- name: DeleteAllArchive :exec
 delete from archive
 ;

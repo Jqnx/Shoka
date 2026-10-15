@@ -4,6 +4,7 @@
 package jobs
 
 import (
+	"Shoka/internal/database/sqlc"
 	"Shoka/internal/image"
 	"Shoka/internal/library/archive"
 	"context"
@@ -29,11 +30,33 @@ type CoverPayload struct {
 // NewCoverHandler returns a Handler that renders the chosen page as the
 // archive's cover thumbnail, falling back to page 0 when the requested index
 // is out of range.
-func NewCoverHandler(processor *image.Processor, _ *slog.Logger) Handler {
+func NewCoverHandler(processor *image.Processor, queries *sqlc.Queries, log *slog.Logger) Handler {
+	log = log.With("component", "cover_job")
+
 	return func(ctx context.Context, job *Job) error {
 		var p CoverPayload
 		if err := job.Decode(&p); err != nil {
 			return fmt.Errorf("decode payload: %w", err)
+		}
+
+		// Registered first so it also runs on the early returns below: a
+		// delete that lands between the existence check and the thumbnail
+		// write leaves that write behind, and this reclaims it.
+		defer func() {
+			if gone, err := archiveGone(ctx, queries, p.ArchiveID); err == nil && gone {
+				_ = processor.EvictAll(p.ArchiveID)
+			}
+		}()
+
+		gone, err := archiveGone(ctx, queries, p.ArchiveID)
+		if err != nil {
+			return fmt.Errorf("check archive %s: %w", p.ArchiveID, err)
+		}
+
+		if gone {
+			log.Info("archive deleted, skipping cover", "archive_id", p.ArchiveID)
+
+			return nil
 		}
 
 		a, err := archive.Open(p.FilePath)

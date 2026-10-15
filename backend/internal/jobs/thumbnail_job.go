@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"Shoka/internal/database/sqlc"
 	"Shoka/internal/events"
 	"Shoka/internal/image"
 	"Shoka/internal/library/archive"
@@ -30,7 +31,7 @@ type ThumbnailPayload struct {
 // retries failed jobs with backoff, so an error on an earlier attempt
 // isn't "done," it's "about to be retried," and subscribers shouldn't be
 // told otherwise.
-func NewThumbnailHandler(processor *image.Processor, broadcaster *events.ThumbnailBroadcaster, log *slog.Logger) Handler {
+func NewThumbnailHandler(processor *image.Processor, broadcaster *events.ThumbnailBroadcaster, queries *sqlc.Queries, log *slog.Logger) Handler {
 	log = log.With("component", "thumbnail_job")
 
 	return func(ctx context.Context, job *Job) (err error) {
@@ -45,6 +46,27 @@ func NewThumbnailHandler(processor *image.Processor, broadcaster *events.Thumbna
 			}
 		}()
 
+		// Outer return-path cleanup, so the skip below and a mid-loop abort
+		// are both covered: a delete that lands between an existence check and
+		// its thumbnail write leaves that write behind, and this reclaims it.
+		defer func() {
+			if gone, err := archiveGone(ctx, queries, p.ArchiveID); err == nil && gone {
+				_ = processor.EvictAll(p.ArchiveID)
+			}
+		}()
+
+		gone, err := archiveGone(ctx, queries, p.ArchiveID)
+		if err != nil {
+			return fmt.Errorf("check archive %s: %w", p.ArchiveID, err)
+		}
+
+		if gone {
+			log.Info("archive deleted, skipping thumbnails", "archive_id", p.ArchiveID)
+			broadcaster.Publish(p.ArchiveID, events.ThumbnailEvent{Done: true})
+
+			return nil
+		}
+
 		a, err := archive.Open(p.FilePath)
 		if err != nil {
 			return fmt.Errorf("open archive: %w", err)
@@ -56,32 +78,14 @@ func NewThumbnailHandler(processor *image.Processor, broadcaster *events.Thumbna
 			return fmt.Errorf("list pages: %w", err)
 		}
 
-		generated := 0
-
-		for _, page := range pages {
-			// Skip pages that already have a thumbnail (e.g. page 0, which
-			// the cover job usually generates first) — checking before
-			// extracting avoids paying the decompression cost again.
-			if processor.ThumbPath(p.ArchiveID, page.Index) != "" {
-				broadcaster.Publish(p.ArchiveID, events.ThumbnailEvent{Index: page.Index})
-				continue
-			}
-
-			r, err := a.Extract(page)
-			if err != nil {
-				return fmt.Errorf("extract page %d: %w", page.Index, err)
-			}
-
-			err = processor.GenerateThumbnail(ctx, p.ArchiveID, page.Index, r)
-			_ = r.Close()
-
-			if err != nil {
-				return err
-			}
-
-			generated++
-
-			broadcaster.Publish(p.ArchiveID, events.ThumbnailEvent{Index: page.Index})
+		generated, err := thumbnailPages(ctx, thumbDeps{
+			processor:   processor,
+			queries:     queries,
+			broadcaster: broadcaster,
+			log:         log,
+		}, p.ArchiveID, a, pages)
+		if err != nil {
+			return err
 		}
 
 		log.Info("thumbnails generated", "archive_id", p.ArchiveID, "generated", generated, "total_pages", len(pages))
@@ -89,4 +93,63 @@ func NewThumbnailHandler(processor *image.Processor, broadcaster *events.Thumbna
 
 		return nil
 	}
+}
+
+// thumbDeps is what the per-page loop needs: the processor that owns the cache
+// layout, the provider of the archive rows, and the SSE broadcaster.
+type thumbDeps struct {
+	processor   *image.Processor
+	queries     *sqlc.Queries
+	broadcaster *events.ThumbnailBroadcaster
+	log         *slog.Logger
+}
+
+// thumbnailPages renders every page whose thumbnail is missing and reports how
+// many it generated. It returns early, without error, once the archive has been
+// deleted: that delete evicted this archive's cache directory, so the pages
+// left would only recreate what was just removed. Publishing the archive's
+// terminal Done event is the caller's job, so both endings send exactly one.
+func thumbnailPages(ctx context.Context, deps thumbDeps, archiveID string, a archive.Archive, pages []archive.Page) (int, error) {
+	generated := 0
+
+	for _, page := range pages {
+		gone, err := archiveGone(ctx, deps.queries, archiveID)
+		if err != nil {
+			return generated, err
+		}
+
+		if gone {
+			deps.log.Info("archive deleted, stopping thumbnail generation",
+				"archive_id", archiveID, "page", page.Index)
+
+			return generated, nil
+		}
+
+		// Skip pages that already have a thumbnail (e.g. page 0, which the
+		// cover job usually generates first) — checking before extracting
+		// avoids paying the decompression cost again.
+		if deps.processor.ThumbPath(archiveID, page.Index) != "" {
+			deps.broadcaster.Publish(archiveID, events.ThumbnailEvent{Index: page.Index})
+
+			continue
+		}
+
+		r, err := a.Extract(page)
+		if err != nil {
+			return generated, fmt.Errorf("extract page %d: %w", page.Index, err)
+		}
+
+		err = deps.processor.GenerateThumbnail(ctx, archiveID, page.Index, r)
+		_ = r.Close()
+
+		if err != nil {
+			return generated, err
+		}
+
+		generated++
+
+		deps.broadcaster.Publish(archiveID, events.ThumbnailEvent{Index: page.Index})
+	}
+
+	return generated, nil
 }

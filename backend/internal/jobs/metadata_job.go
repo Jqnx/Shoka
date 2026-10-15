@@ -38,6 +38,12 @@ func NewMetadataHandler(pipeline *metadata.Pipeline, queries *sqlc.Queries, db *
 		}
 
 		archive, err := queries.GetArchiveByID(ctx, p.ArchiveID)
+		if errors.Is(err, sql.ErrNoRows) {
+			logger.Info("archive deleted, skipping metadata", "archive_id", p.ArchiveID)
+
+			return nil
+		}
+
 		if err != nil {
 			return fmt.Errorf("get archive: %w", err)
 		}
@@ -89,6 +95,12 @@ func NewRemoteMetadataHandler(pipeline *metadata.Pipeline, queries *sqlc.Queries
 		}
 
 		archive, err := queries.GetArchiveByID(ctx, p.ArchiveID)
+		if errors.Is(err, sql.ErrNoRows) {
+			logger.Info("archive deleted, skipping metadata", "archive_id", p.ArchiveID)
+
+			return nil
+		}
+
 		if err != nil {
 			return fmt.Errorf("get archive: %w", err)
 		}
