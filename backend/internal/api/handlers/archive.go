@@ -769,7 +769,7 @@ func (h *ArchiveHandler) DeleteArchive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.queries.DeleteArchive(r.Context(), id); err != nil {
+	if err := database.DeleteArchive(r.Context(), h.queries, h.db, id); err != nil {
 		h.logger.Error("delete archive failed", "id", id, "error", err)
 		response.InternalError(w, "failed to delete archive")
 

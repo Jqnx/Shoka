@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"Shoka/internal/api/response"
+	"Shoka/internal/database"
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/jobs"
 	"Shoka/internal/library"
@@ -34,6 +35,7 @@ var defaultLibrarySources = []struct {
 // metadata source settings.
 type LibraryHandler struct {
 	queries *sqlc.Queries
+	db      *sql.DB
 	queue   *jobs.Queue
 	manager *library.Manager
 	logger  *slog.Logger
@@ -41,9 +43,10 @@ type LibraryHandler struct {
 
 // NewLibraryHandler returns a LibraryHandler backed by queries, the job
 // queue, and the library manager.
-func NewLibraryHandler(queries *sqlc.Queries, queue *jobs.Queue, manager *library.Manager, log *slog.Logger) *LibraryHandler {
+func NewLibraryHandler(queries *sqlc.Queries, db *sql.DB, queue *jobs.Queue, manager *library.Manager, log *slog.Logger) *LibraryHandler {
 	return &LibraryHandler{
 		queries: queries,
+		db:      db,
 		queue:   queue,
 		manager: manager,
 		logger:  log.With("handler", "library"),
@@ -308,7 +311,7 @@ func (h *LibraryHandler) DeleteLibrary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.queries.DeleteLibrary(r.Context(), id); err != nil {
+	if err := database.DeleteLibrary(r.Context(), h.queries, h.db, id); err != nil {
 		h.logger.Error("delete library failed", "id", id, "error", err)
 		response.InternalError(w, "failed to delete library")
 

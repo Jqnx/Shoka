@@ -75,7 +75,7 @@ func run(cfg *config.Config, log *slog.Logger) error {
 
 	queue := jobs.NewQueue(queries, log)
 	worker := jobs.NewWorker(queue, log)
-	libraries := library.NewManager(cfg, queries, queue, log)
+	libraries := library.NewManager(cfg, queries, db, queue, log)
 	thumbnails := events.NewThumbnailBroadcaster()
 	images := image.NewProcessor(cfg.Cache.Dir, log)
 

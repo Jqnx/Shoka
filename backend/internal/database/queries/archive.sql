@@ -141,6 +141,14 @@ delete from archive
 where id = ?
 ;
 
+-- name: ListArchiveIDsByLibrary :many
+-- Backs the counter-aware library delete: the taxonomy counters of these
+-- archives have to be cleared before the library cascade takes the rows away.
+select id
+from archive
+where library_id = ?
+;
+
 -- name: DeleteAllArchive :exec
 delete from archive
 ;

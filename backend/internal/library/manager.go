@@ -9,6 +9,7 @@ import (
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/jobs"
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -28,6 +29,7 @@ var AllLibraryTypes = []string{"doujinshi", "audio"}
 type Manager struct {
 	cfg      *config.Config
 	queries  *sqlc.Queries
+	db       *sql.DB
 	queue    JobQueue
 	log      *slog.Logger
 	scanners map[string]Scanner // keyed by library.type
@@ -45,12 +47,13 @@ type Manager struct {
 // NewManager returns a Manager owning no libraries yet — call Start to
 // load them and begin watching. The manager's logger is tagged with the
 // library_manager component.
-func NewManager(cfg *config.Config, queries *sqlc.Queries, queue JobQueue, log *slog.Logger) *Manager {
+func NewManager(cfg *config.Config, queries *sqlc.Queries, db *sql.DB, queue JobQueue, log *slog.Logger) *Manager {
 	logger := log.With("component", "library_manager")
 
 	m := &Manager{
 		cfg:     cfg,
 		queries: queries,
+		db:      db,
 		queue:   queue,
 		log:     logger,
 		baseCtx: context.Background(),
@@ -61,7 +64,7 @@ func NewManager(cfg *config.Config, queries *sqlc.Queries, queue JobQueue, log *
 	// implementation yet — libraries of that type are accepted by the
 	// schema but rejected at the admin API layer until that scanner exists.
 	m.scanners = map[string]Scanner{
-		"doujinshi": NewArchiveScanner(cfg, queries, queue, logger),
+		"doujinshi": NewArchiveScanner(cfg, queries, db, queue, logger),
 	}
 
 	return m

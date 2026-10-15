@@ -235,6 +235,29 @@ func applyRelation(ctx context.Context, q *sqlc.Queries, archiveID string, names
 	return nil
 }
 
+// ClearRelationCounts subtracts the archive's contribution from every relation
+// counter. Run it in the same transaction that deletes the archive, and before
+// it: the archive_* join rows cascade away with the archive row, so its links
+// are only readable beforehand.
+func ClearRelationCounts(ctx context.Context, q *sqlc.Queries, archiveID string) error {
+	for _, rel := range []relationSpec{artistsRelation, circlesRelation, tagsRelation, parodiesRelation, charactersRelation} {
+		ids, err := rel.currentIDs(ctx, q, archiveID)
+		if err != nil {
+			return fmt.Errorf("get current %s: %w", rel.name, err)
+		}
+
+		if len(ids) == 0 {
+			continue
+		}
+
+		if err := rel.decrement(ctx, q, ids); err != nil {
+			return fmt.Errorf("decrement %s counts: %w", rel.countName, err)
+		}
+	}
+
+	return nil
+}
+
 // applyURLs reconciles an archive's source links to the desired set. It
 // mirrors applyRelation, diffing on the URL string via util.Diff (generic
 // over comparable element types) rather than integer IDs. There are no

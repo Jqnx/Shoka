@@ -642,6 +642,39 @@ func (q *Queries) GetFilePathByID(ctx context.Context, id string) (string, error
 	return file_path, err
 }
 
+const listArchiveIDsByLibrary = `-- name: ListArchiveIDsByLibrary :many
+;
+
+select id
+from archive
+where library_id = ?
+`
+
+// Backs the counter-aware library delete: the taxonomy counters of these
+// archives have to be cleared before the library cascade takes the rows away.
+func (q *Queries) ListArchiveIDsByLibrary(ctx context.Context, libraryID string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listArchiveIDsByLibrary, libraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateArchive = `-- name: UpdateArchive :exec
 ;
 

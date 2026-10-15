@@ -55,6 +55,72 @@ func GetSession(ctx context.Context, db *sql.DB, token string) (*Session, error)
 	return &session, nil
 }
 
+// DeleteArchive removes an archive and, inside the same transaction, subtracts
+// its contribution from every taxonomy counter. It is the way archives are
+// deleted: the generated sqlc.Queries.DeleteArchive stays the single-row
+// building block it always was, minus the counter maintenance this wraps
+// around it. The counters must be read before the delete: the archive_* join
+// rows cascade away with the archive row.
+func DeleteArchive(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }() // no-op once committed
+
+	qtx := q.WithTx(tx)
+
+	if err := metadata.ClearRelationCounts(ctx, qtx, id); err != nil {
+		return err
+	}
+
+	if err := qtx.DeleteArchive(ctx, id); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteLibrary removes a library and, inside the same transaction, subtracts
+// each of its archives' contribution from every taxonomy counter. The
+// archives themselves go with the library (archive.library_id cascades), so
+// their counters have to be read before that delete, exactly as in
+// DeleteArchive.
+func DeleteLibrary(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }() // no-op once committed
+
+	qtx := q.WithTx(tx)
+
+	archiveIDs, err := qtx.ListArchiveIDsByLibrary(ctx, id)
+	if err != nil {
+		return fmt.Errorf("list archives of library %s: %w", id, err)
+	}
+
+	for _, archiveID := range archiveIDs {
+		if err := metadata.ClearRelationCounts(ctx, qtx, archiveID); err != nil {
+			return fmt.Errorf("clear counts of archive %s: %w", archiveID, err)
+		}
+	}
+
+	if err := qtx.DeleteLibrary(ctx, id); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return nil
+}
+
 // GetArchiveMetadata loads an archive and its complete metadata: the
 // denormalized columns of the archive row plus the names of every related
 // artist, tag, parody, circle and character, and its source URLs. It backs

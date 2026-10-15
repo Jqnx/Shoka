@@ -8,6 +8,7 @@ import (
 	"Shoka/internal/library/archive"
 	"Shoka/internal/util"
 	"context"
+	"database/sql"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -41,16 +42,18 @@ type Scanner interface {
 type ArchiveScanner struct {
 	cfg     *config.Config
 	queries *sqlc.Queries
+	db      *sql.DB
 	queue   JobQueue
 	log     *slog.Logger
 }
 
 // NewArchiveScanner returns the Scanner for doujinshi libraries, which
 // reconciles the archive files on disk with the archives table.
-func NewArchiveScanner(cfg *config.Config, queries *sqlc.Queries, queue JobQueue, log *slog.Logger) *ArchiveScanner {
+func NewArchiveScanner(cfg *config.Config, queries *sqlc.Queries, db *sql.DB, queue JobQueue, log *slog.Logger) *ArchiveScanner {
 	return &ArchiveScanner{
 		cfg:     cfg,
 		queries: queries,
+		db:      db,
 		queue:   queue,
 		log:     log.With("component", "scanner"),
 	}
@@ -291,7 +294,7 @@ func (s *ArchiveScanner) updateArchive(ctx context.Context, path, id string, inf
 
 // removeArchive() removes an archive and its cache directory.
 func (s *ArchiveScanner) removeArchive(ctx context.Context, id, path string) error {
-	if err := s.queries.DeleteArchive(ctx, id); err != nil {
+	if err := database.DeleteArchive(ctx, s.queries, s.db, id); err != nil {
 		return err
 	}
 
