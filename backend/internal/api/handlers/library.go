@@ -4,6 +4,7 @@ import (
 	"Shoka/internal/api/response"
 	"Shoka/internal/database"
 	"Shoka/internal/database/sqlc"
+	"Shoka/internal/image"
 	"Shoka/internal/jobs"
 	"Shoka/internal/library"
 	"database/sql"
@@ -34,22 +35,25 @@ var defaultLibrarySources = []struct {
 // LibraryHandler manages library CRUD, scans, covers, and per-library
 // metadata source settings.
 type LibraryHandler struct {
-	queries *sqlc.Queries
-	db      *sql.DB
-	queue   *jobs.Queue
-	manager *library.Manager
-	logger  *slog.Logger
+	queries   *sqlc.Queries
+	db        *sql.DB
+	queue     *jobs.Queue
+	manager   *library.Manager
+	processor *image.Processor
+	logger    *slog.Logger
 }
 
 // NewLibraryHandler returns a LibraryHandler backed by queries, the job
-// queue, and the library manager.
-func NewLibraryHandler(queries *sqlc.Queries, db *sql.DB, queue *jobs.Queue, manager *library.Manager, log *slog.Logger) *LibraryHandler {
+// queue, the library manager, and the image processor that owns the
+// per-archive cache directories.
+func NewLibraryHandler(queries *sqlc.Queries, db *sql.DB, queue *jobs.Queue, manager *library.Manager, processor *image.Processor, log *slog.Logger) *LibraryHandler {
 	return &LibraryHandler{
-		queries: queries,
-		db:      db,
-		queue:   queue,
-		manager: manager,
-		logger:  log.With("handler", "library"),
+		queries:   queries,
+		db:        db,
+		queue:     queue,
+		manager:   manager,
+		processor: processor,
+		logger:    log.With("handler", "library"),
 	}
 }
 
@@ -311,11 +315,19 @@ func (h *LibraryHandler) DeleteLibrary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := database.DeleteLibrary(r.Context(), h.queries, h.db, id); err != nil {
+	archiveIDs, err := database.DeleteLibrary(r.Context(), h.queries, h.db, id)
+	if err != nil {
 		h.logger.Error("delete library failed", "id", id, "error", err)
 		response.InternalError(w, "failed to delete library")
 
 		return
+	}
+
+	// After the commit, so a failed delete evicts nothing.
+	for _, archiveID := range archiveIDs {
+		if err := h.processor.EvictAll(archiveID); err != nil {
+			h.logger.Warn("evict archive cache failed", "id", archiveID, "error", err)
+		}
 	}
 
 	h.manager.OnLibraryDeleted(id)

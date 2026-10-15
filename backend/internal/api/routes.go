@@ -57,7 +57,7 @@ func (s *Server) newAPIHandlers() apiHandlers {
 		metadata:       handlers.NewMetadataHandler(s.Queries, s.DB, s.Pipeline, s.Processor, s.Log),
 		admin:          handlers.NewAdminHandler(s.Queries, s.Queue, s.Log),
 		job:            handlers.NewJobHandler(s.Queries, s.Log),
-		library:        handlers.NewLibraryHandler(s.Queries, s.DB, s.Queue, s.Libraries, s.Log),
+		library:        handlers.NewLibraryHandler(s.Queries, s.DB, s.Queue, s.Libraries, s.Processor, s.Log),
 		tag:            handlers.NewTagHandler(s.Queries, s.Log, s.Processor),
 		character:      handlers.NewCharacterHandler(s.Queries, s.Log, s.Processor),
 		parody:         handlers.NewParodyHandler(s.Queries, s.Log, s.Processor),

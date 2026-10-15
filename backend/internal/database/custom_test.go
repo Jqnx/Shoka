@@ -432,5 +432,41 @@ func TestDeleteLibraryClearsRelationCounts(t *testing.T) {
 		},
 	}
 
-	runCountsCases(t, cases, DeleteLibrary)
+	runCountsCases(t, cases, func(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) error {
+		_, err := DeleteLibrary(ctx, q, db, id)
+		return err
+	})
+}
+
+// TestDeleteLibraryReturnsDeletedArchiveIDs pins the return contract the
+// library-delete handler evicts caches with: the ids of the archives the
+// cascade took, and nothing for a library that never existed.
+func TestDeleteLibraryReturnsDeletedArchiveIDs(t *testing.T) {
+	t.Parallel()
+
+	db := newTaxonomyDB(t)
+	q := sqlc.New(db)
+	ctx := t.Context()
+
+	ids, err := DeleteLibrary(ctx, q, db, libraryOne)
+	if err != nil {
+		t.Fatalf("DeleteLibrary(%q): %v", libraryOne, err)
+	}
+
+	// ListArchiveIDsByLibrary has no ORDER BY, so compare as a set: the
+	// handler evicts per id and does not care which comes first.
+	slices.Sort(ids)
+
+	if want := []string{"a1", "a2"}; !slices.Equal(ids, want) {
+		t.Errorf("returned ids = %v, want %v", ids, want)
+	}
+
+	ids, err = DeleteLibrary(ctx, q, db, neverExists)
+	if err != nil {
+		t.Fatalf("DeleteLibrary(missing): %v", err)
+	}
+
+	if len(ids) != 0 {
+		t.Errorf("missing library returned ids %v, want none", ids)
+	}
 }

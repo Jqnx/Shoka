@@ -89,11 +89,12 @@ func DeleteArchive(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) 
 // each of its archives' contribution from every taxonomy counter. The
 // archives themselves go with the library (archive.library_id cascades), so
 // their counters have to be read before that delete, exactly as in
-// DeleteArchive.
-func DeleteLibrary(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) error {
+// DeleteArchive. Returns the ids of the archives that went with the library,
+// so callers can evict their caches after the commit.
+func DeleteLibrary(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) ([]string, error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin transaction: %w", err)
+		return nil, fmt.Errorf("begin transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }() // no-op once committed
 
@@ -101,24 +102,24 @@ func DeleteLibrary(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) 
 
 	archiveIDs, err := qtx.ListArchiveIDsByLibrary(ctx, id)
 	if err != nil {
-		return fmt.Errorf("list archives of library %s: %w", id, err)
+		return nil, fmt.Errorf("list archives of library %s: %w", id, err)
 	}
 
 	for _, archiveID := range archiveIDs {
 		if err := metadata.ClearRelationCounts(ctx, qtx, archiveID); err != nil {
-			return fmt.Errorf("clear counts of archive %s: %w", archiveID, err)
+			return nil, fmt.Errorf("clear counts of archive %s: %w", archiveID, err)
 		}
 	}
 
 	if err := qtx.DeleteLibrary(ctx, id); err != nil {
-		return err
+		return nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit transaction: %w", err)
+		return nil, fmt.Errorf("commit transaction: %w", err)
 	}
 
-	return nil
+	return archiveIDs, nil
 }
 
 // GetArchiveMetadata loads an archive and its complete metadata: the
