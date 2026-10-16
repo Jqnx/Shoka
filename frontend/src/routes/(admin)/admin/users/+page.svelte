@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Label } from '$lib/components/ui/label/index.js';
+	import * as Form from '$lib/components/ui/form/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
@@ -10,6 +10,10 @@
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import { can, ADMIN_ROLE, DEFAULT_ROLE } from '$lib/auth/permissions';
+	import { superForm, type Infer } from 'sveltekit-superforms';
+	import { zod4Client } from 'sveltekit-superforms/adapters';
+	import { createUserSchema, type CreateUserSchema } from '$lib/schemas/create-user';
+	import { cn } from '$lib/utils.js';
 	import { Ellipsis, LogOut, ShieldCheck, ShieldOff, Trash2, UserPlus } from '@lucide/svelte';
 	import type { ManagedUser } from './+page.server';
 
@@ -23,8 +27,30 @@
 	const canDelete = $derived(can(me, { user: ['delete'] }));
 
 	let createOpen = $state(false);
-	let createRole = $state(DEFAULT_ROLE);
 	let deleteTarget = $state<ManagedUser | null>(null);
+
+	// svelte-ignore state_referenced_locally
+	const createUser = superForm(data.createForm, {
+		id: 'createUser',
+		validators: zod4Client(createUserSchema),
+		// A failed create leaves the dialog open with the entered values and the
+		// field errors; a successful one closes it and clears the form, so the
+		// next account starts from the defaults.
+		onResult: ({ result }) => {
+			if (result.type === 'success') createOpen = false;
+		}
+	});
+	const {
+		form: createUserData,
+		enhance: createUserEnhance,
+		submitting: createUserSubmitting
+	} = createUser;
+
+	// bits-ui hands the select's value back as a plain string; the schema's
+	// enum is what narrows it.
+	function setCreateUserRole(value: string) {
+		$createUserData.role = value as Infer<CreateUserSchema>['role'];
+	}
 
 	const lastPage = $derived(Math.max(1, Math.ceil(data.total / data.pageSize)));
 
@@ -70,42 +96,60 @@
 						<Dialog.Title>Add user</Dialog.Title>
 						<Dialog.Description>Creates an account with a password you choose.</Dialog.Description>
 					</Dialog.Header>
-					<form
-						method="POST"
-						action="?/create"
-						class="flex flex-col gap-4"
-						use:enhance={() => {
-							return async ({ result, update }) => {
-								if (result.type === 'success') createOpen = false;
-								await update();
-							};
-						}}
-					>
-						<div class="flex flex-col gap-1.5">
-							<Label for="new-username">Username</Label>
-							<Input id="new-username" name="username" required maxlength={50} />
-						</div>
-						<div class="flex flex-col gap-1.5">
-							<Label for="new-email">Email</Label>
-							<Input id="new-email" name="email" type="email" required />
-						</div>
-						<div class="flex flex-col gap-1.5">
-							<Label for="new-password">Password</Label>
-							<Input id="new-password" name="password" type="password" required minlength={8} />
-						</div>
-						<div class="flex flex-col gap-1.5">
-							<Label for="new-role">Role</Label>
-							<input type="hidden" name="role" value={createRole} />
-							<Select.Root type="single" bind:value={createRole}>
-								<Select.Trigger id="new-role" class="w-full">{createRole}</Select.Trigger>
-								<Select.Content>
-									<Select.Item value={DEFAULT_ROLE} label="user">user</Select.Item>
-									<Select.Item value={ADMIN_ROLE} label="admin">admin</Select.Item>
-								</Select.Content>
-							</Select.Root>
-						</div>
+					<form method="POST" action="?/create" class="flex flex-col gap-4" use:createUserEnhance>
+						<Form.Field form={createUser} name="username">
+							<Form.Control>
+								{#snippet children({ props })}
+									<Form.Label>Username</Form.Label>
+									<Input {...props} bind:value={$createUserData.username} />
+								{/snippet}
+							</Form.Control>
+							<Form.FieldErrors />
+						</Form.Field>
+						<Form.Field form={createUser} name="email">
+							<Form.Control>
+								{#snippet children({ props })}
+									<Form.Label>Email</Form.Label>
+									<Input {...props} bind:value={$createUserData.email} />
+								{/snippet}
+							</Form.Control>
+							<Form.FieldErrors />
+						</Form.Field>
+						<Form.Field form={createUser} name="password">
+							<Form.Control>
+								{#snippet children({ props })}
+									<Form.Label>Password</Form.Label>
+									<Input {...props} type="password" bind:value={$createUserData.password} />
+								{/snippet}
+							</Form.Control>
+							<Form.FieldErrors />
+						</Form.Field>
+						<Form.Field form={createUser} name="role">
+							<Form.Control>
+								{#snippet children({ props })}
+									<Form.Label>Role</Form.Label>
+									<Select.Root
+										type="single"
+										name={props.name}
+										value={$createUserData.role}
+										onValueChange={setCreateUserRole}
+									>
+										<Select.Trigger {...props} class="w-full">
+											{$createUserData.role}
+										</Select.Trigger>
+										<Select.Content>
+											<Select.Item value={DEFAULT_ROLE} label="user">user</Select.Item>
+											<Select.Item value={ADMIN_ROLE} label="admin">admin</Select.Item>
+										</Select.Content>
+									</Select.Root>
+								{/snippet}
+							</Form.Control>
+							<Form.FieldErrors />
+						</Form.Field>
 						<Dialog.Footer>
-							<Button type="submit">Create</Button>
+							<Form.Button disabled={$createUserSubmitting}>
+								{$createUserSubmitting ? 'Creating…' : 'Create'}
+							</Form.Button>
 						</Dialog.Footer>
 					</form>
 				</Dialog.Content>
@@ -125,7 +169,7 @@
 	<div class="mt-4 flex flex-col gap-2">
 		{#each data.users as u (u.id)}
 			{@const role = roleOf(u)}
-			<div class="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
+			<div class="flex items-center gap-3 rounded-lg border border-border p-3">
 				<div class="min-w-0 flex-1">
 					<p class="flex items-center gap-2 truncate text-sm font-medium">
 						{u.name}
@@ -136,9 +180,9 @@
 					<p class="truncate text-xs text-muted-foreground">{u.email}</p>
 				</div>
 
-				<Badge variant={role === ADMIN_ROLE ? 'default' : 'secondary'}>{role}</Badge>
+				<Badge class="h-8" variant={role === ADMIN_ROLE ? 'default' : 'secondary'}>{role}</Badge>
 				{#if u.banned}
-					<Badge variant="destructive">banned</Badge>
+					<Badge class="h-8" variant="destructive">banned</Badge>
 				{/if}
 
 				<DropdownMenu.Root>
@@ -160,7 +204,7 @@
 								/>
 								<DropdownMenu.Item>
 									{#snippet child({ props })}
-										<button type="submit" {...props} class="w-full">
+										<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
 											{#if role === ADMIN_ROLE}
 												<ShieldOff />
 												Demote to user
@@ -180,7 +224,7 @@
 								<input type="hidden" name="banned" value={u.banned ? 'false' : 'true'} />
 								<DropdownMenu.Item>
 									{#snippet child({ props })}
-										<button type="submit" {...props} class="w-full">
+										<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
 											<ShieldOff />
 											{u.banned ? 'Lift ban' : 'Ban'}
 										</button>
@@ -194,7 +238,7 @@
 								<input type="hidden" name="id" value={u.id} />
 								<DropdownMenu.Item>
 									{#snippet child({ props })}
-										<button type="submit" {...props} class="w-full">
+										<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
 											<LogOut />
 											Sign out everywhere
 										</button>

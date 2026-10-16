@@ -7,7 +7,10 @@ import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
 import { user as userTable } from '$lib/server/db/auth.schema';
 import { guard } from '$lib/server/guard';
-import { ADMIN_ROLE, can, DEFAULT_ROLE } from '$lib/auth/permissions';
+import { ADMIN_ROLE, can } from '$lib/auth/permissions';
+import { setError, superValidate } from 'sveltekit-superforms';
+import { zod4 } from 'sveltekit-superforms/adapters';
+import { createUserSchema } from '$lib/schemas/create-user';
 
 const PAGE_SIZE = 25;
 
@@ -35,6 +38,19 @@ async function isLastAdmin(userId: string) {
 		.limit(2);
 
 	return admins.length === 1 && admins[0].id === userId;
+}
+
+// better-auth's username plugin only enforces uniqueness on /sign-up/email and
+// /update-user, so an admin-created username would otherwise be guarded by the
+// table's unique index alone - which surfaces as a 500, not a field error.
+async function isUsernameTaken(username: string) {
+	const taken = await db
+		.select({ id: userTable.id })
+		.from(userTable)
+		.where(eq(userTable.username, username.toLowerCase()))
+		.limit(1);
+
+	return taken.length > 0;
 }
 
 // better-auth performs the write on its own connection, so the last-admin
@@ -98,7 +114,8 @@ export const load: PageServerLoad = async ({ locals, request, url }) => {
 		total: result.total,
 		page,
 		pageSize: PAGE_SIZE,
-		search
+		search,
+		createForm: await superValidate(zod4(createUserSchema), { id: 'createUser' })
 	};
 };
 
@@ -107,22 +124,18 @@ export const actions: Actions = {
 		const denied = guard(locals.user, { user: ['create'] }, 'create', 'You cannot create users.');
 		if (denied) return denied;
 
-		const form = await request.formData();
-		const username = String(form.get('username') ?? '').trim();
-		const email = String(form.get('email') ?? '').trim();
-		const password = String(form.get('password') ?? '');
-		const role = String(form.get('role') ?? DEFAULT_ROLE);
+		const form = await superValidate(request, zod4(createUserSchema), { id: 'createUser' });
 
-		if (!username || !email) {
-			return fail(400, { error: 'Username and email are required.' });
+		if (!form.valid) {
+			return fail(400, { createForm: form });
 		}
 
-		if (password.length < 8) {
-			return fail(400, { error: 'Password must be at least 8 characters.' });
-		}
+		const { username, email, password, role } = form.data;
 
-		if (role !== DEFAULT_ROLE && role !== ADMIN_ROLE) {
-			return fail(400, { error: 'Unknown role.' });
+		if (await isUsernameTaken(username)) {
+			setError(form, 'username', 'Username is already taken. Please try another.');
+
+			return fail(400, { createForm: form });
 		}
 
 		try {
@@ -137,10 +150,16 @@ export const actions: Actions = {
 				}
 			});
 		} catch (e) {
+			if (e instanceof APIError && e.body?.code === 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL') {
+				setError(form, 'email', `${e.body.message}`);
+
+				return fail(400, { createForm: form });
+			}
+
 			return apiFailure(e, 'Failed to create the user.');
 		}
 
-		return { action: 'create' as const, success: true };
+		return { createForm: form };
 	},
 
 	setRole: async ({ request, locals }) => {
