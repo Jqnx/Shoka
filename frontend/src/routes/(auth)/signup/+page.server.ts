@@ -36,19 +36,25 @@ export const actions: Actions = {
 				}
 			});
 		} catch (e: unknown) {
-			if (e instanceof APIError) {
-				switch (e.body?.code) {
-					case 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL':
-						setError(form, 'email', `${e.body?.message}`);
-						break;
-					case 'USERNAME_IS_ALREADY_TAKEN_PLEASE_TRY_ANOTHER':
-						setError(form, 'username', `${e.body?.message}`);
-						break;
-					default:
-						return fail(500, { form });
-				}
-				return { form };
+			// Anything that isn't an APIError is a bug, not a bad signup:
+			// letting it fall out of the catch would present a genuine failure
+			// as a successful signup, and the redirect below would land the
+			// user on the home page, which bounces them to /login with no
+			// explanation.
+			if (!(e instanceof APIError)) throw e;
+
+			switch (e.body?.code) {
+				case 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL':
+					setError(form, 'email', `${e.body?.message}`);
+					break;
+				case 'USERNAME_IS_ALREADY_TAKEN_PLEASE_TRY_ANOTHER':
+					setError(form, 'username', `${e.body?.message}`);
+					break;
+				default:
+					return fail(500, { form });
 			}
+
+			return { form };
 		}
 
 		redirect(302, '/');
