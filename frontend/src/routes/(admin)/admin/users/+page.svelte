@@ -14,7 +14,7 @@
 	import { zod4Client } from 'sveltekit-superforms/adapters';
 	import { createUserSchema, type CreateUserSchema } from '$lib/schemas/create-user';
 	import { cn } from '$lib/utils.js';
-	import { Ellipsis, LogOut, ShieldCheck, ShieldOff, Trash2, UserPlus } from '@lucide/svelte';
+	import { Ellipsis, Ban, LogOut, ShieldCheck, ShieldOff, Trash2, UserPlus } from '@lucide/svelte';
 	import type { ManagedUser } from './+page.server';
 
 	let { data, form } = $props();
@@ -56,6 +56,32 @@
 
 	function roleOf(user: ManagedUser) {
 		return user.role ?? DEFAULT_ROLE;
+	}
+
+	// An action failure that names a row (`{ action, id, error }`) is rendered on
+	// that row, beside the menu that produced it. One that names no row keeps a
+	// slot of its own: the create dialog's failures belong in the dialog (which
+	// stays open on a failure, and the page-level slot is behind it) and a
+	// permission guard's belong on the page. So does one whose row is no longer
+	// on the page (deleted by someone else since this list was loaded): a message
+	// nobody can see is worse than a message in the wrong place.
+	const failedRowID = $derived(form && 'id' in form ? form.id : undefined);
+	const dialogError = $derived(
+		form && 'error' in form && 'action' in form && form.action === 'create' ? form.error : undefined
+	);
+	const pageError = $derived(
+		form &&
+			'error' in form &&
+			dialogError === undefined &&
+			(failedRowID === undefined || !data.users.some((u) => u.id === failedRowID))
+			? form.error
+			: undefined
+	);
+
+	function rowError(userID: string): string | undefined {
+		if (!form || !('error' in form) || !('id' in form)) return undefined;
+
+		return form.id === userID ? form.error : undefined;
 	}
 
 	function pageHref(target: number) {
@@ -146,6 +172,9 @@
 							</Form.Control>
 							<Form.FieldErrors />
 						</Form.Field>
+						{#if dialogError}
+							<p class="text-sm text-destructive">{dialogError}</p>
+						{/if}
 						<Dialog.Footer>
 							<Form.Button disabled={$createUserSubmitting}>
 								{$createUserSubmitting ? 'Creating…' : 'Create'}
@@ -157,8 +186,8 @@
 		{/if}
 	</div>
 
-	{#if form?.error}
-		<p class="mt-4 text-sm text-destructive">{form.error}</p>
+	{#if pageError}
+		<p class="mt-4 text-sm text-destructive">{pageError}</p>
 	{/if}
 
 	<form method="GET" class="mt-6 flex max-w-sm gap-2">
@@ -169,93 +198,104 @@
 	<div class="mt-4 flex flex-col gap-2">
 		{#each data.users as u (u.id)}
 			{@const role = roleOf(u)}
-			<div class="flex items-center gap-3 rounded-lg border border-border p-3">
-				<div class="min-w-0 flex-1">
-					<p class="flex items-center gap-2 truncate text-sm font-medium">
-						{u.name}
-						{#if u.id === me?.id}
-							<span class="text-xs text-muted-foreground">(you)</span>
-						{/if}
-					</p>
-					<p class="truncate text-xs text-muted-foreground">{u.email}</p>
+			{@const error = rowError(u.id)}
+			<div class="rounded-xl border border-border p-4">
+				<div class="flex items-center gap-3">
+					<div class="min-w-0 flex-1">
+						<p class="flex items-center gap-2 truncate text-sm font-medium">
+							{u.name}
+							{#if u.id === me?.id}
+								<span class="text-xs text-muted-foreground">(you)</span>
+							{/if}
+						</p>
+						<p class="truncate text-xs text-muted-foreground">{u.email}</p>
+					</div>
+
+					<Badge class="h-8" variant={role === ADMIN_ROLE ? 'default' : 'secondary'}>{role}</Badge>
+					{#if u.banned}
+						<Badge class="h-8" variant="destructive">banned</Badge>
+					{/if}
+
+					<DropdownMenu.Root>
+						<DropdownMenu.Trigger>
+							{#snippet child({ props })}
+								<Button {...props} variant="outline" size="icon" aria-label="User actions">
+									<Ellipsis class="size-3.5" />
+								</Button>
+							{/snippet}
+						</DropdownMenu.Trigger>
+						<DropdownMenu.Content align="end" class="min-w-48">
+							{#if canSetRole && u.id !== me?.id}
+								<form method="POST" action="?/setRole" use:enhance>
+									<input type="hidden" name="id" value={u.id} />
+									<input
+										type="hidden"
+										name="role"
+										value={role === ADMIN_ROLE ? DEFAULT_ROLE : ADMIN_ROLE}
+									/>
+									<DropdownMenu.Item>
+										{#snippet child({ props })}
+											<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
+												{#if role === ADMIN_ROLE}
+													<ShieldOff />
+													Demote to user
+												{:else}
+													<ShieldCheck />
+													Promote to admin
+												{/if}
+											</button>
+										{/snippet}
+									</DropdownMenu.Item>
+								</form>
+							{/if}
+
+							{#if canBan && u.id !== me?.id}
+								<form method="POST" action="?/setBanned" use:enhance>
+									<input type="hidden" name="id" value={u.id} />
+									<input type="hidden" name="banned" value={u.banned ? 'false' : 'true'} />
+									<DropdownMenu.Item>
+										{#snippet child({ props })}
+											<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
+												{#if u.banned}
+													<ShieldCheck />
+													Lift ban
+												{:else}
+													<Ban />
+													Ban
+												{/if}
+											</button>
+										{/snippet}
+									</DropdownMenu.Item>
+								</form>
+							{/if}
+
+							{#if canRevoke}
+								<form method="POST" action="?/revokeSessions" use:enhance>
+									<input type="hidden" name="id" value={u.id} />
+									<DropdownMenu.Item>
+										{#snippet child({ props })}
+											<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
+												<LogOut />
+												Sign out everywhere
+											</button>
+										{/snippet}
+									</DropdownMenu.Item>
+								</form>
+							{/if}
+
+							{#if canDelete && u.id !== me?.id}
+								<DropdownMenu.Separator />
+								<DropdownMenu.Item variant="destructive" onSelect={() => (deleteTarget = u)}>
+									<Trash2 />
+									Delete
+								</DropdownMenu.Item>
+							{/if}
+						</DropdownMenu.Content>
+					</DropdownMenu.Root>
 				</div>
-
-				<Badge class="h-8" variant={role === ADMIN_ROLE ? 'default' : 'secondary'}>{role}</Badge>
-				{#if u.banned}
-					<Badge class="h-8" variant="destructive">banned</Badge>
+				{#if error}
+					<p class="mt-2 text-xs text-destructive">{error}</p>
 				{/if}
-
-				<DropdownMenu.Root>
-					<DropdownMenu.Trigger>
-						{#snippet child({ props })}
-							<Button {...props} variant="outline" size="icon" aria-label="User actions">
-								<Ellipsis class="size-3.5" />
-							</Button>
-						{/snippet}
-					</DropdownMenu.Trigger>
-					<DropdownMenu.Content align="end" class="min-w-48">
-						{#if canSetRole && u.id !== me?.id}
-							<form method="POST" action="?/setRole" use:enhance>
-								<input type="hidden" name="id" value={u.id} />
-								<input
-									type="hidden"
-									name="role"
-									value={role === ADMIN_ROLE ? DEFAULT_ROLE : ADMIN_ROLE}
-								/>
-								<DropdownMenu.Item>
-									{#snippet child({ props })}
-										<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
-											{#if role === ADMIN_ROLE}
-												<ShieldOff />
-												Demote to user
-											{:else}
-												<ShieldCheck />
-												Promote to admin
-											{/if}
-										</button>
-									{/snippet}
-								</DropdownMenu.Item>
-							</form>
-						{/if}
-
-						{#if canBan && u.id !== me?.id}
-							<form method="POST" action="?/setBanned" use:enhance>
-								<input type="hidden" name="id" value={u.id} />
-								<input type="hidden" name="banned" value={u.banned ? 'false' : 'true'} />
-								<DropdownMenu.Item>
-									{#snippet child({ props })}
-										<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
-											<ShieldOff />
-											{u.banned ? 'Lift ban' : 'Ban'}
-										</button>
-									{/snippet}
-								</DropdownMenu.Item>
-							</form>
-						{/if}
-
-						{#if canRevoke}
-							<form method="POST" action="?/revokeSessions" use:enhance>
-								<input type="hidden" name="id" value={u.id} />
-								<DropdownMenu.Item>
-									{#snippet child({ props })}
-										<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
-											<LogOut />
-											Sign out everywhere
-										</button>
-									{/snippet}
-								</DropdownMenu.Item>
-							</form>
-						{/if}
-
-						{#if canDelete && u.id !== me?.id}
-							<DropdownMenu.Separator />
-							<DropdownMenu.Item variant="destructive" onSelect={() => (deleteTarget = u)}>
-								<Trash2 />
-								Delete
-							</DropdownMenu.Item>
-						{/if}
-					</DropdownMenu.Content>
-				</DropdownMenu.Root>
 			</div>
 		{/each}
 	</div>

@@ -73,13 +73,20 @@ function serializeAdminMutation<T>(mutation: () => Promise<T>): Promise<T> {
 }
 
 /**
- * Maps a better-auth APIError to a form failure. Anything else is a bug, not a
- * bad request, and is rethrown so the action fails loudly.
+ * Maps a better-auth APIError to a failure tagged with the row that triggered
+ * it, so the page can put the message on that row rather than at the top of the
+ * list. Anything else is a bug, not a bad request, and is rethrown so the action
+ * fails loudly.
  */
-function apiFailure(e: unknown, fallback: string): ActionFailure<{ error: string }> {
+function apiFailure(
+	e: unknown,
+	fallback: string,
+	action: string,
+	id: string
+): ActionFailure<{ action: string; id: string; error: string }> {
 	if (!(e instanceof APIError)) throw e;
 
-	return fail(e.statusCode, { error: e.body?.message ?? fallback });
+	return fail(e.statusCode, { action, id, error: e.body?.message ?? fallback });
 }
 
 export const load: PageServerLoad = async ({ locals, request, url }) => {
@@ -132,34 +139,58 @@ export const actions: Actions = {
 
 		const { username, email, password, role } = form.data;
 
-		if (await isUsernameTaken(username)) {
-			setError(form, 'username', 'Username is already taken. Please try another.');
-
-			return fail(400, { createForm: form });
-		}
-
-		try {
-			await auth.api.createUser({
-				headers: request.headers,
-				body: {
-					email,
-					password,
-					name: username,
-					role,
-					data: { username, displayUsername: username }
-				}
-			});
-		} catch (e) {
-			if (e instanceof APIError && e.body?.code === 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL') {
-				setError(form, 'email', `${e.body.message}`);
+		// The uniqueness check and the insert are one step: they aren't a
+		// transaction (better-auth writes on its own connection), so without this
+		// a second create for the same username landing between the check and the
+		// write would reach the user_username_unique index and answer 500 instead
+		// of a field error. Queued behind any earlier create, it sees that one in
+		// its own check. The index stays the thing that enforces this.
+		return serializeAdminMutation(async () => {
+			if (await isUsernameTaken(username)) {
+				setError(form, 'username', 'Username is already taken. Please try another.');
 
 				return fail(400, { createForm: form });
 			}
 
-			return apiFailure(e, 'Failed to create the user.');
-		}
+			try {
+				await auth.api.createUser({
+					headers: request.headers,
+					body: {
+						email,
+						password,
+						name: username,
+						role,
+						data: { username, displayUsername: username }
+					}
+				});
+			} catch (e) {
+				// Unlike the row actions this one reports into the dialog's own
+				// superform, so it maps the two conflicts it knows itself rather
+				// than going through apiFailure.
+				if (!(e instanceof APIError)) throw e;
 
-		return { createForm: form };
+				switch (e.body?.code) {
+					case 'USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL':
+						setError(form, 'email', `${e.body.message}`);
+						break;
+					case 'USERNAME_IS_ALREADY_TAKEN_PLEASE_TRY_ANOTHER':
+						setError(form, 'username', `${e.body.message}`);
+						break;
+					default:
+						// Tagged with the action so the page can show it inside
+						// the dialog: it stays open on a failure, and the
+						// page-level slot is behind the modal.
+						return fail(e.statusCode, {
+							action: 'create' as const,
+							error: e.body?.message ?? 'Failed to create the user.'
+						});
+				}
+
+				return fail(e.statusCode, { createForm: form });
+			}
+
+			return { createForm: form };
+		});
 	},
 
 	setRole: async ({ request, locals }) => {
@@ -176,18 +207,22 @@ export const actions: Actions = {
 		const role = String(form.get('role') ?? '');
 
 		if (userId === locals.user?.id) {
-			return fail(400, { action: 'setRole' as const, error: 'You cannot change your own role.' });
+			return fail(400, {
+				action: 'setRole' as const,
+				id: userId,
+				error: 'You cannot change your own role.'
+			});
 		}
 
 		return serializeAdminMutation(async () => {
 			if (role !== ADMIN_ROLE && (await isLastAdmin(userId))) {
-				return fail(409, { action: 'setRole' as const, error: LAST_ADMIN_ERROR });
+				return fail(409, { action: 'setRole' as const, id: userId, error: LAST_ADMIN_ERROR });
 			}
 
 			try {
 				await auth.api.setRole({ headers: request.headers, body: { userId, role } });
 			} catch (e) {
-				return apiFailure(e, 'Failed to change the role.');
+				return apiFailure(e, 'Failed to change the role.', 'setRole', userId);
 			}
 
 			return { action: 'setRole' as const, success: true };
@@ -210,7 +245,7 @@ export const actions: Actions = {
 				await auth.api.unbanUser({ headers: request.headers, body: { userId } });
 			}
 		} catch (e) {
-			return apiFailure(e, 'Failed to update the ban.');
+			return apiFailure(e, 'Failed to update the ban.', 'setBanned', userId);
 		}
 
 		return { action: 'setBanned' as const, success: true };
@@ -226,14 +261,15 @@ export const actions: Actions = {
 		if (denied) return denied;
 
 		const form = await request.formData();
+		const userId = String(form.get('id') ?? '');
 
 		try {
 			await auth.api.revokeUserSessions({
 				headers: request.headers,
-				body: { userId: String(form.get('id') ?? '') }
+				body: { userId }
 			});
 		} catch (e) {
-			return apiFailure(e, 'Failed to revoke sessions.');
+			return apiFailure(e, 'Failed to revoke sessions.', 'revokeSessions', userId);
 		}
 
 		return { action: 'revokeSessions' as const, success: true };
@@ -248,13 +284,13 @@ export const actions: Actions = {
 
 		return serializeAdminMutation(async () => {
 			if (await isLastAdmin(userId)) {
-				return fail(409, { action: 'delete' as const, error: LAST_ADMIN_ERROR });
+				return fail(409, { action: 'delete' as const, id: userId, error: LAST_ADMIN_ERROR });
 			}
 
 			try {
 				await auth.api.removeUser({ headers: request.headers, body: { userId } });
 			} catch (e) {
-				return apiFailure(e, 'Failed to delete the user.');
+				return apiFailure(e, 'Failed to delete the user.', 'delete', userId);
 			}
 
 			return { action: 'delete' as const, success: true };
