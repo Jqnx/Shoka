@@ -1,9 +1,12 @@
 package image
 
 import (
+	"Shoka/internal/util"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 )
 
 // ThumbDir returns the directory that holds an archive's thumbnails.
@@ -26,16 +29,50 @@ func (p *Processor) ThumbPath(archiveID string, index int) string {
 	return path
 }
 
-// ThumbsReady reports whether every page of a pageCount-page archive has a
-// generated thumbnail on disk.
-func (p *Processor) ThumbsReady(archiveID string, pageCount int) bool {
-	for i := range pageCount {
-		if p.ThumbPath(archiveID, i) == "" {
-			return false
-		}
+// thumbReadyMarker returns the path of the marker the thumbnail job leaves once
+// every page it could thumbnail has one on disk.
+func (p *Processor) thumbReadyMarker(archiveID string) string {
+	return filepath.Join(p.ThumbDir(archiveID), "ready")
+}
+
+// MarkThumbsReady records that a pageCount-page archive has been thumbnailed
+// through its last page. Called by the thumbnail job once its loop completes, so
+// the directory is usually there already - ensured rather than assumed, because
+// a zero-page archive never generates a page to create it.
+func (p *Processor) MarkThumbsReady(archiveID string, pageCount int) error {
+	if err := util.EnsureDir(p.ThumbDir(archiveID)); err != nil {
+		return err
 	}
 
-	return true
+	return writeFileAtomic(p.thumbReadyMarker(archiveID), []byte(strconv.Itoa(pageCount)))
+}
+
+// ThumbsReady reports whether every page of a pageCount-page archive has a
+// generated thumbnail on disk. It reads the job-written marker instead of
+// stat-ing every page: this runs once per row of every archive list, so its cost
+// has to be one read per archive, not one stat per page.
+//
+// The marker holds the number of pages the job thumbnailed, which counts the
+// archive file and not necessarily archive.page_count - a metadata source can
+// write its own count over the stored one (see metadata.ApplyMetadata) and a
+// rescan never revises it. Asking whether the marker covers *at least* this
+// archive's page count is what keeps both sides honest: a stored count below the
+// thumbnailed one is ready, because every page it names has a thumbnail, and one
+// above it stays unready until the pages it names do.
+func (p *Processor) ThumbsReady(archiveID string, pageCount int) bool {
+	// Nothing to thumbnail; no job will ever run to leave a marker.
+	if pageCount <= 0 {
+		return true
+	}
+
+	marked, err := os.ReadFile(p.thumbReadyMarker(archiveID))
+	if err != nil {
+		return false
+	}
+
+	thumbnailed, err := strconv.Atoi(strings.TrimSpace(string(marked)))
+
+	return err == nil && thumbnailed >= pageCount
 }
 
 // writeFileAtomic writes data to a uniquely-named temp file in the same

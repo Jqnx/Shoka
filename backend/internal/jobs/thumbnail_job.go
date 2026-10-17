@@ -151,5 +151,15 @@ func thumbnailPages(ctx context.Context, deps thumbDeps, archiveID string, a arc
 		deps.broadcaster.Publish(archiveID, events.ThumbnailEvent{Index: page.Index})
 	}
 
+	// Every page now has a thumbnail: leave the marker the archive list reads
+	// (see Processor.ThumbsReady). Written last, so a list never sees it before
+	// the thumbnails it vouches for exist, and a failure to write it fails the
+	// job: the alternative is a job that reports success while the flag every
+	// list reads stays false, which shows up as an archive that can never be
+	// opened without re-enqueueing generation again.
+	if err := deps.processor.MarkThumbsReady(archiveID, len(pages)); err != nil {
+		return generated, fmt.Errorf("mark thumbs ready: %w", err)
+	}
+
 	return generated, nil
 }
