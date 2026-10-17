@@ -32,7 +32,7 @@ make sqlc                        # Regenerate Go code from SQL queries (after ed
 ```bash
 make swag   # Regenerate Swagger API docs (after editing handler annotations)
 make tidy   # Go module cleanup
-make lint   # golangci-lint (gofumpt + goimports plus the linters in backend/.golangci.yml)
+make lint   # golangci-lint plus the frontend type check (npm run check)
 ```
 
 `make lint` and `make swag` both shell out to a CLI that parses the stdlib. After a Go

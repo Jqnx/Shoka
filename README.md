@@ -104,7 +104,7 @@ make sqlc             # regenerate Go code from SQL queries
 make swag             # regenerate Swagger docs
 make frontend/lock    # regenerate frontend/package-lock.json
 
-make lint             # golangci-lint
+make lint             # golangci-lint + the frontend type check
 make fmt              # format Go code
 ```
 

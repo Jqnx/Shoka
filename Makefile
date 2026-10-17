@@ -76,8 +76,9 @@ frontend/lock: ## Regenerate frontend/package-lock.json (pins the image's runtim
 tidy: ## Tidy Go module dependencies
 	cd $(BACKEND) && go mod tidy
 
-lint: ## Run golangci-lint over the backend
+lint: ## Run golangci-lint over the backend and the frontend type check
 	cd $(BACKEND) && golangci-lint run ./...
+	cd $(FRONTEND) && npm run check
 
 lint/fix: ## Run golangci-lint with autofix over the backend
 	cd $(BACKEND) && golangci-lint run --fix ./...
