@@ -180,7 +180,7 @@ func ListArchives(ctx context.Context, db *sql.DB, f ArchiveFilter) ([]sqlc.GetA
 	//nolint:gosec // G202: concatenation is of trusted constants; all values are bound parameters
 	selectSQL := `SELECT archive.id, archive.title, archive.summary, archive.language, archive.category,
 		archive.page_count, archive.file_path, archive.file_size, archive.mod_time,
-		archive.created_at, archive.updated_at, archive.release_date,
+		archive.created_at, archive.updated_at, archive.release_date, archive.cover_page,
 		reading_progress.page, reading_progress.last_read, reading_progress.completed
 	FROM archive
 	LEFT JOIN reading_progress ON archive.id = reading_progress.archive_id AND reading_progress.user_id = ?
@@ -203,7 +203,7 @@ func ListArchives(ctx context.Context, db *sql.DB, f ArchiveFilter) ([]sqlc.GetA
 		if err := rows.Scan(
 			&row.ID, &row.Title, &row.Summary, &row.Language, &row.Category,
 			&row.PageCount, &row.FilePath, &row.FileSize, &row.ModTime,
-			&row.CreatedAt, &row.UpdatedAt, &row.ReleaseDate,
+			&row.CreatedAt, &row.UpdatedAt, &row.ReleaseDate, &row.CoverPage,
 			&row.Page, &row.LastRead, &row.Completed,
 		); err != nil {
 			return nil, 0, fmt.Errorf("scan archive row: %w", err)

@@ -192,6 +192,7 @@ func archiveResponses[R archiveRowType](processor *image.Processor, rows []R) []
 			CreatedAt:   row.CreatedAt,
 			UpdatedAt:   row.UpdatedAt,
 			ThumbsReady: processor.ThumbsReady(row.ID, int(row.PageCount)),
+			CoverPage:   int(row.CoverPage),
 		}
 
 		if row.Page != nil {

@@ -34,6 +34,7 @@ func (h *ArchiveHandler) recentlyReadResponses(
 			UpdatedAt:   row.UpdatedAt,
 			ThumbsReady: h.processor.ThumbsReady(row.ID, int(row.PageCount)),
 			IsFavorited: favorited[row.ID],
+			CoverPage:   int(row.CoverPage),
 			Progress: &ProgressResponse{
 				CurrentPage: int(row.Page),
 				LastRead:    row.LastRead,
@@ -83,6 +84,7 @@ func (h *ArchiveHandler) favoriteFeedResponses(rows []sqlc.GetUserFavoriteArchiv
 			UpdatedAt:   row.UpdatedAt,
 			ThumbsReady: h.processor.ThumbsReady(row.ID, int(row.PageCount)),
 			IsFavorited: true,
+			CoverPage:   int(row.CoverPage),
 		}
 
 		if rating, ok := ratings[row.ID]; ok {

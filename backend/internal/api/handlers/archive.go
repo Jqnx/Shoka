@@ -225,6 +225,7 @@ func buildArchiveListResponses(
 			UpdatedAt:   row.UpdatedAt,
 			ThumbsReady: processor.ThumbsReady(row.ID, int(row.PageCount)),
 			IsFavorited: favorited[row.ID],
+			CoverPage:   int(row.CoverPage),
 		}
 		if rating, ok := ratings[row.ID]; ok {
 			resp.Rating = &rating
@@ -1246,7 +1247,13 @@ func (h *ArchiveHandler) GetCover(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if path == "" {
+		// A 404 is heuristically cacheable, and this one is expected to stop
+		// being true as soon as the cover job finishes - without no-store the
+		// browser could keep the missing image pinned under this exact URL and
+		// no amount of re-fetching would ever show the real cover.
+		w.Header().Set("Cache-Control", "no-store")
 		response.NotFound(w, "cover not ready")
+
 		return
 	}
 
@@ -1464,7 +1471,13 @@ func (h *ArchiveHandler) GetPageThumbnail(w http.ResponseWriter, r *http.Request
 
 	path := h.processor.ThumbPath(id, index)
 	if path == "" {
+		// Same reasoning as GetCover's 404: this one is expected to stop being
+		// true once generation reaches this page, and a heuristically cached
+		// 404 under this unversioned URL would keep the thumbnail broken in that
+		// browser even after the file exists.
+		w.Header().Set("Cache-Control", "no-store")
 		response.NotFound(w, "thumbnail not ready")
+
 		return
 	}
 
