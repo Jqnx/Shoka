@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import ArchiveCover from '$lib/components/ArchiveCover.svelte';
 	import { Badge } from '$lib/components/ui/badge';
-	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Check } from '@lucide/svelte';
-	import { coverSrc, type Archive } from '$lib/types';
+	import type { Archive } from '$lib/types';
 
 	let {
 		archive,
@@ -32,46 +32,6 @@
 	// A press that drifts further than this is a scroll/drag, not a hold -
 	// without it, swiping the grid on a touch screen would select cards.
 	const MOVE_TOLERANCE_PX = 10;
-
-	let coverEl = $state<HTMLImageElement | undefined>(undefined);
-	let coverLoaded = $state(false);
-	let coverFailed = $state(false);
-
-	// The cover endpoint answers 404 until the thumbnail job has written the
-	// page, and a failed <img> paints the browser's broken-image glyph plus its
-	// alt text - which is what an un-generated cover used to look like. The
-	// image therefore stays invisible until it has actually loaded, and what
-	// stands in for it is a pulsing block while the backend still reports pages
-	// without thumbnails - its own answer to "is a cover still coming?" - and
-	// nothing but the box's muted background once it doesn't.
-	const coverPlaceholder = $derived(!coverLoaded && !archive.thumbs_ready);
-
-	// The result of one request, so it is re-armed whenever that request
-	// changes: a different cover_page is a different URL, and a refreshed list
-	// entry that no longer reports the archive as incomplete means the cover
-	// was written since. Dropping the failed element is what makes the re-armed
-	// card ask again; without this it would sit on an empty box (or keep
-	// pulsing) until a full page load, however stale the result it kept.
-	let coverRequest = '';
-	$effect(() => {
-		const request = `${coverSrc(archive)}:${archive.thumbs_ready}`;
-		if (request === coverRequest) return;
-
-		coverRequest = request;
-		coverLoaded = false;
-		coverFailed = false;
-	});
-
-	// A cover served from the cache can finish loading before hydration has
-	// attached the load listener, in which case that event never reaches us and
-	// the card would sit on its placeholder with an invisible image. The
-	// element's own state settles that case.
-	$effect(() => {
-		if (!coverEl?.complete) return;
-
-		coverLoaded = coverEl.naturalWidth > 0;
-		coverFailed = coverEl.naturalWidth === 0;
-	});
 
 	let pressTimer: ReturnType<typeof setTimeout> | undefined;
 	let startX = 0;
@@ -167,28 +127,7 @@
 >
 	<!-- Cover -->
 	<div class="relative aspect-[2/3] w-full overflow-hidden bg-muted">
-		{#if coverPlaceholder}
-			<!-- The default Skeleton fill is bg-muted, i.e. the same colour as the
-			     box it sits on, which would hide the pulse entirely. -->
-			<Skeleton class="absolute inset-0 size-full bg-muted-foreground/10" />
-		{/if}
-
-		<!-- Anchors and images are natively draggable: a mousedown plus the
-		     slightest wobble starts a drag, which fires pointercancel and
-		     kills an in-progress hold. -->
-		{#if !coverFailed}
-			<img
-				bind:this={coverEl}
-				src={coverSrc(archive)}
-				alt=""
-				draggable="false"
-				onload={() => (coverLoaded = true)}
-				onerror={() => (coverFailed = true)}
-				class="absolute inset-0 size-full object-cover transition-opacity duration-300 {coverLoaded
-					? 'opacity-100'
-					: 'opacity-0'}"
-			/>
-		{/if}
+		<ArchiveCover {archive} class="absolute inset-0 size-full object-cover" />
 		<div
 			class="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 transition-opacity group-hover:opacity-100"
 		></div>

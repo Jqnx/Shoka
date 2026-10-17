@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { enhance, applyAction } from '$app/forms';
 	import { cn } from '$lib/utils.js';
-	import { coverSrc } from '$lib/types';
+	import ArchiveCover from '$lib/components/ArchiveCover.svelte';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
@@ -131,7 +131,7 @@
 			<div
 				class="relative aspect-[2/3] w-full overflow-hidden rounded-lg border border-border bg-muted"
 			>
-				<img src={coverSrc(a)} alt={a.title} class="size-full object-cover" />
+				<ArchiveCover archive={a} alt={a.title} class="size-full object-cover" />
 				{#if a.progress}
 					<div class="absolute inset-x-0 top-0 h-1.5">
 						<div

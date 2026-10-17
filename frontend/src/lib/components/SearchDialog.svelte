@@ -3,7 +3,8 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { Search, Loader2 } from '@lucide/svelte';
-	import { coverSrc, type Library, type SearchEntityResult, type SearchResponse } from '$lib/types';
+	import ArchiveCover from '$lib/components/ArchiveCover.svelte';
+	import type { Library, SearchEntityResult, SearchResponse } from '$lib/types';
 
 	let { libraries }: { libraries: Library[] } = $props();
 
@@ -208,11 +209,9 @@
 								onSelect={() => (open = false)}
 								class="gap-3 py-2"
 							>
-								<img
-									src={coverSrc(archive)}
-									alt=""
-									class="h-16 w-11 shrink-0 rounded object-cover"
-								/>
+								<div class="relative h-16 w-11 shrink-0 overflow-hidden rounded bg-muted">
+									<ArchiveCover {archive} watch={false} class="size-full object-cover" />
+								</div>
 								<div class="min-w-0">
 									<p class="truncate text-base font-medium">{archive.title}</p>
 									{#if archive.artists?.length}

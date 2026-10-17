@@ -6,7 +6,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { coverSrc } from '$lib/types';
+	import ArchiveCover from '$lib/components/ArchiveCover.svelte';
 
 	let { data } = $props();
 
@@ -117,7 +117,7 @@
 									class="group flex flex-col gap-2 rounded-lg border border-border p-2 transition-colors hover:bg-accent/50"
 								>
 									<div class="relative aspect-[2/3] overflow-hidden rounded bg-muted">
-										<img src={coverSrc(archive)} alt="" class="size-full object-cover" />
+										<ArchiveCover {archive} class="size-full object-cover" />
 										<div class="absolute top-1 left-1">
 											{#if j === 0}
 												<Badge variant="secondary" class="h-5 px-1.5 text-[10px]">Reference</Badge>
