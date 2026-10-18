@@ -135,7 +135,7 @@
 				{#if a.progress}
 					<div class="absolute inset-x-0 top-0 h-1.5">
 						<div
-							class="h-full bg-primary transition-all"
+							class="h-full bg-sidebar-primary transition-all"
 							style="width: {Math.round((a.progress.current_page / a.page_count) * 100)}%"
 						></div>
 					</div>
