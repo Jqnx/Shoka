@@ -7,6 +7,7 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Sparkles, Search, ArrowLeft, ImageOff } from '@lucide/svelte';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { cn } from '$lib/utils.js';
 	import { errorMessage } from '$lib/api';
 	import { METADATA_SOURCE_INFO, sourceInfo } from '$lib/metadata-sources';
 	import {
@@ -35,10 +36,22 @@
 	type DiffField = {
 		key: keyof CurrentMetadata;
 		label: string;
-		oldDisplay: string;
-		newDisplay: string;
+		/** What applying the field writes. */
 		newValue: string | string[];
-	};
+	} & (
+		| {
+				kind: 'text';
+				/** Both values, formatted for display. */
+				oldDisplay: string;
+				newDisplay: string;
+		  }
+		| {
+				kind: 'list';
+				/** The entries each side holds, in display order. */
+				oldItems: string[];
+				newItems: string[];
+		  }
+	);
 
 	let {
 		archiveId,
@@ -79,7 +92,21 @@
 	// result, so going back from the diff returns to the same list.
 	let searchResults = $state<MetadataSearchResult[] | null>(null);
 	let fetched = $state<FetchedMetadata | null>(null);
+	/**
+	 * Fields whose fetched value is taken. A field is either switched to the
+	 * fetched value or left holding the current one, so this one set carries the
+	 * whole decision - the switches at the head of each column are its two sides.
+	 */
 	const selected = new SvelteSet<string>();
+
+	/**
+	 * Switch colour as a statement about its own side: green while that side is
+	 * the value the field will hold, red while it is the one being left behind.
+	 * Overrides the switch component's primary/input track - the dark variant
+	 * included, since the dark track colour is set through a different chain.
+	 */
+	const SWITCH_COLOUR =
+		'data-checked:bg-emerald-500 data-unchecked:bg-destructive dark:data-unchecked:bg-destructive';
 
 	// Per-library enabled state for each source, so a disabled one can be
 	// shown as such in the picker instead of only failing after the user
@@ -150,6 +177,7 @@
 			fields.push({
 				key,
 				label,
+				kind: 'text',
 				oldDisplay: oldVal ? format(oldVal) : '—',
 				newDisplay: newVal ? format(newVal) : '—',
 				newValue: newVal
@@ -166,8 +194,9 @@
 			fields.push({
 				key,
 				label,
-				oldDisplay: oldVal.length ? oldVal.join(', ') : '—',
-				newDisplay: newVal.length ? newVal.join(', ') : '—',
+				kind: 'list',
+				oldItems: oldVal,
+				newItems: newVal,
 				newValue: newVal
 			});
 		}
@@ -203,6 +232,16 @@
 
 	const diffFields = $derived(fetched ? computeDiff(current, fetched) : []);
 
+	/**
+	 * Starts every field in the diff switched to the fetched value, which is what
+	 * a fetch used to apply wholesale: the dialog opens on the source's proposal
+	 * and the user moves fields back to their current value one at a time.
+	 */
+	function seedSelection(result: FetchedMetadata) {
+		selected.clear();
+		for (const field of computeDiff(current, result)) selected.add(field.key);
+	}
+
 	async function fetchDirect(url: string) {
 		try {
 			const res = await fetch(url, { method: 'POST' });
@@ -212,7 +251,7 @@
 			}
 			const result: FetchedMetadata = await res.json();
 			fetched = result;
-			for (const field of computeDiff(current, result)) selected.add(field.key);
+			seedSelection(result);
 		} catch {
 			error = 'Failed to fetch metadata.';
 		}
@@ -315,8 +354,7 @@
 				urls: preview.urls ? sourceLinkUrls(preview.urls) : null
 			};
 			fetched = asMetadata;
-			selected.clear();
-			for (const field of computeDiff(current, asMetadata)) selected.add(field.key);
+			seedSelection(asMetadata);
 		} catch {
 			error = 'Failed to fetch details for this result.';
 		} finally {
@@ -324,9 +362,15 @@
 		}
 	}
 
-	function toggle(key: string) {
-		if (selected.has(key)) selected.delete(key);
-		else selected.add(key);
+	/**
+	 * A field's switch, from either side: take the fetched value, or keep the one
+	 * already there. Both switches move the same choice, and the state the
+	 * primitive reports is what sets it - forcing a fixed state here would let a
+	 * switch read "off" while its own side still won.
+	 */
+	function chooseSide(key: string, takeFetched: boolean) {
+		if (takeFetched) selected.add(key);
+		else selected.delete(key);
 	}
 
 	function apply() {
@@ -382,21 +426,23 @@
 		}
 	}}
 >
-	<Dialog.Content class="sm:max-w-lg">
+	<!-- Wider than the default, but never wider than the viewport minus the
+	     standard gutter: the size utility would otherwise override the cap the
+	     shared Dialog.Content puts on itself, and the dialog would run edge to
+	     edge on a browser window just over the sm breakpoint. -->
+	<Dialog.Content class="sm:max-w-[min(48rem,calc(100%-2rem))]">
 		<Dialog.Header>
 			<Dialog.Title>{mode === 'auto' ? 'Fetch metadata' : 'Search metadata'}</Dialog.Title>
-			<Dialog.Description>
-				{#if fetched}
-					Choose which fields to apply. Nothing is saved until you hit Save changes below.
-				{:else if searchResults}
-					Pick a result to compare against the current form.
-				{:else if mode === 'auto'}
+			<!-- The dialog points aria-describedby at a description whether or not one
+			     is rendered, so this stays as the thing that attribute resolves to
+			     without taking up any of the header. -->
+			<Dialog.Description class="sr-only">
+				{#if mode === 'auto'}
 					Automatically picks the best match from the selected source and shows you the differences.
-					Nothing is saved until you hit Save changes below.
 				{:else}
-					Pull metadata from a source and choose which fields to apply. Nothing is saved until you
-					hit Save changes below.
+					Pull metadata from a source, then switch each field to the value you want.
 				{/if}
+				Nothing is saved until you hit Save changes.
 			</Dialog.Description>
 		</Dialog.Header>
 
@@ -418,18 +464,107 @@
 			{#if diffFields.length === 0}
 				<p class="text-sm text-muted-foreground">No differences from the current form values.</p>
 			{:else}
-				<div class="flex max-h-80 flex-col gap-2 overflow-y-auto">
+				<div class="flex max-h-[60vh] flex-col gap-2 overflow-y-auto">
+					<!-- Column headings for the pairs below, sticky so they stay up
+					     while the list scrolls. They carry the same padding and gap as
+					     a row's value grid, which is what keeps the halves lined up. -->
+					<div
+						class="sticky top-0 z-10 grid grid-cols-2 gap-3 border-b border-border bg-popover px-2.5 py-1.5 text-xs font-medium text-muted-foreground"
+					>
+						<span>Current</span>
+						<span>New</span>
+					</div>
+
 					{#each diffFields as field (field.key)}
-						<div class="flex items-start gap-3 rounded-md border border-border p-2.5 text-sm">
-							<Switch
-								checked={selected.has(field.key)}
-								onCheckedChange={() => toggle(field.key)}
-								class="mt-0.5"
-							/>
-							<div class="min-w-0 flex-1">
-								<p class="font-medium">{field.label}</p>
-								<p class="text-muted-foreground line-through">{field.oldDisplay}</p>
-								<p class="text-foreground">{field.newDisplay}</p>
+						{@const applied = selected.has(field.key)}
+						<div class="rounded-md border border-border p-2.5 text-sm">
+							<p class="font-medium">{field.label}</p>
+
+							<!-- One switch per side, and the green one is always the value the
+							     field will end up holding - so the pair reads as a choice
+							     between the two rather than as two independent toggles. A list
+							     is switched as a whole; its entries only carry the colour. -->
+							<div class="mt-2 grid grid-cols-2 items-start gap-3">
+								<div class="flex min-w-0 items-start gap-2">
+									<Switch
+										checked={!applied}
+										onCheckedChange={(keep) => chooseSide(field.key, !keep)}
+										class={cn(SWITCH_COLOUR, 'mt-0.5')}
+										aria-label={`Keep the current ${field.label}`}
+									/>
+									{#if field.kind === 'list'}
+										<span class="flex min-w-0 flex-wrap gap-1">
+											{#each field.oldItems as item, index (index)}
+												{@const dropped = applied && !field.newItems.includes(item)}
+												<Badge
+													variant={dropped ? 'destructive' : 'outline'}
+													class={cn('max-w-full truncate', dropped && 'line-through')}
+													title={item}
+												>
+													{item}
+												</Badge>
+											{/each}
+											{#if field.oldItems.length === 0}
+												<span class="text-muted-foreground">—</span>
+											{/if}
+										</span>
+									{:else}
+										<!-- An absent value stays muted rather than reading as a red "—". -->
+										<p
+											class={cn(
+												'min-w-0 break-words',
+												field.oldDisplay === '—'
+													? 'text-muted-foreground'
+													: applied && 'text-destructive line-through'
+											)}
+										>
+											{field.oldDisplay}
+										</p>
+									{/if}
+								</div>
+
+								<div class="flex min-w-0 items-start gap-2">
+									<Switch
+										checked={applied}
+										onCheckedChange={(takeFetched) => chooseSide(field.key, takeFetched)}
+										class={cn(SWITCH_COLOUR, 'mt-0.5')}
+										aria-label={`Take the fetched ${field.label}`}
+									/>
+									{#if field.kind === 'list'}
+										<span class="flex min-w-0 flex-wrap gap-1">
+											{#each field.newItems as item, index (index)}
+												{@const added = applied && !field.oldItems.includes(item)}
+												<Badge
+													variant="outline"
+													class={cn(
+														'max-w-full truncate',
+														applied
+															? added &&
+																	'border-transparent bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+															: 'text-muted-foreground'
+													)}
+													title={item}
+												>
+													{item}
+												</Badge>
+											{/each}
+											{#if field.newItems.length === 0}
+												<span class="text-muted-foreground">—</span>
+											{/if}
+										</span>
+									{:else}
+										<p
+											class={cn(
+												'min-w-0 break-words',
+												applied && field.newDisplay !== '—'
+													? 'text-emerald-600 dark:text-emerald-400'
+													: 'text-muted-foreground'
+											)}
+										>
+											{field.newDisplay}
+										</p>
+									{/if}
+								</div>
 							</div>
 						</div>
 					{/each}
