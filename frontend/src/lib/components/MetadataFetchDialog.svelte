@@ -107,6 +107,13 @@
 		sourceValue === ALL_SOURCES ? 'All sources (pipeline)' : sourceInfo(sourceValue).label
 	);
 
+	// The picker's primary action, named for the dialog the user opened: the
+	// search dialog shows a result list to choose from, the fetch dialog takes
+	// the best match without asking. A source that can't search (comicinfo,
+	// filename, e-hentai) makes the search dialog fall through to a direct
+	// fetch anyway, so the label follows the mode rather than each source.
+	const runVerb = $derived(mode === 'auto' ? 'Fetch' : 'Search');
+
 	function languageLabel(code: string) {
 		return languages.find((l) => l.code === code)?.name ?? code;
 	}
@@ -340,7 +347,6 @@
 	<Button
 		type="button"
 		variant="outline"
-		size="sm"
 		class="flex-1 gap-1.5"
 		onclick={() => {
 			mode = 'search';
@@ -354,7 +360,6 @@
 	<Button
 		type="button"
 		variant="outline"
-		size="sm"
 		class="flex-1 gap-1.5"
 		onclick={() => {
 			mode = 'auto';
@@ -511,8 +516,8 @@
 							{/each}
 						</Select.Content>
 					</Select.Root>
-					<Button type="button" onclick={runFetch} disabled={loading}>
-						{loading ? 'Fetching…' : 'Fetch'}
+					<Button type="button" onclick={runFetch} disabled={loading} class="min-w-18">
+						{loading ? `${runVerb}ing…` : runVerb}
 					</Button>
 				</div>
 
@@ -536,10 +541,19 @@
 			<p class="text-sm text-destructive">{error}</p>
 		{/if}
 
-		<Dialog.Footer showCloseButton>
-			<Button type="button" onclick={apply} disabled={!fetched || diffFields.length === 0}>
-				Apply selected
-			</Button>
+		<!-- The picker's action button and this footer's Close sit at the same
+		     right edge, one above the other, and in the monospace face "Search"
+		     is a wider word than "Close" - so without a shared floor their edges
+		     disagree, which only shows in the search dialog ("Fetch" and "Close"
+		     are the same length). The same min-w-18 as that button, rather than
+		     a fixed width, so "Searching…" can still spill wider while the
+		     request is in flight. -->
+		<Dialog.Footer showCloseButton class="[&_[data-dialog-close]]:min-w-18">
+			<!-- Nothing to apply before a search or fetch has produced a diff,
+			     and nothing to apply when it produced no differences. -->
+			{#if fetched && diffFields.length > 0}
+				<Button type="button" onclick={apply}>Apply selected</Button>
+			{/if}
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
