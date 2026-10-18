@@ -51,13 +51,23 @@
 	// empty box (or keep pulsing) until a full page load, however stale the
 	// result it kept.
 	let coverRequest = '';
+	// The URL the current <img> is loading, tracked apart from the request key:
+	// a completed poll re-arms every still-incomplete archive even though its
+	// src is unchanged. Clearing the loaded state there would hide a cover that
+	// is already on screen with no new load event to reveal it again - the
+	// incomplete archive keeps pulsing over a cover it has.
+	let coverURL = '';
 	$effect(() => {
+		const url = coverSrc(archive);
 		const waiting = archive.thumbs_ready === false;
-		const request = `${coverSrc(archive)}:${archive.thumbs_ready}:${waiting ? coverPollCount() : ''}`;
+		const request = `${url}:${archive.thumbs_ready}:${waiting ? coverPollCount() : ''}`;
 		if (request === coverRequest) return;
 
 		coverRequest = request;
-		coverLoaded = false;
+		if (url !== coverURL) {
+			coverURL = url;
+			coverLoaded = false;
+		}
 		coverFailed = false;
 	});
 
