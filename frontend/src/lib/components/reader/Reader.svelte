@@ -50,7 +50,26 @@
 	let currentPage = $state(initialPage);
 
 	let toolbarVisible = $state(true);
+	// True while the pointer is over the island or focus is inside it - the
+	// auto-hide countdown is paused so the bar can't vanish out from under a
+	// click, or from under a keyboard user mid-Tab through its buttons.
+	let toolbarPinned = $state(false);
 	let settingsOpen = $state(false);
+
+	// Idle time before the toolbar slips away on its own. Short enough to get
+	// the chrome out of the way while reading, long enough to reach for it.
+	const TOOLBAR_HIDE_DELAY = 3000;
+
+	// Restarts on every transition that should grant a fresh window: the bar
+	// becoming visible (mount, tap, popover closed) or the popover opening or
+	// closing. Page turns deliberately don't touch it - the countdown measures
+	// time since you last asked for the controls, not since the last page.
+	$effect(() => {
+		if (!toolbarVisible || toolbarPinned || settingsOpen) return;
+
+		const timeout = setTimeout(() => (toolbarVisible = false), TOOLBAR_HIDE_DELAY);
+		return () => clearTimeout(timeout);
+	});
 
 	// This component's own source of truth from here on, same pattern as
 	// `settings`/`currentPage` above - seeded once from the server load.
@@ -80,7 +99,12 @@
 		}
 	}
 
-	const step = $derived(settings.page_layout === 'double' ? 2 : 1);
+	// A two-page spread advances two at a time, but only in paged view: the
+	// scroll view lays pages out one under another, so a two-page step would
+	// skip one. The stored `page_layout` survives switching to scroll.
+	const step = $derived(
+		settings.view_mode === 'paged' && settings.page_layout === 'double' ? 2 : 1
+	);
 
 	function goToNext() {
 		currentPage = clamp(currentPage + step);
@@ -108,8 +132,19 @@
 		else goToNext();
 	}
 
+	// Tap-to-toggle; the auto-hide effect above re-arms whenever this flips
+	// the bar back on.
 	function toggleToolbar() {
 		toolbarVisible = !toolbarVisible;
+	}
+
+	// Focus can still land in the island while it's off-screen (it stays
+	// focusable), so treat that as a request to bring it back - typing into
+	// invisible controls is worse than the bar reappearing - and keep it up
+	// for as long as the focus stays inside.
+	function handlePinnedChange(pinned: boolean) {
+		toolbarPinned = pinned;
+		if (pinned) toolbarVisible = true;
 	}
 
 	function handleScrollPageChange(index: number) {
@@ -274,6 +309,11 @@
 		{settingCover}
 		{coverError}
 		onSetCover={() => setCover(currentPage)}
+		onPinnedChange={handlePinnedChange}
+		onFirst={goToFirst}
+		onPrev={goToPrev}
+		onNext={goToNext}
+		onLast={goToLast}
 	/>
 
 	{#if settings.view_mode === 'scroll'}
