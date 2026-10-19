@@ -51,4 +51,12 @@ export const userPreferences = sqliteTable('user_preferences', {
 		.notNull()
 });
 
+// Instance-wide settings, shared by every user. A single row (id = 1);
+// a missing row means defaults - the same lazy-row convention as
+// user_preferences.
+export const instanceSettings = sqliteTable('instance_settings', {
+	id: integer('id').primaryKey(),
+	signupEnabled: integer('signup_enabled', { mode: 'boolean' }).notNull().default(true)
+});
+
 export * from './auth.schema';

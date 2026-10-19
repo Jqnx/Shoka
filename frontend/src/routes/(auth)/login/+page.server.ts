@@ -5,6 +5,7 @@ import { APIError } from 'better-auth';
 import { setError, superValidate } from 'sveltekit-superforms';
 import { zod4 } from 'sveltekit-superforms/adapters';
 import { loginSchema } from '$lib/schemas/login';
+import { isSignupEnabled } from '$lib/server/instance-settings';
 
 export const load: PageServerLoad = async (event) => {
 	if (event.locals.user) {
@@ -12,7 +13,8 @@ export const load: PageServerLoad = async (event) => {
 	}
 
 	return {
-		form: await superValidate(zod4(loginSchema))
+		form: await superValidate(zod4(loginSchema)),
+		signupEnabled: await isSignupEnabled()
 	};
 };
 

@@ -8,7 +8,11 @@
 	import { zod4Client } from 'sveltekit-superforms/adapters';
 	import Label from './ui/label/label.svelte';
 
-	let { data }: { data: { form: SuperValidated<Infer<LoginSchema>> } } = $props();
+	let {
+		data
+	}: {
+		data: { form: SuperValidated<Infer<LoginSchema>>; signupEnabled: boolean };
+	} = $props();
 
 	// svelte-ignore state_referenced_locally
 	const form = superForm(data.form, {
@@ -43,11 +47,13 @@
 				<Form.FieldErrors />
 			</Form.Field>
 			<Form.Button class="w-full">Login</Form.Button>
-			<Label
-				class="justify-self-center pt-2 text-left text-sm leading-normal font-normal text-muted-foreground"
-			>
-				Don't have an account? <a href={resolve('/signup')} class="underline">Sign up</a>
-			</Label>
+			{#if data.signupEnabled}
+				<Label
+					class="justify-self-center pt-2 text-left text-sm leading-normal font-normal text-muted-foreground"
+				>
+					Don't have an account? <a href={resolve('/signup')} class="underline">Sign up</a>
+				</Label>
+			{/if}
 		</form>
 	</Card.Content>
 </Card.Root>

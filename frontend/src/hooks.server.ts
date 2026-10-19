@@ -5,6 +5,7 @@ import { auth } from '$lib/server/auth';
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { resolveTheme } from '$lib/server/themes';
 import { serializeThemeCss } from '$lib/themes/css';
+import { isSignupEnabled } from '$lib/server/instance-settings';
 
 const BACKEND = 'http://localhost:8080';
 
@@ -45,6 +46,23 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
+// better-auth's public sign-up endpoint bypasses page loads/actions, so the
+// DB toggle has to gate the HTTP path itself. /setup bootstrap is unaffected:
+// it calls auth.api.signUpEmail server-side, not this endpoint.
+const handleSignupGate: Handle = async ({ event, resolve }) => {
+	if (
+		event.url.pathname.startsWith('/api/auth/sign-up') &&
+		event.request.method === 'POST' &&
+		!(await isSignupEnabled())
+	) {
+		return new Response(JSON.stringify({ error: 'Sign-ups are disabled' }), {
+			status: 403,
+			headers: { 'content-type': 'application/json' }
+		});
+	}
+	return resolve(event);
+};
+
 // Resolve the active theme (needs locals.user, set by handleAuth) and inject
 // its CSS before the first byte. better-auth's svelteKitHandler calls
 // resolve(event) itself with no options, so wrapping resolve is how we pass
@@ -71,4 +89,4 @@ const handleTheme: Handle = async ({ event, resolve }) => {
 	return svelteKitHandler({ event, resolve: themedResolve, auth, building });
 };
 
-export const handle = sequence(handleProxy, handleAuth, handleTheme);
+export const handle = sequence(handleProxy, handleAuth, handleSignupGate, handleTheme);

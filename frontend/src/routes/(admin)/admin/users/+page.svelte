@@ -7,6 +7,8 @@
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
+	import { Switch } from '$lib/components/ui/switch/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
 	import { can, ADMIN_ROLE, DEFAULT_ROLE } from '$lib/auth/permissions';
@@ -28,6 +30,18 @@
 
 	let createOpen = $state(false);
 	let deleteTarget = $state<ManagedUser | null>(null);
+	let saving = $state(false);
+	let signupForm = $state<HTMLFormElement>(null!);
+	// Optimistic value for "sign-ups disabled" while the toggle action is in
+	// flight; null means the server's value. Reset after update() so a failed
+	// action reverts.
+	let signupTarget = $state<boolean | null>(null);
+	const signupChecked = $derived(signupTarget ?? !data.signupEnabled);
+
+	function toggleSignup(checked: boolean) {
+		signupTarget = checked;
+		signupForm?.requestSubmit();
+	}
 
 	// svelte-ignore state_referenced_locally
 	const createUser = superForm(data.createForm, {
@@ -190,10 +204,38 @@
 		<p class="mt-4 text-sm text-destructive">{pageError}</p>
 	{/if}
 
-	<form method="GET" class="mt-6 flex max-w-sm gap-2">
-		<Input name="q" placeholder="Search by name" value={data.search} />
-		<Button type="submit" variant="outline">Search</Button>
-	</form>
+	<div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+		<form method="GET" class="flex max-w-sm gap-2">
+			<Input name="q" placeholder="Search by name" value={data.search} />
+			<Button type="submit" variant="outline">Search</Button>
+		</form>
+
+		{#if data.canToggleSignup}
+			<form
+				bind:this={signupForm}
+				method="POST"
+				action="?/setSignupEnabled"
+				class="ml-auto flex items-center gap-2"
+				use:enhance={() => {
+					saving = true;
+					return async ({ update }) => {
+						await update();
+						saving = false;
+						signupTarget = null;
+					};
+				}}
+			>
+				<input type="hidden" name="enabled" value={String(!data.signupEnabled)} />
+				<Switch
+					id="disable-signup"
+					checked={signupChecked}
+					disabled={saving}
+					onCheckedChange={toggleSignup}
+				/>
+				<Label for="disable-signup" class="text-sm font-normal">Disable sign-up</Label>
+			</form>
+		{/if}
+	</div>
 
 	<div class="mt-4 flex flex-col gap-2">
 		{#each data.users as u (u.id)}

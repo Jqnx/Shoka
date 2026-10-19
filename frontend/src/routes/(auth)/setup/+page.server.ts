@@ -44,6 +44,10 @@ export const load: PageServerLoad = async ({ locals, fetch }) => {
 
 export const actions: Actions = {
 	createAccount: async (event) => {
+		// The load redirects away once the instance has users, but a direct POST
+		// to this action skips the load - the check has to live here too.
+		if ((await userCount()) > 0) redirect(303, '/');
+
 		const form = await superValidate(event, zod4(signupSchema));
 		const data = form.data;
 

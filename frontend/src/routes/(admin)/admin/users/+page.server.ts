@@ -11,6 +11,7 @@ import { ADMIN_ROLE, can } from '$lib/auth/permissions';
 import { setError, superValidate } from 'sveltekit-superforms';
 import { zod4 } from 'sveltekit-superforms/adapters';
 import { createUserSchema } from '$lib/schemas/create-user';
+import { isSignupEnabled, setSignupEnabled } from '$lib/server/instance-settings';
 
 const PAGE_SIZE = 25;
 
@@ -122,6 +123,8 @@ export const load: PageServerLoad = async ({ locals, request, url }) => {
 		page,
 		pageSize: PAGE_SIZE,
 		search,
+		signupEnabled: await isSignupEnabled(),
+		canToggleSignup: can(locals.user, { user: ['update'] }),
 		createForm: await superValidate(zod4(createUserSchema), { id: 'createUser' })
 	};
 };
@@ -191,6 +194,20 @@ export const actions: Actions = {
 
 			return { createForm: form };
 		});
+	},
+
+	setSignupEnabled: async ({ request, locals }) => {
+		const denied = guard(
+			locals.user,
+			{ user: ['update'] },
+			'setSignupEnabled',
+			'You cannot change sign-up settings.'
+		);
+		if (denied) return denied;
+
+		const form = await request.formData();
+		await setSignupEnabled(String(form.get('enabled')) === 'true');
+		return { success: true };
 	},
 
 	setRole: async ({ request, locals }) => {

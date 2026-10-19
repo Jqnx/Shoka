@@ -29,6 +29,13 @@
       "when": 1789575363381,
       "tag": "0003_stale_the_santerians",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792429719125,
+      "tag": "0004_fixed_gateway",
+      "breakpoints": true
     }
   ]
 }

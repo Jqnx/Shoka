@@ -5,11 +5,14 @@ import { setError, superValidate } from 'sveltekit-superforms';
 import { zod4 } from 'sveltekit-superforms/adapters';
 import { signupSchema } from '$lib/schemas/signup';
 import { APIError } from 'better-auth';
+import { isSignupEnabled } from '$lib/server/instance-settings';
 
 export const load: PageServerLoad = async (event) => {
 	if (event.locals.user) {
 		redirect(302, '/');
 	}
+
+	if (!(await isSignupEnabled())) redirect(302, '/login');
 
 	return {
 		form: await superValidate(zod4(signupSchema))
@@ -18,6 +21,8 @@ export const load: PageServerLoad = async (event) => {
 
 export const actions: Actions = {
 	default: async (event) => {
+		if (!(await isSignupEnabled())) redirect(303, '/login');
+
 		const form = await superValidate(event, zod4(signupSchema));
 		const data = form.data;
 
