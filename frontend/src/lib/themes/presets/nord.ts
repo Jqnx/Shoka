@@ -10,7 +10,7 @@ export const NORD: Theme = {
 		foreground: 'oklch(0.9513 0.0074 260.732)',
 		card: 'oklch(0.3792 0.029 266.471)',
 		'card-foreground': 'oklch(0.9513 0.0074 260.732)',
-		popover: 'oklch(0.4157 0.0324 264.131)',
+		popover: 'oklch(0.3792 0.029 266.471)',
 		'popover-foreground': 'oklch(0.9513 0.0074 260.732)',
 		primary: 'oklch(0.7746 0.0622 217.469)',
 		'primary-foreground': 'oklch(0.3244 0.0229 264.182)',

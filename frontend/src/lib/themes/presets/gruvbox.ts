@@ -10,7 +10,7 @@ export const GRUVBOX_DARK: Theme = {
 		foreground: 'oklch(0.8941 0.0566 89.24)',
 		card: 'oklch(0.3441 0.0066 48.523)',
 		'card-foreground': 'oklch(0.8941 0.0566 89.24)',
-		popover: 'oklch(0.411 0.0115 51.866)',
+		popover: 'oklch(0.3441 0.0066 48.523)',
 		'popover-foreground': 'oklch(0.8941 0.0566 89.24)',
 		primary: 'oklch(0.7311 0.182 51.693)',
 		'primary-foreground': 'oklch(0.2768 0 0)',

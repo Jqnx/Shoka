@@ -10,7 +10,7 @@ export const TOKYO_NIGHT: Theme = {
 		foreground: 'oklch(0.8456 0.0611 274.763)',
 		card: 'oklch(0.2819 0.0355 274.748)',
 		'card-foreground': 'oklch(0.8456 0.0611 274.763)',
-		popover: 'oklch(0.3056 0.0369 273.227)',
+		popover: 'oklch(0.2263 0.0214 280.487)',
 		'popover-foreground': 'oklch(0.8456 0.0611 274.763)',
 		primary: 'oklch(0.719 0.1322 264.202)',
 		'primary-foreground': 'oklch(0.2263 0.0214 280.487)',
