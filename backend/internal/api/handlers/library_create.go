@@ -67,6 +67,8 @@ func resolveLibraryPath(w http.ResponseWriter, path string) (string, bool) {
 		return "", false
 	}
 
+	// #nosec G703 -- the caller-supplied path is intentional; both callers are
+	// admin-gated.
 	info, err := os.Stat(absPath)
 	if err != nil || !info.IsDir() {
 		response.BadRequest(w, "path does not exist or is not a directory")

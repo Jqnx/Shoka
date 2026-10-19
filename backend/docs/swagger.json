@@ -193,6 +193,51 @@
                 }
             }
         },
+        "/api/admin/libraries/browse": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Browse server folders",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Directory to list (defaults to /)",
+                        "name": "path",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.LibraryBrowseResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/admin/libraries/{id}": {
             "delete": {
                 "description": "Cascade-deletes every archive and cached data belonging to this library. Does not touch files on disk.",
@@ -3429,6 +3474,34 @@
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.LibraryBrowseEntry": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.LibraryBrowseResponse": {
+            "type": "object",
+            "properties": {
+                "entries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.LibraryBrowseEntry"
+                    }
+                },
+                "parent": {
+                    "type": "string"
+                },
+                "path": {
                     "type": "string"
                 }
             }

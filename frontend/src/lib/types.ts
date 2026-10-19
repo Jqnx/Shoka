@@ -241,6 +241,18 @@ export type LibraryType = {
 	supported: boolean;
 };
 
+export type LibraryBrowseEntry = {
+	name: string;
+	path: string;
+};
+
+export type LibraryBrowseResponse = {
+	path: string;
+	/** Absent at the filesystem root. */
+	parent?: string;
+	entries: LibraryBrowseEntry[];
+};
+
 export type ArchiveSortOption = {
 	value: string;
 	display_name: string;

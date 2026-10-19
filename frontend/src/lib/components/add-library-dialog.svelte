@@ -4,9 +4,11 @@
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import * as InputGroup from '$lib/components/ui/input-group/index.js';
+	import FolderBrowserDialog from '$lib/components/folder-browser-dialog.svelte';
 	import { enhance, applyAction } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import { Plus } from '@lucide/svelte';
+	import { FolderOpen, Plus } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import type { LibraryType } from '$lib/types';
 
@@ -27,13 +29,15 @@
 	const DEFAULT_TYPE = 'doujinshi';
 
 	function defaultType() {
-		return types.find((t) => t.type === DEFAULT_TYPE)?.type ?? (types[0]?.type ?? DEFAULT_TYPE);
+		return types.find((t) => t.type === DEFAULT_TYPE)?.type ?? types[0]?.type ?? DEFAULT_TYPE;
 	}
 
 	let open = $state(false);
 	let creating = $state(false);
 	let error = $state<string | null>(null);
 	let libraryType = $state(defaultType());
+	let path = $state('');
+	let browseOpen = $state(false);
 	const libraryTypeLabel = $derived(typeLabel(libraryType));
 </script>
 
@@ -73,6 +77,7 @@
 					if (result.type === 'success') {
 						open = false;
 						libraryType = defaultType();
+						path = '';
 						await invalidateAll();
 						return;
 					}
@@ -87,7 +92,22 @@
 				</Field.Field>
 				<Field.Field>
 					<Field.Label for="add-library-path">Path</Field.Label>
-					<Input id="add-library-path" name="path" placeholder="/data/library" required />
+					<InputGroup.Root>
+						<InputGroup.Input
+							id="add-library-path"
+							name="path"
+							bind:value={path}
+							placeholder="/data/library"
+							required
+						/>
+						<InputGroup.Button
+							size="icon-xs"
+							aria-label="Browse folders"
+							onclick={() => (browseOpen = true)}
+						>
+							<FolderOpen />
+						</InputGroup.Button>
+					</InputGroup.Root>
 				</Field.Field>
 				<Field.Field>
 					<Field.Label for="add-library-type">Content type</Field.Label>
@@ -119,5 +139,6 @@
 				</Button>
 			</Dialog.Footer>
 		</form>
+		<FolderBrowserDialog bind:open={browseOpen} bind:path />
 	</Dialog.Content>
 </Dialog.Root>

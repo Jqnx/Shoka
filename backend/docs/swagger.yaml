@@ -323,6 +323,24 @@ definitions:
       name:
         type: string
     type: object
+  handlers.LibraryBrowseEntry:
+    properties:
+      name:
+        type: string
+      path:
+        type: string
+    type: object
+  handlers.LibraryBrowseResponse:
+    properties:
+      entries:
+        items:
+          $ref: '#/definitions/handlers.LibraryBrowseEntry'
+        type: array
+      parent:
+        type: string
+      path:
+        type: string
+    type: object
   handlers.LibraryResponse:
     properties:
       created_at:
@@ -1029,6 +1047,35 @@ paths:
           schema:
             $ref: '#/definitions/response.Error'
       summary: Configure a metadata source for a single library
+      tags:
+      - admin
+  /api/admin/libraries/browse:
+    get:
+      parameters:
+      - description: Directory to list (defaults to /)
+        in: query
+        name: path
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.LibraryBrowseResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Browse server folders
       tags:
       - admin
   /api/admin/phashes:

@@ -5,11 +5,14 @@
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
+	import * as InputGroup from '$lib/components/ui/input-group/index.js';
+	import FolderBrowserDialog from '$lib/components/folder-browser-dialog.svelte';
 	import { superForm } from 'sveltekit-superforms';
 	import { zod4Client } from 'sveltekit-superforms/adapters';
 	import { enhance as appEnhance, applyAction } from '$app/forms';
 	import { goto, invalidateAll } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { FolderOpen } from '@lucide/svelte';
 	import { signupSchema } from '$lib/schemas/signup';
 	import type { ArchiveListResponse } from '$lib/types';
 	import type { PageData } from './$types';
@@ -46,6 +49,8 @@
 	let creating = $state(false);
 	let createError = $state<string | null>(null);
 	let libraryType = $state(defaultType());
+	let path = $state('');
+	let browseOpen = $state(false);
 	const libraryTypeLabel = $derived(typeLabel(libraryType));
 
 	// Step 3 — poll until the initial scan attempt has been stamped, then read
@@ -177,7 +182,22 @@
 							</Field.Field>
 							<Field.Field>
 								<Field.Label for="setup-library-path">Path</Field.Label>
-								<Input id="setup-library-path" name="path" placeholder="/data/library" required />
+								<InputGroup.Root>
+									<InputGroup.Input
+										id="setup-library-path"
+										name="path"
+										bind:value={path}
+										placeholder="/data/library"
+										required
+									/>
+									<InputGroup.Button
+										size="icon-xs"
+										aria-label="Browse folders"
+										onclick={() => (browseOpen = true)}
+									>
+										<FolderOpen />
+									</InputGroup.Button>
+								</InputGroup.Root>
 							</Field.Field>
 							<Field.Field>
 								<Field.Label for="setup-library-type">Content type</Field.Label>
@@ -209,6 +229,7 @@
 					</form>
 				</Card.Content>
 			</Card.Root>
+			<FolderBrowserDialog bind:open={browseOpen} bind:path />
 		{:else}
 			<Card.Root>
 				<Card.Header>
