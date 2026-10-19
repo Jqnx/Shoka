@@ -121,7 +121,7 @@
 	onclick={handleClick}
 	onkeydown={handleKeyDown}
 	oncontextmenu={handleContextMenu}
-	class="group relative flex cursor-pointer touch-pan-y flex-col overflow-hidden rounded-lg border bg-card transition-all select-none hover:-translate-y-0.5 hover:shadow-md {selected
+	class="group relative flex h-full cursor-pointer touch-pan-y flex-col overflow-hidden rounded-lg border bg-card transition-all select-none hover:-translate-y-0.5 hover:shadow-md {selected
 		? 'border-primary ring-2 ring-primary'
 		: 'border-border'}"
 >
