@@ -2,6 +2,8 @@
 	import { resolve } from '$app/paths';
 	import * as Carousel from '$lib/components/ui/carousel';
 	import ArchiveCard from '$lib/components/ArchiveCard.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { can } from '$lib/auth/permissions';
 	import { Clock, BookPlus, CalendarDays } from '@lucide/svelte';
 
 	let { data } = $props();
@@ -138,6 +140,9 @@
 		<div class="flex flex-col items-center justify-center py-24 text-center">
 			<p class="text-base font-medium text-foreground">Your library is empty</p>
 			<p class="mt-1 text-sm text-muted-foreground">Add some archives to get started</p>
+			{#if data.libraries.length === 0 && can(data.user, { library: ['create'] })}
+				<Button class="mt-4" href={resolve('/setup')}>Add your first library</Button>
+			{/if}
 		</div>
 	{/if}
 </div>
