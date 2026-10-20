@@ -1,6 +1,7 @@
 import { error, redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import type { Archive, ReaderSettings } from '$lib/types';
+import { can } from '$lib/auth/permissions';
 
 // This route resets past the (app) layout (see +page@.svelte) for a
 // chrome-free, full-bleed reader - which also means it skips that layout's
@@ -50,5 +51,12 @@ export const load: PageServerLoad = async ({ locals, fetch, params }) => {
 		? await settingsRes.json()
 		: DEFAULT_READER_SETTINGS;
 
-	return { archive, settings, initialPage: rawPage - 1 };
+	// This route resets past the (app) layout, so it has no `page.data.user` to
+	// gate the reader's set-cover action with - resolve the permission here.
+	return {
+		archive,
+		settings,
+		initialPage: rawPage - 1,
+		canSetCover: can(locals.user, { archive: ['cover'] })
+	};
 };

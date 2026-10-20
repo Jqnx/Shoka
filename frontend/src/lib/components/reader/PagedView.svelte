@@ -1,5 +1,8 @@
 <script lang="ts">
 	import type { ReaderSettings } from '$lib/types';
+	import ImageContextMenu from '$lib/components/ImageContextMenu.svelte';
+	import * as ContextMenu from '$lib/components/ui/context-menu/index.js';
+	import { ImagePlus } from '@lucide/svelte';
 	import { pageImageStyle, pageUrl } from './reader-utils';
 
 	let {
@@ -7,6 +10,9 @@
 		pageCount,
 		currentPage,
 		settings,
+		coverPage,
+		canSetCover,
+		onSetCover,
 		onLeftZone,
 		onRightZone,
 		onToggleToolbar
@@ -15,15 +21,16 @@
 		pageCount: number;
 		currentPage: number;
 		settings: ReaderSettings;
+		coverPage?: number;
+		canSetCover?: boolean;
+		onSetCover?: (index: number) => void;
 		onLeftZone: () => void;
 		onRightZone: () => void;
 		onToggleToolbar: () => void;
 	} = $props();
 
 	const isDouble = $derived(settings.page_layout === 'double');
-	const secondIndex = $derived(
-		isDouble && currentPage + 1 < pageCount ? currentPage + 1 : null
-	);
+	const secondIndex = $derived(isDouble && currentPage + 1 < pageCount ? currentPage + 1 : null);
 	// Two-page spreads read in the same direction as everything else - in rtl
 	// the higher (later) page index sits on the visual left.
 	const displayIndexes = $derived.by(() => {
@@ -64,13 +71,32 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="flex h-dvh w-full items-center justify-center gap-1" onclick={handleClick}>
 	{#each displayIndexes as index (index)}
-		<img
+		{#snippet setCoverActions()}
+			<ContextMenu.Item
+				disabled={index === coverPage}
+				aria-label={index === coverPage ? 'Current page is already the cover' : undefined}
+				onSelect={() => onSetCover?.(index)}
+			>
+				<ImagePlus class="size-4" />
+				Set as cover
+			</ContextMenu.Item>
+		{/snippet}
+		<ImageContextMenu
 			src={pageUrl(archiveId, index)}
-			alt="Page {index + 1}"
-			style={pageImageStyle(settings.fit_mode)}
-			class="select-none object-contain"
-			draggable="false"
-		/>
+			downloadName="{archiveId}-page-{index + 1}"
+			actions={onSetCover !== undefined && canSetCover ? setCoverActions : undefined}
+		>
+			{#snippet trigger({ props })}
+				<img
+					{...props}
+					src={pageUrl(archiveId, index)}
+					alt="Page {index + 1}"
+					style={pageImageStyle(settings.fit_mode)}
+					class="object-contain select-none"
+					draggable="false"
+				/>
+			{/snippet}
+		</ImageContextMenu>
 	{/each}
 </div>
 

@@ -26,6 +26,7 @@
 		coverPage,
 		settingCover,
 		coverError,
+		canSetCover,
 		onSetCover,
 		onPinnedChange,
 		onFirst,
@@ -45,6 +46,7 @@
 		coverPage: number;
 		settingCover: boolean;
 		coverError: string | null;
+		canSetCover: boolean;
 		onSetCover: () => void;
 		/** Reports pointer/focus entering or leaving the island (pauses auto-hide). */
 		onPinnedChange?: (pinned: boolean) => void;
@@ -241,20 +243,22 @@
 				<ChevronsRight class="size-4.5" />
 			</button>
 
-			<button
-				type="button"
-				class={cell}
-				disabled={isCover || settingCover}
-				aria-label={isCover ? 'Current page is already the cover' : 'Set current page as cover'}
-				title={isCover ? 'Current page is already the cover' : 'Set current page as cover'}
-				onclick={onSetCover}
-			>
-				{#if settingCover}
-					<Loader2 class="size-4.5 animate-spin" />
-				{:else}
-					<ImagePlus class={isCover ? 'size-4.5 fill-current' : 'size-4.5'} />
-				{/if}
-			</button>
+			{#if canSetCover}
+				<button
+					type="button"
+					class={cell}
+					disabled={isCover || settingCover}
+					aria-label={isCover ? 'Current page is already the cover' : 'Set current page as cover'}
+					title={isCover ? 'Current page is already the cover' : 'Set current page as cover'}
+					onclick={onSetCover}
+				>
+					{#if settingCover}
+						<Loader2 class="size-4.5 animate-spin" />
+					{:else}
+						<ImagePlus class={isCover ? 'size-4.5 fill-current' : 'size-4.5'} />
+					{/if}
+				</button>
+			{/if}
 
 			<Popover.Root bind:open={settingsOpen}>
 				<Popover.Trigger>

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import ImageContextMenu from '$lib/components/ImageContextMenu.svelte';
 	import { coverSrc } from '$lib/types';
 	import { coverGaveUp, coverPollCount, watchCover } from '$lib/components/coverWatch.svelte';
 
@@ -7,6 +8,7 @@
 		archive,
 		alt = '',
 		watch = true,
+		mouseOnly = false,
 		class: className = ''
 	}: {
 		/** The fields the cover URL and its placeholder depend on, and no more. */
@@ -20,6 +22,12 @@
 		 * refreshed by it.
 		 */
 		watch?: boolean;
+		/**
+		 * Only open the image menu on a mouse right-click. The library card owns
+		 * a touch hold gesture for entering selection mode, so its cover must not
+		 * also treat that hold as a menu trigger.
+		 */
+		mouseOnly?: boolean;
 		class?: string;
 	} = $props();
 
@@ -101,13 +109,20 @@
      wobble starts a drag, which fires pointercancel and kills an in-progress
      hold. -->
 {#if !coverFailed}
-	<img
-		bind:this={coverEl}
-		src={coverSrc(archive)}
-		{alt}
-		draggable="false"
-		onload={() => (coverLoaded = true)}
-		onerror={() => (coverFailed = true)}
-		class="transition-opacity duration-300 {coverLoaded ? 'opacity-100' : 'opacity-0'} {className}"
-	/>
+	<ImageContextMenu src={coverSrc(archive)} downloadName="{archive.id}-cover" {mouseOnly}>
+		{#snippet trigger({ props })}
+			<img
+				{...props}
+				bind:this={coverEl}
+				src={coverSrc(archive)}
+				{alt}
+				draggable="false"
+				onload={() => (coverLoaded = true)}
+				onerror={() => (coverFailed = true)}
+				class="transition-opacity duration-300 {coverLoaded
+					? 'opacity-100'
+					: 'opacity-0'} {className}"
+			/>
+		{/snippet}
+	</ImageContextMenu>
 {/if}

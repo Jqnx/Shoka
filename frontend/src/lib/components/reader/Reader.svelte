@@ -16,7 +16,8 @@
 		backHref,
 		initialSettings,
 		initialPage,
-		initialCoverPage
+		initialCoverPage,
+		canSetCover
 	}: {
 		archiveId: string;
 		title: string;
@@ -28,6 +29,9 @@
 		initialPage: number;
 		// 0-based page currently used as the archive's cover (Archive.cover_page).
 		initialCoverPage: number;
+		// Whether the reader may set a page as the cover. Resolved in
+		// +page.server.ts because this route resets past the (app) layout.
+		canSetCover: boolean;
 	} = $props();
 
 	// Settings only ever need to be seeded once from the server-loaded prop -
@@ -221,6 +225,12 @@
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.ctrlKey || e.metaKey || e.altKey) return;
 
+		// The page context menu focuses its own content; let bits-ui's handlers
+		// own Escape/arrows/Space there instead of turning pages or exiting.
+		if (e.target instanceof Element && e.target.closest('[data-slot="context-menu-content"]')) {
+			return;
+		}
+
 		// Own Escape-closes-the-popover ourselves rather than relying on the
 		// popover's own handling - bits-ui's internal Escape listener sits on
 		// `document` and fires during the bubble phase before a same-phase
@@ -308,6 +318,7 @@
 		{coverPage}
 		{settingCover}
 		{coverError}
+		{canSetCover}
 		onSetCover={() => setCover(currentPage)}
 		onPinnedChange={handlePinnedChange}
 		onFirst={goToFirst}
@@ -322,6 +333,9 @@
 			{pageCount}
 			{settings}
 			initialPage={currentPage}
+			{coverPage}
+			{canSetCover}
+			onSetCover={(i) => setCover(i)}
 			onCurrentPageChange={handleScrollPageChange}
 			onToggleToolbar={toggleToolbar}
 		/>
@@ -331,6 +345,9 @@
 			{pageCount}
 			{currentPage}
 			{settings}
+			{coverPage}
+			{canSetCover}
+			onSetCover={(i) => setCover(i)}
 			onLeftZone={leftZone}
 			onRightZone={rightZone}
 			onToggleToolbar={toggleToolbar}

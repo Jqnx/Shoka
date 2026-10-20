@@ -1,5 +1,8 @@
 <script lang="ts">
 	import type { ReaderSettings } from '$lib/types';
+	import ImageContextMenu from '$lib/components/ImageContextMenu.svelte';
+	import * as ContextMenu from '$lib/components/ui/context-menu/index.js';
+	import { ImagePlus } from '@lucide/svelte';
 	import { pageImageStyle, pageUrl } from './reader-utils';
 
 	let {
@@ -7,6 +10,9 @@
 		pageCount,
 		settings,
 		initialPage,
+		coverPage,
+		canSetCover,
+		onSetCover,
 		onCurrentPageChange,
 		onToggleToolbar
 	}: {
@@ -14,6 +20,9 @@
 		pageCount: number;
 		settings: ReaderSettings;
 		initialPage: number;
+		coverPage?: number;
+		canSetCover?: boolean;
+		onSetCover?: (index: number) => void;
 		onCurrentPageChange: (index: number) => void;
 		onToggleToolbar: () => void;
 	} = $props();
@@ -64,14 +73,33 @@
 			bind:this={pageEls[index]}
 			class="flex w-full items-center justify-center"
 		>
-			<img
+			{#snippet setCoverActions()}
+				<ContextMenu.Item
+					disabled={index === coverPage}
+					aria-label={index === coverPage ? 'Current page is already the cover' : undefined}
+					onSelect={() => onSetCover?.(index)}
+				>
+					<ImagePlus class="size-4" />
+					Set as cover
+				</ContextMenu.Item>
+			{/snippet}
+			<ImageContextMenu
 				src={pageUrl(archiveId, index)}
-				alt="Page {index + 1}"
-				style={pageImageStyle(settings.fit_mode)}
-				class="select-none object-contain"
-				loading={Math.abs(index - initialPage) <= 2 ? 'eager' : 'lazy'}
-				draggable="false"
-			/>
+				downloadName="{archiveId}-page-{index + 1}"
+				actions={onSetCover !== undefined && canSetCover ? setCoverActions : undefined}
+			>
+				{#snippet trigger({ props })}
+					<img
+						{...props}
+						src={pageUrl(archiveId, index)}
+						alt="Page {index + 1}"
+						style={pageImageStyle(settings.fit_mode)}
+						class="object-contain select-none"
+						loading={Math.abs(index - initialPage) <= 2 ? 'eager' : 'lazy'}
+						draggable="false"
+					/>
+				{/snippet}
+			</ImageContextMenu>
 		</div>
 	{/each}
 </div>

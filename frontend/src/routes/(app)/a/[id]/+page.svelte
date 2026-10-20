@@ -504,5 +504,10 @@
 
 	<Separator class="my-8" />
 
-	<PageThumbnailGallery archiveId={a.id} pageCount={a.page_count} thumbsReady={a.thumbs_ready} />
+	<PageThumbnailGallery
+		archiveId={a.id}
+		pageCount={a.page_count}
+		thumbsReady={a.thumbs_ready}
+		coverPage={a.cover_page}
+	/>
 </div>
