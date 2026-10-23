@@ -10,16 +10,19 @@ const DEFAULT_READER_SETTINGS: ReaderSettings = {
 	view_mode: 'paged',
 	reading_direction: 'rtl',
 	page_layout: 'single',
-	fit_mode: 'width',
-	background: 'black'
+	fit_mode: 'height',
+	background: 'black',
+	slideshow_interval_seconds: 5,
+	slideshow_loop: true
 };
 
 export const load: PageServerLoad = async ({ locals, fetch, params }) => {
 	if (!locals.user) redirect(302, '/login');
 
-	const [archiveRes, settingsRes] = await Promise.all([
+	const [archiveRes, settingsRes, favoritePagesRes] = await Promise.all([
 		fetch(`/api/archives/${params.id}`),
-		fetch('/api/reader-settings')
+		fetch('/api/reader-settings'),
+		fetch(`/api/archives/${params.id}/favorite-pages`)
 	]);
 
 	if (archiveRes.status === 404) error(404, 'Archive not found');
@@ -51,11 +54,18 @@ export const load: PageServerLoad = async ({ locals, fetch, params }) => {
 		? await settingsRes.json()
 		: DEFAULT_READER_SETTINGS;
 
+	// Best-effort like the settings - a failed load just means the reader
+	// shows no hearts until the next visit.
+	const favoritePages: number[] = favoritePagesRes.ok
+		? ((await favoritePagesRes.json()).indices ?? [])
+		: [];
+
 	// This route resets past the (app) layout, so it has no `page.data.user` to
 	// gate the reader's set-cover action with - resolve the permission here.
 	return {
 		archive,
 		settings,
+		favoritePages,
 		initialPage: rawPage - 1,
 		canSetCover: can(locals.user, { archive: ['cover'] })
 	};

@@ -2,8 +2,9 @@
 	import type { ReaderSettings } from '$lib/types';
 	import ImageContextMenu from '$lib/components/ImageContextMenu.svelte';
 	import * as ContextMenu from '$lib/components/ui/context-menu/index.js';
-	import { ImagePlus } from '@lucide/svelte';
+	import { Heart, ImagePlus } from '@lucide/svelte';
 	import { pageImageStyle, pageUrl } from './reader-utils';
+	import type { SvelteSet } from 'svelte/reactivity';
 
 	let {
 		archiveId,
@@ -12,7 +13,9 @@
 		settings,
 		coverPage,
 		canSetCover,
+		favoritePages,
 		onSetCover,
+		onToggleFavorite,
 		onLeftZone,
 		onRightZone,
 		onToggleToolbar
@@ -23,7 +26,9 @@
 		settings: ReaderSettings;
 		coverPage?: number;
 		canSetCover?: boolean;
+		favoritePages: SvelteSet<number>;
 		onSetCover?: (index: number) => void;
+		onToggleFavorite: (index: number) => void;
 		onLeftZone: () => void;
 		onRightZone: () => void;
 		onToggleToolbar: () => void;
@@ -53,6 +58,15 @@
 		return indexes;
 	});
 
+	let scroller = $state<HTMLDivElement | null>(null);
+
+	// A tall/wide page can be scrolled before turning it; the next page must
+	// start at its top-left rather than inheriting that offset.
+	$effect(() => {
+		void currentPage;
+		scroller?.scrollTo({ top: 0, left: 0 });
+	});
+
 	function handleClick(e: MouseEvent) {
 		const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
 		const ratio = (e.clientX - rect.left) / rect.width;
@@ -69,35 +83,53 @@
 -->
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="flex h-dvh w-full items-center justify-center gap-1" onclick={handleClick}>
-	{#each displayIndexes as index (index)}
-		{#snippet setCoverActions()}
-			<ContextMenu.Item
-				disabled={index === coverPage}
-				aria-label={index === coverPage ? 'Current page is already the cover' : undefined}
-				onSelect={() => onSetCover?.(index)}
-			>
-				<ImagePlus class="size-4" />
-				Set as cover
-			</ContextMenu.Item>
-		{/snippet}
-		<ImageContextMenu
-			src={pageUrl(archiveId, index)}
-			downloadName="{archiveId}-page-{index + 1}"
-			actions={onSetCover !== undefined && canSetCover ? setCoverActions : undefined}
-		>
-			{#snippet trigger({ props })}
-				<img
-					{...props}
-					src={pageUrl(archiveId, index)}
-					alt="Page {index + 1}"
-					style={pageImageStyle(settings.fit_mode)}
-					class="object-contain select-none"
-					draggable="false"
-				/>
+<div bind:this={scroller} class="h-dvh w-full overflow-auto" onclick={handleClick}>
+	<div class="flex h-full min-w-full items-start gap-1">
+		{#each displayIndexes as index (index)}
+			{#snippet pageActions()}
+				<ContextMenu.Item onSelect={() => onToggleFavorite(index)}>
+					<Heart
+						class={favoritePages.has(index) ? 'size-4 fill-red-500 stroke-red-500' : 'size-4'}
+					/>
+					{favoritePages.has(index) ? 'Remove from favorites' : 'Favorite this page'}
+				</ContextMenu.Item>
+				{#if onSetCover !== undefined && canSetCover}
+					<ContextMenu.Item
+						disabled={index === coverPage}
+						aria-label={index === coverPage ? 'Current page is already the cover' : undefined}
+						onSelect={() => onSetCover?.(index)}
+					>
+						<ImagePlus class="size-4" />
+						Set as cover
+					</ContextMenu.Item>
+				{/if}
 			{/snippet}
-		</ImageContextMenu>
-	{/each}
+			<div
+				class={settings.fit_mode === 'original'
+					? 'relative m-auto flex shrink-0 items-center justify-center'
+					: settings.fit_mode === 'height'
+						? 'relative flex h-full min-w-0 flex-1 items-center justify-center'
+						: 'relative my-auto flex min-w-0 flex-1 items-center justify-center'}
+			>
+				<ImageContextMenu
+					src={pageUrl(archiveId, index)}
+					downloadName="{archiveId}-page-{index + 1}"
+					actions={pageActions}
+				>
+					{#snippet trigger({ props })}
+						<img
+							{...props}
+							src={pageUrl(archiveId, index)}
+							alt="Page {index + 1}"
+							style={pageImageStyle(settings.fit_mode)}
+							class="object-contain select-none"
+							draggable="false"
+						/>
+					{/snippet}
+				</ImageContextMenu>
+			</div>
+		{/each}
+	</div>
 </div>
 
 <div class="hidden">

@@ -271,6 +271,39 @@ definitions:
           $ref: '#/definitions/handlers.DuplicateArchive'
         type: array
     type: object
+  handlers.FavoritePageIndicesResponse:
+    properties:
+      indices:
+        items:
+          type: integer
+        type: array
+    type: object
+  handlers.FavoritePageItem:
+    properties:
+      archive_id:
+        type: string
+      favorited_at:
+        type: string
+      page_count:
+        type: integer
+      page_index:
+        type: integer
+      title:
+        type: string
+    type: object
+  handlers.FavoritePageListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/handlers.FavoritePageItem'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
   handlers.JobSnapshot:
     properties:
       active:
@@ -431,6 +464,10 @@ definitions:
         type: string
       reading_direction:
         type: string
+      slideshow_interval_seconds:
+        type: integer
+      slideshow_loop:
+        type: boolean
       view_mode:
         type: string
     type: object
@@ -621,6 +658,10 @@ definitions:
         type: string
       reading_direction:
         type: string
+      slideshow_interval_seconds:
+        type: integer
+      slideshow_loop:
+        type: boolean
       view_mode:
         type: string
     type: object
@@ -1405,6 +1446,36 @@ paths:
       summary: Favorite an archive
       tags:
       - archives
+  /api/archives/{id}/favorite-pages:
+    get:
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.FavoritePageIndicesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List the current user's favorited page indices for an archive
+      tags:
+      - archives
   /api/archives/{id}/metadata:
     post:
       description: Runs the full metadata pipeline for the given archive and applies
@@ -1625,6 +1696,70 @@ paths:
           schema:
             $ref: '#/definitions/response.Error'
       summary: Get a full-resolution page for an archive
+      tags:
+      - archives
+  /api/archives/{id}/pages/{index}/favorite:
+    delete:
+      description: Idempotent no-op if the page wasn't favorited. Works for a page
+        index the archive no longer has, so stale favorites can still be cleared.
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Page index (0-based)
+        in: path
+        name: index
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Unfavorite one page of an archive
+      tags:
+      - archives
+    put:
+      description: Idempotent. Adding the same page twice leaves one row.
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Page index (0-based)
+        in: path
+        name: index
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Favorite one page of an archive
       tags:
       - archives
   /api/archives/{id}/pages/{index}/thumbnail:
@@ -2009,6 +2144,32 @@ paths:
           schema:
             $ref: '#/definitions/response.Error'
       summary: List favorited archives across all libraries
+      tags:
+      - archives
+  /api/archives/favorites/pages:
+    get:
+      description: Newest first. Pages an archive has since shrunk past are omitted.
+      parameters:
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Page size (default 24, max 100)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.FavoritePageListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List the current user's favorited pages across all archives
       tags:
       - archives
   /api/archives/languages:

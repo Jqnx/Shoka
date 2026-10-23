@@ -115,6 +115,7 @@ func mountBrowseRoutes(r chi.Router, h apiHandlers) {
 	r.Get("/api/archives/languages", h.archive.GetLanguages)
 	r.Get("/api/archives/recently-read", h.archive.GetRecentlyRead)
 	r.Get("/api/archives/favorites", h.archive.GetFavorites)
+	r.Get("/api/archives/favorites/pages", h.archive.GetFavoritePages)
 
 	// Registered before the /api/archives/{id} routes below: chi matches
 	// static segments ahead of wildcards, so "bulk" can't be swallowed as
@@ -184,6 +185,9 @@ func mountArchiveDetailRoutes(r chi.Router, h apiHandlers) {
 		r.Delete("/progress", h.archive.DeleteProgress)
 		r.Put("/favorite", h.archive.AddFavorite)
 		r.Delete("/favorite", h.archive.RemoveFavorite)
+		r.Get("/favorite-pages", h.archive.GetFavoritePageIndices)
+		r.Put("/pages/{index}/favorite", h.archive.AddFavoritePage)
+		r.Delete("/pages/{index}/favorite", h.archive.RemoveFavoritePage)
 		r.Put("/rating", h.archive.SetRating)
 		r.Delete("/rating", h.archive.RemoveRating)
 	})

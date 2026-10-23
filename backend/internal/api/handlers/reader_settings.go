@@ -31,11 +31,13 @@ func NewReaderSettingsHandler(queries *sqlc.Queries, log *slog.Logger) *ReaderSe
 // missing row means "never customized", not "has no settings", so GET always
 // returns a full, usable set of values either way.
 var defaultReaderSettings = ReaderSettingsResponse{
-	ViewMode:         "paged",
-	ReadingDirection: "rtl",
-	PageLayout:       "single",
-	FitMode:          "width",
-	Background:       "black",
+	ViewMode:                 "paged",
+	ReadingDirection:         "rtl",
+	PageLayout:               "single",
+	FitMode:                  "height",
+	Background:               "black",
+	SlideshowIntervalSeconds: 5,
+	SlideshowLoop:            true,
 }
 
 var (
@@ -52,20 +54,24 @@ var (
 // ReaderSettingsResponse is a user's reader preferences as returned by the
 // API.
 type ReaderSettingsResponse struct {
-	ViewMode         string `json:"view_mode"`
-	ReadingDirection string `json:"reading_direction"`
-	PageLayout       string `json:"page_layout"`
-	FitMode          string `json:"fit_mode"`
-	Background       string `json:"background"`
+	ViewMode                 string `json:"view_mode"`
+	ReadingDirection         string `json:"reading_direction"`
+	PageLayout               string `json:"page_layout"`
+	FitMode                  string `json:"fit_mode"`
+	Background               string `json:"background"`
+	SlideshowIntervalSeconds int    `json:"slideshow_interval_seconds"`
+	SlideshowLoop            bool   `json:"slideshow_loop"`
 }
 
 func readerSettingsFromRow(row sqlc.ReaderSetting) ReaderSettingsResponse {
 	return ReaderSettingsResponse{
-		ViewMode:         row.ViewMode,
-		ReadingDirection: row.ReadingDirection,
-		PageLayout:       row.PageLayout,
-		FitMode:          row.FitMode,
-		Background:       row.Background,
+		ViewMode:                 row.ViewMode,
+		ReadingDirection:         row.ReadingDirection,
+		PageLayout:               row.PageLayout,
+		FitMode:                  row.FitMode,
+		Background:               row.Background,
+		SlideshowIntervalSeconds: int(row.SlideshowIntervalSeconds),
+		SlideshowLoop:            row.SlideshowLoop,
 	}
 }
 
@@ -100,11 +106,13 @@ func (h *ReaderSettingsHandler) GetReaderSettings(w http.ResponseWriter, r *http
 // UpdateReaderSettingsRequest carries the reader settings fields to change;
 // omitted fields keep their current value.
 type UpdateReaderSettingsRequest struct {
-	ViewMode         *string `json:"view_mode"`
-	ReadingDirection *string `json:"reading_direction"`
-	PageLayout       *string `json:"page_layout"`
-	FitMode          *string `json:"fit_mode"`
-	Background       *string `json:"background"`
+	ViewMode                 *string `json:"view_mode"`
+	ReadingDirection         *string `json:"reading_direction"`
+	PageLayout               *string `json:"page_layout"`
+	FitMode                  *string `json:"fit_mode"`
+	Background               *string `json:"background"`
+	SlideshowIntervalSeconds *int    `json:"slideshow_interval_seconds"`
+	SlideshowLoop            *bool   `json:"slideshow_loop"`
 }
 
 // UpdateReaderSettings godoc
@@ -149,6 +157,12 @@ func (h *ReaderSettingsHandler) UpdateReaderSettings(w http.ResponseWriter, r *h
 		}
 	}
 
+	if body.SlideshowIntervalSeconds != nil &&
+		(*body.SlideshowIntervalSeconds < 1 || *body.SlideshowIntervalSeconds > 60) {
+		response.BadRequest(w, "slideshow_interval_seconds must be between 1 and 60")
+		return
+	}
+
 	// Overlay the request onto whatever's current (falling back to defaults
 	// for a user who's never customized anything) so the upsert below always
 	// writes a complete row, even though the request itself is a partial
@@ -166,12 +180,14 @@ func (h *ReaderSettingsHandler) UpdateReaderSettings(w http.ResponseWriter, r *h
 	current = overlayReaderSettings(current, body)
 
 	row, err := h.queries.UpsertReaderSettings(r.Context(), sqlc.UpsertReaderSettingsParams{
-		UserID:           userID,
-		ViewMode:         current.ViewMode,
-		ReadingDirection: current.ReadingDirection,
-		PageLayout:       current.PageLayout,
-		FitMode:          current.FitMode,
-		Background:       current.Background,
+		UserID:                   userID,
+		ViewMode:                 current.ViewMode,
+		ReadingDirection:         current.ReadingDirection,
+		PageLayout:               current.PageLayout,
+		FitMode:                  current.FitMode,
+		Background:               current.Background,
+		SlideshowIntervalSeconds: int64(current.SlideshowIntervalSeconds),
+		SlideshowLoop:            current.SlideshowLoop,
 	})
 	if err != nil {
 		h.logger.Error("upsert reader settings failed", "error", err)
@@ -204,6 +220,14 @@ func overlayReaderSettings(current ReaderSettingsResponse, body UpdateReaderSett
 
 	if body.Background != nil {
 		current.Background = *body.Background
+	}
+
+	if body.SlideshowIntervalSeconds != nil {
+		current.SlideshowIntervalSeconds = *body.SlideshowIntervalSeconds
+	}
+
+	if body.SlideshowLoop != nil {
+		current.SlideshowLoop = *body.SlideshowLoop
 	}
 
 	return current

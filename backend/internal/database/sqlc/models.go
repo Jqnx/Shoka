@@ -119,6 +119,13 @@ type FavoriteArchive struct {
 	FavoritedAt time.Time `json:"favorited_at"`
 }
 
+type FavoritePage struct {
+	ArchiveID   string    `json:"archive_id"`
+	UserID      string    `json:"user_id"`
+	PageIndex   int64     `json:"page_index"`
+	FavoritedAt time.Time `json:"favorited_at"`
+}
+
 type Job struct {
 	ID          int64     `json:"id"`
 	Type        string    `json:"type"`
@@ -161,12 +168,14 @@ type Parody struct {
 }
 
 type ReaderSetting struct {
-	UserID           string `json:"user_id"`
-	ReadingDirection string `json:"reading_direction"`
-	PageLayout       string `json:"page_layout"`
-	FitMode          string `json:"fit_mode"`
-	Background       string `json:"background"`
-	ViewMode         string `json:"view_mode"`
+	UserID                   string `json:"user_id"`
+	ReadingDirection         string `json:"reading_direction"`
+	PageLayout               string `json:"page_layout"`
+	FitMode                  string `json:"fit_mode"`
+	Background               string `json:"background"`
+	ViewMode                 string `json:"view_mode"`
+	SlideshowIntervalSeconds int64  `json:"slideshow_interval_seconds"`
+	SlideshowLoop            bool   `json:"slideshow_loop"`
 }
 
 type ReadingProgress struct {

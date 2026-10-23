@@ -11,13 +11,17 @@ insert into reader_settings (
   page_layout,
   fit_mode,
   background,
-  view_mode
-) values ( ?, ?, ?, ?, ?, ? )
+  view_mode,
+  slideshow_interval_seconds,
+  slideshow_loop
+) values ( ?, ?, ?, ?, ?, ?, ?, ? )
 on conflict (user_id) do update set
   reading_direction = excluded.reading_direction,
   page_layout = excluded.page_layout,
   fit_mode = excluded.fit_mode,
   background = excluded.background,
-  view_mode = excluded.view_mode
+  view_mode = excluded.view_mode,
+  slideshow_interval_seconds = excluded.slideshow_interval_seconds,
+  slideshow_loop = excluded.slideshow_loop
 returning *
 ;

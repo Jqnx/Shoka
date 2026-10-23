@@ -2,8 +2,9 @@
 	import type { ReaderSettings } from '$lib/types';
 	import ImageContextMenu from '$lib/components/ImageContextMenu.svelte';
 	import * as ContextMenu from '$lib/components/ui/context-menu/index.js';
-	import { ImagePlus } from '@lucide/svelte';
+	import { Heart, ImagePlus } from '@lucide/svelte';
 	import { pageImageStyle, pageUrl } from './reader-utils';
+	import type { SvelteSet } from 'svelte/reactivity';
 
 	let {
 		archiveId,
@@ -12,7 +13,9 @@
 		initialPage,
 		coverPage,
 		canSetCover,
+		favoritePages,
 		onSetCover,
+		onToggleFavorite,
 		onCurrentPageChange,
 		onToggleToolbar
 	}: {
@@ -22,7 +25,9 @@
 		initialPage: number;
 		coverPage?: number;
 		canSetCover?: boolean;
+		favoritePages: SvelteSet<number>;
 		onSetCover?: (index: number) => void;
+		onToggleFavorite: (index: number) => void;
 		onCurrentPageChange: (index: number) => void;
 		onToggleToolbar: () => void;
 	} = $props();
@@ -71,22 +76,30 @@
 		<div
 			data-index={index}
 			bind:this={pageEls[index]}
-			class="flex w-full items-center justify-center"
+			class="flex w-full items-center overflow-x-auto"
 		>
-			{#snippet setCoverActions()}
-				<ContextMenu.Item
-					disabled={index === coverPage}
-					aria-label={index === coverPage ? 'Current page is already the cover' : undefined}
-					onSelect={() => onSetCover?.(index)}
-				>
-					<ImagePlus class="size-4" />
-					Set as cover
+			{#snippet pageActions()}
+				<ContextMenu.Item onSelect={() => onToggleFavorite(index)}>
+					<Heart
+						class={favoritePages.has(index) ? 'size-4 fill-red-500 stroke-red-500' : 'size-4'}
+					/>
+					{favoritePages.has(index) ? 'Remove from favorites' : 'Favorite this page'}
 				</ContextMenu.Item>
+				{#if onSetCover !== undefined && canSetCover}
+					<ContextMenu.Item
+						disabled={index === coverPage}
+						aria-label={index === coverPage ? 'Current page is already the cover' : undefined}
+						onSelect={() => onSetCover?.(index)}
+					>
+						<ImagePlus class="size-4" />
+						Set as cover
+					</ContextMenu.Item>
+				{/if}
 			{/snippet}
 			<ImageContextMenu
 				src={pageUrl(archiveId, index)}
 				downloadName="{archiveId}-page-{index + 1}"
-				actions={onSetCover !== undefined && canSetCover ? setCoverActions : undefined}
+				actions={pageActions}
 			>
 				{#snippet trigger({ props })}
 					<img
@@ -94,7 +107,7 @@
 						src={pageUrl(archiveId, index)}
 						alt="Page {index + 1}"
 						style={pageImageStyle(settings.fit_mode)}
-						class="object-contain select-none"
+						class="m-auto object-contain select-none"
 						loading={Math.abs(index - initialPage) <= 2 ? 'eager' : 'lazy'}
 						draggable="false"
 					/>

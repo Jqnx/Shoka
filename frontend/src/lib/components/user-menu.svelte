@@ -5,7 +5,7 @@
 	import { resolve } from '$app/paths';
 	import { cn } from '$lib/utils.js';
 	import { enhance } from '$app/forms';
-	import { ChevronsUpDown, Heart, LogOut, Settings } from '@lucide/svelte';
+	import { ChevronsUpDown, Heart, Images, LogOut, Settings } from '@lucide/svelte';
 	import type { User } from 'better-auth';
 
 	let { user }: { user: User } = $props();
@@ -65,6 +65,14 @@
 						<a href={resolve('/favorites')} {...props}>
 							<Heart />
 							Favorites
+						</a>
+					{/snippet}
+				</DropdownMenu.Item>
+				<DropdownMenu.Item>
+					{#snippet child({ props })}
+						<a href={resolve('/favorites/pages')} {...props}>
+							<Images />
+							Favorite Pages
 						</a>
 					{/snippet}
 				</DropdownMenu.Item>

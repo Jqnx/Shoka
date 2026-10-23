@@ -10,7 +10,7 @@ import (
 )
 
 const getReaderSettings = `-- name: GetReaderSettings :one
-select user_id, reading_direction, page_layout, fit_mode, background, view_mode
+select user_id, reading_direction, page_layout, fit_mode, background, view_mode, slideshow_interval_seconds, slideshow_loop
 from reader_settings
 where user_id = ?
 `
@@ -25,6 +25,8 @@ func (q *Queries) GetReaderSettings(ctx context.Context, userID string) (ReaderS
 		&i.FitMode,
 		&i.Background,
 		&i.ViewMode,
+		&i.SlideshowIntervalSeconds,
+		&i.SlideshowLoop,
 	)
 	return i, err
 }
@@ -38,24 +40,30 @@ insert into reader_settings (
   page_layout,
   fit_mode,
   background,
-  view_mode
-) values ( ?, ?, ?, ?, ?, ? )
+  view_mode,
+  slideshow_interval_seconds,
+  slideshow_loop
+) values ( ?, ?, ?, ?, ?, ?, ?, ? )
 on conflict (user_id) do update set
   reading_direction = excluded.reading_direction,
   page_layout = excluded.page_layout,
   fit_mode = excluded.fit_mode,
   background = excluded.background,
-  view_mode = excluded.view_mode
-returning user_id, reading_direction, page_layout, fit_mode, background, view_mode
+  view_mode = excluded.view_mode,
+  slideshow_interval_seconds = excluded.slideshow_interval_seconds,
+  slideshow_loop = excluded.slideshow_loop
+returning user_id, reading_direction, page_layout, fit_mode, background, view_mode, slideshow_interval_seconds, slideshow_loop
 `
 
 type UpsertReaderSettingsParams struct {
-	UserID           string `json:"user_id"`
-	ReadingDirection string `json:"reading_direction"`
-	PageLayout       string `json:"page_layout"`
-	FitMode          string `json:"fit_mode"`
-	Background       string `json:"background"`
-	ViewMode         string `json:"view_mode"`
+	UserID                   string `json:"user_id"`
+	ReadingDirection         string `json:"reading_direction"`
+	PageLayout               string `json:"page_layout"`
+	FitMode                  string `json:"fit_mode"`
+	Background               string `json:"background"`
+	ViewMode                 string `json:"view_mode"`
+	SlideshowIntervalSeconds int64  `json:"slideshow_interval_seconds"`
+	SlideshowLoop            bool   `json:"slideshow_loop"`
 }
 
 func (q *Queries) UpsertReaderSettings(ctx context.Context, arg UpsertReaderSettingsParams) (ReaderSetting, error) {
@@ -66,6 +74,8 @@ func (q *Queries) UpsertReaderSettings(ctx context.Context, arg UpsertReaderSett
 		arg.FitMode,
 		arg.Background,
 		arg.ViewMode,
+		arg.SlideshowIntervalSeconds,
+		arg.SlideshowLoop,
 	)
 	var i ReaderSetting
 	err := row.Scan(
@@ -75,6 +85,8 @@ func (q *Queries) UpsertReaderSettings(ctx context.Context, arg UpsertReaderSett
 		&i.FitMode,
 		&i.Background,
 		&i.ViewMode,
+		&i.SlideshowIntervalSeconds,
+		&i.SlideshowLoop,
 	)
 	return i, err
 }

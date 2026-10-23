@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ReaderSettings } from '$lib/types';
 	import { onDestroy } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import { browser } from '$app/environment';
 	import { replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -15,6 +16,7 @@
 		pageCount,
 		backHref,
 		initialSettings,
+		favoritePages,
 		initialPage,
 		initialCoverPage,
 		canSetCover
@@ -24,6 +26,8 @@
 		pageCount: number;
 		backHref: string;
 		initialSettings: ReaderSettings;
+		// 0-based page indices the current user has favorited in this archive.
+		favoritePages: number[];
 		// 0-based - already validated/clamped server-side against the
 		// archive's actual page count (see +page.server.ts).
 		initialPage: number;
@@ -40,6 +44,32 @@
 	// way around).
 	// svelte-ignore state_referenced_locally
 	let settings = $state({ ...initialSettings });
+
+	// Mirrors the backend's rows for this archive. Optimistically updated on
+	// toggle so the heart reacts immediately; a failed request flips it back.
+	// svelte-ignore state_referenced_locally
+	const favoritePageSet = new SvelteSet<number>(favoritePages);
+
+	async function toggleFavoritePage(index: number) {
+		const wasFavorited = favoritePageSet.has(index);
+		if (wasFavorited) favoritePageSet.delete(index);
+		else favoritePageSet.add(index);
+
+		try {
+			const res = await fetch(`/api/archives/${archiveId}/pages/${index}/favorite`, {
+				method: wasFavorited ? 'DELETE' : 'PUT'
+			});
+			if (!res.ok) revertFavoritePage(index, wasFavorited);
+		} catch {
+			revertFavoritePage(index, wasFavorited);
+		}
+	}
+
+	// No toast system, so the heart reverting is the only feedback available.
+	function revertFavoritePage(index: number, wasFavorited: boolean) {
+		if (wasFavorited) favoritePageSet.add(index);
+		else favoritePageSet.delete(index);
+	}
 
 	function clamp(n: number) {
 		return Math.min(Math.max(n, 0), pageCount - 1);
@@ -319,7 +349,9 @@
 		{settingCover}
 		{coverError}
 		{canSetCover}
+		favorited={favoritePageSet.has(currentPage)}
 		onSetCover={() => setCover(currentPage)}
+		onToggleFavorite={() => toggleFavoritePage(currentPage)}
 		onPinnedChange={handlePinnedChange}
 		onFirst={goToFirst}
 		onPrev={goToPrev}
@@ -335,6 +367,8 @@
 			initialPage={currentPage}
 			{coverPage}
 			{canSetCover}
+			favoritePages={favoritePageSet}
+			onToggleFavorite={toggleFavoritePage}
 			onSetCover={(i) => setCover(i)}
 			onCurrentPageChange={handleScrollPageChange}
 			onToggleToolbar={toggleToolbar}
@@ -347,6 +381,8 @@
 			{settings}
 			{coverPage}
 			{canSetCover}
+			favoritePages={favoritePageSet}
+			onToggleFavorite={toggleFavoritePage}
 			onSetCover={(i) => setCover(i)}
 			onLeftZone={leftZone}
 			onRightZone={rightZone}

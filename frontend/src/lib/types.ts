@@ -268,7 +268,9 @@ export type ArchiveSortOption = {
 // view_mode and reading_direction are orthogonal: view_mode picks paged vs.
 // scroll, reading_direction only decides which physical side is
 // "next" while paged (irrelevant in scroll mode, which always scrolls
-// top-to-bottom).
+// top-to-bottom). The slideshow fields are used by the favorite-pages viewer
+// but stored here so they sync across devices like every other reader
+// preference.
 export type ViewMode = 'paged' | 'scroll';
 export type ReadingDirection = 'ltr' | 'rtl';
 export type PageLayout = 'single' | 'double';
@@ -281,6 +283,24 @@ export type ReaderSettings = {
 	page_layout: PageLayout;
 	fit_mode: FitMode;
 	background: ReaderBackground;
+	slideshow_interval_seconds: number;
+	slideshow_loop: boolean;
+};
+
+// One favorited page as returned by GET /api/archives/favorites/pages.
+export type FavoritePageItem = {
+	archive_id: string;
+	title: string;
+	page_count: number;
+	page_index: number; // 0-based, like every API page reference
+	favorited_at: string;
+};
+
+export type FavoritePageListResponse = {
+	items: FavoritePageItem[];
+	total: number;
+	page: number;
+	limit: number;
 };
 
 // One archive within a DuplicateGroup, as returned by GET /api/admin/duplicates.

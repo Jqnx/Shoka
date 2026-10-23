@@ -5,7 +5,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import ImageContextMenu from '$lib/components/ImageContextMenu.svelte';
 	import * as ContextMenu from '$lib/components/ui/context-menu/index.js';
-	import { ImageOff, ImagePlus } from '@lucide/svelte';
+	import { Heart, ImageOff, ImagePlus } from '@lucide/svelte';
 	import { can } from '$lib/auth/permissions';
 
 	let {
@@ -21,6 +21,13 @@
 	} = $props();
 
 	const readyIndexes = new SvelteSet<number>();
+	// Favorite state for this archive's pages, loaded client-side because the
+	// context menu only needs it once the gallery is interactive.
+	const favoritePages = new SvelteSet<number>();
+	// Toggles made while the initial list is in flight. They are re-applied
+	// over the fetched snapshot so a late response cannot undo them.
+	const pendingFavoriteToggles = new Map<number, boolean>();
+	let favoriteLoad = 0;
 	let genError = $state<string | null>(null);
 
 	// The server prop is the source of truth, but a successful set-cover can
@@ -45,6 +52,64 @@
 		} catch {
 			coverError = 'Failed to set cover.';
 		}
+	}
+
+	$effect(() => {
+		const archive = archiveId;
+		const version = ++favoriteLoad;
+
+		// This component instance survives /a/[id] param changes, so clear
+		// synchronously: archive B must never show archive A's marks while its
+		// own list is in flight, nor keep them if the fetch fails.
+		favoritePages.clear();
+		pendingFavoriteToggles.clear();
+
+		fetch(`/api/archives/${archive}/favorite-pages`)
+			.then((res) => (res.ok ? res.json() : { indices: [] }))
+			.then((data: { indices?: number[] }) => {
+				if (version !== favoriteLoad) return;
+
+				const indices = new Set(data.indices ?? []);
+				for (const [index, favorited] of pendingFavoriteToggles) {
+					if (favorited) indices.add(index);
+					else indices.delete(index);
+				}
+
+				favoritePages.clear();
+				for (const index of indices) favoritePages.add(index);
+			})
+			.catch(() => {
+				// Best-effort: the menu simply starts with nothing marked.
+			});
+	});
+
+	async function toggleFavorite(index: number) {
+		const archive = archiveId;
+		const wasFavorited = favoritePages.has(index);
+		pendingFavoriteToggles.set(index, !wasFavorited);
+
+		if (wasFavorited) favoritePages.delete(index);
+		else favoritePages.add(index);
+
+		try {
+			const res = await fetch(`/api/archives/${archive}/pages/${index}/favorite`, {
+				method: wasFavorited ? 'DELETE' : 'PUT'
+			});
+			if (res.ok) return;
+		} catch {
+			// Fall through to the revert below.
+		}
+
+		// A newer toggle (or an archive change) owns this index now.
+		if (archive !== archiveId) return;
+		if (pendingFavoriteToggles.get(index) !== !wasFavorited) return;
+		pendingFavoriteToggles.delete(index);
+		revertFavorite(index, wasFavorited);
+	}
+
+	function revertFavorite(index: number, wasFavorited: boolean) {
+		if (wasFavorited) favoritePages.add(index);
+		else favoritePages.delete(index);
 	}
 
 	// Triggers generation (idempotent - a no-op if already ready/running) and
@@ -109,20 +174,28 @@
 
 	<div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
 		{#each pages as index (index)}
-			{#snippet setCoverActions()}
-				<ContextMenu.Item
-					disabled={index === coverPage}
-					aria-label={index === coverPage ? 'Current page is already the cover' : undefined}
-					onSelect={() => setCover(index)}
-				>
-					<ImagePlus class="size-4" />
-					Set as cover
+			{#snippet pageActions()}
+				<ContextMenu.Item onSelect={() => toggleFavorite(index)}>
+					<Heart
+						class={favoritePages.has(index) ? 'size-4 fill-red-500 stroke-red-500' : 'size-4'}
+					/>
+					{favoritePages.has(index) ? 'Remove from favorites' : 'Favorite this page'}
 				</ContextMenu.Item>
+				{#if can(page.data.user, { archive: ['cover'] })}
+					<ContextMenu.Item
+						disabled={index === coverPage}
+						aria-label={index === coverPage ? 'Current page is already the cover' : undefined}
+						onSelect={() => setCover(index)}
+					>
+						<ImagePlus class="size-4" />
+						Set as cover
+					</ContextMenu.Item>
+				{/if}
 			{/snippet}
 			<ImageContextMenu
 				src="/api/archives/{archiveId}/pages/{index}/thumbnail"
 				downloadName="{archiveId}-page-{index + 1}.webp"
-				actions={can(page.data.user, { archive: ['cover'] }) ? setCoverActions : undefined}
+				actions={pageActions}
 			>
 				{#snippet trigger({ props })}
 					<a

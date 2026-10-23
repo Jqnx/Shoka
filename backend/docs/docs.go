@@ -896,6 +896,46 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/archives/favorites/pages": {
+            "get": {
+                "description": "Newest first. Pages an archive has since shrunk past are omitted.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "archives"
+                ],
+                "summary": "List the current user's favorited pages across all archives",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 24, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.FavoritePageListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/archives/languages": {
             "get": {
                 "description": "Returns every distinct language code currently in use across all libraries, paired with a display name (see language.Converter; falls back to the raw code if unrecognized). Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.",
@@ -1302,6 +1342,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/archives/{id}/favorite-pages": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "archives"
+                ],
+                "summary": "List the current user's favorited page indices for an archive",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Archive ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.FavoritePageIndicesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/archives/{id}/metadata": {
             "post": {
                 "description": "Runs the full metadata pipeline for the given archive and applies results",
@@ -1608,6 +1694,100 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/archives/{id}/pages/{index}/favorite": {
+            "put": {
+                "description": "Idempotent. Adding the same page twice leaves one row.",
+                "tags": [
+                    "archives"
+                ],
+                "summary": "Favorite one page of an archive",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Archive ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page index (0-based)",
+                        "name": "index",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Idempotent no-op if the page wasn't favorited. Works for a page index the archive no longer has, so stale favorites can still be cleared.",
+                "tags": [
+                    "archives"
+                ],
+                "summary": "Unfavorite one page of an archive",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Archive ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page index (0-based)",
+                        "name": "index",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -3414,6 +3594,57 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.FavoritePageIndicesResponse": {
+            "type": "object",
+            "properties": {
+                "indices": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "handlers.FavoritePageItem": {
+            "type": "object",
+            "properties": {
+                "archive_id": {
+                    "type": "string"
+                },
+                "favorited_at": {
+                    "type": "string"
+                },
+                "page_count": {
+                    "type": "integer"
+                },
+                "page_index": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "handlers.FavoritePageListResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.FavoritePageItem"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "handlers.JobSnapshot": {
             "type": "object",
             "properties": {
@@ -3648,6 +3879,12 @@ const docTemplate = `{
                 },
                 "reading_direction": {
                     "type": "string"
+                },
+                "slideshow_interval_seconds": {
+                    "type": "integer"
+                },
+                "slideshow_loop": {
+                    "type": "boolean"
                 },
                 "view_mode": {
                     "type": "string"
@@ -3928,6 +4165,12 @@ const docTemplate = `{
                 },
                 "reading_direction": {
                     "type": "string"
+                },
+                "slideshow_interval_seconds": {
+                    "type": "integer"
+                },
+                "slideshow_loop": {
+                    "type": "boolean"
                 },
                 "view_mode": {
                     "type": "string"

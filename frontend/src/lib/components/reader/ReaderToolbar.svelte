@@ -7,6 +7,7 @@
 		ChevronRight,
 		ChevronsLeft,
 		ChevronsRight,
+		Heart,
 		ImagePlus,
 		Loader2,
 		Settings,
@@ -27,7 +28,9 @@
 		settingCover,
 		coverError,
 		canSetCover,
+		favorited,
 		onSetCover,
+		onToggleFavorite,
 		onPinnedChange,
 		onFirst,
 		onPrev,
@@ -47,7 +50,10 @@
 		settingCover: boolean;
 		coverError: string | null;
 		canSetCover: boolean;
+		/** Whether the current page is in the user's page favorites. */
+		favorited: boolean;
 		onSetCover: () => void;
+		onToggleFavorite: () => void;
 		/** Reports pointer/focus entering or leaving the island (pauses auto-hide). */
 		onPinnedChange?: (pinned: boolean) => void;
 		onFirst: () => void;
@@ -72,7 +78,7 @@
 	// unlike a real grid column, a `basis-*` on a shrinkable item can't widen an
 	// intrinsically-sized flex line, so these have to be definite widths.
 	const cell =
-		'flex h-full w-9 shrink-0 items-center justify-center text-card-foreground transition-colors select-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none disabled:pointer-events-none disabled:opacity-30 sm:w-12';
+		'flex h-full w-8 shrink-0 items-center justify-center text-card-foreground transition-colors select-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none disabled:pointer-events-none disabled:opacity-30 sm:w-12';
 
 	// Pointer pinning only for an actual mouse: a touchscreen - including a
 	// hybrid laptop's - still fires pointerenter/leave for taps, and pinning
@@ -259,6 +265,17 @@
 					{/if}
 				</button>
 			{/if}
+
+			<button
+				type="button"
+				class={cell}
+				aria-label={favorited ? 'Remove current page from favorites' : 'Favorite current page'}
+				title={favorited ? 'Remove current page from favorites' : 'Favorite current page'}
+				aria-pressed={favorited}
+				onclick={onToggleFavorite}
+			>
+				<Heart class={favorited ? 'size-4.5 fill-red-500 stroke-red-500' : 'size-4.5'} />
+			</button>
 
 			<Popover.Root bind:open={settingsOpen}>
 				<Popover.Trigger>
