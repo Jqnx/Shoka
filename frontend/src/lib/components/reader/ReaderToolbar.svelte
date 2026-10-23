@@ -29,6 +29,7 @@
 		coverError,
 		canSetCover,
 		favorited,
+		favoriteBusy,
 		onSetCover,
 		onToggleFavorite,
 		onPinnedChange,
@@ -52,6 +53,8 @@
 		canSetCover: boolean;
 		/** Whether the current page is in the user's page favorites. */
 		favorited: boolean;
+		/** True while the favorite toggle for the current page is in flight. */
+		favoriteBusy: boolean;
 		onSetCover: () => void;
 		onToggleFavorite: () => void;
 		/** Reports pointer/focus entering or leaving the island (pauses auto-hide). */
@@ -74,7 +77,7 @@
 
 	// Every control is a full-height cell that fills its own column, so the
 	// hover fill covers the entire bar height rather than a boxed button.
-	// `w-9` below `sm` so `n of total` still fits beside them on a 360px phone -
+	// `w-8` below `sm` so `n of total` still fits beside them on a 360px phone -
 	// unlike a real grid column, a `basis-*` on a shrinkable item can't widen an
 	// intrinsically-sized flex line, so these have to be definite widths.
 	const cell =
@@ -269,6 +272,8 @@
 			<button
 				type="button"
 				class={cell}
+				disabled={favoriteBusy}
+				aria-busy={favoriteBusy}
 				aria-label={favorited ? 'Remove current page from favorites' : 'Favorite current page'}
 				title={favorited ? 'Remove current page from favorites' : 'Favorite current page'}
 				aria-pressed={favorited}

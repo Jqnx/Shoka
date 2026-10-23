@@ -14,6 +14,7 @@
 		coverPage,
 		canSetCover,
 		favoritePages,
+		favoritePending,
 		onSetCover,
 		onToggleFavorite,
 		onCurrentPageChange,
@@ -26,6 +27,7 @@
 		coverPage?: number;
 		canSetCover?: boolean;
 		favoritePages: SvelteSet<number>;
+		favoritePending: SvelteSet<string>;
 		onSetCover?: (index: number) => void;
 		onToggleFavorite: (index: number) => void;
 		onCurrentPageChange: (index: number) => void;
@@ -79,7 +81,10 @@
 			class="flex w-full items-center overflow-x-auto"
 		>
 			{#snippet pageActions()}
-				<ContextMenu.Item onSelect={() => onToggleFavorite(index)}>
+				<ContextMenu.Item
+					disabled={favoritePending.has(`${archiveId}:${index}`)}
+					onSelect={() => onToggleFavorite(index)}
+				>
 					<Heart
 						class={favoritePages.has(index) ? 'size-4 fill-red-500 stroke-red-500' : 'size-4'}
 					/>

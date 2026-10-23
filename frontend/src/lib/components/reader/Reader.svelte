@@ -50,7 +50,17 @@
 	// svelte-ignore state_referenced_locally
 	const favoritePageSet = new SvelteSet<number>(favoritePages);
 
+	// One request per archive/page at a time. While it is in flight the heart
+	// and the matching context-menu item are disabled, so a second click is
+	// visibly rejected rather than silently racing the optimistic revert.
+	const favoritePending = new SvelteSet<string>();
+
 	async function toggleFavoritePage(index: number) {
+		const key = `${archiveId}:${index}`;
+		if (favoritePending.has(key)) return;
+
+		favoritePending.add(key);
+
 		const wasFavorited = favoritePageSet.has(index);
 		if (wasFavorited) favoritePageSet.delete(index);
 		else favoritePageSet.add(index);
@@ -62,6 +72,8 @@
 			if (!res.ok) revertFavoritePage(index, wasFavorited);
 		} catch {
 			revertFavoritePage(index, wasFavorited);
+		} finally {
+			favoritePending.delete(key);
 		}
 	}
 
@@ -350,6 +362,7 @@
 		{coverError}
 		{canSetCover}
 		favorited={favoritePageSet.has(currentPage)}
+		favoriteBusy={favoritePending.has(`${archiveId}:${currentPage}`)}
 		onSetCover={() => setCover(currentPage)}
 		onToggleFavorite={() => toggleFavoritePage(currentPage)}
 		onPinnedChange={handlePinnedChange}
@@ -368,6 +381,7 @@
 			{coverPage}
 			{canSetCover}
 			favoritePages={favoritePageSet}
+			{favoritePending}
 			onToggleFavorite={toggleFavoritePage}
 			onSetCover={(i) => setCover(i)}
 			onCurrentPageChange={handleScrollPageChange}
@@ -382,6 +396,7 @@
 			{coverPage}
 			{canSetCover}
 			favoritePages={favoritePageSet}
+			{favoritePending}
 			onToggleFavorite={toggleFavoritePage}
 			onSetCover={(i) => setCover(i)}
 			onLeftZone={leftZone}

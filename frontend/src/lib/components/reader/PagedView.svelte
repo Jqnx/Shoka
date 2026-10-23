@@ -14,6 +14,7 @@
 		coverPage,
 		canSetCover,
 		favoritePages,
+		favoritePending,
 		onSetCover,
 		onToggleFavorite,
 		onLeftZone,
@@ -27,6 +28,7 @@
 		coverPage?: number;
 		canSetCover?: boolean;
 		favoritePages: SvelteSet<number>;
+		favoritePending: SvelteSet<string>;
 		onSetCover?: (index: number) => void;
 		onToggleFavorite: (index: number) => void;
 		onLeftZone: () => void;
@@ -85,9 +87,12 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div bind:this={scroller} class="h-dvh w-full overflow-auto" onclick={handleClick}>
 	<div class="flex h-full min-w-full items-start gap-1">
-		{#each displayIndexes as index (index)}
+		{#each displayIndexes as index, position (index)}
 			{#snippet pageActions()}
-				<ContextMenu.Item onSelect={() => onToggleFavorite(index)}>
+				<ContextMenu.Item
+					disabled={favoritePending.has(`${archiveId}:${index}`)}
+					onSelect={() => onToggleFavorite(index)}
+				>
 					<Heart
 						class={favoritePages.has(index) ? 'size-4 fill-red-500 stroke-red-500' : 'size-4'}
 					/>
@@ -106,10 +111,12 @@
 			{/snippet}
 			<div
 				class={settings.fit_mode === 'original'
-					? 'relative m-auto flex shrink-0 items-center justify-center'
+					? 'relative my-auto flex shrink-0 items-center justify-center'
 					: settings.fit_mode === 'height'
 						? 'relative flex h-full min-w-0 flex-1 items-center justify-center'
 						: 'relative my-auto flex min-w-0 flex-1 items-center justify-center'}
+				class:ms-auto={settings.fit_mode === 'original' && position === 0}
+				class:me-auto={settings.fit_mode === 'original' && position === displayIndexes.length - 1}
 			>
 				<ImageContextMenu
 					src={pageUrl(archiveId, index)}

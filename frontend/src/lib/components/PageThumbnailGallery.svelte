@@ -27,6 +27,11 @@
 	// Toggles made while the initial list is in flight. They are re-applied
 	// over the fetched snapshot so a late response cannot undo them.
 	const pendingFavoriteToggles = new Map<number, boolean>();
+	// One request per archive/page at a time, so a second click cannot race the
+	// first request's revert. Reactive so the menu item is disabled while it
+	// is in flight; keyed by archive because this instance is reused across
+	// /a/[id] navigations.
+	const favoritePending = new SvelteSet<string>();
 	let favoriteLoad = 0;
 	let genError = $state<string | null>(null);
 
@@ -85,6 +90,11 @@
 
 	async function toggleFavorite(index: number) {
 		const archive = archiveId;
+		const key = `${archive}:${index}`;
+		if (favoritePending.has(key)) return;
+
+		favoritePending.add(key);
+
 		const wasFavorited = favoritePages.has(index);
 		pendingFavoriteToggles.set(index, !wasFavorited);
 
@@ -92,19 +102,26 @@
 		else favoritePages.add(index);
 
 		try {
-			const res = await fetch(`/api/archives/${archive}/pages/${index}/favorite`, {
-				method: wasFavorited ? 'DELETE' : 'PUT'
-			});
-			if (res.ok) return;
-		} catch {
-			// Fall through to the revert below.
-		}
+			let ok = false;
+			try {
+				const res = await fetch(`/api/archives/${archive}/pages/${index}/favorite`, {
+					method: wasFavorited ? 'DELETE' : 'PUT'
+				});
+				ok = res.ok;
+			} catch {
+				ok = false;
+			}
 
-		// A newer toggle (or an archive change) owns this index now.
-		if (archive !== archiveId) return;
-		if (pendingFavoriteToggles.get(index) !== !wasFavorited) return;
-		pendingFavoriteToggles.delete(index);
-		revertFavorite(index, wasFavorited);
+			if (ok) return;
+
+			// A newer toggle (or an archive change) owns this index now.
+			if (archive !== archiveId) return;
+			if (pendingFavoriteToggles.get(index) !== !wasFavorited) return;
+			pendingFavoriteToggles.delete(index);
+			revertFavorite(index, wasFavorited);
+		} finally {
+			favoritePending.delete(key);
+		}
 	}
 
 	function revertFavorite(index: number, wasFavorited: boolean) {
@@ -175,7 +192,10 @@
 	<div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
 		{#each pages as index (index)}
 			{#snippet pageActions()}
-				<ContextMenu.Item onSelect={() => toggleFavorite(index)}>
+				<ContextMenu.Item
+					disabled={favoritePending.has(`${archiveId}:${index}`)}
+					onSelect={() => toggleFavorite(index)}
+				>
 					<Heart
 						class={favoritePages.has(index) ? 'size-4 fill-red-500 stroke-red-500' : 'size-4'}
 					/>
