@@ -28,11 +28,21 @@ const getAllCategory = `-- name: GetAllCategory :many
 select distinct category
 from archive
 where category is not null
+  and (?1 = 1
+       or archive.library_id in (select library_id from library_access where user_id = ?2))
 order by category
 `
 
-func (q *Queries) GetAllCategory(ctx context.Context) ([]*string, error) {
-	rows, err := q.db.QueryContext(ctx, getAllCategory)
+type GetAllCategoryParams struct {
+	AllLibraries interface{} `json:"all_libraries"`
+	Uid          string      `json:"uid"`
+}
+
+// Only values present in libraries the caller may access (all of them for an
+// admin), so a facet never advertises a value that only exists in a hidden
+// library.
+func (q *Queries) GetAllCategory(ctx context.Context, arg GetAllCategoryParams) ([]*string, error) {
+	rows, err := q.db.QueryContext(ctx, getAllCategory, arg.AllLibraries, arg.Uid)
 	if err != nil {
 		return nil, err
 	}

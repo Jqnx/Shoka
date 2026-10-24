@@ -161,6 +161,19 @@ var roles = map[string]map[string][]string{
 	RoleUser:  {},
 }
 
+// IsAdmin reports whether role contains the admin role. A comma-separated
+// role string is split the same way Can splits it, so a session that satisfies
+// requirePermission as an admin also bypasses the library access list.
+func IsAdmin(role string) bool {
+	for name := range strings.SplitSeq(role, ",") {
+		if strings.TrimSpace(name) == RoleAdmin {
+			return true
+		}
+	}
+
+	return false
+}
+
 // Can reports whether role may perform permission. An empty, NULL-sourced, or
 // unrecognised role is treated as `user` and grants nothing. A comma-separated
 // role string grants the union of its parts, matching better-auth's own

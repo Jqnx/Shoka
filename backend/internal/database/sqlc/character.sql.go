@@ -633,16 +633,19 @@ join archive_character on archive.id = archive_character.archive_id
 join character on archive_character.character_id = character.id
 left join reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = ?1
 where character.name = ?2
+  and (?3 = 1
+       or archive.library_id in (select library_id from library_access where user_id = ?1))
 order by archive.title asc
-limit ?4
-offset ?3
+limit ?5
+offset ?4
 `
 
 type GetArchivesByCharacterNameParams struct {
-	Uid    string `json:"uid"`
-	Name   string `json:"name"`
-	Offset int64  `json:"offset"`
-	Limit  int64  `json:"limit"`
+	Uid          string      `json:"uid"`
+	Name         string      `json:"name"`
+	AllLibraries interface{} `json:"all_libraries"`
+	Offset       int64       `json:"offset"`
+	Limit        int64       `json:"limit"`
 }
 
 type GetArchivesByCharacterNameRow struct {
@@ -673,6 +676,7 @@ func (q *Queries) GetArchivesByCharacterName(ctx context.Context, arg GetArchive
 	rows, err := q.db.QueryContext(ctx, getArchivesByCharacterName,
 		arg.Uid,
 		arg.Name,
+		arg.AllLibraries,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -830,11 +834,21 @@ select count(archive.id)
 from archive
 join archive_character on archive.id = archive_character.archive_id
 join character on archive_character.character_id = character.id
-where character.name = ?
+where character.name = ?1
+  and (?2 = 1
+       or archive.library_id in (select library_id from library_access where user_id = ?3))
 `
 
-func (q *Queries) TotalArchiveWithCharacter(ctx context.Context, name string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, totalArchiveWithCharacter, name)
+type TotalArchiveWithCharacterParams struct {
+	Name         string      `json:"name"`
+	AllLibraries interface{} `json:"all_libraries"`
+	Uid          string      `json:"uid"`
+}
+
+// Same library scope as GetArchivesByCharacterName: the total must
+// describe the same set the list pages through.
+func (q *Queries) TotalArchiveWithCharacter(ctx context.Context, arg TotalArchiveWithCharacterParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, totalArchiveWithCharacter, arg.Name, arg.AllLibraries, arg.Uid)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

@@ -600,16 +600,19 @@ join archive_artist on archive.id = archive_artist.archive_id
 join artist on archive_artist.artist_id = artist.id
 left join reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = ?1
 where artist.id = ?2
+  and (?3 = 1
+       or archive.library_id in (select library_id from library_access where user_id = ?1))
 order by archive.title asc
-limit ?4
-offset ?3
+limit ?5
+offset ?4
 `
 
 type GetArchivesByArtistIDParams struct {
-	Uid    string `json:"uid"`
-	ID     int64  `json:"id"`
-	Offset int64  `json:"offset"`
-	Limit  int64  `json:"limit"`
+	Uid          string      `json:"uid"`
+	ID           int64       `json:"id"`
+	AllLibraries interface{} `json:"all_libraries"`
+	Offset       int64       `json:"offset"`
+	Limit        int64       `json:"limit"`
 }
 
 type GetArchivesByArtistIDRow struct {
@@ -640,6 +643,7 @@ func (q *Queries) GetArchivesByArtistID(ctx context.Context, arg GetArchivesByAr
 	rows, err := q.db.QueryContext(ctx, getArchivesByArtistID,
 		arg.Uid,
 		arg.ID,
+		arg.AllLibraries,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -957,11 +961,21 @@ select count(archive.id)
 from archive
 join archive_artist on archive.id = archive_artist.archive_id
 join artist on archive_artist.artist_id = artist.id
-where artist.id = ?
+where artist.id = ?1
+  and (?2 = 1
+       or archive.library_id in (select library_id from library_access where user_id = ?3))
 `
 
-func (q *Queries) TotalArchiveWithArtist(ctx context.Context, id int64) (int64, error) {
-	row := q.db.QueryRowContext(ctx, totalArchiveWithArtist, id)
+type TotalArchiveWithArtistParams struct {
+	ID           int64       `json:"id"`
+	AllLibraries interface{} `json:"all_libraries"`
+	Uid          string      `json:"uid"`
+}
+
+// Same library scope as GetArchivesByArtistID: the total must describe the
+// same set the list pages through.
+func (q *Queries) TotalArchiveWithArtist(ctx context.Context, arg TotalArchiveWithArtistParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, totalArchiveWithArtist, arg.ID, arg.AllLibraries, arg.Uid)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

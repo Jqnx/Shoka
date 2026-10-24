@@ -111,6 +111,7 @@ func toSearchEntityResponse(items []database.EntitySearchResult, total int64) Se
 //	@Param			limit		query		int		false	"Max results per category"	default(5)
 //	@Success		200	{object}	SearchResponse
 //	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/search [get]
 func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
@@ -120,6 +121,11 @@ func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 	libraryID := q.Get("library_id")
 	if libraryID == "" {
 		response.BadRequest(w, "library_id is required")
+		return
+	}
+
+	if !auth.LibraryScopeFromContext(r.Context()).Allows(libraryID) {
+		response.NotFound(w, "library not found")
 		return
 	}
 

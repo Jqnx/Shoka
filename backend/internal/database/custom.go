@@ -55,6 +55,38 @@ func GetSession(ctx context.Context, db *sql.DB, token string) (*Session, error)
 	return &session, nil
 }
 
+// AccessibleLibraryIDs returns the library ids granted to userID. The result
+// is never nil: no grants yields an empty slice, which the auth scope treats
+// as "nothing accessible" (nil would mean unrestricted).
+func AccessibleLibraryIDs(ctx context.Context, db *sql.DB, userID string) ([]string, error) {
+	rows, err := sqlc.New(db).ListLibraryAccessForUser(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list library access: %w", err)
+	}
+
+	ids := make([]string, 0, len(rows))
+	ids = append(ids, rows...)
+
+	return ids, nil
+}
+
+// UserExists reports whether a better-auth user row exists. The user table is
+// frontend-owned, so there is no generated query for it.
+func UserExists(ctx context.Context, db *sql.DB, id string) (bool, error) {
+	var one int
+
+	err := db.QueryRowContext(ctx, `SELECT 1 FROM user WHERE id = ? LIMIT 1`, id).Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("user exists: %w", err)
+	}
+
+	return true, nil
+}
+
 // DeleteArchive removes an archive and, inside the same transaction, subtracts
 // its contribution from every taxonomy counter. It is the way archives are
 // deleted: the generated sqlc.Queries.DeleteArchive stays the single-row

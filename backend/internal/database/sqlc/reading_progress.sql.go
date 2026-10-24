@@ -16,11 +16,21 @@ const countRecentlyReadArchives = `-- name: CountRecentlyReadArchives :one
 
 select count(*)
 from reading_progress
-where user_id = ?
+join archive on archive.id = reading_progress.archive_id
+where reading_progress.user_id = ?1
+  and (?2 = 1
+       or archive.library_id in (select library_id from library_access where user_id = ?1))
 `
 
-func (q *Queries) CountRecentlyReadArchives(ctx context.Context, userID string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countRecentlyReadArchives, userID)
+type CountRecentlyReadArchivesParams struct {
+	Uid          string      `json:"uid"`
+	AllLibraries interface{} `json:"all_libraries"`
+}
+
+// Must apply the same library scope as GetRecentlyReadArchives, or the feed's
+// total would count rows the list never returns.
+func (q *Queries) CountRecentlyReadArchives(ctx context.Context, arg CountRecentlyReadArchivesParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countRecentlyReadArchives, arg.Uid, arg.AllLibraries)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -77,15 +87,18 @@ from archive
 join reading_progress
     on archive.id = reading_progress.archive_id
     and reading_progress.user_id = ?1
+where (?2 = 1
+       or archive.library_id in (select library_id from library_access where user_id = ?1))
 order by reading_progress.last_read desc
-limit ?3
-offset ?2
+limit ?4
+offset ?3
 `
 
 type GetRecentlyReadArchivesParams struct {
-	Uid    string `json:"uid"`
-	Offset int64  `json:"offset"`
-	Limit  int64  `json:"limit"`
+	Uid          string      `json:"uid"`
+	AllLibraries interface{} `json:"all_libraries"`
+	Offset       int64       `json:"offset"`
+	Limit        int64       `json:"limit"`
 }
 
 type GetRecentlyReadArchivesRow struct {
@@ -112,11 +125,16 @@ type GetRecentlyReadArchivesRow struct {
 	Completed   bool       `json:"completed"`
 }
 
-// Deliberately NOT scoped to a library: this is a continue-reading feed
-// spanning the whole collection, regardless of which library each archive
-// belongs to.
+// Scoped to the libraries the caller may access (all of them for an admin):
+// this is a continue-reading feed spanning every accessible library, not just
+// one.
 func (q *Queries) GetRecentlyReadArchives(ctx context.Context, arg GetRecentlyReadArchivesParams) ([]GetRecentlyReadArchivesRow, error) {
-	rows, err := q.db.QueryContext(ctx, getRecentlyReadArchives, arg.Uid, arg.Offset, arg.Limit)
+	rows, err := q.db.QueryContext(ctx, getRecentlyReadArchives,
+		arg.Uid,
+		arg.AllLibraries,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}

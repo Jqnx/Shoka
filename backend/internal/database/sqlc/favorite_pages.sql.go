@@ -34,10 +34,19 @@ select count(*)
 from favorite_page as fp
 join archive as a on a.id = fp.archive_id
 where fp.user_id = ?1 and fp.page_index < a.page_count
+  and (?2 = 1
+       or a.library_id in (select library_id from library_access where user_id = ?1))
 `
 
-func (q *Queries) CountUserFavoritePages(ctx context.Context, uid string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countUserFavoritePages, uid)
+type CountUserFavoritePagesParams struct {
+	Uid          string      `json:"uid"`
+	AllLibraries interface{} `json:"all_libraries"`
+}
+
+// Same library scope as GetUserFavoritePageList: the total must describe the
+// same set the list pages through.
+func (q *Queries) CountUserFavoritePages(ctx context.Context, arg CountUserFavoritePagesParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUserFavoritePages, arg.Uid, arg.AllLibraries)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -88,15 +97,18 @@ select fp.archive_id, fp.page_index, fp.favorited_at,
 from favorite_page as fp
 join archive as a on a.id = fp.archive_id
 where fp.user_id = ?1 and fp.page_index < a.page_count
+  and (?2 = 1
+       or a.library_id in (select library_id from library_access where user_id = ?1))
 order by fp.favorited_at desc, fp.rowid desc
-limit ?3
-offset ?2
+limit ?4
+offset ?3
 `
 
 type GetUserFavoritePageListParams struct {
-	Uid    string `json:"uid"`
-	Offset int64  `json:"offset"`
-	Limit  int64  `json:"limit"`
+	Uid          string      `json:"uid"`
+	AllLibraries interface{} `json:"all_libraries"`
+	Offset       int64       `json:"offset"`
+	Limit        int64       `json:"limit"`
 }
 
 type GetUserFavoritePageListRow struct {
@@ -107,14 +119,20 @@ type GetUserFavoritePageListRow struct {
 	PageCount   int64     `json:"page_count"`
 }
 
-// Cross-library favorite pages, newest first. The page_index < page_count
-// filter hides rows whose archive has since shrunk past that index; the rows
-// are kept so the user can still unfavorite them.
+// Favorite pages across every library the caller may access (all of them for
+// an admin), newest first. The page_index < page_count filter hides rows whose
+// archive has since shrunk past that index; the rows are kept so the user can
+// still unfavorite them.
 // fp.rowid is the tiebreaker: favorited_at only has second granularity, and
 // the gallery's global ordinal must line up across separately paginated
 // requests.
 func (q *Queries) GetUserFavoritePageList(ctx context.Context, arg GetUserFavoritePageListParams) ([]GetUserFavoritePageListRow, error) {
-	rows, err := q.db.QueryContext(ctx, getUserFavoritePageList, arg.Uid, arg.Offset, arg.Limit)
+	rows, err := q.db.QueryContext(ctx, getUserFavoritePageList,
+		arg.Uid,
+		arg.AllLibraries,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}

@@ -24,23 +24,30 @@ where archive_id = ? and user_id = ?
 ;
 
 -- name: GetRecentlyReadArchives :many
--- Deliberately NOT scoped to a library: this is a continue-reading feed
--- spanning the whole collection, regardless of which library each archive
--- belongs to.
+-- Scoped to the libraries the caller may access (all of them for an admin):
+-- this is a continue-reading feed spanning every accessible library, not just
+-- one.
 select archive.*, reading_progress.page, reading_progress.last_read, reading_progress.completed
 from archive
 join reading_progress
     on archive.id = reading_progress.archive_id
     and reading_progress.user_id = sqlc.arg('uid')
+where (sqlc.arg('all_libraries') = 1
+       or archive.library_id in (select library_id from library_access where user_id = sqlc.arg('uid')))
 order by reading_progress.last_read desc
 limit sqlc.arg('limit')
 offset sqlc.arg('offset')
 ;
 
 -- name: CountRecentlyReadArchives :one
+-- Must apply the same library scope as GetRecentlyReadArchives, or the feed's
+-- total would count rows the list never returns.
 select count(*)
 from reading_progress
-where user_id = ?
+join archive on archive.id = reading_progress.archive_id
+where reading_progress.user_id = sqlc.arg('uid')
+  and (sqlc.arg('all_libraries') = 1
+       or archive.library_id in (select library_id from library_access where user_id = sqlc.arg('uid')))
 ;
 
 -- name: MarkArchivesRead :exec

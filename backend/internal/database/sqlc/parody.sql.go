@@ -620,16 +620,19 @@ join archive_parody on archive.id = archive_parody.archive_id
 join parody on archive_parody.parody_id = parody.id
 left join reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = ?1
 where parody.name = ?2
+  and (?3 = 1
+       or archive.library_id in (select library_id from library_access where user_id = ?1))
 order by archive.title asc
-limit ?4
-offset ?3
+limit ?5
+offset ?4
 `
 
 type GetArchivesByParodyNameParams struct {
-	Uid    string `json:"uid"`
-	Name   string `json:"name"`
-	Offset int64  `json:"offset"`
-	Limit  int64  `json:"limit"`
+	Uid          string      `json:"uid"`
+	Name         string      `json:"name"`
+	AllLibraries interface{} `json:"all_libraries"`
+	Offset       int64       `json:"offset"`
+	Limit        int64       `json:"limit"`
 }
 
 type GetArchivesByParodyNameRow struct {
@@ -660,6 +663,7 @@ func (q *Queries) GetArchivesByParodyName(ctx context.Context, arg GetArchivesBy
 	rows, err := q.db.QueryContext(ctx, getArchivesByParodyName,
 		arg.Uid,
 		arg.Name,
+		arg.AllLibraries,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -829,11 +833,21 @@ select count(archive.id)
 from archive
 join archive_parody on archive.id = archive_parody.archive_id
 join parody on archive_parody.parody_id = parody.id
-where parody.name = ?
+where parody.name = ?1
+  and (?2 = 1
+       or archive.library_id in (select library_id from library_access where user_id = ?3))
 `
 
-func (q *Queries) TotalArchiveWithParody(ctx context.Context, name string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, totalArchiveWithParody, name)
+type TotalArchiveWithParodyParams struct {
+	Name         string      `json:"name"`
+	AllLibraries interface{} `json:"all_libraries"`
+	Uid          string      `json:"uid"`
+}
+
+// Same library scope as GetArchivesByParodyName: the total must
+// describe the same set the list pages through.
+func (q *Queries) TotalArchiveWithParody(ctx context.Context, arg TotalArchiveWithParodyParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, totalArchiveWithParody, arg.Name, arg.AllLibraries, arg.Uid)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

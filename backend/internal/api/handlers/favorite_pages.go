@@ -4,8 +4,6 @@ import (
 	"Shoka/internal/api/response"
 	"Shoka/internal/auth"
 	"Shoka/internal/database/sqlc"
-	"database/sql"
-	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -46,16 +44,8 @@ func (h *ArchiveHandler) favoriteArchive(w http.ResponseWriter, r *http.Request)
 		return sqlc.Archive{}, false
 	}
 
-	archive, err := h.queries.GetArchiveByID(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			response.NotFound(w, "archive not found")
-			return sqlc.Archive{}, false
-		}
-
-		h.logger.Error("get archive failed", "id", id, "error", err)
-		response.InternalError(w, "failed to get archive")
-
+	archive, ok := h.loadScopedArchive(w, r, id)
+	if !ok {
 		return sqlc.Archive{}, false
 	}
 
@@ -190,7 +180,7 @@ func (h *ArchiveHandler) GetFavoritePageIndices(w http.ResponseWriter, r *http.R
 
 // GetFavoritePages godoc
 //
-//	@Summary		List the current user's favorited pages across all archives
+//	@Summary		List the current user's favorited pages across accessible archives
 //	@Description	Newest first. Pages an archive has since shrunk past are omitted.
 //	@Tags			archives
 //	@Produce		json
@@ -205,7 +195,10 @@ func (h *ArchiveHandler) GetFavoritePages(w http.ResponseWriter, r *http.Request
 	page, limit := parsePagination(r, defaultArchiveLimit)
 	offset := int64((page - 1) * limit)
 
-	total, err := h.queries.CountUserFavoritePages(r.Context(), userID)
+	total, err := h.queries.CountUserFavoritePages(r.Context(), sqlc.CountUserFavoritePagesParams{
+		Uid:          userID,
+		AllLibraries: auth.LibraryScopeFromContext(r.Context()).Unrestricted(),
+	})
 	if err != nil {
 		h.logger.Error("count favorite pages failed", "error", err)
 		response.InternalError(w, "failed to count favorite pages")
@@ -214,9 +207,10 @@ func (h *ArchiveHandler) GetFavoritePages(w http.ResponseWriter, r *http.Request
 	}
 
 	rows, err := h.queries.GetUserFavoritePageList(r.Context(), sqlc.GetUserFavoritePageListParams{
-		Uid:    userID,
-		Offset: offset,
-		Limit:  int64(limit),
+		Uid:          userID,
+		AllLibraries: auth.LibraryScopeFromContext(r.Context()).Unrestricted(),
+		Offset:       offset,
+		Limit:        int64(limit),
 	})
 	if err != nil {
 		h.logger.Error("get favorite pages failed", "error", err)

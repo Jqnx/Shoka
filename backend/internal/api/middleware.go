@@ -36,6 +36,19 @@ func authMiddleware(db *sql.DB) func(http.Handler) http.Handler {
 			}
 
 			ctx := auth.WithRole(auth.WithUserID(r.Context(), session.UserID), session.Role)
+
+			// Admins bypass the access list, so their request carries no
+			// scope entry and LibraryScopeFromContext reports unrestricted.
+			if !auth.IsAdmin(session.Role) {
+				ids, err := database.AccessibleLibraryIDs(r.Context(), db, session.UserID)
+				if err != nil {
+					response.InternalError(w, "failed to resolve library access")
+					return
+				}
+
+				ctx = auth.WithLibraryScope(ctx, auth.LibraryScope{IDs: ids})
+			}
+
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

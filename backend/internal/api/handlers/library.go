@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"Shoka/internal/api/response"
+	"Shoka/internal/auth"
 	"Shoka/internal/database"
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/image"
@@ -108,9 +109,15 @@ func (h *LibraryHandler) GetLibraries(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	items := make([]LibraryResponse, len(libs))
-	for i, lib := range libs {
-		items[i] = toLibraryResponse(lib)
+	scope := auth.LibraryScopeFromContext(r.Context())
+
+	items := make([]LibraryResponse, 0, len(libs))
+	for _, lib := range libs {
+		if !scope.Allows(lib.ID) {
+			continue
+		}
+
+		items = append(items, toLibraryResponse(lib))
 	}
 
 	response.JSON(w, http.StatusOK, items)

@@ -581,7 +581,7 @@ func (q *Queries) GetArchiveShuffle(ctx context.Context, arg GetArchiveShufflePa
 const getArchivesByIDs = `-- name: GetArchivesByIDs :many
 ;
 
-select id, page_count
+select id, page_count, library_id
 from archive
 where id in (/*SLICE:ids*/?)
 `
@@ -589,11 +589,13 @@ where id in (/*SLICE:ids*/?)
 type GetArchivesByIDsRow struct {
 	ID        string `json:"id"`
 	PageCount int64  `json:"page_count"`
+	LibraryID string `json:"library_id"`
 }
 
 // Backs the bulk endpoints: resolves which of a caller-supplied set of ids
 // actually exist (so missing ones can be reported per-id rather than
-// failing the whole batch) and carries page_count for read-marking.
+// failing the whole batch), and carries page_count for read-marking plus
+// library_id so progress updates can enforce the caller's library scope.
 func (q *Queries) GetArchivesByIDs(ctx context.Context, ids []string) ([]GetArchivesByIDsRow, error) {
 	query := getArchivesByIDs
 	var queryParams []interface{}
@@ -613,7 +615,7 @@ func (q *Queries) GetArchivesByIDs(ctx context.Context, ids []string) ([]GetArch
 	var items []GetArchivesByIDsRow
 	for rows.Next() {
 		var i GetArchivesByIDsRow
-		if err := rows.Scan(&i.ID, &i.PageCount); err != nil {
+		if err := rows.Scan(&i.ID, &i.PageCount, &i.LibraryID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

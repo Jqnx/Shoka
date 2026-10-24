@@ -50,11 +50,17 @@ func NewMetadataHandler(queries *sqlc.Queries, db *sql.DB, pipeline *metadata.Pi
 //	@Param			library_id	query		string	true	"Library ID"
 //	@Success		200	{array}		metadata.SourceInfo
 //	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
 //	@Router			/api/metadata/sources [get]
 func (h *MetadataHandler) GetSources(w http.ResponseWriter, r *http.Request) {
 	libraryID := r.URL.Query().Get("library_id")
 	if libraryID == "" {
 		response.BadRequest(w, "library_id is required")
+		return
+	}
+
+	if !auth.LibraryScopeFromContext(r.Context()).Allows(libraryID) {
+		response.NotFound(w, "library not found")
 		return
 	}
 

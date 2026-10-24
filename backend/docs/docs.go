@@ -557,6 +557,116 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/admin/users/{id}/library-access": {
+            "get": {
+                "description": "Returns the library ids granted to the user. An admin's list is inert: admins can always access every library.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get a user's library access",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.LibraryAccessResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Replaces the set of libraries the user may access. Unknown library ids are rejected. An empty list revokes every grant, so a non-admin sees nothing. Editing an admin's list is allowed but has no effect: admins bypass the access list.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Replace a user's library access",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Granted library ids",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.libraryAccessRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.LibraryAccessResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/archives": {
             "get": {
                 "produces": [
@@ -664,6 +774,12 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/handlers.ArchiveListResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
                         }
                     },
                     "500": {
@@ -781,7 +897,7 @@ const docTemplate = `{
         },
         "/api/archives/bulk/progress": {
             "put": {
-                "description": "Marking read jumps each archive to its own last page and flags it completed; marking unread deletes the progress row outright (page 0 would still count as in-progress). Ids that don't resolve to an archive are reported in \"failed\" rather than failing the request.",
+                "description": "Marking read jumps each archive to its own last page and flags it completed; marking unread deletes the progress row outright (page 0 would still count as in-progress). Ids that don't resolve to an archive are reported in \"failed\" rather than failing the request. A batch containing an archive the caller cannot access fails the whole request with 403.",
                 "consumes": [
                     "application/json"
                 ],
@@ -816,6 +932,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/response.Error"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -827,7 +949,7 @@ const docTemplate = `{
         },
         "/api/archives/categories": {
             "get": {
-                "description": "Returns every distinct category currently in use across all libraries, sorted. Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.",
+                "description": "Returns every distinct category currently in use across the libraries the caller may access (all of them for an admin), sorted. Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.",
                 "produces": [
                     "application/json"
                 ],
@@ -856,14 +978,14 @@ const docTemplate = `{
         },
         "/api/archives/favorites": {
             "get": {
-                "description": "Returns archives the current user has favorited, most recently favorited first. Deliberately NOT scoped to a library - this is a favorites feed spanning the whole collection.",
+                "description": "Returns archives the current user has favorited, most recently favorited first. Spans every library the caller may access (all of them for an admin); archives in ungranted libraries are omitted.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "archives"
                 ],
-                "summary": "List favorited archives across all libraries",
+                "summary": "List favorited archives across accessible libraries",
                 "parameters": [
                     {
                         "type": "integer",
@@ -905,7 +1027,7 @@ const docTemplate = `{
                 "tags": [
                     "archives"
                 ],
-                "summary": "List the current user's favorited pages across all archives",
+                "summary": "List the current user's favorited pages across accessible archives",
                 "parameters": [
                     {
                         "type": "integer",
@@ -938,7 +1060,7 @@ const docTemplate = `{
         },
         "/api/archives/languages": {
             "get": {
-                "description": "Returns every distinct language code currently in use across all libraries, paired with a display name (see language.Converter; falls back to the raw code if unrecognized). Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.",
+                "description": "Returns every distinct language code currently in use across the libraries the caller may access (all of them for an admin), paired with a display name (see language.Converter; falls back to the raw code if unrecognized). Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.",
                 "produces": [
                     "application/json"
                 ],
@@ -967,14 +1089,14 @@ const docTemplate = `{
         },
         "/api/archives/recently-read": {
             "get": {
-                "description": "Returns archives with reading progress for the current user, most recently read first. Deliberately NOT scoped to a library - this is a continue-reading feed spanning the whole collection.",
+                "description": "Returns archives with reading progress for the current user, most recently read first. Spans every library the caller may access (all of them for an admin); archives in ungranted libraries are omitted.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "archives"
                 ],
-                "summary": "List recently read archives across all libraries",
+                "summary": "List recently read archives across accessible libraries",
                 "parameters": [
                     {
                         "type": "integer",
@@ -1332,6 +1454,12 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
                     },
                     "500": {
                         "description": "Internal Server Error",
@@ -1938,6 +2066,12 @@ const docTemplate = `{
                     "204": {
                         "description": "No Content"
                     },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -2017,6 +2151,12 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
                     },
                     "500": {
                         "description": "Internal Server Error",
@@ -2684,6 +2824,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/response.Error"
                         }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
                     }
                 }
             }
@@ -2957,6 +3103,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/response.Error"
                         }
@@ -3715,6 +3867,20 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.LibraryAccessResponse": {
+            "type": "object",
+            "properties": {
+                "library_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "handlers.LibraryBrowseEntry": {
             "type": "object",
             "properties": {
@@ -4182,6 +4348,17 @@ const docTemplate = `{
             "properties": {
                 "description": {
                     "type": "string"
+                }
+            }
+        },
+        "handlers.libraryAccessRequest": {
+            "type": "object",
+            "properties": {
+                "library_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

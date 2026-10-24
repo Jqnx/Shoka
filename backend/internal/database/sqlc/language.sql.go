@@ -16,11 +16,21 @@ const getAllLanguage = `-- name: GetAllLanguage :many
 select distinct language
 from archive
 where language is not null
+  and (?1 = 1
+       or archive.library_id in (select library_id from library_access where user_id = ?2))
 order by language
 `
 
-func (q *Queries) GetAllLanguage(ctx context.Context) ([]*string, error) {
-	rows, err := q.db.QueryContext(ctx, getAllLanguage)
+type GetAllLanguageParams struct {
+	AllLibraries interface{} `json:"all_libraries"`
+	Uid          string      `json:"uid"`
+}
+
+// Only values present in libraries the caller may access (all of them for an
+// admin), so a facet never advertises a value that only exists in a hidden
+// library.
+func (q *Queries) GetAllLanguage(ctx context.Context, arg GetAllLanguageParams) ([]*string, error) {
+	rows, err := q.db.QueryContext(ctx, getAllLanguage, arg.AllLibraries, arg.Uid)
 	if err != nil {
 		return nil, err
 	}

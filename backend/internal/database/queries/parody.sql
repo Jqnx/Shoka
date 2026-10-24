@@ -115,11 +115,15 @@ offset ?
 ;
 
 -- name: TotalArchiveWithParody :one
+-- Same library scope as GetArchivesByParodyName: the total must
+-- describe the same set the list pages through.
 select count(archive.id)
 from archive
 join archive_parody on archive.id = archive_parody.archive_id
 join parody on archive_parody.parody_id = parody.id
-where parody.name = ?
+where parody.name = sqlc.arg('name')
+  and (sqlc.arg('all_libraries') = 1
+       or archive.library_id in (select library_id from library_access where user_id = sqlc.arg('uid')))
 ;
 
 -- name: DecrementParodyCount :exec
@@ -141,6 +145,8 @@ join archive_parody on archive.id = archive_parody.archive_id
 join parody on archive_parody.parody_id = parody.id
 left join reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = sqlc.arg('uid')
 where parody.name = sqlc.arg('name')
+  and (sqlc.arg('all_libraries') = 1
+       or archive.library_id in (select library_id from library_access where user_id = sqlc.arg('uid')))
 order by archive.title asc
 limit sqlc.arg('limit')
 offset sqlc.arg('offset')

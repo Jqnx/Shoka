@@ -115,11 +115,15 @@ offset ?
 ;
 
 -- name: TotalArchiveWithCharacter :one
+-- Same library scope as GetArchivesByCharacterName: the total must
+-- describe the same set the list pages through.
 select count(archive.id)
 from archive
 join archive_character on archive.id = archive_character.archive_id
 join character on archive_character.character_id = character.id
-where character.name = ?
+where character.name = sqlc.arg('name')
+  and (sqlc.arg('all_libraries') = 1
+       or archive.library_id in (select library_id from library_access where user_id = sqlc.arg('uid')))
 ;
 
 -- name: DecrementCharacterCount :exec
@@ -141,6 +145,8 @@ join archive_character on archive.id = archive_character.archive_id
 join character on archive_character.character_id = character.id
 left join reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = sqlc.arg('uid')
 where character.name = sqlc.arg('name')
+  and (sqlc.arg('all_libraries') = 1
+       or archive.library_id in (select library_id from library_access where user_id = sqlc.arg('uid')))
 order by archive.title asc
 limit sqlc.arg('limit')
 offset sqlc.arg('offset')

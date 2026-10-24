@@ -46,6 +46,7 @@ type apiHandlers struct {
 	artist         *handlers.ArtistHandler
 	readerSettings *handlers.ReaderSettingsHandler
 	search         *handlers.SearchHandler
+	userAccess     *handlers.UserAccessHandler
 }
 
 // newAPIHandlers constructs one handler per route area from the server's
@@ -64,6 +65,7 @@ func (s *Server) newAPIHandlers() apiHandlers {
 		artist:         handlers.NewArtistHandler(s.Queries, s.DB, s.Log, s.Processor),
 		readerSettings: handlers.NewReaderSettingsHandler(s.Queries, s.Log),
 		search:         handlers.NewSearchHandler(s.Queries, s.DB, s.Processor, s.Log),
+		userAccess:     handlers.NewUserAccessHandler(s.Queries, s.DB, s.Log),
 	}
 }
 
@@ -211,6 +213,11 @@ func mountAdminRoutes(r chi.Router, h apiHandlers) {
 		r.With(requirePermission(auth.MaintenanceRead)).Get("/duplicates", h.admin.GetDuplicates)
 		r.With(requirePermission(auth.JobRead)).Get("/jobs", h.job.GetJobs)
 		r.With(requirePermission(auth.JobRead)).Get("/jobs/events", h.job.StreamJobEvents)
+
+		r.Route("/users/{id}", func(r chi.Router) {
+			r.With(requirePermission(auth.UserGet)).Get("/library-access", h.userAccess.GetLibraryAccess)
+			r.With(requirePermission(auth.UserUpdate)).Put("/library-access", h.userAccess.SetLibraryAccess)
+		})
 
 		r.Route("/libraries", func(r chi.Router) {
 			r.With(requirePermission(auth.LibraryCreate)).Post("/", h.library.CreateLibrary)

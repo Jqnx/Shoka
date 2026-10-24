@@ -173,6 +173,17 @@ type archiveNameParamsType interface {
 		sqlc.GetArchivesByTagNameParams
 }
 
+// archiveNameCountParams is the parameter set of a name-keyed count query,
+// and archiveNameCountParamsType the sqlc structs it converts to.
+type archiveNameCountParams sqlc.TotalArchiveWithCharacterParams
+
+// archiveNameCountParamsType lists the sqlc parameters of the name-keyed
+// archive count queries.
+type archiveNameCountParamsType interface {
+	sqlc.TotalArchiveWithCharacterParams | sqlc.TotalArchiveWithParodyParams |
+		sqlc.TotalArchiveWithTagParams
+}
+
 // archiveResponses maps a page of archive rows to the shared list item.
 func archiveResponses[R archiveRowType](processor *image.Processor, rows []R) []ArchiveResponse {
 	lc := language.NewConverter()
@@ -215,20 +226,21 @@ func archiveResponses[R archiveRowType](processor *image.Processor, rows []R) []
 // archivesByName counts and fetches one page of the archives linked to a
 // taxonomy row selected by name (character, parody, tag) and writes the list
 // response. kind names the relation in logs and messages.
-func archivesByName[P archiveNameParamsType, R archiveRowType](
+func archivesByName[P archiveNameParamsType, C archiveNameCountParamsType, R archiveRowType](
 	w http.ResponseWriter,
 	r *http.Request,
 	logger *slog.Logger,
 	kind, name string,
-	count func(context.Context, string) (int64, error),
+	count func(context.Context, C) (int64, error),
 	fetch func(context.Context, P) ([]R, error),
 	processor *image.Processor,
 ) {
 	page, limit := parsePagination(r, defaultArchiveLimit)
 	offset := int64((page - 1) * limit)
 	uid := auth.UserIDFromContext(r.Context())
+	all := auth.LibraryScopeFromContext(r.Context()).Unrestricted()
 
-	total, err := count(r.Context(), name)
+	total, err := count(r.Context(), C(archiveNameCountParams{Name: name, AllLibraries: all, Uid: uid}))
 	if err != nil {
 		logger.Error("count archives by "+kind+" failed", "error", err)
 		response.InternalError(w, "failed to count archives")
@@ -236,7 +248,13 @@ func archivesByName[P archiveNameParamsType, R archiveRowType](
 		return
 	}
 
-	rows, err := fetch(r.Context(), P(archiveNameParams{Uid: uid, Name: name, Offset: offset, Limit: int64(limit)}))
+	rows, err := fetch(r.Context(), P(archiveNameParams{
+		Uid:          uid,
+		Name:         name,
+		AllLibraries: all,
+		Offset:       offset,
+		Limit:        int64(limit),
+	}))
 	if err != nil {
 		logger.Error("list archives by "+kind+" failed", "error", err)
 		response.InternalError(w, "failed to list archives")
@@ -259,15 +277,20 @@ func archivesByID[R archiveRowType](
 	r *http.Request,
 	logger *slog.Logger,
 	id int64,
-	count func(context.Context, int64) (int64, error),
+	count func(context.Context, sqlc.TotalArchiveWithArtistParams) (int64, error),
 	fetch func(context.Context, sqlc.GetArchivesByArtistIDParams) ([]R, error),
 	processor *image.Processor,
 ) {
 	page, limit := parsePagination(r, defaultArchiveLimit)
 	offset := int64((page - 1) * limit)
 	uid := auth.UserIDFromContext(r.Context())
+	all := auth.LibraryScopeFromContext(r.Context()).Unrestricted()
 
-	total, err := count(r.Context(), id)
+	total, err := count(r.Context(), sqlc.TotalArchiveWithArtistParams{
+		ID:           id,
+		AllLibraries: all,
+		Uid:          uid,
+	})
 	if err != nil {
 		logger.Error("count archives by artist failed", "id", id, "error", err)
 		response.InternalError(w, "failed to count archives")
@@ -276,10 +299,11 @@ func archivesByID[R archiveRowType](
 	}
 
 	rows, err := fetch(r.Context(), sqlc.GetArchivesByArtistIDParams{
-		ID:     id,
-		Uid:    uid,
-		Limit:  int64(limit),
-		Offset: offset,
+		ID:           id,
+		Uid:          uid,
+		AllLibraries: all,
+		Limit:        int64(limit),
+		Offset:       offset,
 	})
 	if err != nil {
 		logger.Error("list archives by artist failed", "id", id, "error", err)

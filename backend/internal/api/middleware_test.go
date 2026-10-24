@@ -13,7 +13,11 @@ import (
 )
 
 // testToken is the session token the auth fixtures store and send back.
-const testToken = "tok"
+const (
+	testToken    = "tok"
+	testLibraryA = "lib-a"
+	testLibraryB = "lib-b"
+)
 
 // Mirrors the frontend-owned Better Auth columns the middleware reads.
 func newAuthDB(t *testing.T) *sql.DB {
@@ -31,6 +35,11 @@ func newAuthDB(t *testing.T) *sql.DB {
 	_, err = db.ExecContext(t.Context(), `
 		CREATE TABLE user (id TEXT PRIMARY KEY, role TEXT, banned INTEGER);
 		CREATE TABLE session (token TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at INTEGER NOT NULL);
+		CREATE TABLE library_access (
+			user_id TEXT NOT NULL,
+			library_id TEXT NOT NULL,
+			PRIMARY KEY (user_id, library_id)
+		);
 	`)
 	if err != nil {
 		t.Fatalf("schema: %v", err)
@@ -175,5 +184,122 @@ func TestRequirePermission(t *testing.T) {
 				t.Error("forbidden response should carry an error body")
 			}
 		})
+	}
+}
+
+func TestAuthMiddlewareResolvesLibraryScope(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		role         string
+		grants       []string
+		wantScope    auth.LibraryScope
+		wantAllows   []string
+		wantDeniedID string
+	}{
+		{
+			name:         "admin is unrestricted",
+			role:         auth.RoleAdmin,
+			grants:       nil,
+			wantScope:    auth.LibraryScope{},
+			wantAllows:   []string{testLibraryA, testLibraryB},
+			wantDeniedID: "",
+		},
+		{
+			name:         "comma-separated admin role is unrestricted",
+			role:         auth.RoleUser + "," + auth.RoleAdmin,
+			grants:       nil,
+			wantScope:    auth.LibraryScope{},
+			wantAllows:   []string{testLibraryA, testLibraryB},
+			wantDeniedID: "",
+		},
+		{
+			name:         "user gets only granted ids",
+			role:         auth.RoleUser,
+			grants:       []string{testLibraryA},
+			wantScope:    auth.LibraryScope{IDs: []string{testLibraryA}},
+			wantAllows:   []string{testLibraryA},
+			wantDeniedID: testLibraryB,
+		},
+		{
+			name:         "user with no grants is denied everything",
+			role:         auth.RoleUser,
+			grants:       nil,
+			wantScope:    auth.LibraryScope{IDs: []string{}},
+			wantAllows:   nil,
+			wantDeniedID: testLibraryA,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			db := newAuthDB(t)
+			addSession(t, db, testToken, "u1", tt.role, false, time.Now().Add(time.Hour))
+
+			for _, libraryID := range tt.grants {
+				if _, err := db.ExecContext(t.Context(),
+					`INSERT INTO library_access (user_id, library_id) VALUES (?, ?)`, "u1", libraryID,
+				); err != nil {
+					t.Fatalf("insert grant: %v", err)
+				}
+			}
+
+			r := chi.NewRouter()
+			r.Use(authMiddleware(db))
+			r.Get("/", func(w http.ResponseWriter, req *http.Request) {
+				scope := auth.LibraryScopeFromContext(req.Context())
+				if scope.Unrestricted() != tt.wantScope.Unrestricted() {
+					t.Errorf("unrestricted = %v, want %v", scope.Unrestricted(), tt.wantScope.Unrestricted())
+				}
+
+				for _, id := range tt.wantAllows {
+					if !scope.Allows(id) {
+						t.Errorf("scope should allow %q", id)
+					}
+				}
+
+				if tt.wantDeniedID != "" && scope.Allows(tt.wantDeniedID) {
+					t.Errorf("scope should deny %q", tt.wantDeniedID)
+				}
+
+				w.WriteHeader(http.StatusOK)
+			})
+
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+			req.Header.Set("Authorization", "Bearer "+testToken)
+
+			rec := httptest.NewRecorder()
+			r.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+			}
+		})
+	}
+}
+
+// A failure while resolving the allowlist must deny the request, never fall
+// through to an unrestricted scope.
+func TestAuthMiddlewareFailsClosedOnAccessLookupError(t *testing.T) {
+	t.Parallel()
+
+	db := newAuthDB(t)
+	addSession(t, db, testToken, "u1", auth.RoleUser, false, time.Now().Add(time.Hour))
+
+	if _, err := db.ExecContext(t.Context(), `DROP TABLE library_access`); err != nil {
+		t.Fatalf("drop library_access: %v", err)
+	}
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	req.Header.Set("Authorization", "Bearer "+testToken)
+
+	rec := httptest.NewRecorder()
+	authOnlyRouter(db).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
 	}
 }

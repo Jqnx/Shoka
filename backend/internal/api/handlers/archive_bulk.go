@@ -97,13 +97,14 @@ type BulkProgressRequest struct {
 // BulkUpdateProgress godoc
 //
 //	@Summary		Mark archives read or unread in bulk
-//	@Description	Marking read jumps each archive to its own last page and flags it completed; marking unread deletes the progress row outright (page 0 would still count as in-progress). Ids that don't resolve to an archive are reported in "failed" rather than failing the request.
+//	@Description	Marking read jumps each archive to its own last page and flags it completed; marking unread deletes the progress row outright (page 0 would still count as in-progress). Ids that don't resolve to an archive are reported in "failed" rather than failing the request. A batch containing an archive the caller cannot access fails the whole request with 403.
 //	@Tags			archives
 //	@Accept			json
 //	@Produce		json
 //	@Param			body	body	BulkProgressRequest	true	"Archives and desired read state"
 //	@Success		200	{object}	BulkResult
 //	@Failure		400	{object}	response.Error
+//	@Failure		403	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/archives/bulk/progress [put]
 func (h *ArchiveHandler) BulkUpdateProgress(w http.ResponseWriter, r *http.Request) {
@@ -127,6 +128,15 @@ func (h *ArchiveHandler) BulkUpdateProgress(w http.ResponseWriter, r *http.Reque
 		response.InternalError(w, "failed to load archives")
 
 		return
+	}
+
+	scope := auth.LibraryScopeFromContext(r.Context())
+	for _, row := range rows {
+		if !scope.Allows(row.LibraryID) {
+			response.Forbidden(w, "no access to one or more archives")
+
+			return
+		}
 	}
 
 	existing := make([]string, 0, len(rows))

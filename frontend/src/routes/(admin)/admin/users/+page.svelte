@@ -13,12 +13,22 @@
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
+	import { resolve } from '$app/paths';
 	import { can, ADMIN_ROLE, DEFAULT_ROLE } from '$lib/auth/permissions';
 	import { superForm, type Infer } from 'sveltekit-superforms';
 	import { zod4Client } from 'sveltekit-superforms/adapters';
 	import { createUserSchema, type CreateUserSchema } from '$lib/schemas/create-user';
 	import { cn } from '$lib/utils.js';
-	import { Ellipsis, Ban, LogOut, ShieldCheck, ShieldOff, Trash2, UserPlus } from '@lucide/svelte';
+	import {
+		Ellipsis,
+		Ban,
+		Library,
+		LogOut,
+		ShieldCheck,
+		ShieldOff,
+		Trash2,
+		UserPlus
+	} from '@lucide/svelte';
 	import type { ManagedUser } from './+page.server';
 
 	let { data, form } = $props();
@@ -375,6 +385,17 @@
 										{/snippet}
 									</DropdownMenu.Item>
 								</form>
+							{/if}
+
+							{#if can(me, { user: ['get'] })}
+								<DropdownMenu.Item>
+									{#snippet child({ props })}
+										<a href={resolve(`/admin/users/${u.id}`)} {...props}>
+											<Library />
+											Library access
+										</a>
+									{/snippet}
+								</DropdownMenu.Item>
 							{/if}
 
 							{#if canDelete && u.id !== me?.id}

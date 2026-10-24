@@ -51,12 +51,22 @@ const countUserFavoriteArchive = `-- name: CountUserFavoriteArchive :one
 ;
 
 select count(*)
-from favorite_archive
-where user_id = ?
+from favorite_archive as fa
+join archive on archive.id = fa.archive_id
+where fa.user_id = ?1
+  and (?2 = 1
+       or archive.library_id in (select library_id from library_access where user_id = ?1))
 `
 
-func (q *Queries) CountUserFavoriteArchive(ctx context.Context, userID string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countUserFavoriteArchive, userID)
+type CountUserFavoriteArchiveParams struct {
+	Uid          string      `json:"uid"`
+	AllLibraries interface{} `json:"all_libraries"`
+}
+
+// Must apply the same library scope as GetUserFavoriteArchiveList, or the
+// feed's total would count rows the list never returns.
+func (q *Queries) CountUserFavoriteArchive(ctx context.Context, arg CountUserFavoriteArchiveParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUserFavoriteArchive, arg.Uid, arg.AllLibraries)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -120,15 +130,18 @@ join favorite_archive as fa on archive.id = fa.archive_id
 left join
     reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = ?1
 where fa.user_id = ?1
+  and (?2 = 1
+       or archive.library_id in (select library_id from library_access where user_id = ?1))
 order by fa.favorited_at desc
-limit ?3
-offset ?2
+limit ?4
+offset ?3
 `
 
 type GetUserFavoriteArchiveListParams struct {
-	Uid    string `json:"uid"`
-	Offset int64  `json:"offset"`
-	Limit  int64  `json:"limit"`
+	Uid          string      `json:"uid"`
+	AllLibraries interface{} `json:"all_libraries"`
+	Offset       int64       `json:"offset"`
+	Limit        int64       `json:"limit"`
 }
 
 type GetUserFavoriteArchiveListRow struct {
@@ -156,7 +169,12 @@ type GetUserFavoriteArchiveListRow struct {
 }
 
 func (q *Queries) GetUserFavoriteArchiveList(ctx context.Context, arg GetUserFavoriteArchiveListParams) ([]GetUserFavoriteArchiveListRow, error) {
-	rows, err := q.db.QueryContext(ctx, getUserFavoriteArchiveList, arg.Uid, arg.Offset, arg.Limit)
+	rows, err := q.db.QueryContext(ctx, getUserFavoriteArchiveList,
+		arg.Uid,
+		arg.AllLibraries,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}

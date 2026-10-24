@@ -19,9 +19,10 @@ order by page_index asc
 ;
 
 -- name: GetUserFavoritePageList :many
--- Cross-library favorite pages, newest first. The page_index < page_count
--- filter hides rows whose archive has since shrunk past that index; the rows
--- are kept so the user can still unfavorite them.
+-- Favorite pages across every library the caller may access (all of them for
+-- an admin), newest first. The page_index < page_count filter hides rows whose
+-- archive has since shrunk past that index; the rows are kept so the user can
+-- still unfavorite them.
 -- fp.rowid is the tiebreaker: favorited_at only has second granularity, and
 -- the gallery's global ordinal must line up across separately paginated
 -- requests.
@@ -30,14 +31,20 @@ select fp.archive_id, fp.page_index, fp.favorited_at,
 from favorite_page as fp
 join archive as a on a.id = fp.archive_id
 where fp.user_id = sqlc.arg('uid') and fp.page_index < a.page_count
+  and (sqlc.arg('all_libraries') = 1
+       or a.library_id in (select library_id from library_access where user_id = sqlc.arg('uid')))
 order by fp.favorited_at desc, fp.rowid desc
 limit sqlc.arg('limit')
 offset sqlc.arg('offset')
 ;
 
 -- name: CountUserFavoritePages :one
+-- Same library scope as GetUserFavoritePageList: the total must describe the
+-- same set the list pages through.
 select count(*)
 from favorite_page as fp
 join archive as a on a.id = fp.archive_id
 where fp.user_id = sqlc.arg('uid') and fp.page_index < a.page_count
+  and (sqlc.arg('all_libraries') = 1
+       or a.library_id in (select library_id from library_access where user_id = sqlc.arg('uid')))
 ;

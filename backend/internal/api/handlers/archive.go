@@ -278,14 +278,17 @@ func (h *ArchiveHandler) GetArchiveSortOptions(w http.ResponseWriter, _ *http.Re
 // GetCategories godoc
 //
 //	@Summary		List all archive categories
-//	@Description	Returns every distinct category currently in use across all libraries, sorted. Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.
+//	@Description	Returns every distinct category currently in use across the libraries the caller may access (all of them for an admin), sorted. Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.
 //	@Tags			archives
 //	@Produce		json
 //	@Success		200	{array}		string
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/archives/categories [get]
 func (h *ArchiveHandler) GetCategories(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.queries.GetAllCategory(r.Context())
+	rows, err := h.queries.GetAllCategory(r.Context(), sqlc.GetAllCategoryParams{
+		AllLibraries: auth.LibraryScopeFromContext(r.Context()).Unrestricted(),
+		Uid:          auth.UserIDFromContext(r.Context()),
+	})
 	if err != nil {
 		h.logger.Error("get categories failed", "error", err)
 		response.InternalError(w, "failed to get categories")
@@ -313,14 +316,17 @@ type LanguageResponse struct {
 // GetLanguages godoc
 //
 //	@Summary		List all languages
-//	@Description	Returns every distinct language code currently in use across all libraries, paired with a display name (see language.Converter; falls back to the raw code if unrecognized). Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.
+//	@Description	Returns every distinct language code currently in use across the libraries the caller may access (all of them for an admin), paired with a display name (see language.Converter; falls back to the raw code if unrecognized). Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.
 //	@Tags			archives
 //	@Produce		json
 //	@Success		200	{array}		LanguageResponse
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/archives/languages [get]
 func (h *ArchiveHandler) GetLanguages(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.queries.GetAllLanguage(r.Context())
+	rows, err := h.queries.GetAllLanguage(r.Context(), sqlc.GetAllLanguageParams{
+		AllLibraries: auth.LibraryScopeFromContext(r.Context()).Unrestricted(),
+		Uid:          auth.UserIDFromContext(r.Context()),
+	})
 	if err != nil {
 		h.logger.Error("get languages failed", "error", err)
 		response.InternalError(w, "failed to get languages")
@@ -381,6 +387,7 @@ func hasPHashParam(raw string) *bool {
 //	@Param			category	query		string		false	"Filter by category"
 //	@Param			has_phash	query		bool		false	"Filter by whether the archive has been perceptually hashed (for duplicate detection). Omit to include both."
 //	@Success		200	{object}	ArchiveListResponse
+//	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/archives [get]
 func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
@@ -390,6 +397,11 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 	libraryID := q.Get("library_id")
 	if libraryID == "" {
 		response.BadRequest(w, "library_id is required")
+		return
+	}
+
+	if !auth.LibraryScopeFromContext(r.Context()).Allows(libraryID) {
+		response.NotFound(w, "library not found")
 		return
 	}
 
@@ -437,8 +449,8 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 
 // GetRecentlyRead godoc
 //
-//	@Summary		List recently read archives across all libraries
-//	@Description	Returns archives with reading progress for the current user, most recently read first. Deliberately NOT scoped to a library - this is a continue-reading feed spanning the whole collection.
+//	@Summary		List recently read archives across accessible libraries
+//	@Description	Returns archives with reading progress for the current user, most recently read first. Spans every library the caller may access (all of them for an admin); archives in ungranted libraries are omitted.
 //	@Tags			archives
 //	@Produce		json
 //	@Param			page	query		int	false	"Page number (1-based)"	default(1)
@@ -452,7 +464,10 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 	page, limit := parsePagination(r, defaultArchiveLimit)
 	offset := int64((page - 1) * limit)
 
-	total, err := h.queries.CountRecentlyReadArchives(r.Context(), userID)
+	total, err := h.queries.CountRecentlyReadArchives(r.Context(), sqlc.CountRecentlyReadArchivesParams{
+		Uid:          userID,
+		AllLibraries: auth.LibraryScopeFromContext(r.Context()).Unrestricted(),
+	})
 	if err != nil {
 		h.logger.Error("count recently read archives failed", "error", err)
 		response.InternalError(w, "failed to count recently read archives")
@@ -461,9 +476,10 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 	}
 
 	rows, err := h.queries.GetRecentlyReadArchives(r.Context(), sqlc.GetRecentlyReadArchivesParams{
-		Uid:    userID,
-		Limit:  int64(limit),
-		Offset: offset,
+		Uid:          userID,
+		AllLibraries: auth.LibraryScopeFromContext(r.Context()).Unrestricted(),
+		Limit:        int64(limit),
+		Offset:       offset,
 	})
 	if err != nil {
 		h.logger.Error("get recently read archives failed", "error", err)
@@ -511,8 +527,8 @@ func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request)
 
 // GetFavorites godoc
 //
-//	@Summary		List favorited archives across all libraries
-//	@Description	Returns archives the current user has favorited, most recently favorited first. Deliberately NOT scoped to a library - this is a favorites feed spanning the whole collection.
+//	@Summary		List favorited archives across accessible libraries
+//	@Description	Returns archives the current user has favorited, most recently favorited first. Spans every library the caller may access (all of them for an admin); archives in ungranted libraries are omitted.
 //	@Tags			archives
 //	@Produce		json
 //	@Param			page	query		int	false	"Page number (1-based)"	default(1)
@@ -526,7 +542,10 @@ func (h *ArchiveHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 	page, limit := parsePagination(r, defaultArchiveLimit)
 	offset := int64((page - 1) * limit)
 
-	total, err := h.queries.CountUserFavoriteArchive(r.Context(), userID)
+	total, err := h.queries.CountUserFavoriteArchive(r.Context(), sqlc.CountUserFavoriteArchiveParams{
+		Uid:          userID,
+		AllLibraries: auth.LibraryScopeFromContext(r.Context()).Unrestricted(),
+	})
 	if err != nil {
 		h.logger.Error("count favorite archives failed", "error", err)
 		response.InternalError(w, "failed to count favorite archives")
@@ -535,9 +554,10 @@ func (h *ArchiveHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rows, err := h.queries.GetUserFavoriteArchiveList(r.Context(), sqlc.GetUserFavoriteArchiveListParams{
-		Uid:    userID,
-		Limit:  int64(limit),
-		Offset: offset,
+		Uid:          userID,
+		AllLibraries: auth.LibraryScopeFromContext(r.Context()).Unrestricted(),
+		Limit:        int64(limit),
+		Offset:       offset,
 	})
 	if err != nil {
 		h.logger.Error("get favorite archives failed", "error", err)
@@ -567,6 +587,32 @@ func (h *ArchiveHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// loadScopedArchive resolves an archive and enforces the caller's library
+// scope. Out-of-scope archives answer 404 so restricted ids are
+// indistinguishable from missing ones. It writes the error response itself
+// and returns false when it fails.
+func (h *ArchiveHandler) loadScopedArchive(w http.ResponseWriter, r *http.Request, id string) (sqlc.Archive, bool) {
+	archive, err := h.queries.GetArchiveByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "archive not found")
+			return sqlc.Archive{}, false
+		}
+
+		h.logger.Error("get archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
+
+		return sqlc.Archive{}, false
+	}
+
+	if !auth.LibraryScopeFromContext(r.Context()).Allows(archive.LibraryID) {
+		response.NotFound(w, "archive not found")
+		return sqlc.Archive{}, false
+	}
+
+	return archive, true
+}
+
 // GetArchive godoc
 //
 //	@Summary		Get a single archive
@@ -581,16 +627,8 @@ func (h *ArchiveHandler) GetArchive(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	userID := auth.UserIDFromContext(r.Context())
 
-	archive, err := h.queries.GetArchiveByID(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			response.NotFound(w, "archive not found")
-			return
-		}
-
-		h.logger.Error("get archive failed", "id", id, "error", err)
-		response.InternalError(w, "failed to get archive")
-
+	archive, ok := h.loadScopedArchive(w, r, id)
+	if !ok {
 		return
 	}
 
@@ -819,16 +857,8 @@ func (h *ArchiveHandler) UpdateProgress(w http.ResponseWriter, r *http.Request) 
 	id := chi.URLParam(r, "id")
 	userID := auth.UserIDFromContext(r.Context())
 
-	archive, err := h.queries.GetArchiveByID(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			response.NotFound(w, "archive not found")
-			return
-		}
-
-		h.logger.Error("get archive failed", "id", id, "error", err)
-		response.InternalError(w, "failed to get archive")
-
+	archive, ok := h.loadScopedArchive(w, r, id)
+	if !ok {
 		return
 	}
 
@@ -868,6 +898,32 @@ func (h *ArchiveHandler) UpdateProgress(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
+// mutateScopedArchive resolves the archive under the caller's library scope,
+// runs mutate against its id and the caller's user id, then answers 204. It
+// writes every error itself, logging under logMsg and answering with failMsg.
+func (h *ArchiveHandler) mutateScopedArchive(
+	w http.ResponseWriter,
+	r *http.Request,
+	logMsg, failMsg string,
+	mutate func(id, userID string) error,
+) {
+	id := chi.URLParam(r, "id")
+	userID := auth.UserIDFromContext(r.Context())
+
+	if _, ok := h.loadScopedArchive(w, r, id); !ok {
+		return
+	}
+
+	if err := mutate(id, userID); err != nil {
+		h.logger.Error(logMsg, "id", id, "error", err)
+		response.InternalError(w, failMsg)
+
+		return
+	}
+
+	response.NoContent(w)
+}
+
 // DeleteProgress godoc
 //
 //	@Summary		Reset reading progress for an archive
@@ -875,23 +931,17 @@ func (h *ArchiveHandler) UpdateProgress(w http.ResponseWriter, r *http.Request) 
 //	@Tags			archives
 //	@Param			id	path	string	true	"Archive ID"
 //	@Success		204
+//	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/archives/{id}/progress [delete]
 func (h *ArchiveHandler) DeleteProgress(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	userID := auth.UserIDFromContext(r.Context())
-
-	if err := h.queries.DeleteReadingProgress(r.Context(), sqlc.DeleteReadingProgressParams{
-		ArchiveID: id,
-		UserID:    userID,
-	}); err != nil {
-		h.logger.Error("delete reading progress failed", "id", id, "error", err)
-		response.InternalError(w, "failed to reset progress")
-
-		return
-	}
-
-	response.NoContent(w)
+	h.mutateScopedArchive(w, r, "delete reading progress failed", "failed to reset progress",
+		func(id, userID string) error {
+			return h.queries.DeleteReadingProgress(r.Context(), sqlc.DeleteReadingProgressParams{
+				ArchiveID: id,
+				UserID:    userID,
+			})
+		})
 }
 
 // AddFavorite godoc
@@ -905,32 +955,13 @@ func (h *ArchiveHandler) DeleteProgress(w http.ResponseWriter, r *http.Request) 
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/archives/{id}/favorite [put]
 func (h *ArchiveHandler) AddFavorite(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	userID := auth.UserIDFromContext(r.Context())
-
-	if _, err := h.queries.GetArchiveByID(r.Context(), id); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			response.NotFound(w, "archive not found")
-			return
-		}
-
-		h.logger.Error("get archive failed", "id", id, "error", err)
-		response.InternalError(w, "failed to get archive")
-
-		return
-	}
-
-	if err := h.queries.AddFavoriteArchive(r.Context(), sqlc.AddFavoriteArchiveParams{
-		ArchiveID: id,
-		UserID:    userID,
-	}); err != nil {
-		h.logger.Error("add favorite archive failed", "id", id, "error", err)
-		response.InternalError(w, "failed to favorite archive")
-
-		return
-	}
-
-	response.NoContent(w)
+	h.mutateScopedArchive(w, r, "add favorite archive failed", "failed to favorite archive",
+		func(id, userID string) error {
+			return h.queries.AddFavoriteArchive(r.Context(), sqlc.AddFavoriteArchiveParams{
+				ArchiveID: id,
+				UserID:    userID,
+			})
+		})
 }
 
 // RemoveFavorite godoc
@@ -940,23 +971,17 @@ func (h *ArchiveHandler) AddFavorite(w http.ResponseWriter, r *http.Request) {
 //	@Tags			archives
 //	@Param			id	path	string	true	"Archive ID"
 //	@Success		204
+//	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/archives/{id}/favorite [delete]
 func (h *ArchiveHandler) RemoveFavorite(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	userID := auth.UserIDFromContext(r.Context())
-
-	if err := h.queries.RemoveFavoriteArchive(r.Context(), sqlc.RemoveFavoriteArchiveParams{
-		ArchiveID: id,
-		Uid:       userID,
-	}); err != nil {
-		h.logger.Error("remove favorite archive failed", "id", id, "error", err)
-		response.InternalError(w, "failed to unfavorite archive")
-
-		return
-	}
-
-	response.NoContent(w)
+	h.mutateScopedArchive(w, r, "remove favorite archive failed", "failed to unfavorite archive",
+		func(id, userID string) error {
+			return h.queries.RemoveFavoriteArchive(r.Context(), sqlc.RemoveFavoriteArchiveParams{
+				ArchiveID: id,
+				Uid:       userID,
+			})
+		})
 }
 
 // SetRatingRequest carries a 1-5 star rating to apply to an archive.
@@ -994,15 +1019,7 @@ func (h *ArchiveHandler) SetRating(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := h.queries.GetArchiveByID(r.Context(), id); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			response.NotFound(w, "archive not found")
-			return
-		}
-
-		h.logger.Error("get archive failed", "id", id, "error", err)
-		response.InternalError(w, "failed to get archive")
-
+	if _, ok := h.loadScopedArchive(w, r, id); !ok {
 		return
 	}
 
@@ -1027,23 +1044,17 @@ func (h *ArchiveHandler) SetRating(w http.ResponseWriter, r *http.Request) {
 //	@Tags			archives
 //	@Param			id	path	string	true	"Archive ID"
 //	@Success		204
+//	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/archives/{id}/rating [delete]
 func (h *ArchiveHandler) RemoveRating(w http.ResponseWriter, r *http.Request) {
-	id := chi.URLParam(r, "id")
-	userID := auth.UserIDFromContext(r.Context())
-
-	if err := h.queries.RemoveArchiveRating(r.Context(), sqlc.RemoveArchiveRatingParams{
-		ArchiveID: id,
-		Uid:       userID,
-	}); err != nil {
-		h.logger.Error("remove archive rating failed", "id", id, "error", err)
-		response.InternalError(w, "failed to clear rating")
-
-		return
-	}
-
-	response.NoContent(w)
+	h.mutateScopedArchive(w, r, "remove archive rating failed", "failed to clear rating",
+		func(id, userID string) error {
+			return h.queries.RemoveArchiveRating(r.Context(), sqlc.RemoveArchiveRatingParams{
+				ArchiveID: id,
+				Uid:       userID,
+			})
+		})
 }
 
 func (h *ArchiveHandler) buildResponse(
@@ -1215,16 +1226,8 @@ func (h *ArchiveHandler) GetCover(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	archive, err := h.queries.GetArchiveByID(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			response.NotFound(w, "archive not found")
-			return
-		}
-
-		h.logger.Error("get archive failed", "id", id, "error", err)
-		response.InternalError(w, "failed to get archive")
-
+	archive, ok := h.loadScopedArchive(w, r, id)
+	if !ok {
 		return
 	}
 
@@ -1392,16 +1395,8 @@ func (h *ArchiveHandler) GetPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	archive, err := h.queries.GetArchiveByID(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			response.NotFound(w, "archive not found")
-			return
-		}
-
-		h.logger.Error("get archive failed", "id", id, "error", err)
-		response.InternalError(w, "failed to get archive")
-
+	archive, ok := h.loadScopedArchive(w, r, id)
+	if !ok {
 		return
 	}
 
@@ -1451,16 +1446,8 @@ func (h *ArchiveHandler) GetPageThumbnail(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	archive, err := h.queries.GetArchiveByID(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			response.NotFound(w, "archive not found")
-			return
-		}
-
-		h.logger.Error("get archive failed", "id", id, "error", err)
-		response.InternalError(w, "failed to get archive")
-
+	archive, ok := h.loadScopedArchive(w, r, id)
+	if !ok {
 		return
 	}
 
@@ -1554,16 +1541,8 @@ type thumbnailDoneEvent struct {
 func (h *ArchiveHandler) StreamThumbnailEvents(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	archive, err := h.queries.GetArchiveByID(r.Context(), id)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			response.NotFound(w, "archive not found")
-			return
-		}
-
-		h.logger.Error("get archive failed", "id", id, "error", err)
-		response.InternalError(w, "failed to get archive")
-
+	archive, ok := h.loadScopedArchive(w, r, id)
+	if !ok {
 		return
 	}
 

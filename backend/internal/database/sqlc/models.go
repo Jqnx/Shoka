@@ -151,6 +151,11 @@ type Library struct {
 	LastScannedAt       *time.Time `json:"last_scanned_at"`
 }
 
+type LibraryAccess struct {
+	UserID    string `json:"user_id"`
+	LibraryID string `json:"library_id"`
+}
+
 type LibrarySource struct {
 	LibraryID         string  `json:"library_id"`
 	Source            string  `json:"source"`

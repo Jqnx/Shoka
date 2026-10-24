@@ -44,6 +44,31 @@ func TestCan(t *testing.T) {
 	}
 }
 
+// IsAdmin must agree with Can's role parsing: anything that can administer the
+// instance must also bypass the library access list.
+func TestIsAdmin(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		role string
+		want bool
+	}{
+		{RoleAdmin, true},
+		{"user,admin", true},
+		{" user , admin ", true},
+		{RoleUser, false},
+		{"user,librarian", false},
+		{"", false},
+		{"administrator", false},
+	}
+
+	for _, tt := range tests {
+		if got := IsAdmin(tt.role); got != tt.want {
+			t.Errorf("IsAdmin(%q) = %v, want %v", tt.role, got, tt.want)
+		}
+	}
+}
+
 // `user` exists only because better-auth validates the role map's keys; it
 // must never grant anything.
 func TestUserRoleGrantsNothing(t *testing.T) {

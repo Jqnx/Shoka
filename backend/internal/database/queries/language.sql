@@ -1,7 +1,12 @@
 -- name: GetAllLanguage :many
+-- Only values present in libraries the caller may access (all of them for an
+-- admin), so a facet never advertises a value that only exists in a hidden
+-- library.
 select distinct language
 from archive
 where language is not null
+  and (sqlc.arg('all_libraries') = 1
+       or archive.library_id in (select library_id from library_access where user_id = sqlc.arg('uid')))
 order by language
 ;
 

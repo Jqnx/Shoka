@@ -193,8 +193,9 @@ where phash_p0 is not null
 -- name: GetArchivesByIDs :many
 -- Backs the bulk endpoints: resolves which of a caller-supplied set of ids
 -- actually exist (so missing ones can be reported per-id rather than
--- failing the whole batch) and carries page_count for read-marking.
-select id, page_count
+-- failing the whole batch), and carries page_count for read-marking plus
+-- library_id so progress updates can enforce the caller's library scope.
+select id, page_count, library_id
 from archive
 where id in (sqlc.slice('ids'))
 ;

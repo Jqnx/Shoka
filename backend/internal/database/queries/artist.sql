@@ -103,11 +103,15 @@ from artist
 ;
 
 -- name: TotalArchiveWithArtist :one
+-- Same library scope as GetArchivesByArtistID: the total must describe the
+-- same set the list pages through.
 select count(archive.id)
 from archive
 join archive_artist on archive.id = archive_artist.archive_id
 join artist on archive_artist.artist_id = artist.id
-where artist.id = ?
+where artist.id = sqlc.arg('id')
+  and (sqlc.arg('all_libraries') = 1
+       or archive.library_id in (select library_id from library_access where user_id = sqlc.arg('uid')))
 ;
 
 -- name: AddArtistToArchive :exec
@@ -168,6 +172,8 @@ join archive_artist on archive.id = archive_artist.archive_id
 join artist on archive_artist.artist_id = artist.id
 left join reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = sqlc.arg('uid')
 where artist.id = sqlc.arg('id')
+  and (sqlc.arg('all_libraries') = 1
+       or archive.library_id in (select library_id from library_access where user_id = sqlc.arg('uid')))
 order by archive.title asc
 limit sqlc.arg('limit')
 offset sqlc.arg('offset')
