@@ -28,18 +28,27 @@ export const actions: Actions = {
 		}
 
 		try {
-			await auth.api.signInUsername({ body: { username: data.username, password: data.password } });
-		} catch (e) {
-			if (e instanceof APIError) {
-				switch (e.body?.code) {
-					case 'USERNAME_IS_INVALID':
-						setError(form, 'username', 'Invalid username');
-						break;
-					default:
-						setError(form, 'password', 'Invalid username or password');
+			await auth.api.signInUsername({
+				body: {
+					username: data.username,
+					password: data.password,
+					rememberMe: data.rememberMe
 				}
-				return { form };
+			});
+		} catch (e) {
+			// Anything that isn't an APIError is a bug, not a bad login: letting it
+			// fall through would redirect to '/', which the layout guard bounces
+			// back to /login with no explanation.
+			if (!(e instanceof APIError)) throw e;
+
+			switch (e.body?.code) {
+				case 'USERNAME_IS_INVALID':
+					setError(form, 'username', 'Invalid username');
+					break;
+				default:
+					setError(form, 'password', 'Invalid username or password');
 			}
+			return { form };
 		}
 
 		redirect(302, '/');

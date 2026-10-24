@@ -46,6 +46,22 @@
 				</Form.Control>
 				<Form.FieldErrors />
 			</Form.Field>
+			<Form.Field {form} name="rememberMe">
+				<Form.Control>
+					{#snippet children({ props })}
+						<label class="flex items-center gap-2 text-sm font-normal">
+							<input
+								{...props}
+								type="checkbox"
+								bind:checked={$formData.rememberMe}
+								class="size-4 shrink-0 accent-primary"
+							/>
+							Remember me
+						</label>
+					{/snippet}
+				</Form.Control>
+				<Form.FieldErrors />
+			</Form.Field>
 			<Form.Button class="w-full">Login</Form.Button>
 			{#if data.signupEnabled}
 				<Label
