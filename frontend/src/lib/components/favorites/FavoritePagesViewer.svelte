@@ -184,7 +184,7 @@
 		order = order.filter((i) => i !== removedIndex).map((i) => (i > removedIndex ? i - 1 : i));
 
 		if (items.length === 0) {
-			goto(resolve('/favorites/pages'));
+			goto(resolve('/favorites'));
 			return;
 		}
 
@@ -228,7 +228,7 @@
 				break;
 			case 'Escape':
 				e.preventDefault();
-				goto(resolve('/favorites/pages'));
+				goto(resolve('/favorites'));
 				break;
 		}
 	}
@@ -237,7 +237,7 @@
 	// refresh/deep link lands on the same slide.
 	$effect(() => {
 		try {
-			replaceState(resolve(`/favorites/pages/viewer?at=${at}`), {});
+			replaceState(resolve(`/favorites/viewer?at=${at}`), {});
 		} catch {
 			// See Reader.svelte: the very first effect run can precede the
 			// router's own initialisation.
@@ -288,7 +288,7 @@
 				aria-label="Favorite pages viewer"
 			>
 				<a
-					href={resolve('/favorites/pages')}
+					href={resolve('/favorites')}
 					class={cell}
 					aria-label="Back to favorite pages"
 					title="Favorite pages"

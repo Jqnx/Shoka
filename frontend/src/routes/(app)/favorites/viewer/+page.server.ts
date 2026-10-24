@@ -40,7 +40,7 @@ export const load: PageServerLoad = async ({ locals, fetch, url }) => {
 		if (pageItems.length === 0 || items.length >= Number(data.total)) break;
 	}
 
-	if (items.length === 0) redirect(302, '/favorites/pages');
+	if (items.length === 0) redirect(302, '/favorites');
 
 	const rawAt = Number(url.searchParams.get('at') ?? '0');
 	const at = Number.isInteger(rawAt) ? Math.min(Math.max(rawAt, 0), items.length - 1) : 0;
