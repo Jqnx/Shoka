@@ -1,11 +1,11 @@
 import { error, fail } from '@sveltejs/kit';
 import type { ActionFailure } from '@sveltejs/kit';
 import { APIError } from 'better-auth';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
-import { user as userTable } from '$lib/server/db/auth.schema';
+import { session as sessionTable, user as userTable } from '$lib/server/db/auth.schema';
 import { guard } from '$lib/server/guard';
 import { ADMIN_ROLE, can } from '$lib/auth/permissions';
 import { setError, superValidate } from 'sveltekit-superforms';
@@ -25,6 +25,7 @@ export type ManagedUser = {
 	role?: string | null;
 	banned?: boolean | null;
 	createdAt: Date;
+	lastActiveAt: Date | null;
 };
 
 // Demoting or deleting the last admin would lock everyone out of the admin
@@ -107,6 +108,21 @@ export const load: PageServerLoad = async ({ locals, request, url }) => {
 		}
 	});
 
+	// better-auth rewrites `session.updated_at` when an existing session is used
+	// and `updateAge` (1 day) has elapsed, so the newest row per user is a
+	// ~daily last-activity signal. Signed-out users have no rows left.
+	const activityRows = await db
+		.select({
+			userId: sessionTable.userId,
+			lastActiveMs: sql<number | null>`max(${sessionTable.updatedAt})`
+		})
+		.from(sessionTable)
+		.groupBy(sessionTable.userId);
+
+	const lastActiveByUser = new Map(
+		activityRows.map((row) => [row.userId, row.lastActiveMs ? new Date(row.lastActiveMs) : null])
+	);
+
 	const users: ManagedUser[] = result.users.map((user) => ({
 		id: user.id,
 		name: user.name,
@@ -114,7 +130,8 @@ export const load: PageServerLoad = async ({ locals, request, url }) => {
 		image: user.image ?? null,
 		role: user.role ?? null,
 		banned: user.banned ?? null,
-		createdAt: user.createdAt
+		createdAt: user.createdAt,
+		lastActiveAt: lastActiveByUser.get(user.id) ?? null
 	}));
 
 	return {

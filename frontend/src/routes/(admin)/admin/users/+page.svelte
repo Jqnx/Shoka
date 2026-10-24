@@ -3,6 +3,8 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Form from '$lib/components/ui/form/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
+	import * as Avatar from '$lib/components/ui/avatar/index.js';
+	import * as Card from '$lib/components/ui/card/index.js';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
@@ -70,6 +72,39 @@
 
 	function roleOf(user: ManagedUser) {
 		return user.role ?? DEFAULT_ROLE;
+	}
+
+	function initialsOf(name: string) {
+		return name
+			.split(' ')
+			.map((part) => part[0])
+			.slice(0, 2)
+			.join('')
+			.toUpperCase();
+	}
+
+	// Rendered, not reactive state: the ~daily granularity of `updated_at` makes
+	// an SSR/hydration minute of drift irrelevant.
+	function lastActiveLabel(at: Date | null) {
+		if (!at) return 'No active session';
+
+		const minutes = Math.floor((Date.now() - at.getTime()) / 60_000);
+		if (minutes < 1) return 'Last active just now';
+		if (minutes < 60) return `Last active ${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+
+		const hours = Math.floor(minutes / 60);
+		if (hours < 24) return `Last active ${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+
+		const days = Math.floor(hours / 24);
+		if (days < 30) return `Last active ${days} ${days === 1 ? 'day' : 'days'} ago`;
+
+		if (days < 365) {
+			const months = Math.min(11, Math.max(1, Math.round(days / 30)));
+			return `Last active about ${months} ${months === 1 ? 'month' : 'months'} ago`;
+		}
+
+		const years = Math.max(1, Math.round(days / 365));
+		return `Last active about ${years} ${years === 1 ? 'year' : 'years'} ago`;
 	}
 
 	// An action failure that names a row (`{ action, id, error }`) is rendered on
@@ -237,26 +272,43 @@
 		{/if}
 	</div>
 
-	<div class="mt-4 flex flex-col gap-2">
+	<div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-8">
 		{#each data.users as u (u.id)}
 			{@const role = roleOf(u)}
 			{@const error = rowError(u.id)}
-			<div class="rounded-xl border border-border p-4">
-				<div class="flex items-center gap-3">
-					<div class="min-w-0 flex-1">
-						<p class="flex items-center gap-2 truncate text-sm font-medium">
-							{u.name}
+			<Card.Root class="gap-0 py-0">
+				<div class="aspect-square w-full overflow-hidden">
+					<Avatar.Root class="size-full rounded-none after:hidden">
+						<Avatar.Image
+							src={u.image ?? ''}
+							alt={u.name}
+							loading="lazy"
+							decoding="async"
+							class="rounded-none object-cover"
+						/>
+						<Avatar.Fallback class="rounded-none bg-muted text-3xl font-semibold select-none">
+							{initialsOf(u.name)}
+						</Avatar.Fallback>
+					</Avatar.Root>
+				</div>
+
+				<div class="flex items-start gap-2 p-4">
+					<div class="min-w-0 flex-1 space-y-1">
+						<p class="flex items-center gap-2 text-sm font-medium">
+							<span class="truncate">{u.name}</span>
 							{#if u.id === me?.id}
-								<span class="text-xs text-muted-foreground">(you)</span>
+								<span class="shrink-0 text-xs font-normal text-muted-foreground">(you)</span>
 							{/if}
 						</p>
 						<p class="truncate text-xs text-muted-foreground">{u.email}</p>
+						<div class="flex flex-wrap items-center gap-1">
+							<Badge variant={role === ADMIN_ROLE ? 'default' : 'secondary'}>{role}</Badge>
+							{#if u.banned}
+								<Badge variant="destructive">banned</Badge>
+							{/if}
+						</div>
+						<p class="text-xs text-muted-foreground">{lastActiveLabel(u.lastActiveAt)}</p>
 					</div>
-
-					<Badge class="h-8" variant={role === ADMIN_ROLE ? 'default' : 'secondary'}>{role}</Badge>
-					{#if u.banned}
-						<Badge class="h-8" variant="destructive">banned</Badge>
-					{/if}
 
 					<DropdownMenu.Root>
 						<DropdownMenu.Trigger>
@@ -335,10 +387,11 @@
 						</DropdownMenu.Content>
 					</DropdownMenu.Root>
 				</div>
+
 				{#if error}
-					<p class="mt-2 text-xs text-destructive">{error}</p>
+					<p class="px-4 pb-3 text-xs text-destructive">{error}</p>
 				{/if}
-			</div>
+			</Card.Root>
 		{/each}
 	</div>
 
