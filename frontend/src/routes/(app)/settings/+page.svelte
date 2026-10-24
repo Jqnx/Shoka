@@ -113,9 +113,9 @@
 	<title>Settings | Shoka</title>
 </svelte:head>
 
-<div class="mx-auto max-w-2xl p-4 sm:p-6">
+<div class="mx-auto max-w-4xl p-4 sm:p-6">
 	<Tabs.Root bind:value={tab} class="gap-6">
-		<Tabs.List>
+		<Tabs.List class="self-center">
 			<Tabs.Trigger value="account">Account</Tabs.Trigger>
 			<Tabs.Trigger value="appearance">Appearance</Tabs.Trigger>
 		</Tabs.List>
