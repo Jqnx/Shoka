@@ -77,12 +77,15 @@ isn't. Rebuild with the current toolchain, e.g.
 - **Framework**: SvelteKit 2 + Svelte 5 with TypeScript
 - **Database**: SQLite3 with WAL mode - shared with backend
 - **Auth**: Better-Auth with Drizzle ORM
+  - Always use the following url when searching for better-auth documentation: `https://better-auth.com/llms.txt`.
+  - You have access to the better-auth MCP server. Prefer using it over the `llms.txt` url.
   - Prefer JWT auth over sessions
   - The `admin` plugin provides roles/bans. `src/lib/auth/permissions.ts` holds the canonical statement set plus `can(user, …)` / `canAccessAdmin(user)` — it lives outside `$lib/server/` on purpose so components can hide controls with it. Mirrored in `backend/internal/auth/rbac.go` (see the backend RBAC note above). `roles.user` grants nothing but must stay in the map: better-auth validates `setRole`/`createUser` against the map's keys, so dropping it would make demoting an admin to `user` fail.
   - The first account created becomes `admin` via a root-level `databaseHooks.user.create.before` in `auth.ts`; every later signup gets `user`. Signup stays publicly open.
   - A load guard does **not** protect a form action — guard both. Admin routes re-check their own permission in each `+page.server.ts` load *and* in every mutating action; the action guards go through `guard(...)` from `$lib/server/guard.ts` so every 403 has the same `{ action, error }` shape.
   - The action guards are a deliberate second layer, not the enforcement: every guarded action ends at a `/api/*` route (gated in `routes.go`) or a better-auth endpoint (gated by its own `hasPermission`), both of which re-check the same permission. What the guard buys is a local rejection with a page-specific message — it is not what stops a forged POST, and it does not need to stay in step with the Go matrix at the route level. Keep it that way: if a new action guards a permission the API does not enforce, that is a bug in the API route, not a reason to rely on the page.
 - **Styling**: Tailwind CSS 4 and shadcn-svelte
+  - Use the following url when searching for shadcn-svelte documentation: `https://www.shadcn-svelte.com/llms.txt`.
 - **Theming**: per-user, frontend-only (the Go backend never reads it). Built-in
   palettes live in `src/lib/themes/presets/*`; the canonical token list is
   `src/lib/themes/tokens.ts` (31 colours + `--radius`, driven off one array).
