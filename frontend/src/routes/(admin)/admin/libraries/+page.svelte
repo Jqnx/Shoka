@@ -13,11 +13,13 @@
 	let { data, form } = $props();
 
 	const canCreate = $derived(can(page.data.user, { library: ['create'] }));
+	const canScan = $derived(can(page.data.user, { library: ['scan'] }));
 
 	// The dialog lives outside the {#each} so it isn't torn down with the
 	// dropdown that opens it; the row is carried here instead.
 	let deleteTarget = $state<Library | null>(null);
 	let regenerating = $state<string | null>(null);
+	let scanningAll = $state(false);
 
 	function typeLabel(type: string) {
 		return type.charAt(0).toUpperCase() + type.slice(1);
@@ -35,9 +37,29 @@
 			<p class="mt-1 text-sm text-muted-foreground">Folders to scan for media.</p>
 		</div>
 
-		{#if canCreate}
-			<AddLibraryDialog types={data.libraryTypes} />
-		{/if}
+		<div class="flex items-center gap-2">
+			{#if canScan && data.libraries.length > 0}
+				<form
+					method="POST"
+					action="?/scanAll"
+					use:enhance={() => {
+						scanningAll = true;
+						return async ({ update }) => {
+							await update();
+							scanningAll = false;
+						};
+					}}
+				>
+					<Button type="submit" variant="outline" size="sm" disabled={scanningAll}>
+						<RefreshCw />
+						{scanningAll ? 'Enqueuing…' : 'Scan all'}
+					</Button>
+				</form>
+			{/if}
+			{#if canCreate}
+				<AddLibraryDialog types={data.libraryTypes} />
+			{/if}
+		</div>
 	</div>
 
 	{#if form?.error}
@@ -46,6 +68,8 @@
 		<p class="mt-4 text-sm text-muted-foreground">
 			Cover generation enqueued for the library's archives.
 		</p>
+	{:else if form?.action === 'scanAll' && form.success}
+		<p class="mt-4 text-sm text-muted-foreground">Scans enqueued.</p>
 	{/if}
 
 	<div class="mt-6 flex flex-col gap-3">

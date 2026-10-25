@@ -128,7 +128,7 @@ func run(cfg *config.Config, log *slog.Logger) error {
 		log.Error("failed to start library watchers", "error", err)
 	}
 
-	if err := libraries.EnqueueInitialScans(ctx); err != nil {
+	if err := libraries.EnqueueAllLibraryScans(ctx); err != nil {
 		log.Error("failed to enqueue initial scans", "error", err)
 	}
 

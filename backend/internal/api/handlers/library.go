@@ -377,6 +377,26 @@ func (h *LibraryHandler) ScanLibrary(w http.ResponseWriter, r *http.Request) {
 	response.NoContent(w)
 }
 
+// ScanAllLibraries godoc
+//
+//	@Summary		Trigger a scan of every library
+//	@Description	Enqueues one scan job per library, skipping types no scanner supports. Safe to repeat - a library whose scan is already pending or running is skipped.
+//	@Tags			admin
+//	@Success		204
+//	@Failure		403	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/admin/libraries/scan [post]
+func (h *LibraryHandler) ScanAllLibraries(w http.ResponseWriter, r *http.Request) {
+	if err := h.manager.EnqueueAllLibraryScans(r.Context()); err != nil {
+		h.logger.Error("enqueue all scans failed", "error", err)
+		response.InternalError(w, "failed to enqueue scans")
+
+		return
+	}
+
+	response.NoContent(w)
+}
+
 // GenerateLibraryCovers godoc
 //
 //	@Summary		Enqueue cover generation for one library's archives

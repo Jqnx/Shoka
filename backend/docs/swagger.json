@@ -238,6 +238,32 @@
                 }
             }
         },
+        "/api/admin/libraries/scan": {
+            "post": {
+                "description": "Enqueues one scan job per library, skipping types no scanner supports. Safe to repeat - a library whose scan is already pending or running is skipped.",
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Trigger a scan of every library",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/admin/libraries/{id}": {
             "delete": {
                 "description": "Cascade-deletes every archive and cached data belonging to this library. Does not touch files on disk.",

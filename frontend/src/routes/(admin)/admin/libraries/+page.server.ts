@@ -54,6 +54,27 @@ export const actions: Actions = {
 		return { action: 'create' as const, success: true };
 	},
 
+	scanAll: async ({ fetch, locals }) => {
+		const denied = guard(
+			locals.user,
+			{ library: ['scan'] },
+			'scanAll',
+			'You cannot scan libraries.'
+		);
+		if (denied) return denied;
+
+		const res = await fetch('/api/admin/libraries/scan', { method: 'POST' });
+
+		if (!res.ok) {
+			return fail(res.status, {
+				action: 'scanAll' as const,
+				error: await errorMessage(res, 'Failed to start scans.')
+			});
+		}
+
+		return { action: 'scanAll' as const, success: true };
+	},
+
 	scan: async ({ request, fetch, locals }) => {
 		const denied = guard(locals.user, { library: ['scan'] }, 'scan', 'You cannot scan libraries.');
 		if (denied) return denied;

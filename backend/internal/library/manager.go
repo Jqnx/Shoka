@@ -102,10 +102,11 @@ func (m *Manager) Start(ctx context.Context) error {
 	return nil
 }
 
-// EnqueueInitialScans enqueues one scan job per library. Intended to be
-// called once at application startup; the worker pool parallelizes the
-// resulting jobs across libraries.
-func (m *Manager) EnqueueInitialScans(ctx context.Context) error {
+// EnqueueAllLibraryScans enqueues one scan job per library, skipping types no
+// scanner handles. Used at startup and by the scan-all endpoint; the scan
+// worker processes the queue one job at a time, and EnqueueOnce keeps a
+// library whose scan is already pending or running from stacking a duplicate.
+func (m *Manager) EnqueueAllLibraryScans(ctx context.Context) error {
 	libs, err := m.queries.ListLibraries(ctx)
 	if err != nil {
 		return fmt.Errorf("list libraries: %w", err)
@@ -117,7 +118,7 @@ func (m *Manager) EnqueueInitialScans(ctx context.Context) error {
 		}
 
 		if err := m.queue.EnqueueOnce(ctx, jobs.JobTypeScan, jobs.ScanPayload{LibraryID: lib.ID}); err != nil {
-			m.log.Error("failed to enqueue initial scan", "library_id", lib.ID, "error", err)
+			m.log.Error("failed to enqueue library scan", "library_id", lib.ID, "error", err)
 		}
 	}
 

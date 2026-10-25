@@ -222,6 +222,7 @@ func mountAdminRoutes(r chi.Router, h apiHandlers) {
 		r.Route("/libraries", func(r chi.Router) {
 			r.With(requirePermission(auth.LibraryCreate)).Post("/", h.library.CreateLibrary)
 			r.With(requirePermission(auth.LibraryCreate)).Get("/browse", h.library.BrowseLibraryPath)
+			r.With(requirePermission(auth.LibraryScan)).Post("/scan", h.library.ScanAllLibraries)
 			r.Route("/{id}", func(r chi.Router) {
 				r.With(requirePermission(auth.LibraryUpdate)).Patch("/", h.library.UpdateLibrary)
 				r.With(requirePermission(auth.LibraryDelete)).Delete("/", h.library.DeleteLibrary)

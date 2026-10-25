@@ -1135,6 +1135,24 @@ paths:
       summary: Browse server folders
       tags:
       - admin
+  /api/admin/libraries/scan:
+    post:
+      description: Enqueues one scan job per library, skipping types no scanner supports.
+        Safe to repeat - a library whose scan is already pending or running is skipped.
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Trigger a scan of every library
+      tags:
+      - admin
   /api/admin/phashes:
     post:
       description: Backfills the hashes GET /api/admin/duplicates compares. Safe to
