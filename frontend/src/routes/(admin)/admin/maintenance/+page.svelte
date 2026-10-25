@@ -3,7 +3,7 @@
 	import { enhance } from '$app/forms';
 	import { ImageUp, Binary } from '@lucide/svelte';
 
-	let { form } = $props();
+	let { data, form } = $props();
 
 	// One shared pending marker rather than a flag per job: only one form can
 	// be mid-submit at a time, and this keeps adding a job to the list below
@@ -12,6 +12,7 @@
 
 	const jobs = [
 		{
+			key: 'covers' as const,
 			action: 'regenerateCovers',
 			icon: ImageUp,
 			title: 'Regenerate covers',
@@ -20,15 +21,24 @@
 			success: 'Cover generation enqueued for all archives.'
 		},
 		{
+			key: 'phashes' as const,
 			action: 'generatePHashes',
 			icon: Binary,
 			title: 'Generate perceptual hashes',
-			description:
-				"Generate perceptual hashes for every archive. Used for duplicate detection.",
+			description: 'Generate perceptual hashes for every archive. Used for duplicate detection.',
 			label: 'Generate hashes',
 			success: 'Hash generation enqueued for all archives.'
 		}
 	];
+
+	// The run is stamped when the action is triggered, not when the queued jobs
+	// finish: the maintenance action is fire-and-forget, so "last run" is the
+	// last time someone asked for it.
+	function lastRunLabel(at: Date | null) {
+		if (!at) return 'Last run: never';
+
+		return `Last run: ${at.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`;
+	}
 </script>
 
 <svelte:head>
@@ -49,6 +59,9 @@
 					<div class="min-w-0">
 						<p class="font-medium">{job.title}</p>
 						<p class="mt-0.5 text-sm text-muted-foreground">{job.description}</p>
+						<p class="mt-1 text-xs text-muted-foreground">
+							{lastRunLabel(data.maintenanceRuns[job.key])}
+						</p>
 						{#if form?.action === job.action}
 							{#if form.success}
 								<p class="mt-1.5 text-sm text-muted-foreground">{job.success}</p>

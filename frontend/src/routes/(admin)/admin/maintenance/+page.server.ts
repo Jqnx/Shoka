@@ -3,9 +3,12 @@ import type { Actions, PageServerLoad } from './$types';
 import { errorMessage } from '$lib/server/api';
 import { guard } from '$lib/server/guard';
 import { can } from '$lib/auth/permissions';
+import { getMaintenanceRuns, markMaintenanceRun } from '$lib/server/instance-settings';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	if (!can(locals.user, { maintenance: ['read'] })) error(403, 'You cannot access maintenance.');
+
+	return { maintenanceRuns: await getMaintenanceRuns() };
 };
 
 export const actions: Actions = {
@@ -27,6 +30,8 @@ export const actions: Actions = {
 			});
 		}
 
+		await markMaintenanceRun('covers');
+
 		return { action: 'regenerateCovers' as const, success: true };
 	},
 
@@ -47,6 +52,8 @@ export const actions: Actions = {
 				error: await errorMessage(res, 'Failed to enqueue hash generation.')
 			});
 		}
+
+		await markMaintenanceRun('phashes');
 
 		return { action: 'generatePHashes' as const, success: true };
 	}

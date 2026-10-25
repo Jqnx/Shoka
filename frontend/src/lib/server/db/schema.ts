@@ -56,7 +56,11 @@ export const userPreferences = sqliteTable('user_preferences', {
 // user_preferences.
 export const instanceSettings = sqliteTable('instance_settings', {
 	id: integer('id').primaryKey(),
-	signupEnabled: integer('signup_enabled', { mode: 'boolean' }).notNull().default(true)
+	signupEnabled: integer('signup_enabled', { mode: 'boolean' }).notNull().default(true),
+	// When each maintenance action was last triggered; null means never, so a
+	// missing row and a never-run action read the same.
+	coversLastRun: integer('covers_last_run', { mode: 'timestamp_ms' }),
+	phashesLastRun: integer('phashes_last_run', { mode: 'timestamp_ms' })
 });
 
 export * from './auth.schema';
