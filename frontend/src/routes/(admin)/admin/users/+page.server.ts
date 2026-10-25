@@ -1,12 +1,18 @@
 import { error, fail } from '@sveltejs/kit';
-import type { ActionFailure } from '@sveltejs/kit';
 import { APIError } from 'better-auth';
-import { eq, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import type { Actions, PageServerLoad } from './$types';
 import { auth } from '$lib/server/auth';
 import { db } from '$lib/server/db';
-import { session as sessionTable, user as userTable } from '$lib/server/db/auth.schema';
+import { session as sessionTable } from '$lib/server/db/auth.schema';
 import { guard } from '$lib/server/guard';
+import {
+	apiFailure,
+	isLastAdmin,
+	isUsernameTaken,
+	LAST_ADMIN_ERROR,
+	serializeAdminMutation
+} from '$lib/server/admin-users';
 import { ADMIN_ROLE, can } from '$lib/auth/permissions';
 import { setError, superValidate } from 'sveltekit-superforms';
 import { zod4 } from 'sveltekit-superforms/adapters';
@@ -15,81 +21,14 @@ import { isSignupEnabled, setSignupEnabled } from '$lib/server/instance-settings
 
 const PAGE_SIZE = 25;
 
-const LAST_ADMIN_ERROR = 'This is the last admin - promote someone else first.';
-
 export type ManagedUser = {
 	id: string;
 	name: string;
-	email: string;
 	image?: string | null;
 	role?: string | null;
 	banned?: boolean | null;
-	createdAt: Date;
 	lastActiveAt: Date | null;
 };
-
-// Demoting or deleting the last admin would lock everyone out of the admin
-// section with no way back short of editing the database by hand. Asking for
-// two admin ids answers that in a single query - getting both back means
-// someone else can still get in.
-async function isLastAdmin(userId: string) {
-	const admins = await db
-		.select({ id: userTable.id })
-		.from(userTable)
-		.where(eq(userTable.role, ADMIN_ROLE))
-		.limit(2);
-
-	return admins.length === 1 && admins[0].id === userId;
-}
-
-// better-auth's username plugin only enforces uniqueness on /sign-up/email and
-// /update-user, so an admin-created username would otherwise be guarded by the
-// table's unique index alone - which surfaces as a 500, not a field error.
-async function isUsernameTaken(username: string) {
-	const taken = await db
-		.select({ id: userTable.id })
-		.from(userTable)
-		.where(eq(userTable.username, username.toLowerCase()))
-		.limit(1);
-
-	return taken.length > 0;
-}
-
-// better-auth performs the write on its own connection, so the last-admin
-// check and the mutation it guards can't share a transaction. Route modules are
-// evaluated once per server, so this queue is process-wide: chaining the two
-// guarded mutations through it is what keeps two concurrent demotions from both
-// passing the check and leaving the instance with no admin. A multi-process
-// deployment would need a database-level guard instead.
-let adminMutationQueue: Promise<unknown> = Promise.resolve();
-
-function serializeAdminMutation<T>(mutation: () => Promise<T>): Promise<T> {
-	const result = adminMutationQueue.then(mutation, mutation);
-
-	adminMutationQueue = result.then(
-		() => undefined,
-		() => undefined
-	);
-
-	return result;
-}
-
-/**
- * Maps a better-auth APIError to a failure tagged with the row that triggered
- * it, so the page can put the message on that row rather than at the top of the
- * list. Anything else is a bug, not a bad request, and is rethrown so the action
- * fails loudly.
- */
-function apiFailure(
-	e: unknown,
-	fallback: string,
-	action: string,
-	id: string
-): ActionFailure<{ action: string; id: string; error: string }> {
-	if (!(e instanceof APIError)) throw e;
-
-	return fail(e.statusCode, { action, id, error: e.body?.message ?? fallback });
-}
 
 export const load: PageServerLoad = async ({ locals, request, url }) => {
 	if (!can(locals.user, { user: ['list'] })) error(403, 'You cannot manage users.');
@@ -126,11 +65,9 @@ export const load: PageServerLoad = async ({ locals, request, url }) => {
 	const users: ManagedUser[] = result.users.map((user) => ({
 		id: user.id,
 		name: user.name,
-		email: user.email,
 		image: user.image ?? null,
 		role: user.role ?? null,
 		banned: user.banned ?? null,
-		createdAt: user.createdAt,
 		lastActiveAt: lastActiveByUser.get(user.id) ?? null
 	}));
 

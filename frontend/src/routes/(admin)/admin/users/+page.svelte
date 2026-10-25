@@ -22,11 +22,11 @@
 	import {
 		Ellipsis,
 		Ban,
-		Library,
 		LogOut,
 		ShieldCheck,
 		ShieldOff,
 		Trash2,
+		User,
 		UserPlus
 	} from '@lucide/svelte';
 	import type { ManagedUser } from './+page.server';
@@ -287,7 +287,11 @@
 			{@const role = roleOf(u)}
 			{@const error = rowError(u.id)}
 			<Card.Root class="gap-0 py-0">
-				<div class="aspect-square w-full overflow-hidden">
+				<a
+					href={resolve(`/admin/users/${u.id}`)}
+					aria-label={`Manage ${u.name}`}
+					class="block aspect-square w-full overflow-hidden"
+				>
 					<Avatar.Root class="size-full rounded-none after:hidden">
 						<Avatar.Image
 							src={u.image ?? ''}
@@ -300,23 +304,29 @@
 							{initialsOf(u.name)}
 						</Avatar.Fallback>
 					</Avatar.Root>
-				</div>
+				</a>
 
 				<div class="flex items-start gap-2 p-4">
 					<div class="min-w-0 flex-1 space-y-1">
-						<p class="flex items-center gap-2 text-sm font-medium">
+						<p class="flex min-w-0 items-center gap-1.5 text-sm font-medium">
 							<span class="truncate">{u.name}</span>
-							{#if u.id === me?.id}
-								<span class="shrink-0 text-xs font-normal text-muted-foreground">(you)</span>
+							{#if role === ADMIN_ROLE}
+								<span class="inline-flex shrink-0 items-center text-primary" title="Administrator">
+									<ShieldCheck class="size-3.5" aria-hidden="true" />
+									<span class="sr-only">Administrator</span>
+								</span>
+							{:else}
+								<span class="inline-flex shrink-0 items-center text-muted-foreground" title="User">
+									<User class="size-3.5" aria-hidden="true" />
+									<span class="sr-only">User</span>
+								</span>
 							{/if}
 						</p>
-						<p class="truncate text-xs text-muted-foreground">{u.email}</p>
-						<div class="flex flex-wrap items-center gap-1">
-							<Badge variant={role === ADMIN_ROLE ? 'default' : 'secondary'}>{role}</Badge>
-							{#if u.banned}
+						{#if u.banned}
+							<div class="flex flex-wrap items-center gap-1">
 								<Badge variant="destructive">banned</Badge>
-							{/if}
-						</div>
+							</div>
+						{/if}
 						<p class="text-xs text-muted-foreground">{lastActiveLabel(u.lastActiveAt)}</p>
 					</div>
 
@@ -385,17 +395,6 @@
 										{/snippet}
 									</DropdownMenu.Item>
 								</form>
-							{/if}
-
-							{#if can(me, { user: ['get'] })}
-								<DropdownMenu.Item>
-									{#snippet child({ props })}
-										<a href={resolve(`/admin/users/${u.id}`)} {...props}>
-											<Library />
-											Library access
-										</a>
-									{/snippet}
-								</DropdownMenu.Item>
 							{/if}
 
 							{#if canDelete && u.id !== me?.id}
