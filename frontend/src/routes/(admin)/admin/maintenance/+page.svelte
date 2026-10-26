@@ -2,7 +2,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { enhance } from '$app/forms';
-	import { ImageUp, Binary } from '@lucide/svelte';
+	import { ImageUp, Binary, Loader2, Play } from '@lucide/svelte';
 
 	let { data, form } = $props();
 
@@ -160,11 +160,15 @@
 						<Button
 							type="submit"
 							variant="outline"
-							size="sm"
+							size="icon-sm"
 							disabled={pending !== null}
 							aria-label={`Run now: ${job.title.toLowerCase()}`}
 						>
-							{pending === job.action ? 'Enqueuing…' : 'Run now'}
+							{#if pending === job.action}
+								<Loader2 class="size-3.5 animate-spin" />
+							{:else}
+								<Play class="size-3.5" />
+							{/if}
 						</Button>
 					</form>
 				</div>
