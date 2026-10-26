@@ -86,14 +86,14 @@
 					<Button
 						type="submit"
 						variant="outline"
-						size="icon"
+						size="icon-lg"
 						disabled={pending !== null}
 						aria-label={`Run now: ${job.title.toLowerCase()}`}
 					>
 						{#if pending === job.action}
-							<Loader2 class="size-4 animate-spin" />
+							<Loader2 class="size-4.5 animate-spin" />
 						{:else}
-							<Play class="size-4" />
+							<Play class="size-4.5" />
 						{/if}
 					</Button>
 				</form>
