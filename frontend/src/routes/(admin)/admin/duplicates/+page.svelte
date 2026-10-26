@@ -61,9 +61,7 @@
 	<div class="flex flex-wrap items-start justify-between gap-3">
 		<div>
 			<h1 class="text-2xl font-bold tracking-tight">Duplicates</h1>
-			<p class="mt-1 text-sm text-muted-foreground">
-				Archives that look visually alike across all libraries, matched on perceptual hashes.
-			</p>
+			<p class="mt-1 text-sm text-muted-foreground">Archives are matched on perceptual hashes.</p>
 		</div>
 
 		<Select.Root type="single" value={thresholdValue} onValueChange={setThreshold}>

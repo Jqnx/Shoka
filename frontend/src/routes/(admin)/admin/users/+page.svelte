@@ -162,7 +162,7 @@
 			<h1 class="text-2xl font-bold tracking-tight">Users</h1>
 			<p class="mt-1 text-sm text-muted-foreground">
 				{data.total}
-				{data.total === 1 ? 'account' : 'accounts'}. Admins can manage the whole instance.
+				{data.total === 1 ? 'account' : 'accounts'}.
 			</p>
 		</div>
 

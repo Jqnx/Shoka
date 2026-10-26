@@ -115,9 +115,6 @@
 
 	<div class="min-w-0 flex-1">
 		<p class="truncate text-sm font-medium">{info.label}</p>
-		{#if info.description}
-			<p class="truncate text-xs text-muted-foreground">{info.description}</p>
-		{/if}
 	</div>
 
 	<form
@@ -197,8 +194,13 @@
 		<Dialog.Content>
 			<Dialog.Header>
 				<Dialog.Title>{info.label} settings</Dialog.Title>
-				{#if info.description}
-					<Dialog.Description>{info.description}</Dialog.Description>
+				{#if info.help}
+					<Dialog.Description>
+						{info.help.text}
+						<!-- eslint-disable svelte/no-navigation-without-resolve -- external settings page, not an app route -->
+						<a href={info.help.href} target="_blank" rel="noopener noreferrer">{info.help.href}</a>
+						<!-- eslint-enable svelte/no-navigation-without-resolve -->
+					</Dialog.Description>
 				{/if}
 			</Dialog.Header>
 

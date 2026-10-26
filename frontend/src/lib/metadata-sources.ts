@@ -6,7 +6,11 @@ export type SourceField = 'cookies' | 'api_key' | 'blocklists';
 
 export type SourceInfo = {
 	label: string;
-	description: string;
+	/** Optional help shown in the source's settings dialog. */
+	help?: {
+		text: string;
+		href: string;
+	};
 	fields: SourceField[];
 	/** True for filesystem-only sources: pinned ahead of every remote source. */
 	local: boolean;
@@ -30,7 +34,6 @@ export type SourceInfo = {
 export const METADATA_SOURCE_INFO: Record<string, SourceInfo> = {
 	comicinfo: {
 		label: 'ComicInfo.xml',
-		description: 'Reads metadata already embedded in a ComicInfo.xml file inside each archive.',
 		fields: [],
 		local: true,
 		icon: FileCode,
@@ -38,7 +41,6 @@ export const METADATA_SOURCE_INFO: Record<string, SourceInfo> = {
 	},
 	filename: {
 		label: 'Filename',
-		description: 'Parses tags, artists, and other metadata out of the archive filename.',
 		fields: ['blocklists'],
 		local: true,
 		icon: Regex,
@@ -46,8 +48,6 @@ export const METADATA_SOURCE_INFO: Record<string, SourceInfo> = {
 	},
 	'e-hentai': {
 		label: 'E-Hentai',
-		description:
-			'Looks up matching galleries on E-Hentai. A logged-in session cookie unlocks more results.',
 		fields: ['cookies'],
 		local: false,
 		icon: Globe,
@@ -55,7 +55,10 @@ export const METADATA_SOURCE_INFO: Record<string, SourceInfo> = {
 	},
 	nhentai: {
 		label: 'nHentai',
-		description: 'Looks up matching galleries on nHentai using its API.',
+		help: {
+			text: 'An API key can be created at this page:',
+			href: 'https://nhentai.net/user/settings#apikeys'
+		},
 		fields: ['api_key'],
 		local: false,
 		icon: Globe,
@@ -67,7 +70,6 @@ export function sourceInfo(source: string): SourceInfo {
 	return (
 		METADATA_SOURCE_INFO[source] ?? {
 			label: source,
-			description: '',
 			fields: ['cookies', 'api_key', 'blocklists'],
 			local: false,
 			icon: Globe,

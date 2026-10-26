@@ -2,6 +2,7 @@
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
+	import * as Popover from '$lib/components/ui/popover/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
@@ -12,7 +13,7 @@
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
 	import { flushSync } from 'svelte';
-	import { ArrowLeft } from '@lucide/svelte';
+	import { ArrowLeft, Info } from '@lucide/svelte';
 
 	let { data, form } = $props();
 
@@ -160,7 +161,6 @@
 							</Select.Content>
 						</Select.Root>
 						<Field.Description>
-							Rescans this library on a timer, measured from the last scan.
 							{#if lastScanned}
 								Last scanned {lastScanned}.
 							{:else}
@@ -173,9 +173,25 @@
 						<Field.Content>
 							<Field.Label for="watch-enabled">Watch for file changes</Field.Label>
 							<Field.Description>
-								Picks up new files as soon as they appear. Filesystem events aren't delivered over
-								network shares or some container mounts — turn this off and rely on automatic
-								scanning if it isn't working.
+								Picks up new files as soon as they appear.
+								<Popover.Root>
+									<Popover.Trigger openOnHover>
+										{#snippet child({ props })}
+											<button
+												{...props}
+												type="button"
+												class="ml-0.5 inline-flex translate-y-0.5 items-center text-muted-foreground hover:text-foreground"
+												aria-label="About file watching"
+											>
+												<Info class="size-3.5" />
+											</button>
+										{/snippet}
+									</Popover.Trigger>
+									<Popover.Content side="top" align="start" class="w-64 p-2 text-xs">
+										Filesystem events aren't delivered over network shares or some container mounts
+										— turn this off and rely on automatic scanning if it isn't working.
+									</Popover.Content>
+								</Popover.Root>
 							</Field.Description>
 						</Field.Content>
 						<Switch id="watch-enabled" bind:checked={watchEnabled} />
@@ -197,8 +213,7 @@
 	<div class="mt-8">
 		<h2 class="text-lg font-semibold">Metadata sources</h2>
 		<p class="mt-1 text-sm text-muted-foreground">
-			Local sources always run first and can't be reordered. Drag a remote source, or use its
-			arrows, to change the order they run in.
+			Local sources always run first and can't be reordered.
 		</p>
 
 		<div class="mt-4 flex flex-col gap-2" role="list">
