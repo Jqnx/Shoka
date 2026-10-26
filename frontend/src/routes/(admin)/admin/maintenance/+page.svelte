@@ -18,7 +18,6 @@
 			icon: ImageUp,
 			title: 'Regenerate covers',
 			description: 'Re-queue cover thumbnail generation for every archive in every library.',
-			label: 'Regenerate covers',
 			success: 'Cover generation enqueued for all archives.'
 		},
 		{
@@ -27,7 +26,6 @@
 			icon: Binary,
 			title: 'Generate perceptual hashes',
 			description: 'Generate perceptual hashes for every archive. Used for duplicate detection.',
-			label: 'Generate hashes',
 			success: 'Hash generation enqueued for all archives.'
 		}
 	];
@@ -159,8 +157,14 @@
 						}}
 						class="shrink-0"
 					>
-						<Button type="submit" variant="outline" size="sm" disabled={pending !== null}>
-							{pending === job.action ? 'Enqueuing…' : job.label}
+						<Button
+							type="submit"
+							variant="outline"
+							size="sm"
+							disabled={pending !== null}
+							aria-label={`Run now: ${job.title.toLowerCase()}`}
+						>
+							{pending === job.action ? 'Enqueuing…' : 'Run now'}
 						</Button>
 					</form>
 				</div>
