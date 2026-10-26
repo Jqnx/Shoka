@@ -34,3 +34,9 @@ returning *;
 delete from library_source
 where library_id = ?
 ;
+
+-- name: SetLibrarySourcePriority :exec
+update library_source
+set priority = ?
+where library_id = ? and source = ?
+;

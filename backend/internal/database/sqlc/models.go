@@ -164,6 +164,7 @@ type LibrarySource struct {
 	ApiKey            *string `json:"api_key"`
 	MagazineBlocklist string  `json:"magazine_blocklist"`
 	MiscBlocklist     string  `json:"misc_blocklist"`
+	Priority          *int64  `json:"priority"`
 }
 
 type MaintenanceTask struct {

@@ -8,6 +8,7 @@ import (
 	"Shoka/internal/image"
 	"Shoka/internal/jobs"
 	"Shoka/internal/library"
+	"Shoka/internal/metadata"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -15,6 +16,7 @@ import (
 	"log/slog"
 	"net/http"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -41,19 +43,21 @@ type LibraryHandler struct {
 	queue     *jobs.Queue
 	manager   *library.Manager
 	processor *image.Processor
+	pipeline  *metadata.Pipeline
 	logger    *slog.Logger
 }
 
 // NewLibraryHandler returns a LibraryHandler backed by queries, the job
-// queue, the library manager, and the image processor that owns the
-// per-archive cache directories.
-func NewLibraryHandler(queries *sqlc.Queries, db *sql.DB, queue *jobs.Queue, manager *library.Manager, processor *image.Processor, log *slog.Logger) *LibraryHandler {
+// queue, the library manager, the image processor that owns the per-archive
+// cache directories, and the metadata pipeline that owns source ordering.
+func NewLibraryHandler(queries *sqlc.Queries, db *sql.DB, queue *jobs.Queue, manager *library.Manager, processor *image.Processor, pipeline *metadata.Pipeline, log *slog.Logger) *LibraryHandler {
 	return &LibraryHandler{
 		queries:   queries,
 		db:        db,
 		queue:     queue,
 		manager:   manager,
 		processor: processor,
+		pipeline:  pipeline,
 		logger:    log.With("handler", "library"),
 	}
 }
@@ -452,6 +456,10 @@ type LibrarySourceResponse struct {
 	APIKey            string   `json:"api_key,omitempty"`
 	MagazineBlocklist []string `json:"magazine_blocklist"`
 	MiscBlocklist     []string `json:"misc_blocklist"`
+	// Raw stored order value; null when the library has never been reordered.
+	// Deliberately present as a key (no omitempty) so clients can tell a
+	// missing value from an order of 0.
+	Priority *int64 `json:"priority"`
 }
 
 // GetLibrarySources godoc
@@ -479,6 +487,29 @@ func (h *LibraryHandler) GetLibrarySources(w http.ResponseWriter, r *http.Reques
 	for i, row := range rows {
 		items[i] = librarySourceResponse(row)
 	}
+
+	// The admin UI renders rows in this order; the backend owns the ordering
+	// rule so the list matches the pipeline's effective run order.
+	positions := make(map[string]int)
+	for i, name := range h.pipeline.OrderedSourceNames(r.Context(), id) {
+		positions[name] = i
+	}
+
+	sort.SliceStable(items, func(i, j int) bool {
+		left, leftKnown := positions[items[i].Source]
+		right, rightKnown := positions[items[j].Source]
+
+		switch {
+		case leftKnown && rightKnown:
+			return left < right
+		case leftKnown != rightKnown:
+			return leftKnown
+		default:
+			// Defensive: a stored row for a source the pipeline no longer
+			// registers. Keep those deterministic at the end.
+			return items[i].Source < items[j].Source
+		}
+	})
 
 	response.JSON(w, http.StatusOK, items)
 }

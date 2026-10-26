@@ -234,6 +234,8 @@ export type LibrarySource = {
 	api_key?: string;
 	magazine_blocklist: string[];
 	misc_blocklist: string[];
+	/** Stored remote-source order; null/absent when never reordered. */
+	priority?: number | null;
 };
 
 export type LibraryType = {

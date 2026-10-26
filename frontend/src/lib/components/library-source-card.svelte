@@ -1,5 +1,4 @@
 <script lang="ts">
-	import * as Card from '$lib/components/ui/card/index.js';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as TagsInput from '$lib/components/ui/tags-input/index.js';
 	import { Switch } from '$lib/components/ui/switch/index.js';
@@ -9,16 +8,30 @@
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { enhance } from '$app/forms';
 	import { flushSync } from 'svelte';
-	import { SlidersHorizontal } from '@lucide/svelte';
+	import { ArrowDown, ArrowUp, GripVertical, Pin, SlidersHorizontal } from '@lucide/svelte';
 	import { sourceInfo } from '$lib/metadata-sources';
 	import type { LibrarySource } from '$lib/types';
 
 	let {
 		source,
-		error
+		error,
+		isRemote,
+		canMoveUp,
+		canMoveDown,
+		onMoveUp,
+		onMoveDown,
+		onDragStart,
+		onDrop
 	}: {
 		source: LibrarySource;
 		error?: string;
+		isRemote: boolean;
+		canMoveUp: boolean;
+		canMoveDown: boolean;
+		onMoveUp: () => void;
+		onMoveDown: () => void;
+		onDragStart: () => void;
+		onDrop: () => void;
 	} = $props();
 
 	const info = $derived(sourceInfo(source.source));
@@ -54,14 +67,65 @@
 		flushSync();
 		formEl?.requestSubmit();
 	}
+
+	function handleDragStart(event: DragEvent) {
+		if (event.dataTransfer) {
+			event.dataTransfer.effectAllowed = 'move';
+			// Firefox refuses to start an HTML5 drag unless dragstart sets
+			// some data; the payload itself is unused.
+			event.dataTransfer.setData('text/plain', source.source);
+		}
+
+		onDragStart();
+	}
+
+	function handleDrop(event: DragEvent) {
+		event.preventDefault();
+		onDrop();
+	}
 </script>
 
-<Card.Root class="gap-0 overflow-hidden p-0">
+<div
+	class="flex items-center gap-3 rounded-lg border bg-card p-2"
+	role="listitem"
+	draggable={isRemote ? true : undefined}
+	ondragstart={isRemote ? handleDragStart : undefined}
+	ondragover={isRemote ? (event: DragEvent) => event.preventDefault() : undefined}
+	ondrop={isRemote ? handleDrop : undefined}
+>
+	<div class="flex size-6 shrink-0 items-center justify-center text-muted-foreground">
+		{#if isRemote}
+			<GripVertical class="size-4 cursor-grab" aria-hidden="true" />
+		{:else}
+			<Pin class="size-4" aria-hidden="true" />
+		{/if}
+	</div>
+
+	<div
+		class="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md {info.image
+			? ''
+			: info.color}"
+	>
+		{#if info.image}
+			<img src={info.image} alt="" class="size-full object-cover" />
+		{:else}
+			<info.icon class="size-5 text-white/90" />
+		{/if}
+	</div>
+
+	<div class="min-w-0 flex-1">
+		<p class="truncate text-sm font-medium">{info.label}</p>
+		{#if info.description}
+			<p class="truncate text-xs text-muted-foreground">{info.description}</p>
+		{/if}
+	</div>
+
 	<form
 		bind:this={formEl}
 		id={formId}
 		method="POST"
 		action="?/updateSource"
+		class="flex shrink-0 items-center gap-1"
 		use:enhance={() => {
 			saving = true;
 			return async ({ result, update }) => {
@@ -96,41 +160,37 @@
 			{/each}
 		{/if}
 
-		<div
-			class="relative flex aspect-[4/3] items-center justify-center {info.image
-				? ''
-				: info.color}"
-		>
-			{#if info.image}
-				<img src={info.image} alt="" class="size-full object-cover" />
-			{:else}
-				<info.icon class="size-10 text-white/90" />
-			{/if}
-
-			{#if hasFields}
-				<Button
-					type="button"
-					variant="ghost"
-					size="icon-sm"
-					class="absolute top-2 right-2 text-white hover:bg-white/20 hover:text-white"
-					onclick={() => (settingsOpen = true)}
-				>
-					<SlidersHorizontal />
-					<span class="sr-only">Configure {info.label}</span>
-				</Button>
-			{/if}
-		</div>
-
-		<div class="flex items-center justify-between gap-2 p-3">
-			<span class="truncate text-sm font-medium">{info.label}</span>
-			<Switch checked={enabled} disabled={saving} onCheckedChange={handleEnabledChange} />
-		</div>
-
-		{#if error}
-			<p class="px-3 pb-3 text-xs text-destructive">{error}</p>
+		{#if isRemote}
+			<Button type="button" variant="ghost" size="icon-sm" disabled={!canMoveUp} onclick={onMoveUp}>
+				<ArrowUp />
+				<span class="sr-only">Move {info.label} up</span>
+			</Button>
+			<Button
+				type="button"
+				variant="ghost"
+				size="icon-sm"
+				disabled={!canMoveDown}
+				onclick={onMoveDown}
+			>
+				<ArrowDown />
+				<span class="sr-only">Move {info.label} down</span>
+			</Button>
 		{/if}
+
+		{#if hasFields}
+			<Button type="button" variant="ghost" size="icon-sm" onclick={() => (settingsOpen = true)}>
+				<SlidersHorizontal />
+				<span class="sr-only">Configure {info.label}</span>
+			</Button>
+		{/if}
+
+		<Switch checked={enabled} disabled={saving} onCheckedChange={handleEnabledChange} />
 	</form>
-</Card.Root>
+</div>
+
+{#if error}
+	<p class="px-2 text-xs text-destructive">{error}</p>
+{/if}
 
 {#if hasFields}
 	<Dialog.Root bind:open={settingsOpen}>

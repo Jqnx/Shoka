@@ -495,6 +495,59 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/admin/libraries/{id}/sources/order": {
+            "put": {
+                "description": "Stores the order remote sources run in for this library. Local sources (ComicInfo, filename) always run first and are rejected here.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Reorder a library's remote metadata sources",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Library ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Every remote source name, in the new order",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ReorderLibrarySourcesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/admin/libraries/{id}/sources/{source}": {
             "patch": {
                 "consumes": [
@@ -4027,6 +4080,10 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "priority": {
+                    "description": "Raw stored order value; null when the library has never been reordered.\nDeliberately present as a key (no omitempty) so clients can tell a\nmissing value from an order of 0.",
+                    "type": "integer"
+                },
                 "source": {
                     "type": "string"
                 }
@@ -4129,6 +4186,17 @@ const docTemplate = `{
                 },
                 "view_mode": {
                     "type": "string"
+                }
+            }
+        },
+        "handlers.ReorderLibrarySourcesRequest": {
+            "type": "object",
+            "properties": {
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

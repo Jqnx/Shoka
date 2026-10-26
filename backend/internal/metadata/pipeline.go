@@ -64,6 +64,67 @@ func NewPipeline(logger *slog.Logger, queries *sqlc.Queries, sources ...Source) 
 	return p
 }
 
+// orderedSources returns the registered sources in their effective run order
+// for a library: local sources first in builtin order, then remote sources by
+// the priority stored on their library_source row. Rows without a stored
+// priority (a library never reordered) sort after the customized remotes in
+// builtin order. The sort is stable over p.sources, which NewPipeline already
+// sorted by builtin priority, so ties stay deterministic.
+func (p *Pipeline) orderedSources(ctx context.Context, libraryID string) ([]Source, error) {
+	rows, err := p.queries.GetLibrarySources(ctx, libraryID)
+	if err != nil {
+		return nil, err
+	}
+
+	stored := make(map[string]*int64, len(rows))
+	for _, row := range rows {
+		stored[row.Source] = row.Priority
+	}
+
+	ordered := make([]Source, len(p.sources))
+	copy(ordered, p.sources)
+
+	sort.SliceStable(ordered, func(i, j int) bool {
+		return newSourceOrderKey(ordered[i], stored).less(newSourceOrderKey(ordered[j], stored))
+	})
+
+	return ordered, nil
+}
+
+// sourceOrderKey is the tuple orderedSources sorts on: locals before remotes,
+// rows with a stored priority before rows without one, then the effective
+// priority itself.
+type sourceOrderKey struct {
+	localRank int
+	hasCustom int
+	priority  int
+}
+
+func newSourceOrderKey(s Source, stored map[string]*int64) sourceOrderKey {
+	localRank := 1
+	if s.IsLocal() {
+		localRank = 0
+	}
+
+	if priority, ok := stored[s.Name()]; ok && priority != nil {
+		return sourceOrderKey{localRank: localRank, hasCustom: 0, priority: int(*priority)}
+	}
+
+	return sourceOrderKey{localRank: localRank, hasCustom: 1, priority: s.Priority()}
+}
+
+func (k sourceOrderKey) less(other sourceOrderKey) bool {
+	if k.localRank != other.localRank {
+		return k.localRank < other.localRank
+	}
+
+	if k.hasCustom != other.hasCustom {
+		return k.hasCustom < other.hasCustom
+	}
+
+	return k.priority < other.priority
+}
+
 // resolveSettings loads a source's per-library configuration from the
 // library_source table. A missing row (source never configured for this
 // library) is treated as present-but-disabled, not an error.
@@ -122,7 +183,14 @@ func (p *Pipeline) RunLocal(ctx context.Context, input Input) (*Result, error) {
 func (p *Pipeline) run(ctx context.Context, input Input, localOnly bool) (*Result, error) {
 	final := &Result{}
 
-	for _, source := range p.sources {
+	sources := p.sources
+	if ordered, err := p.orderedSources(ctx, input.LibraryID); err != nil {
+		p.logger.Warn("failed to load source order", "library_id", input.LibraryID, "error", err)
+	} else {
+		sources = ordered
+	}
+
+	for _, source := range sources {
 		settings, err := p.resolveSettings(ctx, input.LibraryID, source.Name())
 		if err != nil {
 			p.logger.Warn("failed to resolve source settings", "source", source.Name(), "archive_id", input.ArchiveID, "error", err)
@@ -386,18 +454,58 @@ func (p *Pipeline) SourceIsLocal(name string) (isLocal, known bool) {
 }
 
 // Sources returns info about all registered sources and their enabled
-// state for the given library.
+// state for the given library, in effective run order. Priority is the
+// 1-based position in that order.
 func (p *Pipeline) Sources(ctx context.Context, libraryID string) []SourceInfo {
-	info := make([]SourceInfo, len(p.sources))
-	for i, s := range p.sources {
+	sources := p.sources
+	if ordered, err := p.orderedSources(ctx, libraryID); err != nil {
+		p.logger.Warn("failed to load source order", "library_id", libraryID, "error", err)
+	} else {
+		sources = ordered
+	}
+
+	info := make([]SourceInfo, len(sources))
+	for i, s := range sources {
 		info[i] = SourceInfo{
 			Name:     s.Name(),
-			Priority: s.Priority(),
+			Priority: i + 1,
 			Enabled:  p.IsEnabled(ctx, libraryID, s.Name()),
 		}
 	}
 
 	return info
+}
+
+// OrderedSourceNames returns the registered source names in effective run
+// order for a library, falling back to builtin order on a query error.
+func (p *Pipeline) OrderedSourceNames(ctx context.Context, libraryID string) []string {
+	sources := p.sources
+	if ordered, err := p.orderedSources(ctx, libraryID); err != nil {
+		p.logger.Warn("failed to load source order", "library_id", libraryID, "error", err)
+	} else {
+		sources = ordered
+	}
+
+	names := make([]string, len(sources))
+	for i, s := range sources {
+		names[i] = s.Name()
+	}
+
+	return names
+}
+
+// RemoteSourceNames returns the remote (network) source names in builtin
+// order. These are the sources a library's order can customize.
+func (p *Pipeline) RemoteSourceNames() []string {
+	var names []string
+
+	for _, s := range p.sources {
+		if !s.IsLocal() {
+			names = append(names, s.Name())
+		}
+	}
+
+	return names
 }
 
 func unmarshalStringSlice(raw string) []string {

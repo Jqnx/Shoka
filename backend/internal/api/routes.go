@@ -58,7 +58,7 @@ func (s *Server) newAPIHandlers() apiHandlers {
 		metadata:       handlers.NewMetadataHandler(s.Queries, s.DB, s.Pipeline, s.Processor, s.Log),
 		admin:          handlers.NewAdminHandler(s.Queries, s.Maintenance, s.Log),
 		job:            handlers.NewJobHandler(s.Queries, s.Log),
-		library:        handlers.NewLibraryHandler(s.Queries, s.DB, s.Queue, s.Libraries, s.Processor, s.Log),
+		library:        handlers.NewLibraryHandler(s.Queries, s.DB, s.Queue, s.Libraries, s.Processor, s.Pipeline, s.Log),
 		tag:            handlers.NewTagHandler(s.Queries, s.Log, s.Processor),
 		character:      handlers.NewCharacterHandler(s.Queries, s.Log, s.Processor),
 		parody:         handlers.NewParodyHandler(s.Queries, s.Log, s.Processor),
@@ -230,6 +230,8 @@ func mountAdminRoutes(r chi.Router, h apiHandlers) {
 				r.With(requirePermission(auth.LibraryScan)).Post("/scan", h.library.ScanLibrary)
 				r.With(requirePermission(auth.MaintenanceRun)).Post("/covers", h.library.GenerateLibraryCovers)
 				r.With(requirePermission(auth.LibraryRead)).Get("/sources", h.library.GetLibrarySources)
+				r.With(requirePermission(auth.LibraryUpdate)).
+					Put("/sources/order", h.library.ReorderLibrarySources)
 				r.With(requirePermission(auth.LibraryUpdate)).
 					Patch("/sources/{source}", h.library.UpdateLibrarySource)
 			})

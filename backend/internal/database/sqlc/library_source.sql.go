@@ -22,7 +22,7 @@ func (q *Queries) DeleteLibrarySources(ctx context.Context, libraryID string) er
 const getLibrarySource = `-- name: GetLibrarySource :one
 ;
 
-select library_id, source, enabled, cookies, api_key, magazine_blocklist, misc_blocklist
+select library_id, source, enabled, cookies, api_key, magazine_blocklist, misc_blocklist, priority
 from library_source
 where library_id = ? and source = ?
 `
@@ -43,12 +43,13 @@ func (q *Queries) GetLibrarySource(ctx context.Context, arg GetLibrarySourcePara
 		&i.ApiKey,
 		&i.MagazineBlocklist,
 		&i.MiscBlocklist,
+		&i.Priority,
 	)
 	return i, err
 }
 
 const getLibrarySources = `-- name: GetLibrarySources :many
-select library_id, source, enabled, cookies, api_key, magazine_blocklist, misc_blocklist
+select library_id, source, enabled, cookies, api_key, magazine_blocklist, misc_blocklist, priority
 from library_source
 where library_id = ?
 order by source
@@ -71,6 +72,7 @@ func (q *Queries) GetLibrarySources(ctx context.Context, libraryID string) ([]Li
 			&i.ApiKey,
 			&i.MagazineBlocklist,
 			&i.MiscBlocklist,
+			&i.Priority,
 		); err != nil {
 			return nil, err
 		}
@@ -83,6 +85,25 @@ func (q *Queries) GetLibrarySources(ctx context.Context, libraryID string) ([]Li
 		return nil, err
 	}
 	return items, nil
+}
+
+const setLibrarySourcePriority = `-- name: SetLibrarySourcePriority :exec
+;
+
+update library_source
+set priority = ?
+where library_id = ? and source = ?
+`
+
+type SetLibrarySourcePriorityParams struct {
+	Priority  *int64 `json:"priority"`
+	LibraryID string `json:"library_id"`
+	Source    string `json:"source"`
+}
+
+func (q *Queries) SetLibrarySourcePriority(ctx context.Context, arg SetLibrarySourcePriorityParams) error {
+	_, err := q.db.ExecContext(ctx, setLibrarySourcePriority, arg.Priority, arg.LibraryID, arg.Source)
+	return err
 }
 
 const upsertLibrarySource = `-- name: UpsertLibrarySource :one
@@ -104,7 +125,7 @@ on conflict (library_id, source) do update set
     api_key = excluded.api_key,
     magazine_blocklist = excluded.magazine_blocklist,
     misc_blocklist = excluded.misc_blocklist
-returning library_id, source, enabled, cookies, api_key, magazine_blocklist, misc_blocklist
+returning library_id, source, enabled, cookies, api_key, magazine_blocklist, misc_blocklist, priority
 `
 
 type UpsertLibrarySourceParams struct {
@@ -136,6 +157,7 @@ func (q *Queries) UpsertLibrarySource(ctx context.Context, arg UpsertLibrarySour
 		&i.ApiKey,
 		&i.MagazineBlocklist,
 		&i.MiscBlocklist,
+		&i.Priority,
 	)
 	return i, err
 }

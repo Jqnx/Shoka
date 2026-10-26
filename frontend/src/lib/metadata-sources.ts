@@ -8,6 +8,8 @@ export type SourceInfo = {
 	label: string;
 	description: string;
 	fields: SourceField[];
+	/** True for filesystem-only sources: pinned ahead of every remote source. */
+	local: boolean;
 	/** Fallback tile look when no `image` is set: an icon on a plain color background. */
 	icon: Component;
 	color: string;
@@ -30,6 +32,7 @@ export const METADATA_SOURCE_INFO: Record<string, SourceInfo> = {
 		label: 'ComicInfo.xml',
 		description: 'Reads metadata already embedded in a ComicInfo.xml file inside each archive.',
 		fields: [],
+		local: true,
 		icon: FileCode,
 		color: 'bg-sky-600'
 	},
@@ -37,6 +40,7 @@ export const METADATA_SOURCE_INFO: Record<string, SourceInfo> = {
 		label: 'Filename',
 		description: 'Parses tags, artists, and other metadata out of the archive filename.',
 		fields: ['blocklists'],
+		local: true,
 		icon: Regex,
 		color: 'bg-amber-600'
 	},
@@ -45,6 +49,7 @@ export const METADATA_SOURCE_INFO: Record<string, SourceInfo> = {
 		description:
 			'Looks up matching galleries on E-Hentai. A logged-in session cookie unlocks more results.',
 		fields: ['cookies'],
+		local: false,
 		icon: Globe,
 		color: 'bg-violet-600'
 	},
@@ -52,6 +57,7 @@ export const METADATA_SOURCE_INFO: Record<string, SourceInfo> = {
 		label: 'nHentai',
 		description: 'Looks up matching galleries on nHentai using its API.',
 		fields: ['api_key'],
+		local: false,
 		icon: Globe,
 		color: 'bg-rose-600'
 	}
@@ -63,6 +69,7 @@ export function sourceInfo(source: string): SourceInfo {
 			label: source,
 			description: '',
 			fields: ['cookies', 'api_key', 'blocklists'],
+			local: false,
 			icon: Globe,
 			color: 'bg-neutral-600'
 		}

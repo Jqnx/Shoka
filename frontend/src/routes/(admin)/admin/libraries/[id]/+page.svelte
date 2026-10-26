@@ -7,13 +7,59 @@
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { Switch } from '$lib/components/ui/switch/index.js';
 	import LibrarySourceCard from '$lib/components/library-source-card.svelte';
+	import { sourceInfo } from '$lib/metadata-sources';
+	import type { LibrarySource } from '$lib/types';
 	import { enhance } from '$app/forms';
 	import { resolve } from '$app/paths';
+	import { flushSync } from 'svelte';
 	import { ArrowLeft } from '@lucide/svelte';
 
 	let { data, form } = $props();
 
 	let saving = $state(false);
+
+	// The latest load is the source of truth; `draft` holds an in-flight
+	// reorder until the action succeeds, at which point the invalidated load
+	// takes over again. Copying on edit keeps data.sources itself untouched.
+	let draft = $state<LibrarySource[] | null>(null);
+	const ordered = $derived(draft ?? data.sources);
+	let dragFrom = $state<number | null>(null);
+	let orderFormEl = $state<HTMLFormElement>(null!);
+	let orderInput = $state<HTMLInputElement>(null!);
+
+	function isRemoteRow(source: LibrarySource) {
+		return !sourceInfo(source.source).local;
+	}
+
+	// Reorder auto-saves through the hidden form, the same requestSubmit
+	// pattern the source switches use.
+	function commitOrder(next: LibrarySource[]) {
+		const names = next.filter(isRemoteRow).map((s) => s.source);
+		if (orderInput) orderInput.value = names.join(',');
+		flushSync();
+		orderFormEl?.requestSubmit();
+	}
+
+	function move(index: number, direction: -1 | 1) {
+		const target = index + direction;
+		if (target < 0 || target >= ordered.length) return;
+		const next = [...ordered];
+		const [row] = next.splice(index, 1);
+		next.splice(target, 0, row);
+		draft = next;
+		commitOrder(next);
+	}
+
+	function handleDrop(target: number) {
+		const from = dragFrom;
+		dragFrom = null;
+		if (from === null || from === target) return;
+		const next = [...ordered];
+		const [row] = next.splice(from, 1);
+		next.splice(target, 0, row);
+		draft = next;
+		commitOrder(next);
+	}
 
 	// The backend rejects a non-zero interval below 15 minutes, so the
 	// presets start there.
@@ -151,18 +197,46 @@
 	<div class="mt-8">
 		<h2 class="text-lg font-semibold">Metadata sources</h2>
 		<p class="mt-1 text-sm text-muted-foreground">
-			Shoka tries these in priority order when fetching metadata for an archive in this library.
+			Local sources always run first and can't be reordered. Drag a remote source, or use its
+			arrows, to change the order they run in.
 		</p>
 
-		<div class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-			{#each data.sources as source (source.source)}
+		<div class="mt-4 flex flex-col gap-2" role="list">
+			{#each ordered as source, i (source.source)}
 				<LibrarySourceCard
 					{source}
+					isRemote={isRemoteRow(source)}
+					canMoveUp={i > 0 && isRemoteRow(ordered[i - 1])}
+					canMoveDown={i < ordered.length - 1 && isRemoteRow(ordered[i + 1])}
+					onMoveUp={() => move(i, -1)}
+					onMoveDown={() => move(i, 1)}
+					onDragStart={() => (dragFrom = i)}
+					onDrop={() => handleDrop(i)}
 					error={form?.action === 'updateSource' && form.source === source.source
 						? form.error
 						: undefined}
 				/>
 			{/each}
 		</div>
+
+		{#if form?.action === 'updateSourceOrder' && form.error}
+			<p class="mt-2 text-sm text-destructive">{form.error}</p>
+		{/if}
+
+		<form
+			bind:this={orderFormEl}
+			method="POST"
+			action="?/updateSourceOrder"
+			class="hidden"
+			use:enhance={() =>
+				async ({ result, update }) => {
+					await update();
+					// On success the invalidated load is authoritative; on failure
+					// keep the attempted order visible alongside the error.
+					if (result.type === 'success') draft = null;
+				}}
+		>
+			<input bind:this={orderInput} type="hidden" name="order" value="" />
+		</form>
 	</div>
 </div>

@@ -112,5 +112,36 @@ export const actions: Actions = {
 		}
 
 		return { action: 'updateSource' as const, source, success: true };
+	},
+
+	updateSourceOrder: async ({ request, fetch, params, locals }) => {
+		const denied = guard(
+			locals.user,
+			{ library: ['update'] },
+			'updateSourceOrder',
+			'You cannot update libraries.'
+		);
+		if (denied) return denied;
+
+		const form = await request.formData();
+		const sources = String(form.get('order') ?? '')
+			.split(',')
+			.map((name) => name.trim())
+			.filter(Boolean);
+
+		const res = await fetch(`/api/admin/libraries/${params.id}/sources/order`, {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ sources })
+		});
+
+		if (!res.ok) {
+			return fail(res.status, {
+				action: 'updateSourceOrder' as const,
+				error: await errorMessage(res, 'Failed to update source order.')
+			});
+		}
+
+		return { action: 'updateSourceOrder' as const, success: true };
 	}
 };
