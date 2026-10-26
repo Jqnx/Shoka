@@ -310,6 +310,26 @@ func (q *Queries) HasPendingJob(ctx context.Context, arg HasPendingJobParams) (b
 	return column_1, err
 }
 
+const hasPendingJobByType = `-- name: HasPendingJobByType :one
+;
+
+select
+    exists (
+        select 1 from job
+        where type = ?1
+        and status in ('pending', 'running')
+    ) = 1
+`
+
+// Type-only counterpart of HasPendingJob: a maintenance run fans out one job
+// per archive, so per-payload dedupe cannot suppress a second full pass.
+func (q *Queries) HasPendingJobByType(ctx context.Context, type_ string) (bool, error) {
+	row := q.db.QueryRowContext(ctx, hasPendingJobByType, type_)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const markJobAsDone = `-- name: MarkJobAsDone :exec
 update job
 set status = 'done', 

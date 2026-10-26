@@ -61,6 +61,17 @@ select
     ) = 1
 ;
 
+-- name: HasPendingJobByType :one
+-- Type-only counterpart of HasPendingJob: a maintenance run fans out one job
+-- per archive, so per-payload dedupe cannot suppress a second full pass.
+select
+    exists (
+        select 1 from job
+        where type = sqlc.arg('type')
+        and status in ('pending', 'running')
+    ) = 1
+;
+
 -- name: GetJobsByStatus :many
 select
     id, type, status, attempts, max_attempts, error, created_at, updated_at, run_after

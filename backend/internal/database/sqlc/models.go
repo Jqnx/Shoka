@@ -166,6 +166,14 @@ type LibrarySource struct {
 	MiscBlocklist     string  `json:"misc_blocklist"`
 }
 
+type MaintenanceTask struct {
+	Task            string     `json:"task"`
+	IntervalMinutes int64      `json:"interval_minutes"`
+	LastRunAt       *time.Time `json:"last_run_at"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+}
+
 type Parody struct {
 	ID    int64  `json:"id"`
 	Name  string `json:"name"`

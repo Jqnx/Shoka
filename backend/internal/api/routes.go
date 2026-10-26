@@ -56,7 +56,7 @@ func (s *Server) newAPIHandlers() apiHandlers {
 		test:           handlers.NewTestHandler(s.Queries, s.Processor, s.Log),
 		archive:        handlers.NewArchiveHandler(s.Queries, s.DB, s.Log, s.Processor, s.Cache, s.Queue, s.Thumbnails, s.Pipeline),
 		metadata:       handlers.NewMetadataHandler(s.Queries, s.DB, s.Pipeline, s.Processor, s.Log),
-		admin:          handlers.NewAdminHandler(s.Queries, s.Queue, s.Log),
+		admin:          handlers.NewAdminHandler(s.Queries, s.Maintenance, s.Log),
 		job:            handlers.NewJobHandler(s.Queries, s.Log),
 		library:        handlers.NewLibraryHandler(s.Queries, s.DB, s.Queue, s.Libraries, s.Processor, s.Log),
 		tag:            handlers.NewTagHandler(s.Queries, s.Log, s.Processor),
@@ -210,6 +210,8 @@ func mountAdminRoutes(r chi.Router, h apiHandlers) {
 	r.Route("/api/admin", func(r chi.Router) {
 		r.With(requirePermission(auth.MaintenanceRun)).Post("/covers", h.admin.GenerateCovers)
 		r.With(requirePermission(auth.MaintenanceRun)).Post("/phashes", h.admin.GeneratePHashes)
+		r.With(requirePermission(auth.MaintenanceRead)).Get("/maintenance", h.admin.GetMaintenanceTasks)
+		r.With(requirePermission(auth.MaintenanceRun)).Patch("/maintenance/{task}", h.admin.UpdateMaintenanceTask)
 		r.With(requirePermission(auth.MaintenanceRead)).Get("/duplicates", h.admin.GetDuplicates)
 		r.With(requirePermission(auth.JobRead)).Get("/jobs", h.job.GetJobs)
 		r.With(requirePermission(auth.JobRead)).Get("/jobs/events", h.job.StreamJobEvents)

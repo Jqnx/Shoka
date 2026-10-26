@@ -6,6 +6,7 @@ import (
 	"Shoka/internal/api/response"
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/jobs"
+	"Shoka/internal/maintenance"
 	"log/slog"
 	"net/http"
 )
@@ -13,18 +14,18 @@ import (
 // AdminHandler exposes cross-library maintenance endpoints such as cover
 // regeneration, perceptual hashing, and duplicate detection.
 type AdminHandler struct {
-	Log     *slog.Logger
-	Queries *sqlc.Queries
-	Queue   *jobs.Queue
+	Log         *slog.Logger
+	Queries     *sqlc.Queries
+	Maintenance *maintenance.Manager
 }
 
-// NewAdminHandler returns an AdminHandler that schedules background jobs on
-// the given queue and reads archives through queries.
-func NewAdminHandler(queries *sqlc.Queries, queue *jobs.Queue, logger *slog.Logger) *AdminHandler {
+// NewAdminHandler returns an AdminHandler that runs whole-library maintenance
+// through the manager and reads archives through queries.
+func NewAdminHandler(queries *sqlc.Queries, maintenance *maintenance.Manager, logger *slog.Logger) *AdminHandler {
 	return &AdminHandler{
-		Queries: queries,
-		Queue:   queue,
-		Log:     logger.With("handler", "admin"),
+		Queries:     queries,
+		Maintenance: maintenance,
+		Log:         logger.With("handler", "admin"),
 	}
 }
 
@@ -37,22 +38,11 @@ func NewAdminHandler(queries *sqlc.Queries, queue *jobs.Queue, logger *slog.Logg
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/admin/covers [post]
 func (h *AdminHandler) GenerateCovers(w http.ResponseWriter, r *http.Request) {
-	archives, err := h.Queries.GetAllArchiveFilePaths(r.Context())
-	if err != nil {
-		h.Log.Error("get archives failed", "error", err)
-		response.InternalError(w, "failed to get archives")
+	if err := h.Maintenance.RunTask(r.Context(), jobs.JobTypeCover); err != nil {
+		h.Log.Error("run covers failed", "error", err)
+		response.InternalError(w, "failed to enqueue cover generation")
 
 		return
-	}
-
-	for _, a := range archives {
-		if err := h.Queue.Enqueue(r.Context(), jobs.JobTypeCover, jobs.CoverPayload{
-			ArchiveID: a.ID,
-			FilePath:  a.FilePath,
-			PageIndex: int(a.CoverPage),
-		}); err != nil {
-			h.Log.Error("enqueue cover job failed", "archive_id", a.ID, "error", err)
-		}
 	}
 
 	response.NoContent(w)
@@ -68,21 +58,11 @@ func (h *AdminHandler) GenerateCovers(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/admin/phashes [post]
 func (h *AdminHandler) GeneratePHashes(w http.ResponseWriter, r *http.Request) {
-	archives, err := h.Queries.GetAllArchiveFilePaths(r.Context())
-	if err != nil {
-		h.Log.Error("get archives failed", "error", err)
-		response.InternalError(w, "failed to get archives")
+	if err := h.Maintenance.RunTask(r.Context(), jobs.JobTypePHash); err != nil {
+		h.Log.Error("run phashes failed", "error", err)
+		response.InternalError(w, "failed to enqueue hash generation")
 
 		return
-	}
-
-	for _, a := range archives {
-		if err := h.Queue.Enqueue(r.Context(), jobs.JobTypePHash, jobs.PHashPayload{
-			ArchiveID: a.ID,
-			FilePath:  a.FilePath,
-		}); err != nil {
-			h.Log.Error("enqueue phash job failed", "archive_id", a.ID, "error", err)
-		}
 	}
 
 	response.NoContent(w)

@@ -432,6 +432,16 @@ definitions:
       type:
         type: string
     type: object
+  handlers.MaintenanceTaskResponse:
+    properties:
+      interval_minutes:
+        type: integer
+      last_run_at:
+        description: Omitted when the task has never run.
+        type: string
+      task:
+        type: string
+    type: object
   handlers.ParodyListResponse:
     properties:
       items:
@@ -645,6 +655,11 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  handlers.UpdateMaintenanceTaskRequest:
+    properties:
+      interval_minutes:
+        type: integer
     type: object
   handlers.UpdateProgressRequest:
     properties:
@@ -1151,6 +1166,72 @@ paths:
           schema:
             $ref: '#/definitions/response.Error'
       summary: Trigger a scan of every library
+      tags:
+      - admin
+  /api/admin/maintenance:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.MaintenanceTaskResponse'
+            type: array
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List maintenance tasks
+      tags:
+      - admin
+  /api/admin/maintenance/{task}:
+    patch:
+      consumes:
+      - application/json
+      description: Sets how often the task runs. 0 disables scheduling; any other
+        value must be at least 15 minutes.
+      parameters:
+      - description: Maintenance task (cover or phash)
+        in: path
+        name: task
+        required: true
+        type: string
+      - description: New schedule
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateMaintenanceTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.MaintenanceTaskResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Schedule a maintenance task
       tags:
       - admin
   /api/admin/phashes:

@@ -12,6 +12,7 @@ import (
 	"Shoka/internal/jobs"
 	"Shoka/internal/library"
 	applog "Shoka/internal/log"
+	"Shoka/internal/maintenance"
 	"Shoka/internal/metadata"
 	"Shoka/internal/metadata/sources"
 	"context"
@@ -76,6 +77,7 @@ func run(cfg *config.Config, log *slog.Logger) error {
 	queue := jobs.NewQueue(queries, log)
 	worker := jobs.NewWorker(queue, log)
 	libraries := library.NewManager(cfg, queries, db, queue, log)
+	maintenanceMgr := maintenance.NewManager(queries, queue, log)
 	thumbnails := events.NewThumbnailBroadcaster()
 	images := image.NewProcessor(cfg.Cache.Dir, log)
 
@@ -93,7 +95,7 @@ func run(cfg *config.Config, log *slog.Logger) error {
 		sources.NewNHentaiSource(),
 	)
 
-	apiServer := api.New(queries, log, queue, cache, images, pipeline, libraries, thumbnails, db)
+	apiServer := api.New(queries, log, queue, cache, images, pipeline, libraries, maintenanceMgr, thumbnails, db)
 
 	// Register worker handlers
 	worker.Register(jobs.JobTypeScan, jobs.NewScanHandler(libraries, log), 1)
@@ -131,6 +133,8 @@ func run(cfg *config.Config, log *slog.Logger) error {
 	if err := libraries.EnqueueAllLibraryScans(ctx); err != nil {
 		log.Error("failed to enqueue initial scans", "error", err)
 	}
+
+	maintenanceMgr.Start(ctx)
 
 	// Start API Server
 	host := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
