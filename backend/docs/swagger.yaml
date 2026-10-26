@@ -1834,6 +1834,32 @@ paths:
       summary: Search a metadata source
       tags:
       - metadata
+  /api/archives/{id}/metadata/download:
+    get:
+      description: Returns the archive's current metadata as a ComicInfo.xml file
+        download
+      parameters:
+      - description: Archive ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/xml
+      responses:
+        "200":
+          description: OK
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Download metadata as ComicInfo.xml
+      tags:
+      - metadata
   /api/archives/{id}/metadata/save:
     post:
       description: Writes current metadata as ComicInfo.xml into the archive file

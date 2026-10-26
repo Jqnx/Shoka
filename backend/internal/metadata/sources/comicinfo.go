@@ -14,6 +14,11 @@ import (
 )
 
 type comicInfoXML struct {
+	// XMLName is untagged on purpose: a tagged field would make xml.Unmarshal
+	// reject documents whose root element is not <ComicInfo> (read.go enforces
+	// the tag name). Its value is set in MarshalComicInfo to emit the spec's
+	// <ComicInfo> root; parse stays lenient about the actual root name.
+	XMLName     xml.Name
 	Title       string `xml:"Title"`
 	Summary     string `xml:"Summary"`
 	LanguageISO string `xml:"LanguageISO"`
@@ -135,6 +140,7 @@ func (s *ComicInfoSource) parse(data []byte) (*metadata.Result, error) {
 // multi-valued fields are joined with the separators the spec expects.
 func MarshalComicInfo(result *metadata.Result) ([]byte, error) {
 	info := comicInfoXML{}
+	info.XMLName = xml.Name{Local: "ComicInfo"}
 
 	if result.Title != nil {
 		info.Title = *result.Title

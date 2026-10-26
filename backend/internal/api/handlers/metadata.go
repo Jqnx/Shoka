@@ -216,6 +216,55 @@ func (h *MetadataHandler) SaveMetadataToFile(w http.ResponseWriter, r *http.Requ
 	response.NoContent(w)
 }
 
+// DownloadComicInfo godoc
+//
+//	@Summary		Download metadata as ComicInfo.xml
+//	@Description	Returns the archive's current metadata as a ComicInfo.xml file download
+//	@Tags			metadata
+//	@Produce		application/xml
+//	@Param			id	path	string	true	"Archive ID"
+//	@Success		200
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/metadata/download [get]
+func (h *MetadataHandler) DownloadComicInfo(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	arch, err := h.queries.GetArchiveByID(r.Context(), id)
+	if err != nil {
+		response.NotFound(w, "archive not found")
+		return
+	}
+
+	if !auth.LibraryScopeFromContext(r.Context()).Allows(arch.LibraryID) {
+		response.NotFound(w, "archive not found")
+		return
+	}
+
+	result, err := database.GetArchiveMetadata(r.Context(), h.queries, id)
+	if err != nil {
+		h.logger.Error("load metadata failed", "id", id, "error", err)
+		response.InternalError(w, "failed to load metadata")
+
+		return
+	}
+
+	data, err := sources.MarshalComicInfo(result)
+	if err != nil {
+		h.logger.Error("marshal ComicInfo failed", "id", id, "error", err)
+		response.InternalError(w, "failed to build ComicInfo.xml")
+
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="ComicInfo.xml"`)
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	//nolint:gosec // ComicInfo.xml bytes built by MarshalComicInfo, served with the explicit XML content type above
+	_, _ = w.Write(data)
+}
+
 // SearchMetadataSource godoc
 //
 //	@Summary		Search a metadata source

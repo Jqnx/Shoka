@@ -196,6 +196,7 @@ func mountArchiveDetailRoutes(r chi.Router, h apiHandlers) {
 	r.Route("/api/archives/{id}/metadata", func(r chi.Router) {
 		r.With(requirePermission(auth.MetadataFetch)).Post("/", h.metadata.FetchMetadata)
 		r.With(requirePermission(auth.MetadataWrite)).Post("/save", h.metadata.SaveMetadataToFile)
+		r.Get("/download", h.metadata.DownloadComicInfo)
 		r.With(requirePermission(auth.MetadataFetch)).Post("/{source}", h.metadata.FetchMetadataFromSource)
 		r.With(requirePermission(auth.MetadataFetch)).Get("/{source}/search", h.metadata.SearchMetadataSource)
 		r.With(requirePermission(auth.MetadataApply)).

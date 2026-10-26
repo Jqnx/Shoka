@@ -2,10 +2,56 @@ package sources
 
 import (
 	"Shoka/internal/metadata"
+	"bytes"
+	"encoding/xml"
 	"reflect"
 	"strings"
 	"testing"
 )
+
+func TestMarshalComicInfoRootElement(t *testing.T) {
+	t.Parallel()
+
+	title := "Example"
+
+	data, err := MarshalComicInfo(&metadata.Result{Title: &title})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	dec := xml.NewDecoder(bytes.NewReader(data))
+
+	var start xml.StartElement
+
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+
+		if s, ok := tok.(xml.StartElement); ok {
+			start = s
+			break
+		}
+	}
+
+	if start.Name.Local != "ComicInfo" {
+		t.Errorf("root element = %q, want %q", start.Name.Local, "ComicInfo")
+	}
+}
+
+func TestComicInfoParseLenientRoot(t *testing.T) {
+	t.Parallel()
+
+	result, err := NewComicInfoSource().parse([]byte("<notcomicinfo><Title>x</Title></notcomicinfo>"))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	if result.Title == nil || *result.Title != "x" {
+		t.Errorf("Title = %v, want %q", result.Title, "x")
+	}
+}
 
 func TestComicInfoParseWeb(t *testing.T) {
 	t.Parallel()

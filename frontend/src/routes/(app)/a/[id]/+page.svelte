@@ -18,6 +18,7 @@
 		BookOpen,
 		ChevronLeft,
 		Calendar,
+		Download,
 		FileText,
 		Tag,
 		Users,
@@ -257,12 +258,26 @@
 										{#snippet child({ props })}
 											<button type="submit" {...props} class={cn(props.class as string, 'w-full')}>
 												<Save />
-												{savingMetadata ? 'Saving…' : 'Save metadata to file'}
+												{savingMetadata ? 'Saving…' : 'Save metadata to archive'}
 											</button>
 										{/snippet}
 									</DropdownMenu.Item>
 								</form>
 							{/if}
+							<DropdownMenu.Item>
+								{#snippet child({ props })}
+									<!-- eslint-disable svelte/no-navigation-without-resolve -- /api/* is proxied to the Go backend, not an app route -->
+									<a
+										href="/api/archives/{a.id}/metadata/download"
+										download="ComicInfo.xml"
+										{...props}
+									>
+										<Download />
+										Download metadata
+									</a>
+									<!-- eslint-enable svelte/no-navigation-without-resolve -->
+								{/snippet}
+							</DropdownMenu.Item>
 							{#if canSetCover}
 								<form
 									method="POST"
