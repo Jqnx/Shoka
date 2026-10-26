@@ -69,11 +69,19 @@ export const actions: Actions = {
 
 		const form = await request.formData();
 		const task = String(form.get('task') ?? '');
-		const interval = Number(form.get('interval_minutes') ?? 0);
+		const rawInterval = form.get('interval_minutes');
 
 		if (task !== 'cover' && task !== 'phash') {
 			return fail(400, { action: 'setSchedule' as const, error: 'Unknown task.' });
 		}
+		// A missing interval must not fall through to 0: the backend rejects a
+		// nil interval for the same reason, so an empty body cannot silently
+		// disable a schedule.
+		if (typeof rawInterval !== 'string' || rawInterval.trim() === '') {
+			return fail(400, { action: 'setSchedule' as const, error: 'Interval is required.' });
+		}
+
+		const interval = Number(rawInterval);
 		if (!Number.isInteger(interval) || interval < 0) {
 			return fail(400, { action: 'setSchedule' as const, error: 'Invalid interval.' });
 		}

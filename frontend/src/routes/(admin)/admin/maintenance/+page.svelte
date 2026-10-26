@@ -127,7 +127,11 @@
 					>
 						<input type="hidden" name="task" value={job.task} />
 						<Select.Root type="single" name="interval_minutes" bind:value={schedule[job.task]}>
-							<Select.Trigger id={`schedule-${job.task}`} class="w-44" aria-label="Schedule">
+							<Select.Trigger
+								id={`schedule-${job.task}`}
+								class="w-44"
+								aria-label={`${job.title} schedule: ${scheduleLabel(job.task)}`}
+							>
 								{scheduleLabel(job.task)}
 							</Select.Trigger>
 							<Select.Content>
