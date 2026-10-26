@@ -56,49 +56,5 @@ export const actions: Actions = {
 		}
 
 		return { action: 'generatePHashes' as const, success: true };
-	},
-
-	setSchedule: async ({ request, fetch, locals }) => {
-		const denied = guard(
-			locals.user,
-			{ maintenance: ['run'] },
-			'setSchedule',
-			'You cannot run maintenance jobs.'
-		);
-		if (denied) return denied;
-
-		const form = await request.formData();
-		const task = String(form.get('task') ?? '');
-		const rawInterval = form.get('interval_minutes');
-
-		if (task !== 'cover' && task !== 'phash') {
-			return fail(400, { action: 'setSchedule' as const, error: 'Unknown task.' });
-		}
-		// A missing interval must not fall through to 0: the backend rejects a
-		// nil interval for the same reason, so an empty body cannot silently
-		// disable a schedule.
-		if (typeof rawInterval !== 'string' || rawInterval.trim() === '') {
-			return fail(400, { action: 'setSchedule' as const, error: 'Interval is required.' });
-		}
-
-		const interval = Number(rawInterval);
-		if (!Number.isInteger(interval) || interval < 0) {
-			return fail(400, { action: 'setSchedule' as const, error: 'Invalid interval.' });
-		}
-
-		const res = await fetch(`/api/admin/maintenance/${task}`, {
-			method: 'PATCH',
-			headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ interval_minutes: interval })
-		});
-
-		if (!res.ok) {
-			return fail(res.status, {
-				action: 'setSchedule' as const,
-				error: await errorMessage(res, 'Failed to save the schedule.')
-			});
-		}
-
-		return { action: 'setSchedule' as const, success: true };
 	}
 };

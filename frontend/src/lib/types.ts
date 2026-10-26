@@ -352,7 +352,7 @@ export type JobSnapshot = {
 // One scheduled housekeeping task, from GET /api/admin/maintenance.
 export type MaintenanceTask = {
 	task: 'cover' | 'phash';
-	/** Minutes between scheduled runs. 0 means scheduling is off. */
+	/** Minutes between automatic runs. Fixed backend-side at 12 hours. */
 	interval_minutes: number;
 	/** Absent when the task has never run. */
 	last_run_at?: string;

@@ -211,7 +211,6 @@ func mountAdminRoutes(r chi.Router, h apiHandlers) {
 		r.With(requirePermission(auth.MaintenanceRun)).Post("/covers", h.admin.GenerateCovers)
 		r.With(requirePermission(auth.MaintenanceRun)).Post("/phashes", h.admin.GeneratePHashes)
 		r.With(requirePermission(auth.MaintenanceRead)).Get("/maintenance", h.admin.GetMaintenanceTasks)
-		r.With(requirePermission(auth.MaintenanceRun)).Patch("/maintenance/{task}", h.admin.UpdateMaintenanceTask)
 		r.With(requirePermission(auth.MaintenanceRead)).Get("/duplicates", h.admin.GetDuplicates)
 		r.With(requirePermission(auth.JobRead)).Get("/jobs", h.job.GetJobs)
 		r.With(requirePermission(auth.JobRead)).Get("/jobs/events", h.job.StreamJobEvents)

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Select from '$lib/components/ui/select/index.js';
 	import { enhance } from '$app/forms';
 	import { ImageUp, Binary, Loader2, Play } from '@lucide/svelte';
 
@@ -30,37 +29,7 @@
 		}
 	];
 
-	// The backend rejects a non-zero interval below 15 minutes; maintenance runs
-	// are whole-library passes, so the presets start coarser than the scan list.
-	const intervals = [
-		{ value: '0', label: 'Off' },
-		{ value: '360', label: 'Every 6 hours' },
-		{ value: '720', label: 'Every 12 hours' },
-		{ value: '1440', label: 'Every 24 hours' },
-		{ value: '10080', label: 'Every week' }
-	];
-
 	const tasksById = $derived(new Map(data.tasks.map((t) => [t.task, t])));
-	// String state because Select.Root carries its value as a string (same as the
-	// scan-interval select on the library page). Seeded once and never re-synced
-	// from `data`: a successful save leaves it at the value the server now holds,
-	// and a failed save keeps the user's pick with the error line above the list.
-	// Built from `jobs`, not the response, so a task row deleted by hand still
-	// renders as Off instead of an undefined interval.
-	let schedule = $state<Record<string, string>>(
-		Object.fromEntries(
-			jobs.map((job) => [job.task, String(tasksById.get(job.task)?.interval_minutes ?? 0)])
-		)
-	);
-
-	function scheduleLabel(task: string) {
-		const value = schedule[task];
-		const preset = intervals.find((i) => i.value === value);
-
-		// A value set through the API that is not one of the presets still has to
-		// read truthfully; falling back to "Off" would claim scheduling is disabled.
-		return preset?.label ?? `Every ${value} minutes`;
-	}
 
 	// "Last run" is the last enqueue attempt - manual or scheduled - not job
 	// completion; the queue itself is visible on /admin/jobs.
@@ -78,14 +47,6 @@
 <div class="p-4 sm:p-6">
 	<h1 class="text-2xl font-bold tracking-tight">Maintenance</h1>
 	<p class="mt-1 text-sm text-muted-foreground">Housekeeping tasks for your Shoka instance.</p>
-
-	{#if form?.action === 'setSchedule'}
-		{#if form.error}
-			<p class="mt-4 text-sm text-destructive">{form.error}</p>
-		{:else}
-			<p class="mt-4 text-sm text-muted-foreground">Schedule saved.</p>
-		{/if}
-	{/if}
 
 	<div class="mt-6 flex flex-col gap-3">
 		{#each jobs as job (job.action)}
@@ -110,68 +71,32 @@
 					</div>
 				</div>
 
-				<div class="flex shrink-0 flex-wrap items-center gap-2">
-					<form
-						method="POST"
-						action="?/setSchedule"
-						use:enhance={() => {
-							pending = 'setSchedule';
-							return async ({ update }) => {
-								await update();
-								pending = null;
-							};
-						}}
-						class="flex items-center gap-2"
+				<form
+					method="POST"
+					action="?/{job.action}"
+					use:enhance={() => {
+						pending = job.action;
+						return async ({ update }) => {
+							await update();
+							pending = null;
+						};
+					}}
+					class="shrink-0"
+				>
+					<Button
+						type="submit"
+						variant="outline"
+						size="icon-sm"
+						disabled={pending !== null}
+						aria-label={`Run now: ${job.title.toLowerCase()}`}
 					>
-						<input type="hidden" name="task" value={job.task} />
-						<Select.Root type="single" name="interval_minutes" bind:value={schedule[job.task]}>
-							<Select.Trigger
-								id={`schedule-${job.task}`}
-								class="w-44"
-								aria-label={`${job.title} schedule: ${scheduleLabel(job.task)}`}
-							>
-								{scheduleLabel(job.task)}
-							</Select.Trigger>
-							<Select.Content>
-								{#each intervals as interval (interval.value)}
-									<Select.Item value={interval.value} label={interval.label}>
-										{interval.label}
-									</Select.Item>
-								{/each}
-							</Select.Content>
-						</Select.Root>
-						<Button type="submit" variant="outline" size="sm" disabled={pending !== null}>
-							Save
-						</Button>
-					</form>
-
-					<form
-						method="POST"
-						action="?/{job.action}"
-						use:enhance={() => {
-							pending = job.action;
-							return async ({ update }) => {
-								await update();
-								pending = null;
-							};
-						}}
-						class="shrink-0"
-					>
-						<Button
-							type="submit"
-							variant="outline"
-							size="icon-sm"
-							disabled={pending !== null}
-							aria-label={`Run now: ${job.title.toLowerCase()}`}
-						>
-							{#if pending === job.action}
-								<Loader2 class="size-3.5 animate-spin" />
-							{:else}
-								<Play class="size-3.5" />
-							{/if}
-						</Button>
-					</form>
-				</div>
+						{#if pending === job.action}
+							<Loader2 class="size-3.5 animate-spin" />
+						{:else}
+							<Play class="size-3.5" />
+						{/if}
+					</Button>
+				</form>
 			</div>
 		{/each}
 	</div>

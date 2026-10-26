@@ -9,23 +9,6 @@ import (
 	"context"
 )
 
-const getMaintenanceTask = `-- name: GetMaintenanceTask :one
-select task, interval_minutes, last_run_at, created_at, updated_at from maintenance_task where task = ?
-`
-
-func (q *Queries) GetMaintenanceTask(ctx context.Context, task string) (MaintenanceTask, error) {
-	row := q.db.QueryRowContext(ctx, getMaintenanceTask, task)
-	var i MaintenanceTask
-	err := row.Scan(
-		&i.Task,
-		&i.IntervalMinutes,
-		&i.LastRunAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
 const getMaintenanceTasks = `-- name: GetMaintenanceTasks :many
 select task, interval_minutes, last_run_at, created_at, updated_at from maintenance_task order by task
 `
@@ -69,9 +52,10 @@ where interval_minutes > 0
 order by task
 `
 
-// ListMaintenanceTasksDue returns every scheduled maintenance task whose
-// interval has elapsed: scheduling is enabled (interval > 0) and either it
-// has never run or the interval has elapsed since the last run attempt.
+// ListMaintenanceTasksDue returns every maintenance task whose fixed interval
+// has elapsed: it has never run or the interval has passed since the last
+// attempt. interval_minutes is set by migration 00039 and has no write path,
+// so the > 0 guard only keeps a hand-edited 0 from scheduling.
 // Polled by the maintenance manager's scheduler.
 func (q *Queries) ListMaintenanceTasksDue(ctx context.Context) ([]MaintenanceTask, error) {
 	rows, err := q.db.QueryContext(ctx, listMaintenanceTasksDue)
@@ -109,24 +93,9 @@ where task = ?
 `
 
 // MarkMaintenanceTaskRun records a run attempt. Deliberately does not touch
-// updated_at, which tracks configuration edits rather than run activity.
+// updated_at, which tracks migration edits to the fixed schedule rather than
+// run activity.
 func (q *Queries) MarkMaintenanceTaskRun(ctx context.Context, task string) error {
 	_, err := q.db.ExecContext(ctx, markMaintenanceTaskRun, task)
-	return err
-}
-
-const updateMaintenanceTaskInterval = `-- name: UpdateMaintenanceTaskInterval :exec
-update maintenance_task
-set interval_minutes = ?, updated_at = datetime('now')
-where task = ?
-`
-
-type UpdateMaintenanceTaskIntervalParams struct {
-	IntervalMinutes int64  `json:"interval_minutes"`
-	Task            string `json:"task"`
-}
-
-func (q *Queries) UpdateMaintenanceTaskInterval(ctx context.Context, arg UpdateMaintenanceTaskIntervalParams) error {
-	_, err := q.db.ExecContext(ctx, updateMaintenanceTaskInterval, arg.IntervalMinutes, arg.Task)
 	return err
 }

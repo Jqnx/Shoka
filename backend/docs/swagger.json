@@ -585,71 +585,6 @@
                 }
             }
         },
-        "/api/admin/maintenance/{task}": {
-            "patch": {
-                "description": "Sets how often the task runs. 0 disables scheduling; any other value must be at least 15 minutes.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "admin"
-                ],
-                "summary": "Schedule a maintenance task",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Maintenance task (cover or phash)",
-                        "name": "task",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "New schedule",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handlers.UpdateMaintenanceTaskRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.MaintenanceTaskResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/response.Error"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/response.Error"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/response.Error"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.Error"
-                        }
-                    }
-                }
-            }
-        },
         "/api/admin/phashes": {
             "post": {
                 "description": "Backfills the hashes GET /api/admin/duplicates compares. Safe to re-run - each job overwrites that archive's hashes in place, so this is also how you re-hash the library after a change to which pages get sampled.",
@@ -4436,14 +4371,6 @@
                     "items": {
                         "type": "string"
                     }
-                }
-            }
-        },
-        "handlers.UpdateMaintenanceTaskRequest": {
-            "type": "object",
-            "properties": {
-                "interval_minutes": {
-                    "type": "integer"
                 }
             }
         },
