@@ -121,29 +121,31 @@ func (s *ComicInfoSource) parse(data []byte) (*metadata.Result, error) {
 	return result, nil
 }
 
-// setRelationFields fills the multi-valued relation fields, leaving an
-// absent element nil so it reads as "don't touch this relation". A doujin
+// setRelationFields fills the multi-valued relation fields, leaving a field
+// nil when its element is absent or contains no meaningful values (empty
+// tokens or "unknown"). A non-nil empty slice would read as "clear this
+// relation" in ApplyMetadata, so it must never be produced here. A doujin
 // circle is the publisher; importing that element keeps other managers'
 // files from dropping the relation.
 func (info comicInfoXML) setRelationFields(result *metadata.Result) {
-	if info.Writer != "" {
-		result.Artists = splitAndTrim(info.Writer, ",")
+	if names := splitAndTrim(info.Writer, ","); len(names) > 0 {
+		result.Artists = names
 	}
 
-	if info.Tags != "" {
-		result.Tags = splitAndTrim(info.Tags, ",")
+	if names := splitAndTrim(info.Tags, ","); len(names) > 0 {
+		result.Tags = names
 	}
 
-	if info.Characters != "" {
-		result.Characters = splitAndTrim(info.Characters, ",")
+	if names := splitAndTrim(info.Characters, ","); len(names) > 0 {
+		result.Characters = names
 	}
 
-	if info.Series != "" {
-		result.Parodies = splitAndTrim(info.Series, ",")
+	if names := splitAndTrim(info.Series, ","); len(names) > 0 {
+		result.Parodies = names
 	}
 
-	if info.Publisher != "" {
-		result.Circles = splitAndTrim(info.Publisher, ",")
+	if names := splitAndTrim(info.Publisher, ","); len(names) > 0 {
+		result.Circles = names
 	}
 }
 
