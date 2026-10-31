@@ -86,6 +86,15 @@ definitions:
       url:
         type: string
     type: object
+  handlers.ArtistCoverResponse:
+    properties:
+      archive_id:
+        type: string
+      page:
+        type: integer
+      thumbs_ready:
+        type: boolean
+    type: object
   handlers.ArtistListResponse:
     properties:
       items:
@@ -105,12 +114,22 @@ definitions:
         items:
           type: string
         type: array
+      circles:
+        items:
+          $ref: '#/definitions/handlers.CircleArtistResponse'
+        type: array
       count:
         type: integer
+      cover:
+        $ref: '#/definitions/handlers.ArtistCoverResponse'
       id:
         type: integer
+      is_favorited:
+        type: boolean
       name:
         type: string
+      rating:
+        type: integer
       urls:
         items:
           type: string
@@ -664,6 +683,12 @@ definitions:
         items:
           type: string
         type: array
+      cover_archive_id:
+        description: |-
+          CoverArchiveID picks which of the artist's archives supplies the
+          thumbnail. Omitted leaves it unchanged; "" restores the default
+          (the artist's oldest archive).
+        type: string
       name:
         type: string
       urls:
@@ -2529,6 +2554,10 @@ paths:
         in: query
         name: limit
         type: integer
+      - description: Only artists the current user has favorited
+        in: query
+        name: favorites
+        type: boolean
       produces:
       - application/json
       responses:
@@ -2719,6 +2748,122 @@ paths:
           schema:
             $ref: '#/definitions/response.Error'
       summary: List archives for an artist
+      tags:
+      - artists
+  /api/artists/{id}/favorite:
+    delete:
+      description: Removes the artist from the current user's favorites. No-op if
+        it wasn't favorited.
+      parameters:
+      - description: Artist ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Unfavorite an artist
+      tags:
+      - artists
+    put:
+      parameters:
+      - description: Artist ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Favorite an artist
+      tags:
+      - artists
+  /api/artists/{id}/rating:
+    delete:
+      description: Removes the current user's star rating for this artist. No-op if
+        it wasn't rated.
+      parameters:
+      - description: Artist ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Clear an artist's rating
+      tags:
+      - artists
+    put:
+      consumes:
+      - application/json
+      description: Idempotent - sets the current user's star rating (1-5) for this
+        artist, overwriting any previous rating.
+      parameters:
+      - description: Artist ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Rating
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.SetRatingRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Rate an artist
       tags:
       - artists
   /api/artists/all:

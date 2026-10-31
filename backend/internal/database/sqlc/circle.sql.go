@@ -416,7 +416,7 @@ func (q *Queries) GetCircle(ctx context.Context, name string) (Circle, error) {
 const getCircleArtists = `-- name: GetCircleArtists :many
 ;
 
-select artist.id, artist.name, artist.count
+select artist.id, artist.name, artist.count, artist.cover_archive_id
 from circle
 join artist_circle on circle.id = artist_circle.circle_id
 join artist on artist_circle.artist_id = artist.id
@@ -433,7 +433,12 @@ func (q *Queries) GetCircleArtists(ctx context.Context, name string) ([]Artist, 
 	var items []Artist
 	for rows.Next() {
 		var i Artist
-		if err := rows.Scan(&i.ID, &i.Name, &i.Count); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Count,
+			&i.CoverArchiveID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

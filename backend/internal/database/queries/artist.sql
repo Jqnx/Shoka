@@ -44,11 +44,128 @@ where id = ?
 ;
 
 -- name: GetArtistList :many
-select *
+select artist.id,
+       artist.name,
+       artist.count,
+       cover.id as cover_archive_id,
+       cover.cover_page as cover_page,
+       cover.page_count as cover_page_count
 from artist
-order by name
-limit ?
-offset ?
+left join archive as cover on cover.id = coalesce(
+    -- A stored choice only counts while that archive still exists and the
+    -- caller can read its library.
+    (select chosen.id from archive chosen
+     where chosen.id = artist.cover_archive_id
+       and (cast(sqlc.arg('cover_all_libs') as integer) = 1
+            or chosen.library_id in (select library_access.library_id from library_access where library_access.user_id = sqlc.arg('uid')))),
+    -- Default: the artist's oldest readable archive (created_at tie-broken
+    -- by id), so the card image does not lurch around as the library grows.
+    (select aa.archive_id
+     from archive_artist aa
+     join archive oldest on oldest.id = aa.archive_id
+     where aa.artist_id = artist.id
+       and (cast(sqlc.arg('cover_all_libs') as integer) = 1
+            or oldest.library_id in (select library_access.library_id from library_access where library_access.user_id = sqlc.arg('uid')))
+     order by oldest.created_at, oldest.id
+     limit 1)
+)
+where (cast(sqlc.arg('favorites_only') as integer) = 0
+       or exists (select 1 from artist_favorite af
+                  where af.artist_id = artist.id and af.user_id = sqlc.arg('uid')))
+order by artist.name
+limit sqlc.arg('limit')
+offset sqlc.arg('offset')
+;
+
+-- name: GetArtistCoverArchive :one
+select cover.id as archive_id, cover.cover_page, cover.page_count
+from artist
+left join archive as cover on cover.id = coalesce(
+    (select chosen.id from archive chosen
+     where chosen.id = artist.cover_archive_id
+       and (cast(sqlc.arg('cover_all_libs') as integer) = 1
+            or chosen.library_id in (select library_access.library_id from library_access where library_access.user_id = sqlc.arg('uid')))),
+    (select aa.archive_id
+     from archive_artist aa
+     join archive oldest on oldest.id = aa.archive_id
+     where aa.artist_id = artist.id
+       and (cast(sqlc.arg('cover_all_libs') as integer) = 1
+            or oldest.library_id in (select library_access.library_id from library_access where library_access.user_id = sqlc.arg('uid')))
+     order by oldest.created_at, oldest.id
+     limit 1)
+)
+where artist.id = cast(sqlc.arg('artist_id') as integer)
+;
+
+-- name: GetArtistCircles :many
+select circle.id, circle.name
+from artist_circle
+join circle on circle.id = artist_circle.circle_id
+where artist_circle.artist_id = cast(sqlc.arg('artist_id') as integer)
+order by circle.name
+;
+
+-- name: ArchiveArtistLinkExists :one
+select exists (
+    select 1 from archive_artist
+    where archive_id = cast(sqlc.arg('archive_id') as text)
+      and artist_id = cast(sqlc.arg('artist_id') as integer)
+) = 1
+;
+
+-- name: UpdateArtistCover :exec
+update artist
+set cover_archive_id = ?
+where id = ?
+;
+
+-- name: AddFavoriteArtist :exec
+insert into artist_favorite (artist_id, user_id, favorited_at)
+values (?, ?, datetime('now'))
+on conflict (artist_id, user_id) do nothing
+;
+
+-- name: RemoveFavoriteArtist :exec
+delete from artist_favorite
+where artist_id = ? and user_id = sqlc.arg('uid')
+;
+
+-- name: ArtistIsFavorited :one
+select exists (
+    select 1 from artist_favorite where artist_id = ? and user_id = sqlc.arg('uid')
+) = 1
+;
+
+-- name: GetFavoritedArtistIDs :many
+select artist_id
+from artist_favorite
+where user_id = sqlc.arg('uid') and artist_id in (sqlc.slice('ids'))
+;
+
+-- name: UpsertArtistRating :one
+insert into artist_rating (artist_id, user_id, rating, rated_at)
+values (?, ?, ?, datetime('now'))
+on conflict (artist_id, user_id) do update set
+    rating = excluded.rating,
+    rated_at = excluded.rated_at
+returning *
+;
+
+-- name: RemoveArtistRating :exec
+delete from artist_rating
+where artist_id = ? and user_id = sqlc.arg('uid')
+;
+
+-- name: GetArtistRating :one
+select rating
+from artist_rating
+where artist_id = ? and user_id = sqlc.arg('uid')
+;
+
+-- name: GetArtistRatingsForIDs :many
+select artist_id, rating
+from artist_rating
+where user_id = sqlc.arg('uid') and artist_id in (sqlc.slice('ids'))
 ;
 
 -- name: GetArtistUrls :many
@@ -98,8 +215,11 @@ where url = ?
 ;
 
 -- name: TotalArtists :one
-select count(id)
+select count(artist.id)
 from artist
+where (cast(sqlc.arg('favorites_only') as integer) = 0
+       or exists (select 1 from artist_favorite af
+                  where af.artist_id = artist.id and af.user_id = sqlc.arg('uid')))
 ;
 
 -- name: TotalArchiveWithArtist :one
@@ -111,7 +231,7 @@ join archive_artist on archive.id = archive_artist.archive_id
 join artist on archive_artist.artist_id = artist.id
 where artist.id = sqlc.arg('id')
   and (sqlc.arg('all_libraries') = 1
-       or archive.library_id in (select library_id from library_access where user_id = sqlc.arg('uid')))
+       or archive.library_id in (select library_access.library_id from library_access where library_access.user_id = sqlc.arg('uid')))
 ;
 
 -- name: AddArtistToArchive :exec
@@ -173,7 +293,7 @@ join artist on archive_artist.artist_id = artist.id
 left join reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = sqlc.arg('uid')
 where artist.id = sqlc.arg('id')
   and (sqlc.arg('all_libraries') = 1
-       or archive.library_id in (select library_id from library_access where user_id = sqlc.arg('uid')))
+       or archive.library_id in (select library_access.library_id from library_access where library_access.user_id = sqlc.arg('uid')))
 order by archive.title asc
 limit sqlc.arg('limit')
 offset sqlc.arg('offset')

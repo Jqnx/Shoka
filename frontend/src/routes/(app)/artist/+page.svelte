@@ -1,11 +1,23 @@
 <script lang="ts">
-	import { Badge } from '$lib/components/ui/badge';
 	import * as Pagination from '$lib/components/ui/pagination';
-	import { Paintbrush } from '@lucide/svelte';
+	import { Button } from '$lib/components/ui/button';
+	import ArtistCard from '$lib/components/ArtistCard.svelte';
+	import { cn } from '$lib/utils.js';
+	import { Heart, Paintbrush } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 
-	let { data } = $props();
+	let { data, form } = $props();
+
+	function setFavorites(on: boolean) {
+		const params = new URLSearchParams(page.url.searchParams);
+		if (on) params.set('favorites', 'true');
+		else params.delete('favorites');
+		params.delete('page');
+		const query = params.toString();
+		goto(resolve(`/artist${query ? `?${query}` : ''}`), { noScroll: true, keepFocus: true });
+	}
 </script>
 
 <svelte:head>
@@ -17,17 +29,32 @@
 		<Paintbrush class="size-5 text-muted-foreground" />
 		<h1 class="text-2xl font-bold">Artists</h1>
 		<span class="text-sm text-muted-foreground">({data.total})</span>
+		<Button
+			variant={data.favorites ? 'default' : 'outline'}
+			size="sm"
+			class="ml-auto gap-1.5"
+			aria-pressed={data.favorites}
+			onclick={() => setFavorites(!data.favorites)}
+		>
+			<Heart class={cn('size-3.5', data.favorites && 'fill-current')} />
+			Favorites
+		</Button>
 	</div>
 
+	{#if form && 'error' in form && form.error}
+		<p class="mb-4 text-sm text-destructive">{form.error}</p>
+	{/if}
+
 	{#if data.artists.length === 0}
-		<p class="text-muted-foreground">No artists found.</p>
+		<p class="text-muted-foreground">
+			{data.favorites ? 'No favorite artists.' : 'No artists found.'}
+		</p>
 	{:else}
-		<div class="flex flex-wrap gap-2">
+		<div
+			class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8"
+		>
 			{#each data.artists as artist (artist.id)}
-				<Badge href={resolve(`/artist/${artist.id}`)} variant="outline" class="text-sm">
-					{artist.name}
-					<span class="text-muted-foreground">{artist.count}</span>
-				</Badge>
+				<ArtistCard {artist} />
 			{/each}
 		</div>
 	{/if}
@@ -38,7 +65,11 @@
 				count={data.total}
 				perPage={data.limit}
 				page={data.page}
-				onPageChange={(p) => goto(resolve(`/artist?page=${p}`), { noScroll: true })}
+				onPageChange={(p) => {
+					const params = new URLSearchParams(page.url.searchParams);
+					params.set('page', String(p));
+					goto(resolve(`${page.url.pathname}?${params}`), { noScroll: true });
+				}}
 			>
 				{#snippet children({ pages })}
 					<Pagination.Content>

@@ -187,14 +187,35 @@ export type CircleArtist = {
 	name: string;
 };
 
+export type ArtistCover = {
+	archive_id: string;
+	page: number;
+	thumbs_ready: boolean;
+};
+
+// GET /api/artists/all returns names only (its consumers are pickers).
 export type Artist = {
 	id: number;
 	name: string;
 	count: number;
 };
 
+// GET /api/artists items.
+export type ArtistListItem = Artist & {
+	cover?: ArtistCover;
+	is_favorited: boolean;
+	rating: number | null;
+};
+
+// GET /api/artists/{id}.
+export type ArtistDetail = ArtistListItem & {
+	aliases?: string[];
+	urls?: string[];
+	circles?: CircleArtist[];
+};
+
 export type ArtistListResponse = {
-	items: Artist[];
+	items: ArtistListItem[];
 	total: number;
 	page: number;
 	limit: number;

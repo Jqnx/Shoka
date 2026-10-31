@@ -79,9 +79,10 @@ type ArchiveUrl struct {
 }
 
 type Artist struct {
-	ID    int64  `json:"id"`
-	Name  string `json:"name"`
-	Count int64  `json:"count"`
+	ID             int64   `json:"id"`
+	Name           string  `json:"name"`
+	Count          int64   `json:"count"`
+	CoverArchiveID *string `json:"cover_archive_id"`
 }
 
 type ArtistAlias struct {
@@ -93,6 +94,19 @@ type ArtistAlias struct {
 type ArtistCircle struct {
 	ArtistID *int64 `json:"artist_id"`
 	CircleID *int64 `json:"circle_id"`
+}
+
+type ArtistFavorite struct {
+	ArtistID    int64     `json:"artist_id"`
+	UserID      string    `json:"user_id"`
+	FavoritedAt time.Time `json:"favorited_at"`
+}
+
+type ArtistRating struct {
+	ArtistID int64     `json:"artist_id"`
+	UserID   string    `json:"user_id"`
+	Rating   int64     `json:"rating"`
+	RatedAt  time.Time `json:"rated_at"`
 }
 
 type ArtistUrl struct {

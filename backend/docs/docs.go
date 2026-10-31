@@ -2433,6 +2433,12 @@ const docTemplate = `{
                         "description": "Items per page",
                         "name": "limit",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Only artists the current user has favorited",
+                        "name": "favorites",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2730,6 +2736,177 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/artists/{id}/favorite": {
+            "put": {
+                "tags": [
+                    "artists"
+                ],
+                "summary": "Favorite an artist",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Artist ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Removes the artist from the current user's favorites. No-op if it wasn't favorited.",
+                "tags": [
+                    "artists"
+                ],
+                "summary": "Unfavorite an artist",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Artist ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/artists/{id}/rating": {
+            "put": {
+                "description": "Idempotent - sets the current user's star rating (1-5) for this artist, overwriting any previous rating.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "artists"
+                ],
+                "summary": "Rate an artist",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Artist ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Rating",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.SetRatingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Removes the current user's star rating for this artist. No-op if it wasn't rated.",
+                "tags": [
+                    "artists"
+                ],
+                "summary": "Clear an artist's rating",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Artist ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/response.Error"
                         }
@@ -3842,6 +4019,20 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.ArtistCoverResponse": {
+            "type": "object",
+            "properties": {
+                "archive_id": {
+                    "type": "string"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "thumbs_ready": {
+                    "type": "boolean"
+                }
+            }
+        },
         "handlers.ArtistListResponse": {
             "type": "object",
             "properties": {
@@ -3871,14 +4062,29 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "circles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.CircleArtistResponse"
+                    }
+                },
                 "count": {
                     "type": "integer"
+                },
+                "cover": {
+                    "$ref": "#/definitions/handlers.ArtistCoverResponse"
                 },
                 "id": {
                     "type": "integer"
                 },
+                "is_favorited": {
+                    "type": "boolean"
+                },
                 "name": {
                     "type": "string"
+                },
+                "rating": {
+                    "type": "integer"
                 },
                 "urls": {
                     "type": "array",
@@ -4682,6 +4888,10 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "cover_archive_id": {
+                    "description": "CoverArchiveID picks which of the artist's archives supplies the\nthumbnail. Omitted leaves it unchanged; \"\" restores the default\n(the artist's oldest archive).",
+                    "type": "string"
                 },
                 "name": {
                     "type": "string"

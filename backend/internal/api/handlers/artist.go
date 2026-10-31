@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"Shoka/internal/api/response"
+	"Shoka/internal/auth"
 	"Shoka/internal/database"
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/image"
@@ -36,14 +37,26 @@ func NewArtistHandler(queries *sqlc.Queries, db *sql.DB, log *slog.Logger, proce
 	}
 }
 
+// ArtistCoverResponse identifies the archive whose cover stands in for the
+// artist, plus the inputs of its cover URL (cover_page busts the image cache).
+type ArtistCoverResponse struct {
+	ArchiveID   string `json:"archive_id"`
+	Page        int    `json:"page"`
+	ThumbsReady bool   `json:"thumbs_ready"`
+}
+
 // ArtistResponse is the artist payload returned by the list endpoints and
 // CreateArtist/UpdateArtist.
 type ArtistResponse struct {
-	ID      int64    `json:"id"`
-	Name    string   `json:"name"`
-	Count   int64    `json:"count"`
-	Aliases []string `json:"aliases,omitempty"`
-	URLs    []string `json:"urls,omitempty"`
+	ID          int64                  `json:"id"`
+	Name        string                 `json:"name"`
+	Count       int64                  `json:"count"`
+	Aliases     []string               `json:"aliases,omitempty"`
+	URLs        []string               `json:"urls,omitempty"`
+	Circles     []CircleArtistResponse `json:"circles,omitempty"`
+	Cover       *ArtistCoverResponse   `json:"cover,omitempty"`
+	IsFavorited bool                   `json:"is_favorited"`
+	Rating      *int                   `json:"rating"`
 }
 
 // ArtistListResponse is a single page of artists plus the total count.
@@ -59,8 +72,9 @@ type ArtistListResponse struct {
 //	@Summary		List artists with pagination
 //	@Tags			artists
 //	@Produce		json
-//	@Param			page	query		int	false	"Page number (1-based)"	default(1)
-//	@Param			limit	query		int	false	"Items per page"		default(50)
+//	@Param			page		query		int		false	"Page number (1-based)"	default(1)
+//	@Param			limit		query		int		false	"Items per page"		default(50)
+//	@Param			favorites	query		bool	false	"Only artists the current user has favorited"
 //	@Success		200	{object}	ArtistListResponse
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/artists [get]
@@ -68,7 +82,18 @@ func (h *ArtistHandler) GetArtists(w http.ResponseWriter, r *http.Request) {
 	page, limit := parsePagination(r, defaultListLimit)
 	offset := int64((page - 1) * limit)
 
-	total, err := h.queries.TotalArtists(r.Context())
+	favoritesOnly := int64(0)
+	if r.URL.Query().Get("favorites") == "true" {
+		favoritesOnly = 1
+	}
+
+	uid := auth.UserIDFromContext(r.Context())
+	allLibraries := allLibrariesFlag(r.Context())
+
+	total, err := h.queries.TotalArtists(r.Context(), sqlc.TotalArtistsParams{
+		Uid:           uid,
+		FavoritesOnly: favoritesOnly,
+	})
 	if err != nil {
 		h.logger.Error("count artists failed", "error", err)
 		response.InternalError(w, "failed to count artists")
@@ -77,8 +102,11 @@ func (h *ArtistHandler) GetArtists(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rows, err := h.queries.GetArtistList(r.Context(), sqlc.GetArtistListParams{
-		Limit:  int64(limit),
-		Offset: offset,
+		CoverAllLibs:  allLibraries,
+		Uid:           uid,
+		FavoritesOnly: favoritesOnly,
+		Limit:         int64(limit),
+		Offset:        offset,
 	})
 	if err != nil {
 		h.logger.Error("list artists failed", "error", err)
@@ -88,12 +116,65 @@ func (h *ArtistHandler) GetArtists(w http.ResponseWriter, r *http.Request) {
 	}
 
 	items := make([]ArtistResponse, 0, len(rows))
-	for _, row := range rows {
+
+	ids := make([]int64, len(rows))
+	for i, row := range rows {
+		ids[i] = row.ID
 		items = append(items, ArtistResponse{
 			ID:    row.ID,
 			Name:  row.Name,
 			Count: row.Count,
+			Cover: h.coverFromRow(row),
 		})
+	}
+
+	// Both enrichments are one query per page rather than one per artist.
+	// sqlc renders an empty slice as `in (NULL)`, which matches nothing.
+	favorited, err := h.queries.GetFavoritedArtistIDs(r.Context(), sqlc.GetFavoritedArtistIDsParams{
+		Uid: uid,
+		Ids: ids,
+	})
+	if err != nil {
+		h.logger.Error("get favorited artists failed", "error", err)
+		response.InternalError(w, "failed to list artists")
+
+		return
+	}
+
+	favoritedSet := make(map[int64]struct{}, len(favorited))
+	for _, id := range favorited {
+		favoritedSet[id] = struct{}{}
+	}
+
+	for i := range items {
+		_, items[i].IsFavorited = favoritedSet[items[i].ID]
+	}
+
+	ratings, err := h.queries.GetArtistRatingsForIDs(r.Context(), sqlc.GetArtistRatingsForIDsParams{
+		Uid: uid,
+		Ids: ids,
+	})
+	if err != nil {
+		h.logger.Error("get artist ratings failed", "error", err)
+		response.InternalError(w, "failed to list artists")
+
+		return
+	}
+
+	ratingByArtist := make(map[int64]int, len(ratings))
+
+	for _, rating := range ratings {
+		ratingByArtist[rating.ArtistID] = int(rating.Rating)
+	}
+
+	for i := range items {
+		v, ok := ratingByArtist[items[i].ID]
+		if !ok {
+			continue
+		}
+
+		// Copy before taking the address so entries don't share one.
+		items[i].Rating = &v
 	}
 
 	response.JSON(w, http.StatusOK, ArtistListResponse{
@@ -104,6 +185,56 @@ func (h *ArtistHandler) GetArtists(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// allLibrariesFlag renders the request's library scope as the 1/0 flag the
+// cover queries compare against.
+func allLibrariesFlag(ctx context.Context) int64 {
+	if auth.LibraryScopeFromContext(ctx).Unrestricted() {
+		return 1
+	}
+
+	return 0
+}
+
+// coverFromRow builds the cover payload from a list row's joined columns.
+func (h *ArtistHandler) coverFromRow(row sqlc.GetArtistListRow) *ArtistCoverResponse {
+	if row.CoverArchiveID == nil || row.CoverPage == nil || row.CoverPageCount == nil {
+		return nil
+	}
+
+	return &ArtistCoverResponse{
+		ArchiveID:   *row.CoverArchiveID,
+		Page:        int(*row.CoverPage),
+		ThumbsReady: h.processor.ThumbsReady(*row.CoverArchiveID, int(*row.CoverPageCount)),
+	}
+}
+
+// artistCover resolves the artist's current cover within this user's library
+// access; no cover is not an error.
+func (h *ArtistHandler) artistCover(ctx context.Context, id int64, uid string) (*ArtistCoverResponse, error) {
+	row, err := h.queries.GetArtistCoverArchive(ctx, sqlc.GetArtistCoverArchiveParams{
+		CoverAllLibs: allLibrariesFlag(ctx),
+		Uid:          uid,
+		ArtistID:     id,
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+
+		return nil, err
+	}
+
+	if row.ArchiveID == nil || row.CoverPage == nil || row.PageCount == nil {
+		return nil, nil
+	}
+
+	return &ArtistCoverResponse{
+		ArchiveID:   *row.ArchiveID,
+		Page:        int(*row.CoverPage),
+		ThumbsReady: h.processor.ThumbsReady(*row.ArchiveID, int(*row.PageCount)),
+	}, nil
+}
+
 // GetAllArtists godoc
 //
 //	@Summary		List every artist
@@ -112,6 +243,10 @@ func (h *ArtistHandler) GetArtists(w http.ResponseWriter, r *http.Request) {
 //	@Success		200	{array}		ArtistResponse
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/artists/all [get]
+//
+// Cover, IsFavorited, and Rating are deliberately left zero: every consumer
+// of this endpoint is a name picker, and computing them per artist would cost
+// the same enrichment as GetArtists for a payload nothing reads.
 func (h *ArtistHandler) GetAllArtists(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.queries.GetAllArtists(r.Context())
 	if err != nil {
@@ -133,8 +268,9 @@ func (h *ArtistHandler) GetAllArtists(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, items)
 }
 
-// artistDetail loads aliases + urls for artist and builds the full response.
-func (h *ArtistHandler) artistDetail(ctx context.Context, artist sqlc.Artist) (ArtistResponse, error) {
+// artistDetail loads aliases, urls, circles, cover, and this user's
+// favorite/rating state for artist and builds the full response.
+func (h *ArtistHandler) artistDetail(ctx context.Context, artist sqlc.Artist, uid string) (ArtistResponse, error) {
 	resp := ArtistResponse{
 		ID:      artist.ID,
 		Name:    artist.Name,
@@ -159,6 +295,43 @@ func (h *ArtistHandler) artistDetail(ctx context.Context, artist sqlc.Artist) (A
 
 	for _, u := range urls {
 		resp.URLs = append(resp.URLs, u.Url)
+	}
+
+	circles, err := h.queries.GetArtistCircles(ctx, artist.ID)
+	if err != nil {
+		return resp, err
+	}
+
+	for _, c := range circles {
+		resp.Circles = append(resp.Circles, CircleArtistResponse{ID: c.ID, Name: c.Name})
+	}
+
+	cover, err := h.artistCover(ctx, artist.ID, uid)
+	if err != nil {
+		return resp, err
+	}
+
+	resp.Cover = cover
+
+	isFavorited, err := h.queries.ArtistIsFavorited(ctx, sqlc.ArtistIsFavoritedParams{
+		ArtistID: artist.ID,
+		Uid:      uid,
+	})
+	if err != nil {
+		return resp, err
+	}
+
+	resp.IsFavorited = isFavorited
+
+	rating, err := h.queries.GetArtistRating(ctx, sqlc.GetArtistRatingParams{
+		ArtistID: artist.ID,
+		Uid:      uid,
+	})
+	if err == nil {
+		v := int(rating)
+		resp.Rating = &v
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return resp, err
 	}
 
 	return resp, nil
@@ -196,7 +369,7 @@ func (h *ArtistHandler) GetArtist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.artistDetail(r.Context(), artist)
+	resp, err := h.artistDetail(r.Context(), artist, auth.UserIDFromContext(r.Context()))
 	if err != nil {
 		h.logger.Error("get artist detail failed", "id", id, "error", err)
 		response.InternalError(w, "failed to get artist")
@@ -332,7 +505,7 @@ func (h *ArtistHandler) CreateArtist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.artistDetail(r.Context(), artist)
+	resp, err := h.artistDetail(r.Context(), artist, auth.UserIDFromContext(r.Context()))
 	if err != nil {
 		h.logger.Error("get artist detail failed", "id", artist.ID, "error", err)
 		response.InternalError(w, "failed to create artist")
@@ -350,6 +523,10 @@ type UpdateArtistRequest struct {
 	// full list to replace it entirely.
 	Aliases []string `json:"aliases"`
 	URLs    []string `json:"urls"`
+	// CoverArchiveID picks which of the artist's archives supplies the
+	// thumbnail. Omitted leaves it unchanged; "" restores the default
+	// (the artist's oldest archive).
+	CoverArchiveID *string `json:"cover_archive_id"`
 }
 
 // UpdateArtist godoc
@@ -414,7 +591,7 @@ func (h *ArtistHandler) UpdateArtist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.artistDetail(r.Context(), artist)
+	resp, err := h.artistDetail(r.Context(), artist, auth.UserIDFromContext(r.Context()))
 	if err != nil {
 		h.logger.Error("get artist detail failed", "id", artist.ID, "error", err)
 		response.InternalError(w, "failed to update artist")
@@ -505,7 +682,56 @@ func (h *ArtistHandler) applyArtistUpdate(w http.ResponseWriter, r *http.Request
 		}
 	}
 
+	if !h.applyArtistCover(w, r, qtx, id, body.CoverArchiveID) {
+		return sqlc.Artist{}, false
+	}
+
 	return artist, true
+}
+
+// applyArtistCover stores the chosen cover archive, or clears it back to the
+// default when raw is "". It writes the failure response and returns false.
+func (h *ArtistHandler) applyArtistCover(w http.ResponseWriter, r *http.Request, qtx *sqlc.Queries, id int64, raw *string) bool {
+	if raw == nil {
+		return true
+	}
+
+	cover := strings.TrimSpace(*raw)
+	if cover != "" {
+		linked, err := qtx.ArchiveArtistLinkExists(r.Context(), sqlc.ArchiveArtistLinkExistsParams{
+			ArchiveID: cover,
+			ArtistID:  id,
+		})
+		if err != nil {
+			h.logger.Error("check artist cover link failed", "id", id, "error", err)
+			response.InternalError(w, "failed to update artist")
+
+			return false
+		}
+
+		if !linked {
+			response.BadRequest(w, "archive does not belong to this artist")
+
+			return false
+		}
+	}
+
+	var coverID *string
+	if cover != "" {
+		coverID = &cover
+	}
+
+	if err := qtx.UpdateArtistCover(r.Context(), sqlc.UpdateArtistCoverParams{
+		CoverArchiveID: coverID,
+		ID:             id,
+	}); err != nil {
+		h.logger.Error("update artist cover failed", "id", id, "error", err)
+		response.InternalError(w, "failed to update artist")
+
+		return false
+	}
+
+	return true
 }
 
 // DeleteArtist godoc
@@ -528,6 +754,163 @@ func (h *ArtistHandler) DeleteArtist(w http.ResponseWriter, r *http.Request) {
 	if err := h.queries.DeleteArtist(r.Context(), id); err != nil {
 		h.logger.Error("delete artist failed", "id", id, "error", err)
 		response.InternalError(w, "failed to delete artist")
+
+		return
+	}
+
+	response.NoContent(w)
+}
+
+// existingArtist resolves the path id and writes the 400/404 response,
+// returning false when the caller should stop.
+func (h *ArtistHandler) existingArtist(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	id, ok := pathID(w, r, "artist")
+	if !ok {
+		return 0, false
+	}
+
+	if _, err := h.queries.GetArtistByID(r.Context(), id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "artist not found")
+
+			return 0, false
+		}
+
+		h.logger.Error("get artist failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get artist")
+
+		return 0, false
+	}
+
+	return id, true
+}
+
+// AddFavorite godoc
+//
+//	@Summary		Favorite an artist
+//	@Tags			artists
+//	@Param			id	path	int	true	"Artist ID"
+//	@Success		204
+//	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/artists/{id}/favorite [put]
+func (h *ArtistHandler) AddFavorite(w http.ResponseWriter, r *http.Request) {
+	id, ok := h.existingArtist(w, r)
+	if !ok {
+		return
+	}
+
+	if err := h.queries.AddFavoriteArtist(r.Context(), sqlc.AddFavoriteArtistParams{
+		ArtistID: id,
+		UserID:   auth.UserIDFromContext(r.Context()),
+	}); err != nil {
+		h.logger.Error("add favorite artist failed", "id", id, "error", err)
+		response.InternalError(w, "failed to favorite artist")
+
+		return
+	}
+
+	response.NoContent(w)
+}
+
+// RemoveFavorite godoc
+//
+//	@Summary		Unfavorite an artist
+//	@Description	Removes the artist from the current user's favorites. No-op if it wasn't favorited.
+//	@Tags			artists
+//	@Param			id	path	int	true	"Artist ID"
+//	@Success		204
+//	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/artists/{id}/favorite [delete]
+func (h *ArtistHandler) RemoveFavorite(w http.ResponseWriter, r *http.Request) {
+	id, ok := h.existingArtist(w, r)
+	if !ok {
+		return
+	}
+
+	if err := h.queries.RemoveFavoriteArtist(r.Context(), sqlc.RemoveFavoriteArtistParams{
+		ArtistID: id,
+		Uid:      auth.UserIDFromContext(r.Context()),
+	}); err != nil {
+		h.logger.Error("remove favorite artist failed", "id", id, "error", err)
+		response.InternalError(w, "failed to unfavorite artist")
+
+		return
+	}
+
+	response.NoContent(w)
+}
+
+// SetRating godoc
+//
+//	@Summary		Rate an artist
+//	@Description	Idempotent - sets the current user's star rating (1-5) for this artist, overwriting any previous rating.
+//	@Tags			artists
+//	@Accept			json
+//	@Param			id		path	int					true	"Artist ID"
+//	@Param			body	body	SetRatingRequest	true	"Rating"
+//	@Success		204
+//	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/artists/{id}/rating [put]
+func (h *ArtistHandler) SetRating(w http.ResponseWriter, r *http.Request) {
+	var body SetRatingRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if body.Rating < 1 || body.Rating > 5 {
+		response.BadRequest(w, "rating must be between 1 and 5")
+		return
+	}
+
+	id, ok := h.existingArtist(w, r)
+	if !ok {
+		return
+	}
+
+	if _, err := h.queries.UpsertArtistRating(r.Context(), sqlc.UpsertArtistRatingParams{
+		ArtistID: id,
+		UserID:   auth.UserIDFromContext(r.Context()),
+		Rating:   int64(body.Rating),
+	}); err != nil {
+		h.logger.Error("upsert artist rating failed", "id", id, "error", err)
+		response.InternalError(w, "failed to rate artist")
+
+		return
+	}
+
+	response.NoContent(w)
+}
+
+// RemoveRating godoc
+//
+//	@Summary		Clear an artist's rating
+//	@Description	Removes the current user's star rating for this artist. No-op if it wasn't rated.
+//	@Tags			artists
+//	@Param			id	path	int	true	"Artist ID"
+//	@Success		204
+//	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/artists/{id}/rating [delete]
+func (h *ArtistHandler) RemoveRating(w http.ResponseWriter, r *http.Request) {
+	id, ok := h.existingArtist(w, r)
+	if !ok {
+		return
+	}
+
+	if err := h.queries.RemoveArtistRating(r.Context(), sqlc.RemoveArtistRatingParams{
+		ArtistID: id,
+		Uid:      auth.UserIDFromContext(r.Context()),
+	}); err != nil {
+		h.logger.Error("remove artist rating failed", "id", id, "error", err)
+		response.InternalError(w, "failed to clear rating")
 
 		return
 	}

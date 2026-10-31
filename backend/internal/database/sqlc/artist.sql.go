@@ -29,6 +29,46 @@ func (q *Queries) AddArtistToArchive(ctx context.Context, arg AddArtistToArchive
 	return err
 }
 
+const addFavoriteArtist = `-- name: AddFavoriteArtist :exec
+;
+
+insert into artist_favorite (artist_id, user_id, favorited_at)
+values (?, ?, datetime('now'))
+on conflict (artist_id, user_id) do nothing
+`
+
+type AddFavoriteArtistParams struct {
+	ArtistID int64  `json:"artist_id"`
+	UserID   string `json:"user_id"`
+}
+
+func (q *Queries) AddFavoriteArtist(ctx context.Context, arg AddFavoriteArtistParams) error {
+	_, err := q.db.ExecContext(ctx, addFavoriteArtist, arg.ArtistID, arg.UserID)
+	return err
+}
+
+const archiveArtistLinkExists = `-- name: ArchiveArtistLinkExists :one
+;
+
+select exists (
+    select 1 from archive_artist
+    where archive_id = cast(?1 as text)
+      and artist_id = cast(?2 as integer)
+) = 1
+`
+
+type ArchiveArtistLinkExistsParams struct {
+	ArchiveID string `json:"archive_id"`
+	ArtistID  int64  `json:"artist_id"`
+}
+
+func (q *Queries) ArchiveArtistLinkExists(ctx context.Context, arg ArchiveArtistLinkExistsParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, archiveArtistLinkExists, arg.ArchiveID, arg.ArtistID)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const artistAliasExists = `-- name: ArtistAliasExists :execresult
 ;
 
@@ -51,6 +91,26 @@ where name = ?
 
 func (q *Queries) ArtistExists(ctx context.Context, name string) (sql.Result, error) {
 	return q.db.ExecContext(ctx, artistExists, name)
+}
+
+const artistIsFavorited = `-- name: ArtistIsFavorited :one
+;
+
+select exists (
+    select 1 from artist_favorite where artist_id = ? and user_id = ?2
+) = 1
+`
+
+type ArtistIsFavoritedParams struct {
+	ArtistID int64  `json:"artist_id"`
+	Uid      string `json:"uid"`
+}
+
+func (q *Queries) ArtistIsFavorited(ctx context.Context, arg ArtistIsFavoritedParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, artistIsFavorited, arg.ArtistID, arg.Uid)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const artistUrlExists = `-- name: ArtistUrlExists :execresult
@@ -179,7 +239,7 @@ func (q *Queries) CreateAlias(ctx context.Context, arg CreateAliasParams) error 
 const createArtist = `-- name: CreateArtist :one
 insert into artist (name, count)
 values (?, ?)
-returning id, name, count
+returning id, name, count, cover_archive_id
 `
 
 type CreateArtistParams struct {
@@ -190,7 +250,12 @@ type CreateArtistParams struct {
 func (q *Queries) CreateArtist(ctx context.Context, arg CreateArtistParams) (Artist, error) {
 	row := q.db.QueryRowContext(ctx, createArtist, arg.Name, arg.Count)
 	var i Artist
-	err := row.Scan(&i.ID, &i.Name, &i.Count)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Count,
+		&i.CoverArchiveID,
+	)
 	return i, err
 }
 
@@ -301,7 +366,7 @@ const getAllArtists = `-- name: GetAllArtists :many
 ;
 
 
-select id, name, count
+select id, name, count, cover_archive_id
 from artist
 order by name
 `
@@ -315,7 +380,12 @@ func (q *Queries) GetAllArtists(ctx context.Context) ([]Artist, error) {
 	var items []Artist
 	for rows.Next() {
 		var i Artist
-		if err := rows.Scan(&i.ID, &i.Name, &i.Count); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Count,
+			&i.CoverArchiveID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -365,7 +435,7 @@ func (q *Queries) GetArchiveArtistIDs(ctx context.Context, id string) ([]int64, 
 const getArchiveArtists = `-- name: GetArchiveArtists :many
 ;
 
-select artist.id, artist.name, artist.count
+select artist.id, artist.name, artist.count, artist.cover_archive_id
 from archive
 join archive_artist on archive.id = archive_artist.archive_id
 join artist on archive_artist.artist_id = artist.id
@@ -381,7 +451,12 @@ func (q *Queries) GetArchiveArtists(ctx context.Context, id string) ([]Artist, e
 	var items []Artist
 	for rows.Next() {
 		var i Artist
-		if err := rows.Scan(&i.ID, &i.Name, &i.Count); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Count,
+			&i.CoverArchiveID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -601,7 +676,7 @@ join artist on archive_artist.artist_id = artist.id
 left join reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = ?1
 where artist.id = ?2
   and (?3 = 1
-       or archive.library_id in (select library_id from library_access where user_id = ?1))
+       or archive.library_id in (select library_access.library_id from library_access where library_access.user_id = ?1))
 order by archive.title asc
 limit ?5
 offset ?4
@@ -767,7 +842,7 @@ func (q *Queries) GetArtistAliasesByID(ctx context.Context, artistID int64) ([]G
 const getArtistByID = `-- name: GetArtistByID :one
 ;
 
-select id, name, count
+select id, name, count, cover_archive_id
 from artist
 where id = ?
 `
@@ -775,14 +850,19 @@ where id = ?
 func (q *Queries) GetArtistByID(ctx context.Context, id int64) (Artist, error) {
 	row := q.db.QueryRowContext(ctx, getArtistByID, id)
 	var i Artist
-	err := row.Scan(&i.ID, &i.Name, &i.Count)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Count,
+		&i.CoverArchiveID,
+	)
 	return i, err
 }
 
 const getArtistByName = `-- name: GetArtistByName :one
 ;
 
-select id, name, count
+select id, name, count, cover_archive_id
 from artist
 where name = ?
 `
@@ -790,35 +870,242 @@ where name = ?
 func (q *Queries) GetArtistByName(ctx context.Context, name string) (Artist, error) {
 	row := q.db.QueryRowContext(ctx, getArtistByName, name)
 	var i Artist
-	err := row.Scan(&i.ID, &i.Name, &i.Count)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Count,
+		&i.CoverArchiveID,
+	)
+	return i, err
+}
+
+const getArtistCircles = `-- name: GetArtistCircles :many
+;
+
+select circle.id, circle.name
+from artist_circle
+join circle on circle.id = artist_circle.circle_id
+where artist_circle.artist_id = cast(?1 as integer)
+order by circle.name
+`
+
+type GetArtistCirclesRow struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+func (q *Queries) GetArtistCircles(ctx context.Context, artistID int64) ([]GetArtistCirclesRow, error) {
+	rows, err := q.db.QueryContext(ctx, getArtistCircles, artistID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArtistCirclesRow
+	for rows.Next() {
+		var i GetArtistCirclesRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArtistCoverArchive = `-- name: GetArtistCoverArchive :one
+;
+
+select cover.id as archive_id, cover.cover_page, cover.page_count
+from artist
+left join archive as cover on cover.id = coalesce(
+    (select chosen.id from archive chosen
+     where chosen.id = artist.cover_archive_id
+       and (cast(?1 as integer) = 1
+            or chosen.library_id in (select library_access.library_id from library_access where library_access.user_id = ?2))),
+    (select aa.archive_id
+     from archive_artist aa
+     join archive oldest on oldest.id = aa.archive_id
+     where aa.artist_id = artist.id
+       and (cast(?1 as integer) = 1
+            or oldest.library_id in (select library_access.library_id from library_access where library_access.user_id = ?2))
+     order by oldest.created_at, oldest.id
+     limit 1)
+)
+where artist.id = cast(?3 as integer)
+`
+
+type GetArtistCoverArchiveParams struct {
+	CoverAllLibs int64  `json:"cover_all_libs"`
+	Uid          string `json:"uid"`
+	ArtistID     int64  `json:"artist_id"`
+}
+
+type GetArtistCoverArchiveRow struct {
+	ArchiveID *string `json:"archive_id"`
+	CoverPage *int64  `json:"cover_page"`
+	PageCount *int64  `json:"page_count"`
+}
+
+func (q *Queries) GetArtistCoverArchive(ctx context.Context, arg GetArtistCoverArchiveParams) (GetArtistCoverArchiveRow, error) {
+	row := q.db.QueryRowContext(ctx, getArtistCoverArchive, arg.CoverAllLibs, arg.Uid, arg.ArtistID)
+	var i GetArtistCoverArchiveRow
+	err := row.Scan(&i.ArchiveID, &i.CoverPage, &i.PageCount)
 	return i, err
 }
 
 const getArtistList = `-- name: GetArtistList :many
 ;
 
-select id, name, count
+select artist.id,
+       artist.name,
+       artist.count,
+       cover.id as cover_archive_id,
+       cover.cover_page as cover_page,
+       cover.page_count as cover_page_count
 from artist
-order by name
-limit ?
-offset ?
+left join archive as cover on cover.id = coalesce(
+    -- A stored choice only counts while that archive still exists and the
+    -- caller can read its library.
+    (select chosen.id from archive chosen
+     where chosen.id = artist.cover_archive_id
+       and (cast(?1 as integer) = 1
+            or chosen.library_id in (select library_access.library_id from library_access where library_access.user_id = ?2))),
+    -- Default: the artist's oldest readable archive (created_at tie-broken
+    -- by id), so the card image does not lurch around as the library grows.
+    (select aa.archive_id
+     from archive_artist aa
+     join archive oldest on oldest.id = aa.archive_id
+     where aa.artist_id = artist.id
+       and (cast(?1 as integer) = 1
+            or oldest.library_id in (select library_access.library_id from library_access where library_access.user_id = ?2))
+     order by oldest.created_at, oldest.id
+     limit 1)
+)
+where (cast(?3 as integer) = 0
+       or exists (select 1 from artist_favorite af
+                  where af.artist_id = artist.id and af.user_id = ?2))
+order by artist.name
+limit ?5
+offset ?4
 `
 
 type GetArtistListParams struct {
-	Limit  int64 `json:"limit"`
-	Offset int64 `json:"offset"`
+	CoverAllLibs  int64  `json:"cover_all_libs"`
+	Uid           string `json:"uid"`
+	FavoritesOnly int64  `json:"favorites_only"`
+	Offset        int64  `json:"offset"`
+	Limit         int64  `json:"limit"`
 }
 
-func (q *Queries) GetArtistList(ctx context.Context, arg GetArtistListParams) ([]Artist, error) {
-	rows, err := q.db.QueryContext(ctx, getArtistList, arg.Limit, arg.Offset)
+type GetArtistListRow struct {
+	ID             int64   `json:"id"`
+	Name           string  `json:"name"`
+	Count          int64   `json:"count"`
+	CoverArchiveID *string `json:"cover_archive_id"`
+	CoverPage      *int64  `json:"cover_page"`
+	CoverPageCount *int64  `json:"cover_page_count"`
+}
+
+func (q *Queries) GetArtistList(ctx context.Context, arg GetArtistListParams) ([]GetArtistListRow, error) {
+	rows, err := q.db.QueryContext(ctx, getArtistList,
+		arg.CoverAllLibs,
+		arg.Uid,
+		arg.FavoritesOnly,
+		arg.Offset,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Artist
+	var items []GetArtistListRow
 	for rows.Next() {
-		var i Artist
-		if err := rows.Scan(&i.ID, &i.Name, &i.Count); err != nil {
+		var i GetArtistListRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Count,
+			&i.CoverArchiveID,
+			&i.CoverPage,
+			&i.CoverPageCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArtistRating = `-- name: GetArtistRating :one
+;
+
+select rating
+from artist_rating
+where artist_id = ? and user_id = ?2
+`
+
+type GetArtistRatingParams struct {
+	ArtistID int64  `json:"artist_id"`
+	Uid      string `json:"uid"`
+}
+
+func (q *Queries) GetArtistRating(ctx context.Context, arg GetArtistRatingParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getArtistRating, arg.ArtistID, arg.Uid)
+	var rating int64
+	err := row.Scan(&rating)
+	return rating, err
+}
+
+const getArtistRatingsForIDs = `-- name: GetArtistRatingsForIDs :many
+;
+
+select artist_id, rating
+from artist_rating
+where user_id = ?1 and artist_id in (/*SLICE:ids*/?)
+`
+
+type GetArtistRatingsForIDsParams struct {
+	Uid string  `json:"uid"`
+	Ids []int64 `json:"ids"`
+}
+
+type GetArtistRatingsForIDsRow struct {
+	ArtistID int64 `json:"artist_id"`
+	Rating   int64 `json:"rating"`
+}
+
+func (q *Queries) GetArtistRatingsForIDs(ctx context.Context, arg GetArtistRatingsForIDsParams) ([]GetArtistRatingsForIDsRow, error) {
+	query := getArtistRatingsForIDs
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Uid)
+	if len(arg.Ids) > 0 {
+		for _, v := range arg.Ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArtistRatingsForIDsRow
+	for rows.Next() {
+		var i GetArtistRatingsForIDsRow
+		if err := rows.Scan(&i.ArtistID, &i.Rating); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -906,6 +1193,53 @@ func (q *Queries) GetArtistUrlsByID(ctx context.Context, artistID int64) ([]GetA
 	return items, nil
 }
 
+const getFavoritedArtistIDs = `-- name: GetFavoritedArtistIDs :many
+;
+
+select artist_id
+from artist_favorite
+where user_id = ?1 and artist_id in (/*SLICE:ids*/?)
+`
+
+type GetFavoritedArtistIDsParams struct {
+	Uid string  `json:"uid"`
+	Ids []int64 `json:"ids"`
+}
+
+func (q *Queries) GetFavoritedArtistIDs(ctx context.Context, arg GetFavoritedArtistIDsParams) ([]int64, error) {
+	query := getFavoritedArtistIDs
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Uid)
+	if len(arg.Ids) > 0 {
+		for _, v := range arg.Ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var artist_id int64
+		if err := rows.Scan(&artist_id); err != nil {
+			return nil, err
+		}
+		items = append(items, artist_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const incrementArtistCount = `-- name: IncrementArtistCount :exec
 ;
 
@@ -942,6 +1276,23 @@ func (q *Queries) RemoveArtistAliases(ctx context.Context, artistID int64) error
 	return err
 }
 
+const removeArtistRating = `-- name: RemoveArtistRating :exec
+;
+
+delete from artist_rating
+where artist_id = ? and user_id = ?2
+`
+
+type RemoveArtistRatingParams struct {
+	ArtistID int64  `json:"artist_id"`
+	Uid      string `json:"uid"`
+}
+
+func (q *Queries) RemoveArtistRating(ctx context.Context, arg RemoveArtistRatingParams) error {
+	_, err := q.db.ExecContext(ctx, removeArtistRating, arg.ArtistID, arg.Uid)
+	return err
+}
+
 const removeArtistUrls = `-- name: RemoveArtistUrls :exec
 ;
 
@@ -954,6 +1305,23 @@ func (q *Queries) RemoveArtistUrls(ctx context.Context, artistID int64) error {
 	return err
 }
 
+const removeFavoriteArtist = `-- name: RemoveFavoriteArtist :exec
+;
+
+delete from artist_favorite
+where artist_id = ? and user_id = ?2
+`
+
+type RemoveFavoriteArtistParams struct {
+	ArtistID int64  `json:"artist_id"`
+	Uid      string `json:"uid"`
+}
+
+func (q *Queries) RemoveFavoriteArtist(ctx context.Context, arg RemoveFavoriteArtistParams) error {
+	_, err := q.db.ExecContext(ctx, removeFavoriteArtist, arg.ArtistID, arg.Uid)
+	return err
+}
+
 const totalArchiveWithArtist = `-- name: TotalArchiveWithArtist :one
 ;
 
@@ -963,7 +1331,7 @@ join archive_artist on archive.id = archive_artist.archive_id
 join artist on archive_artist.artist_id = artist.id
 where artist.id = ?1
   and (?2 = 1
-       or archive.library_id in (select library_id from library_access where user_id = ?3))
+       or archive.library_id in (select library_access.library_id from library_access where library_access.user_id = ?3))
 `
 
 type TotalArchiveWithArtistParams struct {
@@ -984,12 +1352,20 @@ func (q *Queries) TotalArchiveWithArtist(ctx context.Context, arg TotalArchiveWi
 const totalArtists = `-- name: TotalArtists :one
 ;
 
-select count(id)
+select count(artist.id)
 from artist
+where (cast(?1 as integer) = 0
+       or exists (select 1 from artist_favorite af
+                  where af.artist_id = artist.id and af.user_id = ?2))
 `
 
-func (q *Queries) TotalArtists(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, totalArtists)
+type TotalArtistsParams struct {
+	FavoritesOnly int64  `json:"favorites_only"`
+	Uid           string `json:"uid"`
+}
+
+func (q *Queries) TotalArtists(ctx context.Context, arg TotalArtistsParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, totalArtists, arg.FavoritesOnly, arg.Uid)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -1001,7 +1377,7 @@ const updateArtist = `-- name: UpdateArtist :one
 update artist
 set name = ?
 where name = ?2
-returning id, name, count
+returning id, name, count, cover_archive_id
 `
 
 type UpdateArtistParams struct {
@@ -1012,7 +1388,12 @@ type UpdateArtistParams struct {
 func (q *Queries) UpdateArtist(ctx context.Context, arg UpdateArtistParams) (Artist, error) {
 	row := q.db.QueryRowContext(ctx, updateArtist, arg.Name, arg.OldName)
 	var i Artist
-	err := row.Scan(&i.ID, &i.Name, &i.Count)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Count,
+		&i.CoverArchiveID,
+	)
 	return i, err
 }
 
@@ -1022,7 +1403,7 @@ const updateArtistByID = `-- name: UpdateArtistByID :one
 update artist
 set name = ?
 where id = ?2
-returning id, name, count
+returning id, name, count, cover_archive_id
 `
 
 type UpdateArtistByIDParams struct {
@@ -1033,6 +1414,58 @@ type UpdateArtistByIDParams struct {
 func (q *Queries) UpdateArtistByID(ctx context.Context, arg UpdateArtistByIDParams) (Artist, error) {
 	row := q.db.QueryRowContext(ctx, updateArtistByID, arg.Name, arg.ID)
 	var i Artist
-	err := row.Scan(&i.ID, &i.Name, &i.Count)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Count,
+		&i.CoverArchiveID,
+	)
+	return i, err
+}
+
+const updateArtistCover = `-- name: UpdateArtistCover :exec
+;
+
+update artist
+set cover_archive_id = ?
+where id = ?
+`
+
+type UpdateArtistCoverParams struct {
+	CoverArchiveID *string `json:"cover_archive_id"`
+	ID             int64   `json:"id"`
+}
+
+func (q *Queries) UpdateArtistCover(ctx context.Context, arg UpdateArtistCoverParams) error {
+	_, err := q.db.ExecContext(ctx, updateArtistCover, arg.CoverArchiveID, arg.ID)
+	return err
+}
+
+const upsertArtistRating = `-- name: UpsertArtistRating :one
+;
+
+insert into artist_rating (artist_id, user_id, rating, rated_at)
+values (?, ?, ?, datetime('now'))
+on conflict (artist_id, user_id) do update set
+    rating = excluded.rating,
+    rated_at = excluded.rated_at
+returning artist_id, user_id, rating, rated_at
+`
+
+type UpsertArtistRatingParams struct {
+	ArtistID int64  `json:"artist_id"`
+	UserID   string `json:"user_id"`
+	Rating   int64  `json:"rating"`
+}
+
+func (q *Queries) UpsertArtistRating(ctx context.Context, arg UpsertArtistRatingParams) (ArtistRating, error) {
+	row := q.db.QueryRowContext(ctx, upsertArtistRating, arg.ArtistID, arg.UserID, arg.Rating)
+	var i ArtistRating
+	err := row.Scan(
+		&i.ArtistID,
+		&i.UserID,
+		&i.Rating,
+		&i.RatedAt,
+	)
 	return i, err
 }

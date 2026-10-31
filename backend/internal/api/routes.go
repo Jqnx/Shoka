@@ -174,6 +174,10 @@ func mountEntityRoutes(r chi.Router, h apiHandlers) {
 		r.With(requirePermission(auth.TaxonomyUpdate)).Patch("/", h.artist.UpdateArtist)
 		r.With(requirePermission(auth.TaxonomyDelete)).Delete("/", h.artist.DeleteArtist)
 		r.Get("/archives", h.artist.GetArchivesByArtist)
+		r.Put("/favorite", h.artist.AddFavorite)
+		r.Delete("/favorite", h.artist.RemoveFavorite)
+		r.Put("/rating", h.artist.SetRating)
+		r.Delete("/rating", h.artist.RemoveRating)
 	})
 }
 
