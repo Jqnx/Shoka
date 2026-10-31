@@ -11,6 +11,7 @@
 		Paintbrush,
 		Settings,
 		Tags,
+		UserGroup,
 		Users
 	} from '@lucide/svelte';
 	import type { Library as LibraryType } from '$lib/types';
@@ -37,7 +38,8 @@
 		{ path: '/artist', label: 'Artists', icon: Paintbrush },
 		{ path: '/tag', label: 'Tags', icon: Tags },
 		{ path: '/character', label: 'Characters', icon: Users },
-		{ path: '/parody', label: 'Parodies', icon: Drama }
+		{ path: '/parody', label: 'Parodies', icon: Drama },
+		{ path: '/circle', label: 'Circles', icon: UserGroup }
 	];
 </script>
 

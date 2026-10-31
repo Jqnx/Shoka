@@ -104,6 +104,7 @@ func (h *CharacterHandler) GetArchivesByCharacter(w http.ResponseWriter, r *http
 	archivesByName(
 		w, r, h.logger, "character", chi.URLParam(r, "name"),
 		h.queries.TotalArchiveWithCharacter, h.queries.GetArchivesByCharacterName, h.processor,
+		nil,
 	)
 }
 
@@ -222,6 +223,7 @@ func (h *ParodyHandler) GetArchivesByParody(w http.ResponseWriter, r *http.Reque
 	archivesByName(
 		w, r, h.logger, "parody", chi.URLParam(r, "name"),
 		h.queries.TotalArchiveWithParody, h.queries.GetArchivesByParodyName, h.processor,
+		nil,
 	)
 }
 

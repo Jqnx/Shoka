@@ -1,32 +1,49 @@
 import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import type { Archive, ArchiveLanguage, Artist, Character, Parody, Tag } from '$lib/types';
+import type { Archive, ArchiveLanguage, Artist, Character, Circle, Parody, Tag } from '$lib/types';
 import { errorMessage } from '$lib/server/api';
 import { guard } from '$lib/server/guard';
 
 export const load: PageServerLoad = async ({ fetch, params }) => {
-	const [archiveRes, categoriesRes, languagesRes, artistsRes, tagsRes, charactersRes, parodiesRes] =
-		await Promise.all([
-			fetch(`/api/archives/${params.id}`),
-			fetch('/api/archives/categories'),
-			fetch('/api/archives/languages'),
-			fetch('/api/artists/all'),
-			fetch('/api/tags/all'),
-			fetch('/api/characters/all'),
-			fetch('/api/parodies/all')
-		]);
+	const [
+		archiveRes,
+		categoriesRes,
+		languagesRes,
+		artistsRes,
+		tagsRes,
+		charactersRes,
+		parodiesRes,
+		circlesRes
+	] = await Promise.all([
+		fetch(`/api/archives/${params.id}`),
+		fetch('/api/archives/categories'),
+		fetch('/api/archives/languages'),
+		fetch('/api/artists/all'),
+		fetch('/api/tags/all'),
+		fetch('/api/characters/all'),
+		fetch('/api/parodies/all'),
+		fetch('/api/circles/all')
+	]);
 	if (archiveRes.status === 404) error(404, 'Archive not found');
 	if (!archiveRes.ok) error(500, 'Failed to load archive');
 	const archive: Archive = await archiveRes.json();
 	const categories: string[] = categoriesRes.ok ? await categoriesRes.json() : [];
 	const languages: ArchiveLanguage[] = languagesRes.ok ? await languagesRes.json() : [];
-	// Circles has no equivalent "all" endpoint on the backend, so it stays
-	// free-text-only in EditArchiveSheet.
 	const allArtists: Artist[] = artistsRes.ok ? await artistsRes.json() : [];
 	const allTags: Tag[] = tagsRes.ok ? await tagsRes.json() : [];
 	const allCharacters: Character[] = charactersRes.ok ? await charactersRes.json() : [];
 	const allParodies: Parody[] = parodiesRes.ok ? await parodiesRes.json() : [];
-	return { archive, categories, languages, allArtists, allTags, allCharacters, allParodies };
+	const allCircles: Circle[] = circlesRes.ok ? await circlesRes.json() : [];
+	return {
+		archive,
+		categories,
+		languages,
+		allArtists,
+		allTags,
+		allCharacters,
+		allParodies,
+		allCircles
+	};
 };
 
 export const actions: Actions = {

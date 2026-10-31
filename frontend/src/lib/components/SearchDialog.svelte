@@ -122,20 +122,14 @@
 		return `in ${count} ${count === 1 ? 'archive' : 'archives'}`;
 	}
 
-	// Artists/tags/parodies/characters are global entities with their own
-	// browsing routes; circles have neither a dedicated page nor a backend
-	// filter, so they fall back to a full-text query against the archive
-	// list (the FTS index already covers circle names).
+	// Artists/tags/parodies/characters/circles are global entities with their
+	// own browsing routes.
 	function entityHref(
-		category: 'artist' | 'tag' | 'parody' | 'character',
+		category: 'artist' | 'tag' | 'parody' | 'character' | 'circle',
 		item: SearchEntityResult
 	) {
 		if (category === 'artist') return resolve(`/artist/${item.id}`);
 		return resolve(`/${category}/${encodeURIComponent(item.name)}`);
-	}
-
-	function circleHref(item: SearchEntityResult) {
-		return `${targetPath}?q=${encodeURIComponent(item.name)}`;
 	}
 </script>
 
@@ -298,7 +292,7 @@
 						{#each results.circles.items as circle (circle.id)}
 							<Command.LinkItem
 								value={`circle-${circle.id}`}
-								href={circleHref(circle)}
+								href={entityHref('circle', circle)}
 								onSelect={() => (open = false)}
 							>
 								<span class="truncate">{circle.name}</span>

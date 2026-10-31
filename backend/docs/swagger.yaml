@@ -212,6 +212,35 @@ definitions:
       name:
         type: string
     type: object
+  handlers.CircleArtistResponse:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  handlers.CircleListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/handlers.CircleResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
+  handlers.CircleResponse:
+    properties:
+      count:
+        type: integer
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
   handlers.CreateArtistRequest:
     properties:
       aliases:
@@ -1387,6 +1416,13 @@ paths:
         items:
           type: string
         name: parody
+        type: array
+      - collectionFormat: csv
+        description: Filter by circle/group name(s); archive must have all
+        in: query
+        items:
+          type: string
+        name: circle
         type: array
       - description: Filter by language code (e.g. en, ja)
         in: query
@@ -2806,6 +2842,133 @@ paths:
       summary: List every character
       tags:
       - characters
+  /api/circles:
+    get:
+      parameters:
+      - default: 1
+        description: Page number (1-based)
+        in: query
+        name: page
+        type: integer
+      - default: 50
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.CircleListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List circles with pagination
+      tags:
+      - circles
+  /api/circles/{id}:
+    delete:
+      parameters:
+      - description: Circle ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Delete a circle
+      tags:
+      - circles
+  /api/circles/{name}:
+    get:
+      parameters:
+      - description: Circle name
+        in: path
+        name: name
+        required: true
+        type: string
+      - default: 1
+        description: Page number (1-based)
+        in: query
+        name: page
+        type: integer
+      - default: 24
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ArchiveListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List archives for a circle
+      tags:
+      - circles
+  /api/circles/{name}/artists:
+    get:
+      parameters:
+      - description: Circle name
+        in: path
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.CircleArtistResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List artists linked to a circle
+      tags:
+      - circles
+  /api/circles/all:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.CircleResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List every circle
+      tags:
+      - circles
   /api/libraries:
     get:
       produces:

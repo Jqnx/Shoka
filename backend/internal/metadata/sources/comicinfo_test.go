@@ -116,3 +116,27 @@ func TestComicInfoWebRoundTrip(t *testing.T) {
 		t.Errorf("round-trip URLs = %#v, want %#v", parsed.URLs, original.URLs)
 	}
 }
+
+func TestComicInfoCirclesRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	original := &metadata.Result{Circles: []string{"circle a", "circle b"}}
+
+	data, err := MarshalComicInfo(original)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	if !strings.Contains(string(data), "<Publisher>circle a, circle b</Publisher>") {
+		t.Errorf("marshalled ComicInfo missing joined Publisher element:\n%s", data)
+	}
+
+	parsed, err := NewComicInfoSource().parse(data)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	if !reflect.DeepEqual(parsed.Circles, original.Circles) {
+		t.Errorf("round-trip Circles = %#v, want %#v", parsed.Circles, original.Circles)
+	}
+}

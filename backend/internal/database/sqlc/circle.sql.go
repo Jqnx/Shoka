@@ -9,6 +9,7 @@ import (
 	"context"
 	"database/sql"
 	"strings"
+	"time"
 )
 
 const bulkAddArchiveCircle = `-- name: BulkAddArchiveCircle :exec
@@ -26,6 +27,24 @@ type BulkAddArchiveCircleParams struct {
 
 func (q *Queries) BulkAddArchiveCircle(ctx context.Context, arg BulkAddArchiveCircleParams) error {
 	_, err := q.db.ExecContext(ctx, bulkAddArchiveCircle, arg.ArchiveID, arg.Circle)
+	return err
+}
+
+const bulkAddArtistCircle = `-- name: BulkAddArtistCircle :exec
+;
+
+insert or ignore into artist_circle (artist_id, circle_id)
+select a.value, c.value
+from json_each(?1) as a, json_each(?2) as c
+`
+
+type BulkAddArtistCircleParams struct {
+	Artists interface{} `json:"artists"`
+	Circles interface{} `json:"circles"`
+}
+
+func (q *Queries) BulkAddArtistCircle(ctx context.Context, arg BulkAddArtistCircleParams) error {
+	_, err := q.db.ExecContext(ctx, bulkAddArtistCircle, arg.Artists, arg.Circles)
 	return err
 }
 
@@ -171,12 +190,24 @@ func (q *Queries) DeleteCircle(ctx context.Context, name string) error {
 	return err
 }
 
+const deleteCircleByID = `-- name: DeleteCircleByID :exec
+;
+
+delete from circle
+where id = ?
+`
+
+func (q *Queries) DeleteCircleByID(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteCircleByID, id)
+	return err
+}
+
 const getAllCircle = `-- name: GetAllCircle :many
 ;
 
 select id, name, count
 from circle
-order by id
+order by name
 `
 
 func (q *Queries) GetAllCircle(ctx context.Context) ([]Circle, error) {
@@ -268,6 +299,105 @@ func (q *Queries) GetArchiveCircleIDs(ctx context.Context, id string) ([]int64, 
 	return items, nil
 }
 
+const getArchivesByCircleName = `-- name: GetArchivesByCircleName :many
+;
+
+select archive.id, archive.title, archive.summary, archive.language, archive.category, archive.page_count, archive.file_path, archive.file_size, archive.mod_time, archive.created_at, archive.updated_at, archive.release_date, archive.library_id, archive.phash_p0, archive.phash_p25, archive.phash_p50, archive.phash_p75, archive.cover_page, reading_progress.page, reading_progress.last_read, reading_progress.completed
+from archive
+join archive_circle on archive.id = archive_circle.archive_id
+join circle on archive_circle.circle_id = circle.id
+left join reading_progress on archive.id = reading_progress.archive_id and reading_progress.user_id = ?1
+where circle.name = ?2
+  and (?3 = 1
+       or archive.library_id in (select library_id from library_access where user_id = ?1))
+order by archive.title asc
+limit ?5
+offset ?4
+`
+
+type GetArchivesByCircleNameParams struct {
+	Uid          string      `json:"uid"`
+	Name         string      `json:"name"`
+	AllLibraries interface{} `json:"all_libraries"`
+	Offset       int64       `json:"offset"`
+	Limit        int64       `json:"limit"`
+}
+
+type GetArchivesByCircleNameRow struct {
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	PageCount   int64      `json:"page_count"`
+	FilePath    string     `json:"file_path"`
+	FileSize    int64      `json:"file_size"`
+	ModTime     time.Time  `json:"mod_time"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+	ReleaseDate *time.Time `json:"release_date"`
+	LibraryID   string     `json:"library_id"`
+	PhashP0     *int64     `json:"phash_p0"`
+	PhashP25    *int64     `json:"phash_p25"`
+	PhashP50    *int64     `json:"phash_p50"`
+	PhashP75    *int64     `json:"phash_p75"`
+	CoverPage   int64      `json:"cover_page"`
+	Page        *int64     `json:"page"`
+	LastRead    *time.Time `json:"last_read"`
+	Completed   *bool      `json:"completed"`
+}
+
+func (q *Queries) GetArchivesByCircleName(ctx context.Context, arg GetArchivesByCircleNameParams) ([]GetArchivesByCircleNameRow, error) {
+	rows, err := q.db.QueryContext(ctx, getArchivesByCircleName,
+		arg.Uid,
+		arg.Name,
+		arg.AllLibraries,
+		arg.Offset,
+		arg.Limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchivesByCircleNameRow
+	for rows.Next() {
+		var i GetArchivesByCircleNameRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Summary,
+			&i.Language,
+			&i.Category,
+			&i.PageCount,
+			&i.FilePath,
+			&i.FileSize,
+			&i.ModTime,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ReleaseDate,
+			&i.LibraryID,
+			&i.PhashP0,
+			&i.PhashP25,
+			&i.PhashP50,
+			&i.PhashP75,
+			&i.CoverPage,
+			&i.Page,
+			&i.LastRead,
+			&i.Completed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getCircle = `-- name: GetCircle :one
 ;
 
@@ -291,6 +421,7 @@ from circle
 join artist_circle on circle.id = artist_circle.circle_id
 join artist on artist_circle.artist_id = artist.id
 where circle.name = ?
+order by artist.name
 `
 
 func (q *Queries) GetCircleArtists(ctx context.Context, name string) ([]Artist, error) {
@@ -321,7 +452,7 @@ const getCircleList = `-- name: GetCircleList :many
 
 select id, name, count
 from circle
-order by ?
+order by name
 limit ?
 offset ?
 `
@@ -377,16 +508,29 @@ func (q *Queries) IncrementCircleCount(ctx context.Context, circles []int64) err
 	return err
 }
 
-const removeArtistsFromCircle = `-- name: RemoveArtistsFromCircle :exec
+const totalArchiveWithCircle = `-- name: TotalArchiveWithCircle :one
 ;
 
-delete from artist_circle
-where circle_id = ?
+select count(archive.id)
+from archive
+join archive_circle on archive.id = archive_circle.archive_id
+join circle on archive_circle.circle_id = circle.id
+where circle.name = ?1
+  and (?2 = 1
+       or archive.library_id in (select library_id from library_access where user_id = ?3))
 `
 
-func (q *Queries) RemoveArtistsFromCircle(ctx context.Context, circleID *int64) error {
-	_, err := q.db.ExecContext(ctx, removeArtistsFromCircle, circleID)
-	return err
+type TotalArchiveWithCircleParams struct {
+	Name         string      `json:"name"`
+	AllLibraries interface{} `json:"all_libraries"`
+	Uid          string      `json:"uid"`
+}
+
+func (q *Queries) TotalArchiveWithCircle(ctx context.Context, arg TotalArchiveWithCircleParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, totalArchiveWithCircle, arg.Name, arg.AllLibraries, arg.Uid)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const totalCircle = `-- name: TotalCircle :one

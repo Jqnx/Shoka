@@ -17,6 +17,7 @@
 		type ArchiveLanguage,
 		type Artist,
 		type Character,
+		type Circle,
 		type Parody,
 		type Tag
 	} from '$lib/types';
@@ -29,7 +30,8 @@
 		allArtists,
 		allTags,
 		allCharacters,
-		allParodies
+		allParodies,
+		allCircles
 	}: {
 		archive: Archive;
 		libraryId: string;
@@ -39,17 +41,18 @@
 		allTags: Tag[];
 		allCharacters: Character[];
 		allParodies: Parody[];
+		allCircles: Circle[];
 	} = $props();
 
-	// Artists/tags/characters/parodies have a backend-provided "all" list to
-	// search against (like ArchivesSidebar's filters), so they get the same
-	// searchable MultiCombobox, just in `creatable` mode so a genuinely new
-	// value can still be added. Circles has no such endpoint, so it stays
-	// free-text TagsInput below.
+	// Every relation has a backend-provided "all" list to search against
+	// (like ArchivesSidebar's filters), so they get the same searchable
+	// MultiCombobox, just in `creatable` mode so a genuinely new value can
+	// still be added.
 	const artistOptions = $derived(allArtists.map((a) => ({ value: a.name, label: a.name })));
 	const tagOptions = $derived(allTags.map((t) => ({ value: t.name, label: t.name })));
 	const characterOptions = $derived(allCharacters.map((c) => ({ value: c.name, label: c.name })));
 	const parodyOptions = $derived(allParodies.map((p) => ({ value: p.name, label: p.name })));
+	const circleOptions = $derived(allCircles.map((c) => ({ value: c.name, label: c.name })));
 
 	// The API only ever gives us language back as a converted display name
 	// ("English"), never the raw ISO code it's actually stored/written as. The
@@ -268,15 +271,15 @@
 
 				<Field.Field>
 					<Field.Label>Circles</Field.Label>
-					<TagsInput.Root value={circles} onValueChange={(v) => (circles = v)} addOnPaste>
-						{#each circles as circle (circle)}
-							<TagsInput.Item value={circle}>
-								<TagsInput.ItemText />
-								<TagsInput.ItemDelete />
-							</TagsInput.Item>
-						{/each}
-						<TagsInput.Input placeholder="Add circle..." />
-					</TagsInput.Root>
+					<MultiCombobox
+						options={circleOptions}
+						value={circles}
+						onValueChange={(v) => (circles = v)}
+						placeholder="Add circle..."
+						searchPlaceholder="Search circles..."
+						emptyText="No circles found."
+						creatable
+					/>
 					{#each circles as circle (circle)}
 						<input type="hidden" name="circles" value={circle} />
 					{/each}

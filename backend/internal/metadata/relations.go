@@ -235,6 +235,37 @@ func applyRelation(ctx context.Context, q *sqlc.Queries, archiveID string, names
 	return nil
 }
 
+// linkArchiveArtistsToCircles records every (artist, circle) pair the
+// archive currently has in artist_circle. Insert-only: a pair is never
+// removed here, because another archive may still justify it.
+func linkArchiveArtistsToCircles(ctx context.Context, q *sqlc.Queries, archiveID string) error {
+	artists, err := q.GetArchiveArtistIDs(ctx, archiveID)
+	if err != nil {
+		return fmt.Errorf("get archive artists: %w", err)
+	}
+
+	circles, err := q.GetArchiveCircleIDs(ctx, archiveID)
+	if err != nil {
+		return fmt.Errorf("get archive circles: %w", err)
+	}
+
+	if len(artists) == 0 || len(circles) == 0 {
+		return nil
+	}
+
+	artistsJSON, _ := json.Marshal(artists)
+	circlesJSON, _ := json.Marshal(circles)
+
+	if err := q.BulkAddArtistCircle(ctx, sqlc.BulkAddArtistCircleParams{
+		Artists: artistsJSON,
+		Circles: circlesJSON,
+	}); err != nil {
+		return fmt.Errorf("add artist circle pairs: %w", err)
+	}
+
+	return nil
+}
+
 // ClearRelationCounts subtracts the archive's contribution from every relation
 // counter. Run it in the same transaction that deletes the archive, and before
 // it: the archive_* join rows cascade away with the archive row, so its links

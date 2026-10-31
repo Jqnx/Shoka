@@ -8,6 +8,7 @@ import type {
 	ArchiveListResponse,
 	ArchiveSortOption,
 	Character,
+	Circle,
 	MetadataSourceInfo,
 	Parody,
 	Tag
@@ -42,6 +43,7 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 		tag: url.searchParams.getAll('tag'),
 		character: url.searchParams.getAll('character'),
 		parody: url.searchParams.getAll('parody'),
+		circle: url.searchParams.getAll('circle'),
 		artist: url.searchParams.getAll('artist')
 	};
 
@@ -58,6 +60,7 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 	for (const tag of filters.tag) archiveParams.append('tag', tag);
 	for (const character of filters.character) archiveParams.append('character', character);
 	for (const parody of filters.parody) archiveParams.append('parody', parody);
+	for (const circle of filters.circle) archiveParams.append('circle', circle);
 	for (const artist of filters.artist) archiveParams.append('artist', artist);
 
 	const [
@@ -66,6 +69,7 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 		tagsRes,
 		charactersRes,
 		parodiesRes,
+		circlesRes,
 		sortOptionsRes,
 		categoriesRes,
 		languagesRes,
@@ -76,6 +80,7 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 		fetch('/api/tags/all'),
 		fetch('/api/characters/all'),
 		fetch('/api/parodies/all'),
+		fetch('/api/circles/all'),
 		fetch('/api/archives/sort-options'),
 		fetch('/api/archives/categories'),
 		fetch('/api/archives/languages'),
@@ -93,6 +98,7 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 	const tags: Tag[] = tagsRes.ok ? await tagsRes.json() : [];
 	const characters: Character[] = charactersRes.ok ? await charactersRes.json() : [];
 	const parodies: Parody[] = parodiesRes.ok ? await parodiesRes.json() : [];
+	const allCircles: Circle[] = circlesRes.ok ? await circlesRes.json() : [];
 	const sortOptions: ArchiveSortOption[] = sortOptionsRes.ok ? await sortOptionsRes.json() : [];
 	const categories: string[] = categoriesRes.ok ? await categoriesRes.json() : [];
 	const languages: ArchiveLanguage[] = languagesRes.ok ? await languagesRes.json() : [];
@@ -109,6 +115,7 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 		tags,
 		characters,
 		parodies,
+		allCircles,
 		sortOptions,
 		categories,
 		languages,

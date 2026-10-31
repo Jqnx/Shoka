@@ -101,6 +101,7 @@ func (h *TagHandler) GetArchivesByTag(w http.ResponseWriter, r *http.Request) {
 	archivesByName(
 		w, r, h.logger, "tag", chi.URLParam(r, "name"),
 		h.queries.TotalArchiveWithTag, h.queries.GetArchivesByTagName, h.processor,
+		nil,
 	)
 }
 

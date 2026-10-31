@@ -20,6 +20,7 @@ type ArchiveFilter struct {
 	Tags       []string
 	Characters []string
 	Parodies   []string
+	Circles    []string
 	Language   string
 	Category   string
 	// HasPHash is tri-state: nil means "don't filter on it at all", which is
@@ -127,6 +128,7 @@ func buildWhere(f ArchiveFilter) (string, []any) {
 	addRelationFilterNames(&sb, &args, "archive_tag", "tag", "tag_id", f.Tags)
 	addRelationFilterNames(&sb, &args, "archive_character", "character", "character_id", f.Characters)
 	addRelationFilterNames(&sb, &args, "archive_parody", "parody", "parody_id", f.Parodies)
+	addRelationFilterNames(&sb, &args, "archive_circle", "circle", "circle_id", f.Circles)
 
 	if f.Language != "" {
 		sb.WriteString("AND archive.language = ? ")

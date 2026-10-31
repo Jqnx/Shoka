@@ -383,6 +383,7 @@ func hasPHashParam(raw string) *bool {
 //	@Param			tag			query		[]string	false	"Filter by tag name(s); archive must have all"
 //	@Param			character	query		[]string	false	"Filter by character name(s); archive must have all"
 //	@Param			parody		query		[]string	false	"Filter by parody name(s); archive must have all"
+//	@Param			circle		query		[]string	false	"Filter by circle/group name(s); archive must have all"
 //	@Param			language	query		string		false	"Filter by language code (e.g. en, ja)"
 //	@Param			category	query		string		false	"Filter by category"
 //	@Param			has_phash	query		bool		false	"Filter by whether the archive has been perceptually hashed (for duplicate detection). Omit to include both."
@@ -414,6 +415,7 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 		Tags:       q["tag"],
 		Characters: q["character"],
 		Parodies:   q["parody"],
+		Circles:    q["circle"],
 		Language:   q.Get("language"),
 		Category:   q.Get("category"),
 		HasPHash:   hasPHashParam(q.Get("has_phash")),

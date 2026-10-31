@@ -168,6 +168,13 @@ func ApplyMetadata(ctx context.Context, queries *sqlc.Queries, db *sql.DB, archi
 		}
 	}
 
+	// Link artists to circles from the post-reconcile state: a nil relation
+	// means "unchanged", so the request slices alone don't describe the
+	// archive's full set.
+	if err := linkArchiveArtistsToCircles(ctx, qtx, archiveID); err != nil {
+		return fmt.Errorf("link archive artists to circles: %w", err)
+	}
+
 	if result.URLs != nil {
 		if err := applyURLs(ctx, qtx, archiveID, result.URLs); err != nil {
 			return err

@@ -8,7 +8,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import type { Artist, ArchiveLanguage, Character, Parody, Tag } from '$lib/types';
+	import type { Artist, ArchiveLanguage, Character, Circle, Parody, Tag } from '$lib/types';
 
 	const ANY = 'any';
 
@@ -21,6 +21,7 @@
 		tag: string[];
 		character: string[];
 		parody: string[];
+		circle: string[];
 		artist: string[];
 	};
 
@@ -30,6 +31,7 @@
 		tags,
 		characters,
 		parodies,
+		allCircles,
 		categories,
 		languages
 	}: {
@@ -38,6 +40,7 @@
 		tags: Tag[];
 		characters: Character[];
 		parodies: Parody[];
+		allCircles: Circle[];
 		categories: string[];
 		languages: ArchiveLanguage[];
 	} = $props();
@@ -49,7 +52,8 @@
 			filters.artist.length > 0 ||
 			filters.tag.length > 0 ||
 			filters.character.length > 0 ||
-			filters.parody.length > 0
+			filters.parody.length > 0 ||
+			filters.circle.length > 0
 	);
 
 	const phashOptions = [
@@ -73,13 +77,18 @@
 		...languages.map((lang) => ({ value: lang.code, label: lang.name }))
 	]);
 
-	const artistOptions = $derived(artists.map((artist) => ({ value: artist.name, label: artist.name })));
+	const artistOptions = $derived(
+		artists.map((artist) => ({ value: artist.name, label: artist.name }))
+	);
 	const tagOptions = $derived(tags.map((tag) => ({ value: tag.name, label: tag.name })));
 	const characterOptions = $derived(
 		characters.map((character) => ({ value: character.name, label: character.name }))
 	);
 	const parodyOptions = $derived(
 		parodies.map((parody) => ({ value: parody.name, label: parody.name }))
+	);
+	const circleOptions = $derived(
+		allCircles.map((circle) => ({ value: circle.name, label: circle.name }))
 	);
 
 	function setParam(name: string, value: string) {
@@ -109,6 +118,7 @@
 			'tag',
 			'character',
 			'parody',
+			'circle',
 			'artist',
 			'page'
 		]) {
@@ -228,6 +238,23 @@
 					placeholder="Add parody..."
 					searchPlaceholder="Search parodies..."
 					emptyText="No parodies found."
+				/>
+			</Sidebar.GroupContent>
+		</Sidebar.Group>
+
+		<Separator />
+
+		<!-- Circles -->
+		<Sidebar.Group class="p-0">
+			<Sidebar.GroupLabel class="px-0">Circles</Sidebar.GroupLabel>
+			<Sidebar.GroupContent class="mt-1">
+				<MultiCombobox
+					options={circleOptions}
+					value={filters.circle}
+					onValueChange={(v) => setMultiParam('circle', v)}
+					placeholder="Add circle..."
+					searchPlaceholder="Search circles..."
+					emptyText="No circles found."
 				/>
 			</Sidebar.GroupContent>
 		</Sidebar.Group>

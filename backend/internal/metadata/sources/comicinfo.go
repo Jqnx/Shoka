@@ -30,6 +30,7 @@ type comicInfoXML struct {
 	Writer      string `xml:"Writer"`
 	Characters  string `xml:"Characters"`
 	Series      string `xml:"Series"`
+	Publisher   string `xml:"Publisher"`
 	Tags        string `xml:"Tags"`
 	Web         string `xml:"Web"`
 }
@@ -103,22 +104,7 @@ func (s *ComicInfoSource) parse(data []byte) (*metadata.Result, error) {
 		result.PageCount = &info.PageCount
 	}
 
-	if info.Writer != "" {
-		artists := splitAndTrim(info.Writer, ",")
-		result.Artists = artists
-	}
-
-	if info.Tags != "" {
-		result.Tags = splitAndTrim(info.Tags, ",")
-	}
-
-	if info.Characters != "" {
-		result.Characters = splitAndTrim(info.Characters, ",")
-	}
-
-	if info.Series != "" {
-		result.Parodies = splitAndTrim(info.Series, ",")
-	}
+	info.setRelationFields(result)
 
 	if info.Year > 0 {
 		t := time.Date(info.Year, time.Month(info.Month), info.Day, 0, 0, 0, 0, time.UTC)
@@ -133,6 +119,32 @@ func (s *ComicInfoSource) parse(data []byte) (*metadata.Result, error) {
 	}
 
 	return result, nil
+}
+
+// setRelationFields fills the multi-valued relation fields, leaving an
+// absent element nil so it reads as "don't touch this relation". A doujin
+// circle is the publisher; importing that element keeps other managers'
+// files from dropping the relation.
+func (info comicInfoXML) setRelationFields(result *metadata.Result) {
+	if info.Writer != "" {
+		result.Artists = splitAndTrim(info.Writer, ",")
+	}
+
+	if info.Tags != "" {
+		result.Tags = splitAndTrim(info.Tags, ",")
+	}
+
+	if info.Characters != "" {
+		result.Characters = splitAndTrim(info.Characters, ",")
+	}
+
+	if info.Series != "" {
+		result.Parodies = splitAndTrim(info.Series, ",")
+	}
+
+	if info.Publisher != "" {
+		result.Circles = splitAndTrim(info.Publisher, ",")
+	}
 }
 
 // MarshalComicInfo serialises a metadata.Result into ComicInfo.xml bytes,
@@ -168,6 +180,19 @@ func MarshalComicInfo(result *metadata.Result) ([]byte, error) {
 		info.Day = result.ReleaseDate.Day()
 	}
 
+	info.setRelationElements(result)
+
+	output, err := xml.MarshalIndent(info, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshal ComicInfo.xml: %w", err)
+	}
+
+	return append([]byte(xml.Header), output...), nil
+}
+
+// setRelationElements joins the multi-valued relation fields with the
+// separators the spec expects.
+func (info *comicInfoXML) setRelationElements(result *metadata.Result) {
 	if len(result.Artists) > 0 {
 		info.Writer = strings.Join(result.Artists, ", ")
 	}
@@ -184,16 +209,13 @@ func MarshalComicInfo(result *metadata.Result) ([]byte, error) {
 		info.Series = result.Parodies[0]
 	}
 
+	if len(result.Circles) > 0 {
+		info.Publisher = strings.Join(result.Circles, ", ")
+	}
+
 	if len(result.URLs) > 0 {
 		info.Web = strings.Join(result.URLs, " ")
 	}
-
-	output, err := xml.MarshalIndent(info, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("marshal ComicInfo.xml: %w", err)
-	}
-
-	return append([]byte(xml.Header), output...), nil
 }
 
 func splitAndTrim(s, sep string) []string {

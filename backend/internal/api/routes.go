@@ -43,6 +43,7 @@ type apiHandlers struct {
 	tag            *handlers.TagHandler
 	character      *handlers.CharacterHandler
 	parody         *handlers.ParodyHandler
+	circle         *handlers.CircleHandler
 	artist         *handlers.ArtistHandler
 	readerSettings *handlers.ReaderSettingsHandler
 	search         *handlers.SearchHandler
@@ -62,6 +63,7 @@ func (s *Server) newAPIHandlers() apiHandlers {
 		tag:            handlers.NewTagHandler(s.Queries, s.Log, s.Processor),
 		character:      handlers.NewCharacterHandler(s.Queries, s.Log, s.Processor),
 		parody:         handlers.NewParodyHandler(s.Queries, s.Log, s.Processor),
+		circle:         handlers.NewCircleHandler(s.Queries, s.DB, s.Log, s.Processor),
 		artist:         handlers.NewArtistHandler(s.Queries, s.DB, s.Log, s.Processor),
 		readerSettings: handlers.NewReaderSettingsHandler(s.Queries, s.Log),
 		search:         handlers.NewSearchHandler(s.Queries, s.DB, s.Processor, s.Log),
@@ -131,7 +133,7 @@ func mountBrowseRoutes(r chi.Router, h apiHandlers) {
 }
 
 // mountEntityRoutes registers the taxonomy endpoints - tags, characters,
-// parodies and artists - plus the reader settings endpoints, in the order the
+// parodies, circles and artists - plus the reader settings endpoints, in the order the
 // two static-before-wildcard families within each require (all vs {id} vs
 // {name}).
 func mountEntityRoutes(r chi.Router, h apiHandlers) {
@@ -152,6 +154,12 @@ func mountEntityRoutes(r chi.Router, h apiHandlers) {
 	r.Get("/api/parodies/all", h.parody.GetAllParodies)
 	r.With(requirePermission(auth.TaxonomyDelete)).Delete("/api/parodies/{id}", h.parody.DeleteParody)
 	r.Get("/api/parodies/{name}", h.parody.GetArchivesByParody)
+
+	r.Get("/api/circles", h.circle.GetCircles)
+	r.Get("/api/circles/all", h.circle.GetAllCircles)
+	r.With(requirePermission(auth.TaxonomyDelete)).Delete("/api/circles/{id}", h.circle.DeleteCircle)
+	r.Get("/api/circles/{name}", h.circle.GetArchivesByCircle)
+	r.Get("/api/circles/{name}/artists", h.circle.GetCircleArtists)
 
 	r.Route("/api/reader-settings", func(r chi.Router) {
 		r.Get("/", h.readerSettings.GetReaderSettings)

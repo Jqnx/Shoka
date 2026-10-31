@@ -190,6 +190,7 @@
 							allTags={data.allTags}
 							allCharacters={data.allCharacters}
 							allParodies={data.allParodies}
+							allCircles={data.allCircles}
 						/>
 					{/if}
 					<DropdownMenu.Root>
@@ -449,7 +450,13 @@
 						<Users class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
 						<div>
 							<dt class="text-xs text-muted-foreground">Circle</dt>
-							<dd>{a.circles.join(', ')}</dd>
+							<dd class="flex flex-wrap gap-x-1">
+								{#each a.circles as circle, i (circle)}
+									<a href={resolve(`/circle/${encodeURIComponent(circle)}`)} class="hover:underline"
+										>{circle}{i < a.circles.length - 1 ? ',' : ''}</a
+									>
+								{/each}
+							</dd>
 						</div>
 					</div>
 				{/if}

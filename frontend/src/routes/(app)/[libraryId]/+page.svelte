@@ -187,6 +187,7 @@
 							allTags={data.tags}
 							allCharacters={data.characters}
 							allParodies={data.parodies}
+							allCircles={data.allCircles}
 							onDone={exitSelection}
 						/>
 					{/if}
@@ -405,6 +406,7 @@
 		tags={data.tags}
 		characters={data.characters}
 		parodies={data.parodies}
+		allCircles={data.allCircles}
 		categories={data.categories}
 		languages={data.languages}
 	/>

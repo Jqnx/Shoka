@@ -14,7 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// The taxonomy endpoints - characters, parodies, tags and artists - repeat
+// The taxonomy endpoints - characters, parodies, tags, circles and artists - repeat
 // four request shapes: a paginated list, an "all" list, the archives linked
 // to one row, and delete-by-id. Those algorithms live here; the per-entity
 // handlers stay in their own files as thin call sites.
@@ -84,7 +84,8 @@ type taxonomyListParams sqlc.GetCharacterListParams
 // taxonomyListParamsType lists the sqlc parameters of the taxonomy list
 // queries.
 type taxonomyListParamsType interface {
-	sqlc.GetCharacterListParams | sqlc.GetParodyListParams | sqlc.GetTagListParams
+	sqlc.GetCharacterListParams | sqlc.GetParodyListParams | sqlc.GetTagListParams |
+		sqlc.GetCircleListParams
 }
 
 // listTaxonomy counts and fetches one page of kind ("characters", "tags", ...),
@@ -159,7 +160,8 @@ type archiveRow sqlc.GetArchivesByCharacterNameRow
 // archiveRowType lists the sqlc rows of the archives-by-taxonomy queries.
 type archiveRowType interface {
 	sqlc.GetArchivesByCharacterNameRow | sqlc.GetArchivesByParodyNameRow |
-		sqlc.GetArchivesByTagNameRow | sqlc.GetArchivesByArtistIDRow
+		sqlc.GetArchivesByTagNameRow | sqlc.GetArchivesByArtistIDRow |
+		sqlc.GetArchivesByCircleNameRow
 }
 
 // archiveNameParams is the parameter set of a name-keyed archives query, and
@@ -170,7 +172,7 @@ type archiveNameParams sqlc.GetArchivesByCharacterNameParams
 // archives-by-taxonomy queries.
 type archiveNameParamsType interface {
 	sqlc.GetArchivesByCharacterNameParams | sqlc.GetArchivesByParodyNameParams |
-		sqlc.GetArchivesByTagNameParams
+		sqlc.GetArchivesByTagNameParams | sqlc.GetArchivesByCircleNameParams
 }
 
 // archiveNameCountParams is the parameter set of a name-keyed count query,
@@ -181,7 +183,7 @@ type archiveNameCountParams sqlc.TotalArchiveWithCharacterParams
 // archive count queries.
 type archiveNameCountParamsType interface {
 	sqlc.TotalArchiveWithCharacterParams | sqlc.TotalArchiveWithParodyParams |
-		sqlc.TotalArchiveWithTagParams
+		sqlc.TotalArchiveWithTagParams | sqlc.TotalArchiveWithCircleParams
 }
 
 // archiveResponses maps a page of archive rows to the shared list item.
@@ -223,9 +225,13 @@ func archiveResponses[R archiveRowType](processor *image.Processor, rows []R) []
 	return items
 }
 
+// archiveEnricher fills fields the archives-by-taxonomy queries do not
+// select, modifying items in place. A nil enricher leaves the page untouched.
+type archiveEnricher func(context.Context, []ArchiveResponse) error
+
 // archivesByName counts and fetches one page of the archives linked to a
-// taxonomy row selected by name (character, parody, tag) and writes the list
-// response. kind names the relation in logs and messages.
+// taxonomy row selected by name (character, parody, tag, circle) and writes
+// the list response. kind names the relation in logs and messages.
 func archivesByName[P archiveNameParamsType, C archiveNameCountParamsType, R archiveRowType](
 	w http.ResponseWriter,
 	r *http.Request,
@@ -234,6 +240,7 @@ func archivesByName[P archiveNameParamsType, C archiveNameCountParamsType, R arc
 	count func(context.Context, C) (int64, error),
 	fetch func(context.Context, P) ([]R, error),
 	processor *image.Processor,
+	enrich archiveEnricher,
 ) {
 	page, limit := parsePagination(r, defaultArchiveLimit)
 	offset := int64((page - 1) * limit)
@@ -262,8 +269,19 @@ func archivesByName[P archiveNameParamsType, C archiveNameCountParamsType, R arc
 		return
 	}
 
+	items := archiveResponses(processor, rows)
+
+	if enrich != nil {
+		if err := enrich(r.Context(), items); err != nil {
+			logger.Error("enrich archives by "+kind+" failed", "error", err)
+			response.InternalError(w, "failed to get archive metadata")
+
+			return
+		}
+	}
+
 	response.JSON(w, http.StatusOK, ArchiveListResponse{
-		Items: archiveResponses(processor, rows),
+		Items: items,
 		Total: total,
 		Page:  page,
 		Limit: limit,

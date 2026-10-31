@@ -1,13 +1,12 @@
 <script lang="ts">
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as Field from '$lib/components/ui/field/index.js';
-	import * as TagsInput from '$lib/components/ui/tags-input/index.js';
 	import { Combobox, MultiCombobox } from '$lib/components/ui/combobox/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Pencil } from '@lucide/svelte';
 	import { enhance, applyAction } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import type { ArchiveLanguage, Artist, Character, Parody, Tag } from '$lib/types';
+	import type { ArchiveLanguage, Artist, Character, Circle, Parody, Tag } from '$lib/types';
 
 	let {
 		ids,
@@ -17,6 +16,7 @@
 		allTags,
 		allCharacters,
 		allParodies,
+		allCircles,
 		onDone
 	}: {
 		ids: string[];
@@ -26,6 +26,7 @@
 		allTags: Tag[];
 		allCharacters: Character[];
 		allParodies: Parody[];
+		allCircles: Circle[];
 		onDone?: () => void;
 	} = $props();
 
@@ -35,6 +36,7 @@
 	const tagOptions = $derived(allTags.map((t) => ({ value: t.name, label: t.name })));
 	const characterOptions = $derived(allCharacters.map((c) => ({ value: c.name, label: c.name })));
 	const parodyOptions = $derived(allParodies.map((p) => ({ value: p.name, label: p.name })));
+	const circleOptions = $derived(allCircles.map((c) => ({ value: c.name, label: c.name })));
 
 	// A bulk edit has no single current value to prefill, so scalars get an
 	// explicit "leave unchanged" option instead of a blank meaning two
@@ -100,8 +102,8 @@
 		<Dialog.Header>
 			<Dialog.Title>Edit {ids.length} {ids.length === 1 ? 'archive' : 'archives'}</Dialog.Title>
 			<Dialog.Description>
-				Artists, tags, parodies, circles and characters are added to what each archive already
-				has. Category and language overwrite it.
+				Artists, tags, parodies, circles and characters are added to what each archive already has.
+				Category and language overwrite it.
 			</Dialog.Description>
 		</Dialog.Header>
 
@@ -189,15 +191,14 @@
 					</Field.Field>
 					<Field.Field>
 						<Field.Label>Add circles</Field.Label>
-						<TagsInput.Root value={circles} onValueChange={(v) => (circles = v)} addOnPaste>
-							{#each circles as circle (circle)}
-								<TagsInput.Item value={circle}>
-									<TagsInput.ItemText />
-									<TagsInput.ItemDelete />
-								</TagsInput.Item>
-							{/each}
-							<TagsInput.Input placeholder="Add circle..." />
-						</TagsInput.Root>
+						<MultiCombobox
+							options={circleOptions}
+							value={circles}
+							onValueChange={(v) => (circles = v)}
+							creatable
+							placeholder="Add circle..."
+							searchPlaceholder="Search circles..."
+						/>
 					</Field.Field>
 					<Field.Field>
 						<Field.Label>Set category</Field.Label>

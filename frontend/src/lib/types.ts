@@ -169,6 +169,24 @@ export type ParodyListResponse = {
 	limit: number;
 };
 
+export type Circle = {
+	id: number;
+	name: string;
+	count: number;
+};
+
+export type CircleListResponse = {
+	items: Circle[];
+	total: number;
+	page: number;
+	limit: number;
+};
+
+export type CircleArtist = {
+	id: number;
+	name: string;
+};
+
 export type Artist = {
 	id: number;
 	name: string;
