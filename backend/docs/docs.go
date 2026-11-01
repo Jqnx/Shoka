@@ -17,6 +17,7 @@ const docTemplate = `{
     "paths": {
         "/api/admin/covers": {
             "post": {
+                "description": "Manual full pass: unlike the scheduled backfill, this enqueues an archive even when its chosen cover is already on disk.",
                 "tags": [
                     "admin"
                 ],
@@ -646,7 +647,7 @@ const docTemplate = `{
         },
         "/api/admin/phashes": {
             "post": {
-                "description": "Backfills the hashes GET /api/admin/duplicates compares. Safe to re-run - each job overwrites that archive's hashes in place, so this is also how you re-hash the library after a change to which pages get sampled.",
+                "description": "Manual full pass: unlike the scheduled backfill, this enqueues an archive even when it already has hashes. Each job overwrites that archive's hashes in place, so this is also how you re-hash the library after a change to which pages get sampled.",
                 "tags": [
                     "admin"
                 ],

@@ -24,13 +24,13 @@ from archive
 where file_path = ?
 ;
 
--- name: GetAllArchiveFilePaths :many
--- returns file paths for every archive across all libraries; used for
--- cross-library maintenance actions (e.g. regenerating all covers).
--- cover_page rides along so the maintenance "regenerate covers" actions can
--- re-run the cover job against the user's chosen page instead of resetting
--- every archive back to page 0.
-select id, file_path, file_size, mod_time, cover_page
+-- name: GetArchivesForMaintenance :many
+-- Every archive across all libraries, with the state the maintenance
+-- scheduler needs to skip work a previous run already produced: cover_page
+-- and page_count for the cover task (both the job and GetCover clamp an
+-- out-of-range cover_page to 0), and the four hashes for the phash task (at
+-- least one non-NULL counts as hashed, the same rule as the has_phash filter).
+select id, file_path, cover_page, page_count, phash_p0, phash_p25, phash_p50, phash_p75
 from archive
 ;
 

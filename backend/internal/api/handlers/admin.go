@@ -32,13 +32,14 @@ func NewAdminHandler(queries *sqlc.Queries, maintenance *maintenance.Manager, lo
 // GenerateCovers godoc
 //
 //	@Summary		Enqueue cover generation for all archives
+//	@Description	Manual full pass: unlike the scheduled backfill, this enqueues an archive even when its chosen cover is already on disk.
 //	@Tags			admin
 //	@Success		204
 //	@Failure		403	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/admin/covers [post]
 func (h *AdminHandler) GenerateCovers(w http.ResponseWriter, r *http.Request) {
-	if err := h.Maintenance.RunTask(r.Context(), jobs.JobTypeCover); err != nil {
+	if err := h.Maintenance.RunTask(r.Context(), jobs.JobTypeCover, true); err != nil {
 		h.Log.Error("run covers failed", "error", err)
 		response.InternalError(w, "failed to enqueue cover generation")
 
@@ -51,14 +52,14 @@ func (h *AdminHandler) GenerateCovers(w http.ResponseWriter, r *http.Request) {
 // GeneratePHashes godoc
 //
 //	@Summary		Enqueue perceptual-hash computation for all archives
-//	@Description	Backfills the hashes GET /api/admin/duplicates compares. Safe to re-run - each job overwrites that archive's hashes in place, so this is also how you re-hash the library after a change to which pages get sampled.
+//	@Description	Manual full pass: unlike the scheduled backfill, this enqueues an archive even when it already has hashes. Each job overwrites that archive's hashes in place, so this is also how you re-hash the library after a change to which pages get sampled.
 //	@Tags			admin
 //	@Success		204
 //	@Failure		403	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/admin/phashes [post]
 func (h *AdminHandler) GeneratePHashes(w http.ResponseWriter, r *http.Request) {
-	if err := h.Maintenance.RunTask(r.Context(), jobs.JobTypePHash); err != nil {
+	if err := h.Maintenance.RunTask(r.Context(), jobs.JobTypePHash, true); err != nil {
 		h.Log.Error("run phashes failed", "error", err)
 		response.InternalError(w, "failed to enqueue hash generation")
 

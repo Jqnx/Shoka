@@ -154,55 +154,6 @@ func (q *Queries) FilePathExists(ctx context.Context, filePath string) (bool, er
 	return column_1, err
 }
 
-const getAllArchiveFilePaths = `-- name: GetAllArchiveFilePaths :many
-;
-
-select id, file_path, file_size, mod_time, cover_page
-from archive
-`
-
-type GetAllArchiveFilePathsRow struct {
-	ID        string    `json:"id"`
-	FilePath  string    `json:"file_path"`
-	FileSize  int64     `json:"file_size"`
-	ModTime   time.Time `json:"mod_time"`
-	CoverPage int64     `json:"cover_page"`
-}
-
-// returns file paths for every archive across all libraries; used for
-// cross-library maintenance actions (e.g. regenerating all covers).
-// cover_page rides along so the maintenance "regenerate covers" actions can
-// re-run the cover job against the user's chosen page instead of resetting
-// every archive back to page 0.
-func (q *Queries) GetAllArchiveFilePaths(ctx context.Context) ([]GetAllArchiveFilePathsRow, error) {
-	rows, err := q.db.QueryContext(ctx, getAllArchiveFilePaths)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetAllArchiveFilePathsRow
-	for rows.Next() {
-		var i GetAllArchiveFilePathsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.FilePath,
-			&i.FileSize,
-			&i.ModTime,
-			&i.CoverPage,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getAllArchivePHashes = `-- name: GetAllArchivePHashes :many
 ;
 
@@ -616,6 +567,61 @@ func (q *Queries) GetArchivesByIDs(ctx context.Context, ids []string) ([]GetArch
 	for rows.Next() {
 		var i GetArchivesByIDsRow
 		if err := rows.Scan(&i.ID, &i.PageCount, &i.LibraryID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArchivesForMaintenance = `-- name: GetArchivesForMaintenance :many
+;
+
+select id, file_path, cover_page, page_count, phash_p0, phash_p25, phash_p50, phash_p75
+from archive
+`
+
+type GetArchivesForMaintenanceRow struct {
+	ID        string `json:"id"`
+	FilePath  string `json:"file_path"`
+	CoverPage int64  `json:"cover_page"`
+	PageCount int64  `json:"page_count"`
+	PhashP0   *int64 `json:"phash_p0"`
+	PhashP25  *int64 `json:"phash_p25"`
+	PhashP50  *int64 `json:"phash_p50"`
+	PhashP75  *int64 `json:"phash_p75"`
+}
+
+// Every archive across all libraries, with the state the maintenance
+// scheduler needs to skip work a previous run already produced: cover_page
+// and page_count for the cover task (both the job and GetCover clamp an
+// out-of-range cover_page to 0), and the four hashes for the phash task (at
+// least one non-NULL counts as hashed, the same rule as the has_phash filter).
+func (q *Queries) GetArchivesForMaintenance(ctx context.Context) ([]GetArchivesForMaintenanceRow, error) {
+	rows, err := q.db.QueryContext(ctx, getArchivesForMaintenance)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArchivesForMaintenanceRow
+	for rows.Next() {
+		var i GetArchivesForMaintenanceRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.FilePath,
+			&i.CoverPage,
+			&i.PageCount,
+			&i.PhashP0,
+			&i.PhashP25,
+			&i.PhashP50,
+			&i.PhashP75,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
