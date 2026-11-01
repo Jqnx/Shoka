@@ -768,6 +768,311 @@ func (h *ArtistHandler) DeleteArtist(w http.ResponseWriter, r *http.Request) {
 	response.NoContent(w)
 }
 
+// MergeArtistRequest is the JSON body accepted by MergeArtist.
+type MergeArtistRequest struct {
+	TargetID int64 `json:"target_id"`
+}
+
+// MergeArtist godoc
+//
+//	@Summary		Merge an artist into another
+//	@Description	Moves the artist's archives, URLs, circles, favorites and ratings to the target; adds its name and aliases to the target; deletes the artist. An alias that already belongs to a different artist fails the merge with 409.
+//	@Tags			artists
+//	@Accept			json
+//	@Param			id		path	int					true	"Artist ID"
+//	@Param			body	body	MergeArtistRequest	true	"Target artist"
+//	@Success		204
+//	@Failure		400	{object}	response.Error
+//	@Failure		403	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		409	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/artists/{id}/merge [post]
+func (h *ArtistHandler) MergeArtist(w http.ResponseWriter, r *http.Request) {
+	sourceID, targetID, ok := mergeTarget(w, r)
+	if !ok {
+		return
+	}
+
+	tx, err := h.db.BeginTx(r.Context(), nil)
+	if err != nil {
+		h.logger.Error("begin transaction failed", "source_id", sourceID, "target_id", targetID, "error", err)
+		response.InternalError(w, "failed to merge artists")
+
+		return
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if !h.mergeArtists(r.Context(), w, h.queries.WithTx(tx), sourceID, targetID) {
+		return
+	}
+
+	if err := tx.Commit(); err != nil {
+		h.logger.Error("commit transaction failed", "source_id", sourceID, "target_id", targetID, "error", err)
+		response.InternalError(w, "failed to merge artists")
+
+		return
+	}
+
+	response.NoContent(w)
+}
+
+// mergeArtists performs the merge inside q, writing the failure response and
+// returning false when the caller must roll back.
+func (h *ArtistHandler) mergeArtists(ctx context.Context, w http.ResponseWriter, q *sqlc.Queries, sourceID, targetID int64) bool {
+	source, target, ok := h.mergeArtistRows(ctx, w, q, sourceID, targetID)
+	if !ok {
+		return false
+	}
+
+	aliases, conflict, err := h.mergeArtistAliases(ctx, q, source, target)
+	if err != nil {
+		h.logger.Error("plan artist aliases failed", "source_id", sourceID, "target_id", targetID, "error", err)
+		response.InternalError(w, "failed to merge artists")
+
+		return false
+	}
+
+	if conflict != "" {
+		response.Conflict(w, `alias "`+conflict+`" is already used by another artist`)
+
+		return false
+	}
+
+	if !h.moveArtistData(ctx, w, q, sourceID, targetID) {
+		return false
+	}
+
+	if !h.addMergedAliases(ctx, w, q, targetID, aliases) {
+		return false
+	}
+
+	if err := q.RecomputeArtistCount(ctx, targetID); err != nil {
+		h.logger.Error("recompute artist count failed", "target_id", targetID, "error", err)
+		response.InternalError(w, "failed to merge artists")
+
+		return false
+	}
+
+	return true
+}
+
+// moveArtistData copies the source's relations onto the target and then
+// deletes the source row. It writes the failure response and returns false
+// on the first failure.
+func (h *ArtistHandler) moveArtistData(ctx context.Context, w http.ResponseWriter, q *sqlc.Queries, sourceID, targetID int64) bool {
+	params := sqlc.RepointArtistArchiveLinksParams{TargetID: targetID, SourceID: sourceID}
+
+	steps := []struct {
+		name string
+		run  func() error
+	}{
+		{"repoint archive links", func() error { return q.RepointArtistArchiveLinks(ctx, params) }},
+		{"move urls", func() error { return q.MoveArtistUrls(ctx, sqlc.MoveArtistUrlsParams(params)) }},
+		{"copy circles", func() error { return q.CopyArtistCircles(ctx, sqlc.CopyArtistCirclesParams(params)) }},
+		{"copy favorites", func() error { return q.CopyArtistFavorites(ctx, sqlc.CopyArtistFavoritesParams(params)) }},
+		{"copy ratings", func() error { return q.CopyArtistRatings(ctx, sqlc.CopyArtistRatingsParams(params)) }},
+		{"adopt cover", func() error {
+			return q.AdoptArtistCover(ctx, sqlc.AdoptArtistCoverParams{SourceID: sourceID, TargetID: targetID})
+		}},
+		{"delete source", func() error { return q.DeleteArtist(ctx, sourceID) }},
+	}
+
+	for _, step := range steps {
+		if !h.mergeStep(w, step.name, sourceID, targetID, step.run()) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// mergeTarget parses the source id and the request body, writing the 400
+// response and returning false on a bad request.
+func mergeTarget(w http.ResponseWriter, r *http.Request) (int64, int64, bool) {
+	sourceID, ok := pathID(w, r, "artist")
+	if !ok {
+		return 0, 0, false
+	}
+
+	var body MergeArtistRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.BadRequest(w, "invalid request body")
+
+		return 0, 0, false
+	}
+
+	if body.TargetID < 1 {
+		response.BadRequest(w, "invalid target artist id")
+
+		return 0, 0, false
+	}
+
+	if body.TargetID == sourceID {
+		response.BadRequest(w, "cannot merge an artist into itself")
+
+		return 0, 0, false
+	}
+
+	return sourceID, body.TargetID, true
+}
+
+// mergeArtistRows loads the source and target rows, writing the 404/500
+// response and returning false when either is missing.
+func (h *ArtistHandler) mergeArtistRows(ctx context.Context, w http.ResponseWriter, q *sqlc.Queries, sourceID, targetID int64) (sqlc.Artist, sqlc.Artist, bool) {
+	source, ok := h.mergeArtistRow(ctx, w, q, sourceID, "artist not found")
+	if !ok {
+		return sqlc.Artist{}, sqlc.Artist{}, false
+	}
+
+	target, ok := h.mergeArtistRow(ctx, w, q, targetID, "target artist not found")
+	if !ok {
+		return sqlc.Artist{}, sqlc.Artist{}, false
+	}
+
+	return source, target, true
+}
+
+// mergeArtistRow loads one artist, writing the response on failure.
+func (h *ArtistHandler) mergeArtistRow(ctx context.Context, w http.ResponseWriter, q *sqlc.Queries, id int64, notFound string) (sqlc.Artist, bool) {
+	artist, err := q.GetArtistByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, notFound)
+
+			return sqlc.Artist{}, false
+		}
+
+		h.logger.Error("get artist failed", "id", id, "error", err)
+		response.InternalError(w, "failed to merge artists")
+
+		return sqlc.Artist{}, false
+	}
+
+	return artist, true
+}
+
+// mergeArtistAliases returns the trimmed, case-insensitively deduped
+// aliases that should be added to target. conflict is non-empty when an
+// alias already belongs to an artist other than source or target.
+func (h *ArtistHandler) mergeArtistAliases(ctx context.Context, q *sqlc.Queries, source, target sqlc.Artist) (aliases []string, conflict string, err error) {
+	sourceAliases, err := q.GetArtistAliasesByID(ctx, source.ID)
+	if err != nil {
+		return nil, "", err
+	}
+
+	targetAliases, err := q.GetArtistAliasesByID(ctx, target.ID)
+	if err != nil {
+		return nil, "", err
+	}
+
+	ownership, err := q.GetArtistAliasOwnership(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Fold the global alias ownership with Go's Unicode-aware lower-casing,
+	// the same fold the resolver uses; SQLite's lower() is ASCII-only.
+	owners := make(map[string][]int64, len(ownership))
+
+	for _, entry := range ownership {
+		key := strings.ToLower(strings.TrimSpace(entry.Alias))
+		owners[key] = append(owners[key], entry.ArtistID)
+	}
+
+	taken := make(map[string]struct{}, len(targetAliases)+1)
+	taken[strings.ToLower(strings.TrimSpace(target.Name))] = struct{}{}
+
+	for _, alias := range targetAliases {
+		taken[strings.ToLower(strings.TrimSpace(alias.Alias))] = struct{}{}
+	}
+
+	seen := make(map[string]struct{}, len(sourceAliases)+1)
+
+	for _, candidate := range append([]string{source.Name}, aliasValues(sourceAliases)...) {
+		alias := strings.TrimSpace(candidate)
+		key := strings.ToLower(alias)
+
+		if key == "" {
+			continue
+		}
+
+		if _, ok := taken[key]; ok {
+			continue
+		}
+
+		if _, ok := seen[key]; ok {
+			continue
+		}
+
+		if otherArtistOwns(owners[key], source.ID, target.ID) {
+			return nil, alias, nil
+		}
+
+		seen[key] = struct{}{}
+
+		aliases = append(aliases, alias)
+	}
+
+	return aliases, "", nil
+}
+
+// aliasValues extracts the alias strings from GetArtistAliasesByID rows.
+func aliasValues(rows []sqlc.GetArtistAliasesByIDRow) []string {
+	aliases := make([]string, len(rows))
+	for i, row := range rows {
+		aliases[i] = row.Alias
+	}
+
+	return aliases
+}
+
+// otherArtistOwns reports whether any owner is neither the source nor the
+// target artist.
+func otherArtistOwns(owners []int64, sourceID, targetID int64) bool {
+	for _, owner := range owners {
+		if owner != sourceID && owner != targetID {
+			return true
+		}
+	}
+
+	return false
+}
+
+// addMergedAliases inserts the planned aliases for the target artist,
+// writing the 409/500 response and returning false on failure.
+func (h *ArtistHandler) addMergedAliases(ctx context.Context, w http.ResponseWriter, q *sqlc.Queries, targetID int64, aliases []string) bool {
+	for _, alias := range aliases {
+		if err := q.CreateAlias(ctx, sqlc.CreateAliasParams{Alias: alias, ArtistID: targetID}); err != nil {
+			if database.IsUniqueConstraintError(err) {
+				response.Conflict(w, `alias "`+alias+`" is already in use`)
+
+				return false
+			}
+
+			h.logger.Error("create merged alias failed", "target_id", targetID, "error", err)
+			response.InternalError(w, "failed to merge artists")
+
+			return false
+		}
+	}
+
+	return true
+}
+
+// mergeStep logs a failed relation move, writes the 500 response, and
+// reports whether the merge may continue.
+func (h *ArtistHandler) mergeStep(w http.ResponseWriter, name string, sourceID, targetID int64, err error) bool {
+	if err == nil {
+		return true
+	}
+
+	h.logger.Error("merge artist: "+name+" failed", "source_id", sourceID, "target_id", targetID, "error", err)
+	response.InternalError(w, "failed to merge artists")
+
+	return false
+}
+
 // existingArtist resolves the path id and writes the 400/404 response,
 // returning false when the caller should stop.
 func (h *ArtistHandler) existingArtist(w http.ResponseWriter, r *http.Request) (int64, bool) {

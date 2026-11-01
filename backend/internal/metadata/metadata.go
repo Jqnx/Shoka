@@ -142,6 +142,19 @@ func ApplyMetadata(ctx context.Context, queries *sqlc.Queries, db *sql.DB, archi
 		return fmt.Errorf("update archive metadata: %w", err)
 	}
 
+	// A submitted artist spelling may only match an alias; resolve those to
+	// the owning artist's canonical name before the relation reconciler
+	// upserts, so an alias never spawns a duplicate artist row.
+	artists := result.Artists
+	if artists != nil {
+		resolved, err := resolveArtistAliases(ctx, qtx, artists)
+		if err != nil {
+			return fmt.Errorf("resolve artist aliases: %w", err)
+		}
+
+		artists = resolved
+	}
+
 	// Relational fields. Checking != nil rather than len() > 0 is
 	// deliberate: it lets a caller clear a relation entirely by passing a
 	// non-nil empty slice (e.g. a manual edit removing all tags), while a
@@ -151,7 +164,7 @@ func ApplyMetadata(ctx context.Context, queries *sqlc.Queries, db *sql.DB, archi
 		names []string
 		rel   relationSpec
 	}{
-		{result.Artists, artistsRelation},
+		{artists, artistsRelation},
 		{result.Circles, circlesRelation},
 		{result.Tags, tagsRelation},
 		{result.Parodies, parodiesRelation},

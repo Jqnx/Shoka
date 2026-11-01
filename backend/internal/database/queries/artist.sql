@@ -383,3 +383,82 @@ where name in (sqlc.slice('artists'))
 delete from archive_artist
 where archive_id = ? and artist_id in (select value from json_each(sqlc.arg('artists')))
 ;
+
+-- name: GetArtistAliasTargets :many
+-- Every alias and the canonical name of the artist that owns it, so the
+-- caller can fold keys with Go's Unicode-aware lower-casing instead of
+-- SQLite's ASCII-only lower(). An alias shadowed by an artist whose exact
+-- name equals the alias is ignored: a real artist row outranks an alias.
+-- Ordered by alias id so the caller's first-row-per-folded-key choice is
+-- deterministic.
+select artist_alias.alias, artist.name as artist_name
+from artist_alias
+join artist on artist.id = artist_alias.artist_id
+where not exists (select 1 from artist named where named.name = trim(artist_alias.alias))
+order by artist_alias.id
+;
+
+-- name: GetArtistNamesByNames :many
+-- The exact artist names among the submitted names. Used to keep an exact
+-- artist name from being rewritten by another artist's case-variant alias.
+select name
+from artist
+where name in (select value from json_each(cast(sqlc.arg('names_json') as text)))
+;
+
+-- name: GetArtistAliasOwnership :many
+-- Every alias with the artist that owns it. The caller folds the alias with
+-- Go's Unicode-aware lower-casing so merge conflict detection matches the
+-- alias resolver instead of SQLite's ASCII-only lower().
+select artist_id, alias
+from artist_alias
+order by id
+;
+
+-- name: RepointArtistArchiveLinks :exec
+insert or ignore into archive_artist (archive_id, artist_id)
+select archive_id, cast(sqlc.arg('target_id') as integer)
+from archive_artist
+where artist_id = cast(sqlc.arg('source_id') as integer)
+;
+
+-- name: MoveArtistUrls :exec
+update artist_url
+set artist_id = cast(sqlc.arg('target_id') as integer)
+where artist_id = cast(sqlc.arg('source_id') as integer)
+;
+
+-- name: CopyArtistCircles :exec
+insert or ignore into artist_circle (artist_id, circle_id)
+select cast(sqlc.arg('target_id') as integer), circle_id
+from artist_circle
+where artist_id = cast(sqlc.arg('source_id') as integer)
+;
+
+-- name: CopyArtistFavorites :exec
+insert or ignore into artist_favorite (artist_id, user_id, favorited_at)
+select cast(sqlc.arg('target_id') as integer), user_id, favorited_at
+from artist_favorite
+where artist_id = cast(sqlc.arg('source_id') as integer)
+;
+
+-- name: CopyArtistRatings :exec
+insert or ignore into artist_rating (artist_id, user_id, rating, rated_at)
+select cast(sqlc.arg('target_id') as integer), user_id, rating, rated_at
+from artist_rating
+where artist_id = cast(sqlc.arg('source_id') as integer)
+;
+
+-- name: AdoptArtistCover :exec
+update artist
+set cover_archive_id = (select cover_archive_id from artist where id = cast(sqlc.arg('source_id') as integer))
+where id = cast(sqlc.arg('target_id') as integer)
+  and cover_archive_id is null
+  and (select cover_archive_id from artist where id = cast(sqlc.arg('source_id') as integer)) is not null
+;
+
+-- name: RecomputeArtistCount :exec
+update artist
+set count = (select count(*) from archive_artist where artist_id = cast(sqlc.arg('count_id') as integer))
+where id = cast(sqlc.arg('count_id') as integer)
+;

@@ -178,6 +178,8 @@ func mountEntityRoutes(r chi.Router, h apiHandlers) {
 		r.Delete("/favorite", h.artist.RemoveFavorite)
 		r.Put("/rating", h.artist.SetRating)
 		r.Delete("/rating", h.artist.RemoveRating)
+		r.With(requirePermission(auth.TaxonomyUpdate), requirePermission(auth.TaxonomyDelete)).
+			Post("/merge", h.artist.MergeArtist)
 	})
 }
 

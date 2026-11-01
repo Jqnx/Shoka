@@ -496,6 +496,11 @@ definitions:
       task:
         type: string
     type: object
+  handlers.MergeArtistRequest:
+    properties:
+      target_id:
+        type: integer
+    type: object
   handlers.ParodyListResponse:
     properties:
       items:
@@ -2812,6 +2817,51 @@ paths:
           schema:
             $ref: '#/definitions/response.Error'
       summary: Favorite an artist
+      tags:
+      - artists
+  /api/artists/{id}/merge:
+    post:
+      consumes:
+      - application/json
+      description: Moves the artist's archives, URLs, circles, favorites and ratings
+        to the target; adds its name and aliases to the target; deletes the artist.
+        An alias that already belongs to a different artist fails the merge with 409.
+      parameters:
+      - description: Artist ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Target artist
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.MergeArtistRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Merge an artist into another
       tags:
       - artists
   /api/artists/{id}/rating:

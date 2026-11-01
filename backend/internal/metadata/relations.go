@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // queries aliases the sqlc queries type so the relation descriptors below can
@@ -79,6 +80,76 @@ func newRelation[Row, AddP, RemoveP any](
 			return decrement(q, ctx, ids)
 		},
 	}
+}
+
+// resolveArtistAliases rewrites artist names that match an existing alias
+// (trimmed, case-insensitive) to the alias owner's canonical name. Unmatched
+// names are returned unchanged (still untrimmed, preserving existing
+// behaviour); a name that exactly equals an artist row is never rewritten
+// (GetArtistNamesByNames guards exact artist names, and
+// GetArtistAliasTargets excludes aliases shadowed by an exact artist name).
+func resolveArtistAliases(ctx context.Context, q *sqlc.Queries, names []string) ([]string, error) {
+	if names == nil {
+		return nil, nil
+	}
+
+	trimmed := make([]string, len(names))
+	for i, name := range names {
+		trimmed[i] = strings.TrimSpace(name)
+	}
+
+	namesJSON, err := json.Marshal(trimmed)
+	if err != nil {
+		return nil, fmt.Errorf("marshal artist names: %w", err)
+	}
+
+	exactNames, err := q.GetArtistNamesByNames(ctx, string(namesJSON))
+	if err != nil {
+		return nil, fmt.Errorf("get artist names: %w", err)
+	}
+
+	exact := make(map[string]struct{}, len(exactNames))
+	for _, name := range exactNames {
+		exact[name] = struct{}{}
+	}
+
+	rows, err := q.GetArtistAliasTargets(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("get artist alias targets: %w", err)
+	}
+
+	// Keys are folded with Go's Unicode-aware lower-casing rather than
+	// SQLite's ASCII-only lower(); the query is ordered by artist_alias.id,
+	// so the first row per folded key wins when several aliases differ only
+	// by case.
+	canonical := make(map[string]string, len(rows))
+	for _, row := range rows {
+		key := strings.ToLower(strings.TrimSpace(row.Alias))
+		if _, exists := canonical[key]; !exists {
+			canonical[key] = row.ArtistName
+		}
+	}
+
+	resolved := make([]string, len(names))
+	for i, name := range names {
+		// A submitted name that exactly equals an artist row keeps resolving
+		// to that artist, even when another artist owns a case-variant alias.
+		if _, ok := exact[trimmed[i]]; ok {
+			resolved[i] = name
+
+			continue
+		}
+
+		if target, ok := canonical[strings.ToLower(trimmed[i])]; ok {
+			resolved[i] = target
+
+			continue
+		}
+
+		resolved[i] = name
+	}
+
+	return resolved, nil
 }
 
 // idsOf extracts the primary key from each row produced by a BulkGet* query.

@@ -47,6 +47,26 @@ func (q *Queries) AddFavoriteArtist(ctx context.Context, arg AddFavoriteArtistPa
 	return err
 }
 
+const adoptArtistCover = `-- name: AdoptArtistCover :exec
+;
+
+update artist
+set cover_archive_id = (select cover_archive_id from artist where id = cast(?1 as integer))
+where id = cast(?2 as integer)
+  and cover_archive_id is null
+  and (select cover_archive_id from artist where id = cast(?1 as integer)) is not null
+`
+
+type AdoptArtistCoverParams struct {
+	SourceID int64 `json:"source_id"`
+	TargetID int64 `json:"target_id"`
+}
+
+func (q *Queries) AdoptArtistCover(ctx context.Context, arg AdoptArtistCoverParams) error {
+	_, err := q.db.ExecContext(ctx, adoptArtistCover, arg.SourceID, arg.TargetID)
+	return err
+}
+
 const archiveArtistLinkExists = `-- name: ArchiveArtistLinkExists :one
 ;
 
@@ -216,6 +236,63 @@ type BulkRemoveArtistFromArchiveParams struct {
 
 func (q *Queries) BulkRemoveArtistFromArchive(ctx context.Context, arg BulkRemoveArtistFromArchiveParams) error {
 	_, err := q.db.ExecContext(ctx, bulkRemoveArtistFromArchive, arg.ArchiveID, arg.Artists)
+	return err
+}
+
+const copyArtistCircles = `-- name: CopyArtistCircles :exec
+;
+
+insert or ignore into artist_circle (artist_id, circle_id)
+select cast(?1 as integer), circle_id
+from artist_circle
+where artist_id = cast(?2 as integer)
+`
+
+type CopyArtistCirclesParams struct {
+	TargetID int64 `json:"target_id"`
+	SourceID int64 `json:"source_id"`
+}
+
+func (q *Queries) CopyArtistCircles(ctx context.Context, arg CopyArtistCirclesParams) error {
+	_, err := q.db.ExecContext(ctx, copyArtistCircles, arg.TargetID, arg.SourceID)
+	return err
+}
+
+const copyArtistFavorites = `-- name: CopyArtistFavorites :exec
+;
+
+insert or ignore into artist_favorite (artist_id, user_id, favorited_at)
+select cast(?1 as integer), user_id, favorited_at
+from artist_favorite
+where artist_id = cast(?2 as integer)
+`
+
+type CopyArtistFavoritesParams struct {
+	TargetID int64 `json:"target_id"`
+	SourceID int64 `json:"source_id"`
+}
+
+func (q *Queries) CopyArtistFavorites(ctx context.Context, arg CopyArtistFavoritesParams) error {
+	_, err := q.db.ExecContext(ctx, copyArtistFavorites, arg.TargetID, arg.SourceID)
+	return err
+}
+
+const copyArtistRatings = `-- name: CopyArtistRatings :exec
+;
+
+insert or ignore into artist_rating (artist_id, user_id, rating, rated_at)
+select cast(?1 as integer), user_id, rating, rated_at
+from artist_rating
+where artist_id = cast(?2 as integer)
+`
+
+type CopyArtistRatingsParams struct {
+	TargetID int64 `json:"target_id"`
+	SourceID int64 `json:"source_id"`
+}
+
+func (q *Queries) CopyArtistRatings(ctx context.Context, arg CopyArtistRatingsParams) error {
+	_, err := q.db.ExecContext(ctx, copyArtistRatings, arg.TargetID, arg.SourceID)
 	return err
 }
 
@@ -765,6 +842,89 @@ func (q *Queries) GetArchivesByArtistID(ctx context.Context, arg GetArchivesByAr
 	return items, nil
 }
 
+const getArtistAliasOwnership = `-- name: GetArtistAliasOwnership :many
+;
+
+select artist_id, alias
+from artist_alias
+order by id
+`
+
+type GetArtistAliasOwnershipRow struct {
+	ArtistID int64  `json:"artist_id"`
+	Alias    string `json:"alias"`
+}
+
+// Every alias with the artist that owns it. The caller folds the alias with
+// Go's Unicode-aware lower-casing so merge conflict detection matches the
+// alias resolver instead of SQLite's ASCII-only lower().
+func (q *Queries) GetArtistAliasOwnership(ctx context.Context) ([]GetArtistAliasOwnershipRow, error) {
+	rows, err := q.db.QueryContext(ctx, getArtistAliasOwnership)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArtistAliasOwnershipRow
+	for rows.Next() {
+		var i GetArtistAliasOwnershipRow
+		if err := rows.Scan(&i.ArtistID, &i.Alias); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getArtistAliasTargets = `-- name: GetArtistAliasTargets :many
+;
+
+select artist_alias.alias, artist.name as artist_name
+from artist_alias
+join artist on artist.id = artist_alias.artist_id
+where not exists (select 1 from artist named where named.name = trim(artist_alias.alias))
+order by artist_alias.id
+`
+
+type GetArtistAliasTargetsRow struct {
+	Alias      string `json:"alias"`
+	ArtistName string `json:"artist_name"`
+}
+
+// Every alias and the canonical name of the artist that owns it, so the
+// caller can fold keys with Go's Unicode-aware lower-casing instead of
+// SQLite's ASCII-only lower(). An alias shadowed by an artist whose exact
+// name equals the alias is ignored: a real artist row outranks an alias.
+// Ordered by alias id so the caller's first-row-per-folded-key choice is
+// deterministic.
+func (q *Queries) GetArtistAliasTargets(ctx context.Context) ([]GetArtistAliasTargetsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getArtistAliasTargets)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetArtistAliasTargetsRow
+	for rows.Next() {
+		var i GetArtistAliasTargetsRow
+		if err := rows.Scan(&i.Alias, &i.ArtistName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArtistAliases = `-- name: GetArtistAliases :many
 ;
 
@@ -1054,6 +1214,39 @@ func (q *Queries) GetArtistList(ctx context.Context, arg GetArtistListParams) ([
 	return items, nil
 }
 
+const getArtistNamesByNames = `-- name: GetArtistNamesByNames :many
+;
+
+select name
+from artist
+where name in (select value from json_each(cast(?1 as text)))
+`
+
+// The exact artist names among the submitted names. Used to keep an exact
+// artist name from being rewritten by another artist's case-variant alias.
+func (q *Queries) GetArtistNamesByNames(ctx context.Context, namesJson string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getArtistNamesByNames, namesJson)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getArtistRating = `-- name: GetArtistRating :one
 ;
 
@@ -1270,6 +1463,37 @@ func (q *Queries) IncrementArtistCount(ctx context.Context, artists []int64) err
 	return err
 }
 
+const moveArtistUrls = `-- name: MoveArtistUrls :exec
+;
+
+update artist_url
+set artist_id = cast(?1 as integer)
+where artist_id = cast(?2 as integer)
+`
+
+type MoveArtistUrlsParams struct {
+	TargetID int64 `json:"target_id"`
+	SourceID int64 `json:"source_id"`
+}
+
+func (q *Queries) MoveArtistUrls(ctx context.Context, arg MoveArtistUrlsParams) error {
+	_, err := q.db.ExecContext(ctx, moveArtistUrls, arg.TargetID, arg.SourceID)
+	return err
+}
+
+const recomputeArtistCount = `-- name: RecomputeArtistCount :exec
+;
+
+update artist
+set count = (select count(*) from archive_artist where artist_id = cast(?1 as integer))
+where id = cast(?1 as integer)
+`
+
+func (q *Queries) RecomputeArtistCount(ctx context.Context, countID int64) error {
+	_, err := q.db.ExecContext(ctx, recomputeArtistCount, countID)
+	return err
+}
+
 const removeArtistAliases = `-- name: RemoveArtistAliases :exec
 ;
 
@@ -1326,6 +1550,25 @@ type RemoveFavoriteArtistParams struct {
 
 func (q *Queries) RemoveFavoriteArtist(ctx context.Context, arg RemoveFavoriteArtistParams) error {
 	_, err := q.db.ExecContext(ctx, removeFavoriteArtist, arg.ArtistID, arg.Uid)
+	return err
+}
+
+const repointArtistArchiveLinks = `-- name: RepointArtistArchiveLinks :exec
+;
+
+insert or ignore into archive_artist (archive_id, artist_id)
+select archive_id, cast(?1 as integer)
+from archive_artist
+where artist_id = cast(?2 as integer)
+`
+
+type RepointArtistArchiveLinksParams struct {
+	TargetID int64 `json:"target_id"`
+	SourceID int64 `json:"source_id"`
+}
+
+func (q *Queries) RepointArtistArchiveLinks(ctx context.Context, arg RepointArtistArchiveLinksParams) error {
+	_, err := q.db.ExecContext(ctx, repointArtistArchiveLinks, arg.TargetID, arg.SourceID)
 	return err
 }
 

@@ -2,18 +2,24 @@ import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { errorMessage } from '$lib/server/api';
 import { guard } from '$lib/server/guard';
-import type { ArtistDetail, ArchiveListResponse } from '$lib/types';
+import { can } from '$lib/auth/permissions';
+import type { Artist, ArtistDetail, ArchiveListResponse } from '$lib/types';
 
 const LIMIT = 40;
 
-export const load: PageServerLoad = async ({ fetch, params, url }) => {
+export const load: PageServerLoad = async ({ fetch, params, url, locals }) => {
 	const page = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'));
+	const canMerge =
+		can(locals.user, { taxonomy: ['update'] }) && can(locals.user, { taxonomy: ['delete'] });
 
 	// The archives-by-artist endpoint doesn't include the artist's own name,
 	// so it's fetched separately.
-	const [artistRes, archivesRes] = await Promise.all([
+	const [artistRes, archivesRes, allArtistsRes] = await Promise.all([
 		fetch(`/api/artists/${params.id}`),
-		fetch(`/api/artists/${params.id}/archives?page=${page}&limit=${LIMIT}`)
+		fetch(`/api/artists/${params.id}/archives?page=${page}&limit=${LIMIT}`),
+		// Only the merge dialog reads this list, and only merge-capable users
+		// can open it; skip the payload for everyone else.
+		canMerge ? fetch('/api/artists/all') : null
 	]);
 	if (artistRes.status === 404) error(404, 'Artist not found');
 	if (!artistRes.ok) error(500, 'Failed to load artist');
@@ -21,6 +27,9 @@ export const load: PageServerLoad = async ({ fetch, params, url }) => {
 
 	const artist: ArtistDetail = await artistRes.json();
 	const data: ArchiveListResponse = await archivesRes.json();
+	// The merge picker is optional UI; a missing or failed list must not fail
+	// the page.
+	const allArtists: Artist[] = allArtistsRes?.ok ? await allArtistsRes.json() : [];
 
 	// Only trust a `from` that points back into the artist listing; anything
 	// else would make the back link leave the section. Matching the whole
@@ -35,7 +44,8 @@ export const load: PageServerLoad = async ({ fetch, params, url }) => {
 		total: Number(data.total),
 		page,
 		limit: LIMIT,
-		backHref
+		backHref,
+		allArtists
 	};
 };
 
@@ -180,5 +190,38 @@ export const actions: Actions = {
 		}
 
 		redirect(303, '/artist');
+	},
+
+	mergeArtist: async ({ request, fetch, params, locals }) => {
+		// Both verbs are checked separately: better-auth's authorize semantics
+		// for a multi-action check are not relied on elsewhere.
+		const denied =
+			guard(locals.user, { taxonomy: ['update'] }, 'mergeArtist', 'You cannot merge artists.') ??
+			guard(locals.user, { taxonomy: ['delete'] }, 'mergeArtist', 'You cannot merge artists.');
+		if (denied) return denied;
+
+		const form = await request.formData();
+		const targetID = Number(form.get('target_id'));
+		if (!Number.isInteger(targetID) || targetID < 1 || targetID === Number(params.id)) {
+			return fail(400, {
+				action: 'mergeArtist' as const,
+				error: 'Choose a different artist to merge into.'
+			});
+		}
+
+		const res = await fetch(`/api/artists/${params.id}/merge`, {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ target_id: targetID })
+		});
+
+		if (!res.ok) {
+			return fail(res.status, {
+				action: 'mergeArtist' as const,
+				error: await errorMessage(res, 'Failed to merge artists.')
+			});
+		}
+
+		redirect(303, '/artist/' + targetID);
 	}
 };

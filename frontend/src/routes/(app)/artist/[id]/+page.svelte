@@ -14,7 +14,8 @@
 	import ArchiveCover from '$lib/components/ArchiveCover.svelte';
 	import EditArtistSheet from '$lib/components/EditArtistSheet.svelte';
 	import ArtistCoverPicker from '$lib/components/ArtistCoverPicker.svelte';
-	import { ChevronLeft, Ellipsis, Heart, Paintbrush, Star, Trash2 } from '@lucide/svelte';
+	import MergeArtistDialog from '$lib/components/MergeArtistDialog.svelte';
+	import { ChevronLeft, Ellipsis, GitMerge, Heart, Paintbrush, Star, Trash2 } from '@lucide/svelte';
 	import { can } from '$lib/auth/permissions';
 
 	let { data, form } = $props();
@@ -23,12 +24,20 @@
 
 	const canEdit = $derived(can(page.data.user, { taxonomy: ['update'] }));
 	const canDelete = $derived(can(page.data.user, { taxonomy: ['delete'] }));
+	const canMerge = $derived(
+		can(page.data.user, { taxonomy: ['update'] }) && can(page.data.user, { taxonomy: ['delete'] })
+	);
 
 	let favoriting = $state(false);
 	let settingRating = $state(false);
 	let hoveredStar = $state<number | null>(null);
 	let deleteDialogOpen = $state(false);
 	let deletingArtist = $state(false);
+	let mergeOpen = $state(false);
+	// Remount the dialog on each open: Dialog.Root's onOpenChange does not run
+	// for parent-driven `open` changes, so the dialog cannot reset its own
+	// target/error state when reopened.
+	let mergeNonce = $state(0);
 
 	// Reset only on a real page change: pagination uses `noScroll`, and
 	// because the grid now sits below the header, scrolling to the top on a
@@ -136,6 +145,18 @@
 								{/snippet}
 							</DropdownMenu.Trigger>
 							<DropdownMenu.Content align="end" class="w-auto min-w-44">
+								{#if canMerge}
+									<DropdownMenu.Item
+										onSelect={() => {
+											mergeNonce += 1;
+											mergeOpen = true;
+										}}
+									>
+										<GitMerge />
+										Merge into another artist…
+									</DropdownMenu.Item>
+									<DropdownMenu.Separator />
+								{/if}
 								<DropdownMenu.Item variant="destructive" onSelect={() => (deleteDialogOpen = true)}>
 									<Trash2 />
 									Delete
@@ -172,6 +193,10 @@
 							</form>
 						</AlertDialog.Content>
 					</AlertDialog.Root>
+
+					{#key mergeNonce}
+						<MergeArtistDialog bind:open={mergeOpen} artist={a} artists={data.allArtists} />
+					{/key}
 				</div>
 			</div>
 
