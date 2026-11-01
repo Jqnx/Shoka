@@ -7,6 +7,7 @@
 		downloadName,
 		mouseOnly = false,
 		actions,
+		onOpenChange,
 		trigger
 	}: {
 		/** Image URL used by the browser-item actions. */
@@ -20,6 +21,11 @@
 		mouseOnly?: boolean;
 		/** App-specific items rendered after the browser items. */
 		actions?: Snippet;
+		/**
+		 * Fired when the menu opens or closes, letting the caller refresh
+		 * state it only needs while an item is visible.
+		 */
+		onOpenChange?: (open: boolean) => void;
 		/** Renders the caller's existing element as the trigger (no wrapper DOM). */
 		trigger: Snippet<[{ props: Record<string, unknown> }]>;
 	} = $props();
@@ -221,7 +227,7 @@
 	{@render trigger({ props: guardTriggerProps(props) })}
 {/snippet}
 
-<ContextMenu.Root bind:open>
+<ContextMenu.Root bind:open onOpenChange={(v) => onOpenChange?.(v)}>
 	<ContextMenu.Trigger child={delegatedTrigger} />
 	<ContextMenu.Content class="min-w-56">
 		<ContextMenu.Item disabled={!canGoBack} onSelect={goBack}>

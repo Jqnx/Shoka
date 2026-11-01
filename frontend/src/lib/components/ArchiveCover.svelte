@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { Skeleton } from '$lib/components/ui/skeleton';
+	import * as ContextMenu from '$lib/components/ui/context-menu/index.js';
 	import ImageContextMenu from '$lib/components/ImageContextMenu.svelte';
 	import { coverSrc } from '$lib/types';
 	import { coverGaveUp, coverPollCount, watchCover } from '$lib/components/coverWatch.svelte';
+	import { invalidateAll } from '$app/navigation';
+	import { Heart } from '@lucide/svelte';
 
 	let {
 		archive,
@@ -12,7 +15,17 @@
 		class: className = ''
 	}: {
 		/** The fields the cover URL and its placeholder depend on, and no more. */
-		archive: { id: string; cover_page: number; thumbs_ready?: boolean };
+		archive: {
+			id: string;
+			cover_page: number;
+			thumbs_ready?: boolean;
+			/**
+			 * Present only when the caller really has an archive (the API's
+			 * full item); artist thumbnails reuse this component for their
+			 * cover image and don't pass it, so they get no favorite item.
+			 */
+			is_favorited?: boolean;
+		};
 		/** Empty by default: a cover that never arrives must not paint any text. */
 		alt?: string;
 		/**
@@ -34,6 +47,64 @@
 	let coverEl = $state<HTMLImageElement | undefined>(undefined);
 	let coverLoaded = $state(false);
 	let coverFailed = $state(false);
+
+	// Only true for an archive item, not the artist thumbnails that reuse this
+	// component. The lists that feed artist pages don't enrich favorite state,
+	// so the current value is re-read when the menu opens instead of trusting
+	// the prop alone.
+	const hasFavorite = $derived(archive.is_favorited !== undefined);
+	// svelte-ignore state_referenced_locally
+	let favorited = $state(archive.is_favorited ?? false);
+	let favoritePending = $state(false);
+	// Bumped by a toggle so a slower GET cannot land afterwards and put the
+	// pre-toggle value back.
+	let favoriteRequest = 0;
+
+	async function refreshFavorite() {
+		// A toggle in flight owns the state; its response decides the outcome.
+		if (favoritePending) return;
+
+		const request = ++favoriteRequest;
+
+		try {
+			const res = await fetch(`/api/archives/${archive.id}`);
+			if (!res.ok || request !== favoriteRequest) return;
+			const data: { is_favorited?: boolean } = await res.json();
+			if (typeof data.is_favorited === 'boolean' && request === favoriteRequest) {
+				favorited = data.is_favorited;
+			}
+		} catch {
+			// Keep the prop's value; the toggle is still available.
+		}
+	}
+
+	function favoriteMenuChanged(open: boolean) {
+		if (open && hasFavorite) void refreshFavorite();
+	}
+
+	async function toggleFavorite() {
+		if (favoritePending) return;
+
+		// Capture the value the request is based on: a refresh can land while
+		// it is in flight, and flipping *its* result would invert the toggle.
+		const wasFavorited = favorited;
+
+		favoriteRequest++;
+		favoritePending = true;
+
+		try {
+			const res = await fetch(`/api/archives/${archive.id}/favorite`, {
+				method: wasFavorited ? 'DELETE' : 'PUT'
+			});
+			if (!res.ok) return;
+
+			favorited = !wasFavorited;
+			// Refresh the page's own data (the detail page's heart, card lists).
+			await invalidateAll();
+		} finally {
+			favoritePending = false;
+		}
+	}
 
 	// The cover endpoint answers 404 until the thumbnail job has written the
 	// page, and a failed <img> paints the browser's broken-image glyph plus its
@@ -108,8 +179,21 @@
 <!-- Anchors and images are natively draggable: a mousedown plus the slightest
      wobble starts a drag, which fires pointercancel and kills an in-progress
      hold. -->
+{#snippet favoriteActions()}
+	<ContextMenu.Item disabled={favoritePending} onSelect={toggleFavorite}>
+		<Heart class="size-4 {favorited ? 'fill-red-500 stroke-red-500' : ''}" />
+		{favoritePending ? 'Saving…' : favorited ? 'Remove from favorites' : 'Add to favorites'}
+	</ContextMenu.Item>
+{/snippet}
+
 {#if !coverFailed}
-	<ImageContextMenu src={coverSrc(archive)} downloadName="{archive.id}-cover" {mouseOnly}>
+	<ImageContextMenu
+		src={coverSrc(archive)}
+		downloadName="{archive.id}-cover"
+		{mouseOnly}
+		onOpenChange={favoriteMenuChanged}
+		actions={hasFavorite ? favoriteActions : undefined}
+	>
 		{#snippet trigger({ props })}
 			<img
 				{...props}

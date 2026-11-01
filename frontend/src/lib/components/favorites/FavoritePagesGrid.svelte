@@ -4,7 +4,7 @@
 	import * as ContextMenu from '$lib/components/ui/context-menu/index.js';
 	import ImageContextMenu from '$lib/components/ImageContextMenu.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { BookOpen, HeartOff, Images } from '@lucide/svelte';
+	import { BookOpen, Heart, Images } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { FavoritePageItem, FavoritePageListResponse } from '$lib/types';
@@ -143,7 +143,7 @@
 								title="Remove from favorites"
 								onclick={() => unfavorite(item)}
 							>
-								<HeartOff class="size-4" />
+								<Heart class="size-4 fill-red-500 stroke-red-500" />
 							</Button>
 						</div>
 					</div>
