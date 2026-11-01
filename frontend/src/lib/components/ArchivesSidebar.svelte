@@ -288,7 +288,7 @@
 					{#each [1, 2, 3, 4, 5] as n (n)}
 						<button
 							type="button"
-							class="p-0.5 text-muted-foreground transition-colors hover:text-amber-400"
+							class="p-0.5 text-muted-foreground transition-colors hover:text-primary"
 							aria-label={ratingValue === n
 								? `Clear ${n}-star rating filter`
 								: `Filter by ${n} star${n === 1 ? '' : 's'}`}
@@ -299,9 +299,7 @@
 							<Star
 								class={cn(
 									'size-5',
-									(hoveredStar ?? ratingValue) >= n
-										? 'fill-amber-400 stroke-amber-400'
-										: 'fill-none'
+									(hoveredStar ?? ratingValue) >= n ? 'fill-primary stroke-primary' : 'fill-none'
 								)}
 							/>
 						</button>

@@ -397,16 +397,14 @@
 						<button
 							type="submit"
 							disabled={settingRating}
-							class="p-0.5 text-muted-foreground transition-colors hover:text-amber-400 disabled:opacity-50"
+							class="p-0.5 text-muted-foreground transition-colors hover:text-primary disabled:opacity-50"
 							aria-label="Rate {n} star{n === 1 ? '' : 's'}"
 							onmouseenter={() => (hoveredStar = n)}
 						>
 							<Star
 								class={cn(
 									'size-5',
-									(hoveredStar ?? a.rating ?? 0) >= n
-										? 'fill-amber-400 stroke-amber-400'
-										: 'fill-none'
+									(hoveredStar ?? a.rating ?? 0) >= n ? 'fill-primary stroke-primary' : 'fill-none'
 								)}
 							/>
 						</button>
