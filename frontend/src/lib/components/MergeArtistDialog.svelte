@@ -67,8 +67,15 @@
 			{/if}
 
 			<Dialog.Footer class="mt-4">
-				<Button type="button" variant="outline" onclick={() => (open = false)}>Cancel</Button>
-				<Button type="submit" variant="destructive" disabled={!targetID || saving}>
+				<Button type="button" variant="outline" class="sm:min-w-18" onclick={() => (open = false)}>
+					Cancel
+				</Button>
+				<Button
+					type="submit"
+					variant="destructive"
+					class="bg-clip-border sm:min-w-18"
+					disabled={!targetID || saving}
+				>
 					{saving ? 'Merging…' : 'Merge'}
 				</Button>
 			</Dialog.Footer>

@@ -4,20 +4,24 @@
 	import ArchiveCover from '$lib/components/ArchiveCover.svelte';
 	import { enhance, applyAction } from '$app/forms';
 	import type { SubmitFunction } from '@sveltejs/kit';
-	import { ImagePlus } from '@lucide/svelte';
 	import type { Archive, ArchiveListResponse } from '$lib/types';
 
 	let {
+		open = $bindable(false),
 		artistId,
-		currentArchiveId
+		currentArchiveId,
+		returnFocusTo
 	}: {
+		open?: boolean;
 		artistId: number;
 		currentArchiveId?: string;
+		// The menu item that opened this dialog unmounts, so the dialog cannot
+		// rely on bits-ui's pre-focus memory to restore focus on close.
+		returnFocusTo?: HTMLElement | null;
 	} = $props();
 
 	const LIMIT = 24;
 
-	let open = $state(false);
 	let page = $state(1);
 	let items = $state<Archive[]>([]);
 	let total = $state(0);
@@ -78,15 +82,15 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Trigger>
-		{#snippet child({ props })}
-			<Button {...props} variant="outline" class="mt-3 w-full gap-2">
-				<ImagePlus class="size-4" />
-				Change image
-			</Button>
-		{/snippet}
-	</Dialog.Trigger>
-	<Dialog.Content class="sm:max-w-2xl">
+	<Dialog.Content
+		class="sm:max-w-2xl"
+		onCloseAutoFocus={(event) => {
+			if (!returnFocusTo) return;
+
+			event.preventDefault();
+			returnFocusTo.focus();
+		}}
+	>
 		<Dialog.Header>
 			<Dialog.Title>Artist image</Dialog.Title>
 			<Dialog.Description>

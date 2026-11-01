@@ -15,7 +15,16 @@
 	import EditArtistSheet from '$lib/components/EditArtistSheet.svelte';
 	import ArtistCoverPicker from '$lib/components/ArtistCoverPicker.svelte';
 	import MergeArtistDialog from '$lib/components/MergeArtistDialog.svelte';
-	import { ChevronLeft, Ellipsis, GitMerge, Heart, Paintbrush, Star, Trash2 } from '@lucide/svelte';
+	import {
+		ChevronLeft,
+		Ellipsis,
+		GitMerge,
+		Heart,
+		ImagePlus,
+		Paintbrush,
+		Star,
+		Trash2
+	} from '@lucide/svelte';
 	import { can } from '$lib/auth/permissions';
 
 	let { data, form } = $props();
@@ -34,6 +43,10 @@
 	let deleteDialogOpen = $state(false);
 	let deletingArtist = $state(false);
 	let mergeOpen = $state(false);
+	let coverOpen = $state(false);
+	// The menu item that opens a dialog unmounts with the menu, so dialogs it
+	// opens must return focus here explicitly.
+	let moreActionsEl = $state<HTMLButtonElement | null>(null);
 	// Remount the dialog on each open: Dialog.Root's onOpenChange does not run
 	// for parent-driven `open` changes, so the dialog cannot reset its own
 	// target/error state when reopened.
@@ -98,10 +111,6 @@
 					</div>
 				{/if}
 			</div>
-
-			{#if canEdit}
-				<ArtistCoverPicker artistId={a.id} currentArchiveId={a.cover?.archive_id} />
-			{/if}
 		</div>
 
 		<!-- Metadata -->
@@ -135,16 +144,28 @@
 					{#if canEdit}
 						<EditArtistSheet artist={a} />
 					{/if}
-					{#if canDelete}
+					{#if canEdit || canDelete}
 						<DropdownMenu.Root>
 							<DropdownMenu.Trigger>
 								{#snippet child({ props })}
-									<Button {...props} variant="outline" size="icon" aria-label="More actions">
+									<Button
+										{...props}
+										bind:ref={moreActionsEl}
+										variant="outline"
+										size="icon"
+										aria-label="More actions"
+									>
 										<Ellipsis class="size-4" />
 									</Button>
 								{/snippet}
 							</DropdownMenu.Trigger>
 							<DropdownMenu.Content align="end" class="w-auto min-w-44">
+								{#if canEdit}
+									<DropdownMenu.Item onSelect={() => (coverOpen = true)}>
+										<ImagePlus />
+										Change image
+									</DropdownMenu.Item>
+								{/if}
 								{#if canMerge}
 									<DropdownMenu.Item
 										onSelect={() => {
@@ -155,12 +176,19 @@
 										<GitMerge />
 										Merge into another artist…
 									</DropdownMenu.Item>
+								{/if}
+								{#if canDelete && (canEdit || canMerge)}
 									<DropdownMenu.Separator />
 								{/if}
-								<DropdownMenu.Item variant="destructive" onSelect={() => (deleteDialogOpen = true)}>
-									<Trash2 />
-									Delete
-								</DropdownMenu.Item>
+								{#if canDelete}
+									<DropdownMenu.Item
+										variant="destructive"
+										onSelect={() => (deleteDialogOpen = true)}
+									>
+										<Trash2 />
+										Delete
+									</DropdownMenu.Item>
+								{/if}
 							</DropdownMenu.Content>
 						</DropdownMenu.Root>
 					{/if}
@@ -197,6 +225,15 @@
 					{#key mergeNonce}
 						<MergeArtistDialog bind:open={mergeOpen} artist={a} artists={data.allArtists} />
 					{/key}
+
+					{#if canEdit}
+						<ArtistCoverPicker
+							bind:open={coverOpen}
+							artistId={a.id}
+							currentArchiveId={a.cover?.archive_id}
+							returnFocusTo={moreActionsEl}
+						/>
+					{/if}
 				</div>
 			</div>
 
