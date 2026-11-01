@@ -26,10 +26,13 @@ type ArchiveFilter struct {
 	// HasPHash is tri-state: nil means "don't filter on it at all", which is
 	// why it isn't a plain bool.
 	HasPHash *bool
-	Sort     string
-	Limit    int64
-	Offset   int64
-	UserID   string
+	// Rating filters to the caller's own exact star rating (1-5); 0 means
+	// no rating filter.
+	Rating int
+	Sort   string
+	Limit  int64
+	Offset int64
+	UserID string
 }
 
 // SortOption is one valid value for ArchiveFilter.Sort. SortOptions is the
@@ -148,6 +151,14 @@ func buildWhere(f ArchiveFilter) (string, []any) {
 		} else {
 			sb.WriteString("AND " + hasNoPHashExpr + " ")
 		}
+	}
+
+	if f.Rating > 0 {
+		// The count query has no archive_rating join (only the page query
+		// does, for sorting), so filter through EXISTS to share one clause.
+		sb.WriteString("AND EXISTS (SELECT 1 FROM archive_rating ar WHERE ar.archive_id = archive.id AND ar.user_id = ? AND ar.rating = ?) ")
+
+		args = append(args, f.UserID, f.Rating)
 	}
 
 	// The trigram tokenizer can't form a trigram from fewer than 3

@@ -387,6 +387,7 @@ func hasPHashParam(raw string) *bool {
 //	@Param			language	query		string		false	"Filter by language code (e.g. en, ja)"
 //	@Param			category	query		string		false	"Filter by category"
 //	@Param			has_phash	query		bool		false	"Filter by whether the archive has been perceptually hashed (for duplicate detection). Omit to include both."
+//	@Param			rating		query		int			false	"Filter to archives the current user rated this many stars (1-5)"
 //	@Success		200	{object}	ArchiveListResponse
 //	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
@@ -419,6 +420,7 @@ func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
 		Language:   q.Get("language"),
 		Category:   q.Get("category"),
 		HasPHash:   hasPHashParam(q.Get("has_phash")),
+		Rating:     int(ratingFilterParam(q.Get("rating"))),
 		Sort:       q.Get("sort"),
 		Limit:      int64(limit),
 		Offset:     int64((page - 1) * limit),

@@ -891,6 +891,12 @@ const docTemplate = `{
                         "description": "Filter by whether the archive has been perceptually hashed (for duplicate detection). Omit to include both.",
                         "name": "has_phash",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Filter to archives the current user rated this many stars (1-5)",
+                        "name": "rating",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2439,6 +2445,12 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "Only artists the current user has favorited",
                         "name": "favorites",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Only artists the current user rated this many stars (1-5)",
+                        "name": "rating",
                         "in": "query"
                     }
                 ],

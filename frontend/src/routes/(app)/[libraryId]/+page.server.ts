@@ -34,9 +34,16 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 	const rawHasPHash = url.searchParams.get('has_phash');
 	const hasPHash = rawHasPHash === 'true' || rawHasPHash === 'false' ? rawHasPHash : '';
 
+	// Only a single digit 1-5 filters; anything else (3.5, 4abc, 99) is
+	// treated as unset so the UI's highlighted star matches what the
+	// backend actually applied.
+	const rawRating = url.searchParams.get('rating') ?? '';
+	const rating = /^[1-5]$/.test(rawRating) ? rawRating : '';
+
 	const filters = {
 		q: url.searchParams.get('q') ?? '',
 		has_phash: hasPHash,
+		rating,
 		sort: url.searchParams.get('sort') ?? '',
 		category: url.searchParams.get('category') ?? '',
 		language: url.searchParams.get('language') ?? '',
@@ -54,6 +61,7 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 	});
 	if (filters.q) archiveParams.set('q', filters.q);
 	if (filters.has_phash) archiveParams.set('has_phash', filters.has_phash);
+	if (filters.rating) archiveParams.set('rating', filters.rating);
 	if (filters.sort) archiveParams.set('sort', filters.sort);
 	if (filters.category) archiveParams.set('category', filters.category);
 	if (filters.language) archiveParams.set('language', filters.language);

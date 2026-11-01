@@ -4,7 +4,8 @@
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
-	import { X } from '@lucide/svelte';
+	import { cn } from '$lib/utils.js';
+	import { Star, X } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -16,6 +17,8 @@
 		// '' means unset - the backend treats has_phash as tri-state (omit to
 		// include both hashed and unhashed archives).
 		has_phash: string;
+		// '' or the caller's exact star rating ('1'-'5').
+		rating: string;
 		category: string;
 		language: string;
 		tag: string[];
@@ -47,6 +50,7 @@
 
 	const hasActiveFilters = $derived(
 		filters.has_phash !== '' ||
+			filters.rating !== '' ||
 			filters.category !== '' ||
 			filters.language !== '' ||
 			filters.artist.length > 0 ||
@@ -55,6 +59,12 @@
 			filters.parody.length > 0 ||
 			filters.circle.length > 0
 	);
+
+	const ratingValue = $derived(parseInt(filters.rating) || 0);
+	const ratingLabel = $derived(
+		ratingValue > 0 ? `${ratingValue} star${ratingValue === 1 ? '' : 's'}` : 'Any rating'
+	);
+	let hoveredStar = $state<number | null>(null);
 
 	const phashOptions = [
 		{ value: ANY, label: 'Any' },
@@ -113,6 +123,7 @@
 		const params = new URLSearchParams(page.url.searchParams);
 		for (const key of [
 			'has_phash',
+			'rating',
 			'category',
 			'language',
 			'tag',
@@ -256,6 +267,46 @@
 					searchPlaceholder="Search circles..."
 					emptyText="No circles found."
 				/>
+			</Sidebar.GroupContent>
+		</Sidebar.Group>
+
+		<Separator />
+
+		<!-- Rating -->
+		<Sidebar.Group class="p-0">
+			<div class="flex items-center justify-between">
+				<Sidebar.GroupLabel class="px-0">Rating</Sidebar.GroupLabel>
+				<span class="text-xs text-muted-foreground">{ratingLabel}</span>
+			</div>
+			<Sidebar.GroupContent class="mt-1">
+				<div
+					role="group"
+					aria-label="Rating filter"
+					class="flex items-center justify-center gap-1"
+					onmouseleave={() => (hoveredStar = null)}
+				>
+					{#each [1, 2, 3, 4, 5] as n (n)}
+						<button
+							type="button"
+							class="p-0.5 text-muted-foreground transition-colors hover:text-amber-400"
+							aria-label={ratingValue === n
+								? `Clear ${n}-star rating filter`
+								: `Filter by ${n} star${n === 1 ? '' : 's'}`}
+							aria-pressed={ratingValue === n}
+							onmouseenter={() => (hoveredStar = n)}
+							onclick={() => setParam('rating', ratingValue === n ? '' : String(n))}
+						>
+							<Star
+								class={cn(
+									'size-5',
+									(hoveredStar ?? ratingValue) >= n
+										? 'fill-amber-400 stroke-amber-400'
+										: 'fill-none'
+								)}
+							/>
+						</button>
+					{/each}
+				</div>
 			</Sidebar.GroupContent>
 		</Sidebar.Group>
 

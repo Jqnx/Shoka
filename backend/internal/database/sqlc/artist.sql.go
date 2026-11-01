@@ -989,15 +989,21 @@ left join archive as cover on cover.id = coalesce(
 where (cast(?3 as integer) = 0
        or exists (select 1 from artist_favorite af
                   where af.artist_id = artist.id and af.user_id = ?2))
+  and (cast(?4 as integer) = 0
+       or exists (select 1 from artist_rating ar
+                  where ar.artist_id = artist.id
+                    and ar.user_id = ?2
+                    and ar.rating = cast(?4 as integer)))
 order by artist.name
-limit ?5
-offset ?4
+limit ?6
+offset ?5
 `
 
 type GetArtistListParams struct {
 	CoverAllLibs  int64  `json:"cover_all_libs"`
 	Uid           string `json:"uid"`
 	FavoritesOnly int64  `json:"favorites_only"`
+	FilterRating  int64  `json:"filter_rating"`
 	Offset        int64  `json:"offset"`
 	Limit         int64  `json:"limit"`
 }
@@ -1016,6 +1022,7 @@ func (q *Queries) GetArtistList(ctx context.Context, arg GetArtistListParams) ([
 		arg.CoverAllLibs,
 		arg.Uid,
 		arg.FavoritesOnly,
+		arg.FilterRating,
 		arg.Offset,
 		arg.Limit,
 	)
@@ -1357,15 +1364,21 @@ from artist
 where (cast(?1 as integer) = 0
        or exists (select 1 from artist_favorite af
                   where af.artist_id = artist.id and af.user_id = ?2))
+  and (cast(?3 as integer) = 0
+       or exists (select 1 from artist_rating ar
+                  where ar.artist_id = artist.id
+                    and ar.user_id = ?2
+                    and ar.rating = cast(?3 as integer)))
 `
 
 type TotalArtistsParams struct {
 	FavoritesOnly int64  `json:"favorites_only"`
 	Uid           string `json:"uid"`
+	FilterRating  int64  `json:"filter_rating"`
 }
 
 func (q *Queries) TotalArtists(ctx context.Context, arg TotalArtistsParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, totalArtists, arg.FavoritesOnly, arg.Uid)
+	row := q.db.QueryRowContext(ctx, totalArtists, arg.FavoritesOnly, arg.Uid, arg.FilterRating)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

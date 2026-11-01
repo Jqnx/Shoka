@@ -72,6 +72,11 @@ left join archive as cover on cover.id = coalesce(
 where (cast(sqlc.arg('favorites_only') as integer) = 0
        or exists (select 1 from artist_favorite af
                   where af.artist_id = artist.id and af.user_id = sqlc.arg('uid')))
+  and (cast(sqlc.arg('filter_rating') as integer) = 0
+       or exists (select 1 from artist_rating ar
+                  where ar.artist_id = artist.id
+                    and ar.user_id = sqlc.arg('uid')
+                    and ar.rating = cast(sqlc.arg('filter_rating') as integer)))
 order by artist.name
 limit sqlc.arg('limit')
 offset sqlc.arg('offset')
@@ -220,6 +225,11 @@ from artist
 where (cast(sqlc.arg('favorites_only') as integer) = 0
        or exists (select 1 from artist_favorite af
                   where af.artist_id = artist.id and af.user_id = sqlc.arg('uid')))
+  and (cast(sqlc.arg('filter_rating') as integer) = 0
+       or exists (select 1 from artist_rating ar
+                  where ar.artist_id = artist.id
+                    and ar.user_id = sqlc.arg('uid')
+                    and ar.rating = cast(sqlc.arg('filter_rating') as integer)))
 ;
 
 -- name: TotalArchiveWithArtist :one

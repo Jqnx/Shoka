@@ -75,6 +75,7 @@ type ArtistListResponse struct {
 //	@Param			page		query		int		false	"Page number (1-based)"	default(1)
 //	@Param			limit		query		int		false	"Items per page"		default(50)
 //	@Param			favorites	query		bool	false	"Only artists the current user has favorited"
+//	@Param			rating		query		int		false	"Only artists the current user rated this many stars (1-5)"
 //	@Success		200	{object}	ArtistListResponse
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/artists [get]
@@ -87,12 +88,17 @@ func (h *ArtistHandler) GetArtists(w http.ResponseWriter, r *http.Request) {
 		favoritesOnly = 1
 	}
 
+	// Out-of-range or unparseable values are ignored rather than rejected:
+	// filtering is a view concern and a stale bookmark shouldn't 400 a page.
+	filterRating := ratingFilterParam(r.URL.Query().Get("rating"))
+
 	uid := auth.UserIDFromContext(r.Context())
 	allLibraries := allLibrariesFlag(r.Context())
 
 	total, err := h.queries.TotalArtists(r.Context(), sqlc.TotalArtistsParams{
 		Uid:           uid,
 		FavoritesOnly: favoritesOnly,
+		FilterRating:  filterRating,
 	})
 	if err != nil {
 		h.logger.Error("count artists failed", "error", err)
@@ -105,6 +111,7 @@ func (h *ArtistHandler) GetArtists(w http.ResponseWriter, r *http.Request) {
 		CoverAllLibs:  allLibraries,
 		Uid:           uid,
 		FavoritesOnly: favoritesOnly,
+		FilterRating:  filterRating,
 		Limit:         int64(limit),
 		Offset:        offset,
 	})

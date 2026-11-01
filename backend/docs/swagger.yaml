@@ -1465,6 +1465,10 @@ paths:
         in: query
         name: has_phash
         type: boolean
+      - description: Filter to archives the current user rated this many stars (1-5)
+        in: query
+        name: rating
+        type: integer
       produces:
       - application/json
       responses:
@@ -2561,6 +2565,10 @@ paths:
         in: query
         name: favorites
         type: boolean
+      - description: Only artists the current user rated this many stars (1-5)
+        in: query
+        name: rating
+        type: integer
       produces:
       - application/json
       responses:

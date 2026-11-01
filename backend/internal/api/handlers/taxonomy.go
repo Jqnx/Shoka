@@ -68,6 +68,17 @@ func pathID(w http.ResponseWriter, r *http.Request, resource string) (int64, boo
 	return id, true
 }
 
+// ratingFilterParam parses an exact star-rating filter, returning 0 (no
+// filter) for anything outside 1-5. Shared by the artist and archive lists.
+func ratingFilterParam(raw string) int64 {
+	v, err := strconv.Atoi(raw)
+	if err != nil || v < 1 || v > 5 {
+		return 0
+	}
+
+	return int64(v)
+}
+
 // taxonomyPage is the paginated payload shared by the list endpoints. The
 // response structs the handlers return are conversions of it.
 type taxonomyPage[T any] struct {
