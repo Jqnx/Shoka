@@ -37,7 +37,7 @@ export const ROSE_PINE: Theme = {
 		'sidebar-accent-foreground': 'oklch(0.9088 0.0299 289.969)',
 		'sidebar-border': 'oklch(0.4399 0.0392 290.417)',
 		'sidebar-ring': 'oklch(0.776 0.0945 304.994)',
-		radius: '0rem'
+		radius: '0.25rem'
 	}
 };
 
@@ -78,7 +78,7 @@ export const ROSE_PINE_MOON: Theme = {
 		'sidebar-accent-foreground': 'oklch(0.9088 0.0299 289.969)',
 		'sidebar-border': 'oklch(0.4535 0.0454 291.018)',
 		'sidebar-ring': 'oklch(0.776 0.0945 304.994)',
-		radius: '0rem'
+		radius: '0.25rem'
 	}
 };
 
@@ -119,6 +119,6 @@ export const ROSE_PINE_DAWN: Theme = {
 		'sidebar-accent-foreground': 'oklch(0.4597 0.0629 289.556)',
 		'sidebar-border': 'oklch(0.8431 0.006 333.997)',
 		'sidebar-ring': 'oklch(0.6171 0.0738 305.698)',
-		radius: '0rem'
+		radius: '0.25rem'
 	}
 };

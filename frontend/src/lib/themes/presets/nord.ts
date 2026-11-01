@@ -37,6 +37,6 @@ export const NORD: Theme = {
 		'sidebar-accent-foreground': 'oklch(0.9513 0.0074 260.732)',
 		'sidebar-border': 'oklch(0.4523 0.0352 264.131)',
 		'sidebar-ring': 'oklch(0.7746 0.0622 217.469)',
-		radius: '0rem'
+		radius: '0.25rem'
 	}
 };

@@ -37,7 +37,7 @@ export const KANAGAWA_WAVE: Theme = {
 		'sidebar-accent-foreground': 'oklch(0.8755 0.0391 99.086)',
 		'sidebar-border': 'oklch(0.4558 0.0405 284.679)',
 		'sidebar-ring': 'oklch(0.6937 0.0951 263.657)',
-		radius: '0rem'
+		radius: '0.25rem'
 	}
 };
 
@@ -78,7 +78,7 @@ export const KANAGAWA_DRAGON: Theme = {
 		'sidebar-accent-foreground': 'oklch(0.8316 0.007 145.512)',
 		'sidebar-border': 'oklch(0.4843 0.0081 67.634)',
 		'sidebar-ring': 'oklch(0.7035 0.033 228.423)',
-		radius: '0rem'
+		radius: '0.25rem'
 	}
 };
 
@@ -119,6 +119,6 @@ export const KANAGAWA_LOTUS: Theme = {
 		'sidebar-accent-foreground': 'oklch(0.4519 0.0259 285.316)',
 		'sidebar-border': 'oklch(0.8058 0.0529 100.197)',
 		'sidebar-ring': 'oklch(0.5211 0.0862 261.487)',
-		radius: '0rem'
+		radius: '0.25rem'
 	}
 };

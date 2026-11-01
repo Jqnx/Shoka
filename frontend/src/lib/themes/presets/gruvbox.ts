@@ -37,7 +37,7 @@ export const GRUVBOX_DARK: Theme = {
 		'sidebar-accent-foreground': 'oklch(0.8941 0.0566 89.24)',
 		'sidebar-border': 'oklch(0.4818 0.0181 61.042)',
 		'sidebar-ring': 'oklch(0.7311 0.182 51.693)',
-		radius: '0rem'
+		radius: '0.25rem'
 	}
 };
 
@@ -78,6 +78,6 @@ export const GRUVBOX_LIGHT: Theme = {
 		'sidebar-accent-foreground': 'oklch(0.3441 0.0066 48.523)',
 		'sidebar-border': 'oklch(0.7564 0.041 82.284)',
 		'sidebar-ring': 'oklch(0.5126 0.1616 39.297)',
-		radius: '0rem'
+		radius: '0.25rem'
 	}
 };

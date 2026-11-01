@@ -292,15 +292,15 @@
 					aria-label={`Manage ${u.name}`}
 					class="block aspect-square w-full overflow-hidden"
 				>
-					<Avatar.Root class="size-full rounded-none after:hidden">
+					<Avatar.Root class="size-full rounded-md after:hidden">
 						<Avatar.Image
 							src={u.image ?? ''}
 							alt={u.name}
 							loading="lazy"
 							decoding="async"
-							class="rounded-none object-cover"
+							class="rounded-md object-cover"
 						/>
-						<Avatar.Fallback class="rounded-none bg-muted text-3xl font-semibold select-none">
+						<Avatar.Fallback class="rounded-md bg-muted text-3xl font-semibold select-none">
 							{initialsOf(u.name)}
 						</Avatar.Fallback>
 					</Avatar.Root>
