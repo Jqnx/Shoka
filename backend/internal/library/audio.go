@@ -196,11 +196,26 @@ func (s *AudioScanner) scanWork(root string) (audioWork, error) {
 		return audioWork{}, err
 	}
 
-	slices.Sort(work.audio)
+	slices.SortFunc(work.audio, naturalCompare)
+	// Images keep lexicographic order: the first one is the work's cover, so
+	// changing their order would silently change covers and gallery order.
 	slices.Sort(work.images)
 	work.modTime = maxMod
 
 	return work, nil
+}
+
+// naturalCompare orders paths by numeric runs, so "第2章" sorts before
+// "第10章" instead of lexicographically after it.
+func naturalCompare(a, b string) int {
+	switch {
+	case util.NaturalLess(a, b):
+		return -1
+	case util.NaturalLess(b, a):
+		return 1
+	default:
+		return 0
+	}
 }
 
 // process adds, updates and removes audio works so the library matches disk.
@@ -220,37 +235,14 @@ func (s *AudioScanner) process(ctx context.Context, lib sqlc.Library, works map[
 	for path, work := range works {
 		record, known := inDB[path]
 
-		changed, err := s.hasChanged(ctx, record, known, work)
+		addedHere, updatedHere, err := s.processWork(ctx, lib, record, known, work)
 		if err != nil {
 			s.log.Warn("audio work skipped", "path", path, "error", err)
 			continue
 		}
 
-		if !known {
-			if err := s.addAudio(ctx, lib, work); err != nil {
-				s.log.Warn("failed to add audio work", "path", path, "error", err)
-				continue
-			}
-
-			added++
-
-			continue
-		}
-
-		if changed {
-			if err := s.updateAudio(ctx, record.ID, work); err != nil {
-				s.log.Warn("failed to update audio work", "path", path, "error", err)
-				continue
-			}
-
-			updated++
-
-			continue
-		}
-
-		// Unchanged files, but the cached cover may be missing or rendered with
-		// older settings: re-render it without touching the work's rows.
-		s.enqueueStaleCover(ctx, record.ID, work)
+		added += addedHere
+		updated += updatedHere
 	}
 
 	for path, record := range inDB {
@@ -273,29 +265,143 @@ func (s *AudioScanner) process(ctx context.Context, lib sqlc.Library, works map[
 	return added, updated, removed, nil
 }
 
-// hasChanged compares a stored work with its scanned counterpart. An unknown
-// work is always "changed"; a known one changes when its fingerprint or its
-// audio/image file lists differ.
-func (s *AudioScanner) hasChanged(ctx context.Context, record sqlc.GetAudioPathsByLibraryRow, known bool, work audioWork) (bool, error) {
+// processWork reconciles one scanned work, reporting how many rows it added
+// and updated. The caller logs failures per path.
+func (s *AudioScanner) processWork(
+	ctx context.Context,
+	lib sqlc.Library,
+	record sqlc.GetAudioPathsByLibraryRow,
+	known bool,
+	work audioWork,
+) (added, updated int, err error) {
+	change, err := s.audioChangeKind(ctx, record, known, work)
+	if err != nil {
+		return 0, 0, err
+	}
+
 	if !known {
-		return true, nil
+		return 1, 0, s.addAudio(ctx, lib, work)
+	}
+
+	switch change {
+	case audioChanged:
+		if err := s.updateAudio(ctx, record.ID, work); err != nil {
+			return 0, 0, err
+		}
+
+		return 0, 1, nil
+	case audioReordered:
+		if err := s.reorderAudio(ctx, record.ID, work.audio); err != nil {
+			return 0, 0, err
+		}
+
+		return 0, 1, nil
+	case audioUnchanged:
+		// Unchanged files, but the cached cover may be missing or rendered
+		// with older settings: re-render it without touching the work's rows.
+		s.enqueueStaleCover(ctx, record.ID, work)
+
+		return 0, 0, nil
+	}
+
+	return 0, 0, nil
+}
+
+// audioChange describes how a scanned work differs from its stored rows.
+type audioChange int
+
+const (
+	audioUnchanged audioChange = iota
+	// audioReordered has the same files but a different track order, which is
+	// what a sort-rule change produces. Durations and the cover stay valid.
+	audioReordered
+	// audioChanged means content, files, images or the fingerprint differ, so
+	// the work needs a full re-probe and cover refresh.
+	audioChanged
+)
+
+// audioChangeKind compares a stored work with its scanned counterpart.
+func (s *AudioScanner) audioChangeKind(ctx context.Context, record sqlc.GetAudioPathsByLibraryRow, known bool, work audioWork) (audioChange, error) {
+	if !known {
+		return audioChanged, nil
 	}
 
 	if !record.ModTime.Equal(work.modTime) {
-		return true, nil
+		return audioChanged, nil
 	}
 
 	files, err := s.queries.GetAudioFiles(ctx, record.ID)
 	if err != nil {
-		return false, err
+		return audioUnchanged, err
 	}
 
 	images, err := s.queries.GetAudioImages(ctx, record.ID)
 	if err != nil {
-		return false, err
+		return audioUnchanged, err
 	}
 
-	return !slices.Equal(filePaths(files), work.audio) || !slices.Equal(imagePaths(images), work.images), nil
+	if !slices.Equal(imagePaths(images), work.images) {
+		return audioChanged, nil
+	}
+
+	return classifyFiles(filePaths(files), work.audio), nil
+}
+
+// classifyFiles distinguishes a pure track reorder from a real content change.
+func classifyFiles(stored, scanned []string) audioChange {
+	if slices.Equal(stored, scanned) {
+		return audioUnchanged
+	}
+
+	if sameFileSet(stored, scanned) {
+		return audioReordered
+	}
+
+	return audioChanged
+}
+
+func sameFileSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	sortedA := slices.Clone(a)
+	sortedB := slices.Clone(b)
+
+	slices.Sort(sortedA)
+	slices.Sort(sortedB)
+
+	return slices.Equal(sortedA, sortedB)
+}
+
+// reorderAudio rewrites a work's track order without re-probing durations or
+// invalidating its cover, which only the set of files would change.
+func (s *AudioScanner) reorderAudio(ctx context.Context, audioID string, order []string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }() // no-op once committed
+
+	qtx := s.queries.WithTx(tx)
+
+	for i, relativePath := range order {
+		if err := qtx.UpdateAudioFileSortOrder(ctx, sqlc.UpdateAudioFileSortOrderParams{
+			SortOrder:    int64(i),
+			AudioID:      audioID,
+			RelativePath: relativePath,
+		}); err != nil {
+			return fmt.Errorf("update sort order: %w", err)
+		}
+	}
+
+	// Track URLs embed updated_at; changing the order remaps each index to a
+	// different file, so the version has to change with it.
+	if err := qtx.TouchAudio(ctx, audioID); err != nil {
+		return fmt.Errorf("touch audio: %w", err)
+	}
+
+	return tx.Commit()
 }
 
 // enqueueStaleCover re-renders an unchanged work's cover when the cache is

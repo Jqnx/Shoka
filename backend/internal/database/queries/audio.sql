@@ -24,6 +24,12 @@ set mod_time = ?,
 where id = ?
 ;
 
+-- name: TouchAudio :exec
+update audio
+set updated_at = datetime('now')
+where id = ?
+;
+
 -- name: UpdateAudio :exec
 update audio
 set title = ?,
@@ -47,6 +53,12 @@ where id = ?
 -- name: DeleteAudioFiles :exec
 delete from audio_file
 where audio_id = ?
+;
+
+-- name: UpdateAudioFileSortOrder :exec
+update audio_file
+set sort_order = ?
+where audio_id = ? and relative_path = ?
 ;
 
 -- name: DeleteAudioImages :exec

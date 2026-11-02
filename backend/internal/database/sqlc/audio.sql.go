@@ -1100,6 +1100,19 @@ func (q *Queries) RepointAudioArtistLinks(ctx context.Context, arg RepointAudioA
 	return err
 }
 
+const touchAudio = `-- name: TouchAudio :exec
+;
+
+update audio
+set updated_at = datetime('now')
+where id = ?
+`
+
+func (q *Queries) TouchAudio(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, touchAudio, id)
+	return err
+}
+
 const updateAudio = `-- name: UpdateAudio :exec
 ;
 
@@ -1125,6 +1138,25 @@ func (q *Queries) UpdateAudio(ctx context.Context, arg UpdateAudioParams) error 
 		arg.Language,
 		arg.ID,
 	)
+	return err
+}
+
+const updateAudioFileSortOrder = `-- name: UpdateAudioFileSortOrder :exec
+;
+
+update audio_file
+set sort_order = ?
+where audio_id = ? and relative_path = ?
+`
+
+type UpdateAudioFileSortOrderParams struct {
+	SortOrder    int64  `json:"sort_order"`
+	AudioID      string `json:"audio_id"`
+	RelativePath string `json:"relative_path"`
+}
+
+func (q *Queries) UpdateAudioFileSortOrder(ctx context.Context, arg UpdateAudioFileSortOrderParams) error {
+	_, err := q.db.ExecContext(ctx, updateAudioFileSortOrder, arg.SortOrder, arg.AudioID, arg.RelativePath)
 	return err
 }
 
