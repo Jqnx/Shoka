@@ -14,6 +14,7 @@
 	import { resolve } from '$app/paths';
 	import { FolderOpen } from '@lucide/svelte';
 	import { signupSchema } from '$lib/schemas/signup';
+	import { firstArchiveLibrary } from '$lib/types';
 	import type { ArchiveListResponse } from '$lib/types';
 	import type { PageData } from './$types';
 
@@ -54,8 +55,10 @@
 	const libraryTypeLabel = $derived(typeLabel(libraryType));
 
 	// Step 3 — poll until the initial scan attempt has been stamped, then read
-	// the archive count once.
+	// the archive count once. Only a doujinshi library has an archive count;
+	// an audio-only setup skips the count and just reports readiness.
 	let archiveCount = $state<number | null>(null);
+	const archiveLibrary = $derived(firstArchiveLibrary(data.libraries));
 
 	$effect(() => {
 		if (step !== 3 || scanDone) return;
@@ -64,8 +67,8 @@
 	});
 
 	$effect(() => {
-		if (step !== 3 || !scanDone || archiveCount !== null) return;
-		fetch(`/api/archives?library_id=${data.libraries[0].id}&limit=1`)
+		if (step !== 3 || !scanDone || archiveCount !== null || !archiveLibrary) return;
+		fetch(`/api/archives?library_id=${archiveLibrary.id}&limit=1`)
 			.then((r) => (r.ok ? r.json() : null))
 			.then((b: ArchiveListResponse | null) => {
 				if (b) archiveCount = b.total;
@@ -234,7 +237,9 @@
 			<Card.Root>
 				<Card.Header>
 					<Card.Title>{scanDone ? 'Scan finished' : 'Scanning your library…'}</Card.Title>
-					<Card.Description>{data.libraries[0].name}</Card.Description>
+					{#if archiveLibrary}
+						<Card.Description>{archiveLibrary.name}</Card.Description>
+					{/if}
 				</Card.Header>
 				<Card.Content class="space-y-2 text-sm">
 					{#if scanDone}

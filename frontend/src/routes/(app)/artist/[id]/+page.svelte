@@ -11,6 +11,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import ArchiveCard from '$lib/components/ArchiveCard.svelte';
+	import AudioSection from '$lib/components/AudioSection.svelte';
 	import ArchiveCover from '$lib/components/ArchiveCover.svelte';
 	import EditArtistSheet from '$lib/components/EditArtistSheet.svelte';
 	import ArtistCoverPicker from '$lib/components/ArtistCoverPicker.svelte';
@@ -383,4 +384,11 @@
 			</Pagination.Root>
 		</div>
 	{/if}
+	<Separator class="my-8" />
+
+	<AudioSection
+		works={data.audio}
+		total={data.audioTotal}
+		href={`/audio?artist=${encodeURIComponent(data.artist.name)}`}
+	/>
 </div>

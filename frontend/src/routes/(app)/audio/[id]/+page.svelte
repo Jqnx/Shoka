@@ -1,0 +1,278 @@
+<script lang="ts">
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { enhance } from '$app/forms';
+	import { cn } from '$lib/utils.js';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Button } from '$lib/components/ui/button';
+	import { Separator } from '$lib/components/ui/separator';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import AudioPlayer from '$lib/components/AudioPlayer.svelte';
+	import EditAudioSheet from '$lib/components/EditAudioSheet.svelte';
+	import { audioCoverSrc } from '$lib/types';
+	import { audioImageSrc, formatDuration } from '$lib/audio';
+	import { AudioLines, ChevronLeft, Heart, Star } from '@lucide/svelte';
+	import { can } from '$lib/auth/permissions';
+
+	let { data, form } = $props();
+
+	const a = $derived(data.audio);
+	const canEdit = $derived(can(page.data.user, { audio: ['update'] }));
+
+	let favoriting = $state(false);
+	let settingRating = $state(false);
+	let hoveredStar = $state<number | null>(null);
+	let previewIndex = $state<number | null>(null);
+
+	const backHref = $derived(
+		`/audio?library_id=${encodeURIComponent(a.library_id)}` as `/${string}`
+	);
+	const languageName = $derived(
+		a.language ? (data.languages.find((l) => l.code === a.language)?.name ?? a.language) : null
+	);
+
+	function artistId(name: string) {
+		return data.allArtists.find((artist) => artist.name === name)?.id;
+	}
+
+	function formatDate(iso: string | null) {
+		if (!iso) return null;
+		return new Date(iso).toLocaleDateString(undefined, {
+			year: 'numeric',
+			month: 'long',
+			day: 'numeric'
+		});
+	}
+
+	const previewImage = $derived(
+		previewIndex === null ? null : (a.images.find((image) => image.index === previewIndex) ?? null)
+	);
+</script>
+
+<svelte:head>
+	<title>{a.title} | Shoka</title>
+</svelte:head>
+
+<div class="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6">
+	<a
+		href={resolve(backHref)}
+		class="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+	>
+		<ChevronLeft class="size-4" />
+		Audio
+	</a>
+
+	<div class="flex flex-col gap-8 md:flex-row">
+		<div class="w-full shrink-0 md:w-56 lg:w-64">
+			<div
+				class="relative aspect-square w-full overflow-hidden rounded-lg border border-border bg-muted"
+			>
+				{#if a.cover_ready}
+					<img src={audioCoverSrc(a)} alt={a.title} class="size-full object-cover" />
+				{:else}
+					<div class="absolute inset-0 flex items-center justify-center">
+						<AudioLines class="size-10 text-muted-foreground/40" />
+					</div>
+				{/if}
+			</div>
+		</div>
+
+		<div class="min-w-0 flex-1">
+			<div class="flex items-start justify-between gap-3">
+				<h1 class="text-2xl leading-tight font-bold">{a.title}</h1>
+				<div class="flex shrink-0 items-center gap-1.5">
+					<form
+						method="POST"
+						action="?/toggleFavorite"
+						use:enhance={() => {
+							favoriting = true;
+							return async ({ update }) => {
+								favoriting = false;
+								await update();
+							};
+						}}
+					>
+						<input type="hidden" name="favorited" value={a.is_favorited} />
+						<Button
+							type="submit"
+							variant="outline"
+							size="icon"
+							disabled={favoriting}
+							aria-label={a.is_favorited ? 'Remove from favorites' : 'Add to favorites'}
+							aria-pressed={a.is_favorited}
+						>
+							<Heart class={cn('size-4', a.is_favorited && 'fill-red-500 stroke-red-500')} />
+						</Button>
+					</form>
+					{#if canEdit}
+						<EditAudioSheet
+							audio={a}
+							languages={data.languages}
+							allArtists={data.allArtists}
+							allTags={data.allTags}
+							allCircles={data.allCircles}
+							allVoiceActors={data.allVoiceActors}
+						/>
+					{/if}
+				</div>
+			</div>
+
+			<div
+				role="group"
+				aria-label="Rating"
+				class="mt-2 flex items-center gap-0.5"
+				onmouseleave={() => (hoveredStar = null)}
+			>
+				{#each [1, 2, 3, 4, 5] as n (n)}
+					<form
+						method="POST"
+						action={a.rating === n ? '?/clearRating' : '?/setRating'}
+						use:enhance={() => {
+							settingRating = true;
+							return async ({ update }) => {
+								settingRating = false;
+								await update();
+							};
+						}}
+					>
+						{#if a.rating !== n}
+							<input type="hidden" name="rating" value={n} />
+						{/if}
+						<button
+							type="submit"
+							disabled={settingRating}
+							class="p-0.5 text-muted-foreground transition-colors hover:text-primary disabled:opacity-50"
+							aria-pressed={a.rating === n}
+							aria-label={a.rating === n
+								? `Clear rating (${n} star${n === 1 ? '' : 's'})`
+								: `Rate ${n} star${n === 1 ? '' : 's'}`}
+							onmouseenter={() => (hoveredStar = n)}
+						>
+							<Star
+								class={cn(
+									'size-5',
+									(hoveredStar ?? a.rating ?? 0) >= n ? 'fill-primary stroke-primary' : 'fill-none'
+								)}
+							/>
+						</button>
+					</form>
+				{/each}
+			</div>
+
+			<dl class="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-[7rem_1fr]">
+				<dt class="text-muted-foreground">Duration</dt>
+				<dd>{formatDuration(a.duration_seconds)}</dd>
+
+				{#if formatDate(a.release_date)}
+					<dt class="text-muted-foreground">Release date</dt>
+					<dd>{formatDate(a.release_date)}</dd>
+				{/if}
+
+				{#if languageName}
+					<dt class="text-muted-foreground">Language</dt>
+					<dd>{languageName}</dd>
+				{/if}
+
+				{#if a.circle}
+					<dt class="text-muted-foreground">Circle</dt>
+					<dd>
+						<a href={resolve(`/circle/${encodeURIComponent(a.circle)}`)} class="hover:underline">
+							{a.circle}
+						</a>
+					</dd>
+				{/if}
+
+				{#if a.artists.length}
+					<dt class="text-muted-foreground">Artists</dt>
+					<dd class="flex flex-wrap gap-x-2">
+						{#each a.artists as artist (artist)}
+							{@const id = artistId(artist)}
+							{#if id !== undefined}
+								<a href={resolve(`/artist/${id}`)} class="hover:underline">{artist}</a>
+							{:else}
+								<span>{artist}</span>
+							{/if}
+						{/each}
+					</dd>
+				{/if}
+
+				{#if a.tags.length}
+					<dt class="text-muted-foreground">Tags</dt>
+					<dd class="flex flex-wrap gap-1.5">
+						{#each a.tags as tag (tag)}
+							<Badge href={resolve(`/tag/${encodeURIComponent(tag)}`)} variant="secondary">
+								{tag}
+							</Badge>
+						{/each}
+					</dd>
+				{/if}
+
+				{#if a.voice_actors.length}
+					<dt class="text-muted-foreground">Voice actors</dt>
+					<dd class="flex flex-wrap gap-x-2">
+						{#each a.voice_actors as voiceActor (voiceActor)}
+							<a
+								href={resolve(`/voice-actor/${encodeURIComponent(voiceActor)}`)}
+								class="hover:underline"
+							>
+								{voiceActor}
+							</a>
+						{/each}
+					</dd>
+				{/if}
+			</dl>
+
+			{#if form && 'error' in form && form.error}
+				<p class="mt-3 text-sm text-destructive">{form.error}</p>
+			{/if}
+		</div>
+	</div>
+
+	<Separator class="my-8" />
+
+	<AudioPlayer audioId={a.id} updatedAt={a.updated_at} tracks={a.tracks} />
+
+	{#if a.images.length}
+		<Separator class="my-8" />
+
+		<div
+			class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8"
+		>
+			{#each a.images as image (image.index)}
+				<button
+					type="button"
+					class="overflow-hidden rounded-lg border border-border bg-muted"
+					onclick={() => (previewIndex = image.index)}
+					aria-label="View {image.name}"
+				>
+					<img
+						src={audioImageSrc(a.id, image.index, a.updated_at)}
+						alt={image.name}
+						loading="lazy"
+						class="aspect-square size-full object-cover transition-transform hover:scale-105"
+					/>
+				</button>
+			{/each}
+		</div>
+	{/if}
+</div>
+
+<Dialog.Root
+	open={previewIndex !== null}
+	onOpenChange={(isOpen) => {
+		if (!isOpen) previewIndex = null;
+	}}
+>
+	<Dialog.Content class="sm:max-w-[min(90vw,72rem)]">
+		<Dialog.Header>
+			<Dialog.Title class="sr-only">{previewImage?.name ?? 'Image'}</Dialog.Title>
+		</Dialog.Header>
+		{#if previewImage}
+			<img
+				src={audioImageSrc(a.id, previewImage.index, a.updated_at)}
+				alt={previewImage.name}
+				class="max-h-[80vh] w-full object-contain"
+			/>
+		{/if}
+	</Dialog.Content>
+</Dialog.Root>

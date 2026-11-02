@@ -326,7 +326,7 @@ func (h *LibraryHandler) DeleteLibrary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	archiveIDs, err := database.DeleteLibrary(r.Context(), h.queries, h.db, id)
+	archiveIDs, audioIDs, err := database.DeleteLibrary(r.Context(), h.queries, h.db, id)
 	if err != nil {
 		h.logger.Error("delete library failed", "id", id, "error", err)
 		response.InternalError(w, "failed to delete library")
@@ -338,6 +338,12 @@ func (h *LibraryHandler) DeleteLibrary(w http.ResponseWriter, r *http.Request) {
 	for _, archiveID := range archiveIDs {
 		if err := h.processor.EvictAll(archiveID); err != nil {
 			h.logger.Warn("evict archive cache failed", "id", archiveID, "error", err)
+		}
+	}
+
+	for _, audioID := range audioIDs {
+		if err := h.processor.EvictAll(image.AudioCacheKey(audioID)); err != nil {
+			h.logger.Warn("evict audio cache failed", "id", audioID, "error", err)
 		}
 	}
 

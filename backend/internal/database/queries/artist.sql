@@ -460,5 +460,6 @@ where id = cast(sqlc.arg('target_id') as integer)
 -- name: RecomputeArtistCount :exec
 update artist
 set count = (select count(*) from archive_artist where artist_id = cast(sqlc.arg('count_id') as integer))
+          + (select count(*) from audio_artist where artist_id = cast(sqlc.arg('count_id') as integer))
 where id = cast(sqlc.arg('count_id') as integer)
 ;

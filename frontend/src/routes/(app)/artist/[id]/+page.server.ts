@@ -3,7 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { errorMessage } from '$lib/server/api';
 import { guard } from '$lib/server/guard';
 import { can } from '$lib/auth/permissions';
-import type { Artist, ArtistDetail, ArchiveListResponse } from '$lib/types';
+import type { Artist, ArtistDetail, ArchiveListResponse, AudioListResponse } from '$lib/types';
 
 const LIMIT = 40;
 
@@ -26,6 +26,12 @@ export const load: PageServerLoad = async ({ fetch, params, url, locals }) => {
 	if (!archivesRes.ok) error(500, 'Failed to load archives');
 
 	const artist: ArtistDetail = await artistRes.json();
+
+	// Audio is a separate section on the page; a failure there must not fail
+	// the archive listing.
+	const audioRes = await fetch(`/api/audio?artist=${encodeURIComponent(artist.name)}&limit=12`);
+	const audioData: AudioListResponse | null = audioRes.ok ? await audioRes.json() : null;
+
 	const data: ArchiveListResponse = await archivesRes.json();
 	// The merge picker is optional UI; a missing or failed list must not fail
 	// the page.
@@ -45,7 +51,9 @@ export const load: PageServerLoad = async ({ fetch, params, url, locals }) => {
 		page,
 		limit: LIMIT,
 		backHref,
-		allArtists
+		allArtists,
+		audio: audioData?.items ?? [],
+		audioTotal: Number(audioData?.total ?? 0)
 	};
 };
 

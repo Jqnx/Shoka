@@ -68,6 +68,35 @@ func pathID(w http.ResponseWriter, r *http.Request, resource string) (int64, boo
 	return id, true
 }
 
+// mutateScoped resolves the {id} path parameter under its handler's library
+// scope, runs mutate, then answers 204. A handler supplies load for the
+// resolution (each handler's own scoped loader) so the not-found and
+// out-of-scope responses stay identical to its read endpoints.
+func mutateScoped(
+	w http.ResponseWriter,
+	r *http.Request,
+	logger *slog.Logger,
+	logMsg, failMsg string,
+	load func(id string) bool,
+	mutate func(id, userID string) error,
+) {
+	id := chi.URLParam(r, "id")
+	userID := auth.UserIDFromContext(r.Context())
+
+	if !load(id) {
+		return
+	}
+
+	if err := mutate(id, userID); err != nil {
+		logger.Error(logMsg, "id", id, "error", err)
+		response.InternalError(w, failMsg)
+
+		return
+	}
+
+	response.NoContent(w)
+}
+
 // ratingFilterParam parses an exact star-rating filter, returning 0 (no
 // filter) for anything outside 1-5. Shared by the artist and archive lists.
 func ratingFilterParam(raw string) int64 {
@@ -96,7 +125,7 @@ type taxonomyListParams sqlc.GetCharacterListParams
 // queries.
 type taxonomyListParamsType interface {
 	sqlc.GetCharacterListParams | sqlc.GetParodyListParams | sqlc.GetTagListParams |
-		sqlc.GetCircleListParams
+		sqlc.GetCircleListParams | sqlc.GetVoiceActorListParams
 }
 
 // listTaxonomy counts and fetches one page of kind ("characters", "tags", ...),

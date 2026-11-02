@@ -45,6 +45,8 @@ type apiHandlers struct {
 	parody         *handlers.ParodyHandler
 	circle         *handlers.CircleHandler
 	artist         *handlers.ArtistHandler
+	audio          *handlers.AudioHandler
+	voiceActor     *handlers.VoiceActorHandler
 	readerSettings *handlers.ReaderSettingsHandler
 	search         *handlers.SearchHandler
 	userAccess     *handlers.UserAccessHandler
@@ -65,6 +67,8 @@ func (s *Server) newAPIHandlers() apiHandlers {
 		parody:         handlers.NewParodyHandler(s.Queries, s.Log, s.Processor),
 		circle:         handlers.NewCircleHandler(s.Queries, s.DB, s.Log, s.Processor),
 		artist:         handlers.NewArtistHandler(s.Queries, s.DB, s.Log, s.Processor),
+		audio:          handlers.NewAudioHandler(s.Queries, s.DB, s.Processor, s.Log),
+		voiceActor:     handlers.NewVoiceActorHandler(s.Queries, s.Log),
 		readerSettings: handlers.NewReaderSettingsHandler(s.Queries, s.Log),
 		search:         handlers.NewSearchHandler(s.Queries, s.DB, s.Processor, s.Log),
 		userAccess:     handlers.NewUserAccessHandler(s.Queries, s.DB, s.Log),
@@ -88,6 +92,7 @@ func (s *Server) MountHandlers() {
 
 		mountBrowseRoutes(r, h)
 		mountEntityRoutes(r, h)
+		mountAudioRoutes(r, h)
 		mountArchiveDetailRoutes(r, h)
 		mountAdminRoutes(r, h)
 		mountTestRoutes(r, h)
@@ -181,6 +186,27 @@ func mountEntityRoutes(r chi.Router, h apiHandlers) {
 		r.With(requirePermission(auth.TaxonomyUpdate), requirePermission(auth.TaxonomyDelete)).
 			Post("/merge", h.artist.MergeArtist)
 	})
+}
+
+// mountAudioRoutes registers the audio work list/detail/media endpoints and
+// the voice actor taxonomy endpoints.
+func mountAudioRoutes(r chi.Router, h apiHandlers) {
+	r.Get("/api/audio", h.audio.GetAudios)
+	r.Route("/api/audio/{id}", func(r chi.Router) {
+		r.Get("/", h.audio.GetAudio)
+		r.With(requirePermission(auth.AudioUpdate)).Patch("/", h.audio.UpdateAudio)
+		r.Get("/cover", h.audio.GetCover)
+		r.Get("/images/{index}", h.audio.GetImage)
+		r.Get("/tracks/{index}", h.audio.GetTrack)
+		r.Put("/favorite", h.audio.AddFavorite)
+		r.Delete("/favorite", h.audio.RemoveFavorite)
+		r.Put("/rating", h.audio.SetRating)
+		r.Delete("/rating", h.audio.RemoveRating)
+	})
+
+	r.Get("/api/voice-actors", h.voiceActor.GetVoiceActors)
+	r.Get("/api/voice-actors/all", h.voiceActor.GetAllVoiceActors)
+	r.With(requirePermission(auth.TaxonomyDelete)).Delete("/api/voice-actors/{id}", h.voiceActor.DeleteVoiceActor)
 }
 
 // mountArchiveDetailRoutes registers the single-archive routes and their

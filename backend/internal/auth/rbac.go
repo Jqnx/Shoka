@@ -20,6 +20,7 @@ const (
 // Resources.
 const (
 	ResourceArchive     = "archive"
+	ResourceAudio       = "audio"
 	ResourceMetadata    = "metadata"
 	ResourceTaxonomy    = "taxonomy"
 	ResourceLibrary     = "library"
@@ -63,6 +64,8 @@ var (
 	ArchiveDelete    = Permission{ResourceArchive, ActionDelete}
 	ArchiveCover     = Permission{ResourceArchive, ActionCover}
 	ArchiveThumbnail = Permission{ResourceArchive, ActionThumbnail}
+
+	AudioUpdate = Permission{ResourceAudio, ActionUpdate}
 
 	MetadataFetch = Permission{ResourceMetadata, ActionFetch}
 	MetadataApply = Permission{ResourceMetadata, ActionApply}
@@ -109,6 +112,7 @@ var allPermissions = []Permission{
 	ArchiveDelete,
 	ArchiveCover,
 	ArchiveThumbnail,
+	AudioUpdate,
 	MetadataFetch,
 	MetadataApply,
 	MetadataWrite,

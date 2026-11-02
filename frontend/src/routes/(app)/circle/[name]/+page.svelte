@@ -1,23 +1,25 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { firstArchiveLibrary } from '$lib/types';
 	import { goto, afterNavigate } from '$app/navigation';
 
 	afterNavigate((nav) => {
 		if (nav.type === 'goto') window.scrollTo({ top: 0, behavior: 'smooth' });
 	});
 	import * as Pagination from '$lib/components/ui/pagination';
+	import { Separator } from '$lib/components/ui/separator';
 	import { Badge } from '$lib/components/ui/badge';
 	import { ChevronLeft, UserGroup } from '@lucide/svelte';
 	import ArchiveCard from '$lib/components/ArchiveCard.svelte';
+	import AudioSection from '$lib/components/AudioSection.svelte';
 
 	let { data } = $props();
 
 	// The tag/character/parody/circle-by-name endpoints aren't library-scoped,
-	// so there's no library context here; default to the first one, same as
-	// the rest of the app until there's a "current library" concept.
-	const archivesHref = $derived(
-		(data.libraries[0] ? `/${data.libraries[0].id}` : '/') as `/${string}`
-	);
+	// so there's no library context here; fall back to the first doujinshi
+	// library rather than possibly an audio one.
+	const archiveLibrary = $derived(firstArchiveLibrary(data.libraries));
+	const archivesHref = $derived((archiveLibrary ? `/${archiveLibrary.id}` : '/') as `/${string}`);
 </script>
 
 <svelte:head>
@@ -96,4 +98,11 @@
 			</Pagination.Root>
 		</div>
 	{/if}
+	<Separator class="my-8" />
+
+	<AudioSection
+		works={data.audio}
+		total={data.audioTotal}
+		href={`/audio?circle=${encodeURIComponent(data.name)}`}
+	/>
 </div>

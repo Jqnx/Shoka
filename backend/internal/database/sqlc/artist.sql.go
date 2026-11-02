@@ -1486,6 +1486,7 @@ const recomputeArtistCount = `-- name: RecomputeArtistCount :exec
 
 update artist
 set count = (select count(*) from archive_artist where artist_id = cast(?1 as integer))
+          + (select count(*) from audio_artist where artist_id = cast(?1 as integer))
 where id = cast(?1 as integer)
 `
 

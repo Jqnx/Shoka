@@ -115,6 +115,76 @@ type ArtistUrl struct {
 	Url      string `json:"url"`
 }
 
+type Audio struct {
+	ID              string     `json:"id"`
+	LibraryID       string     `json:"library_id"`
+	Title           string     `json:"title"`
+	FolderPath      string     `json:"folder_path"`
+	ModTime         time.Time  `json:"mod_time"`
+	DurationSeconds int64      `json:"duration_seconds"`
+	ReleaseDate     *time.Time `json:"release_date"`
+	Language        *string    `json:"language"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
+}
+
+type AudioArtist struct {
+	AudioID  string `json:"audio_id"`
+	ArtistID int64  `json:"artist_id"`
+}
+
+type AudioCircle struct {
+	AudioID  string `json:"audio_id"`
+	CircleID int64  `json:"circle_id"`
+}
+
+type AudioFavorite struct {
+	AudioID     string    `json:"audio_id"`
+	UserID      string    `json:"user_id"`
+	FavoritedAt time.Time `json:"favorited_at"`
+}
+
+type AudioFile struct {
+	ID              int64  `json:"id"`
+	AudioID         string `json:"audio_id"`
+	RelativePath    string `json:"relative_path"`
+	DurationSeconds int64  `json:"duration_seconds"`
+	SortOrder       int64  `json:"sort_order"`
+}
+
+type AudioFt struct {
+	AudioID     string `json:"audio_id"`
+	Title       string `json:"title"`
+	Artists     string `json:"artists"`
+	Tags        string `json:"tags"`
+	Circles     string `json:"circles"`
+	VoiceActors string `json:"voice_actors"`
+}
+
+type AudioImage struct {
+	ID           int64  `json:"id"`
+	AudioID      string `json:"audio_id"`
+	RelativePath string `json:"relative_path"`
+	SortOrder    int64  `json:"sort_order"`
+}
+
+type AudioRating struct {
+	AudioID string    `json:"audio_id"`
+	UserID  string    `json:"user_id"`
+	Rating  int64     `json:"rating"`
+	RatedAt time.Time `json:"rated_at"`
+}
+
+type AudioTag struct {
+	AudioID string `json:"audio_id"`
+	TagID   int64  `json:"tag_id"`
+}
+
+type AudioVoiceActor struct {
+	AudioID      string `json:"audio_id"`
+	VoiceActorID int64  `json:"voice_actor_id"`
+}
+
 type Character struct {
 	ID    int64  `json:"id"`
 	Name  string `json:"name"`
@@ -219,4 +289,10 @@ type Tag struct {
 	Name        string  `json:"name"`
 	Description *string `json:"description"`
 	Count       int64   `json:"count"`
+}
+
+type VoiceActor struct {
+	ID    int64  `json:"id"`
+	Name  string `json:"name"`
+	Count int64  `json:"count"`
 }

@@ -11,6 +11,7 @@ import { defaultStatements } from 'better-auth/plugins/admin/access';
 export const statement = {
 	...defaultStatements,
 	archive: ['update', 'delete', 'cover', 'thumbnail'],
+	audio: ['update'],
 	metadata: ['fetch', 'apply', 'write'],
 	taxonomy: ['create', 'update', 'delete'],
 	library: ['read', 'create', 'update', 'delete', 'scan'],

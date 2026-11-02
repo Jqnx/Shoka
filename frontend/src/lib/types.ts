@@ -224,6 +224,68 @@ export type ArtistListResponse = {
 // GET /api/search - one name match from a metadata entity category
 // (artists, tags, parodies, circles, characters). Unlike the archive
 // category, these are global entities (not scoped to a library).
+// GET /api/audio/{id} - one audio work with its ordered tracks and images.
+// The list endpoint omits the four array fields (see AudioListItem).
+export type AudioTrack = {
+	index: number;
+	name: string;
+	duration_seconds: number;
+};
+
+export type AudioImage = {
+	index: number;
+	name: string;
+};
+
+export type Audio = {
+	id: string;
+	title: string;
+	library_id: string;
+	duration_seconds: number;
+	release_date: string | null;
+	language: string | null;
+	circle: string | null;
+	artists: string[];
+	tags: string[];
+	voice_actors: string[];
+	tracks: AudioTrack[];
+	images: AudioImage[];
+	cover_ready: boolean;
+	is_favorited: boolean;
+	rating: number | null;
+	updated_at: string;
+};
+
+// GET /api/audio list rows: the same scalars, without the per-work arrays.
+export type AudioListItem = Omit<Audio, 'artists' | 'tags' | 'voice_actors' | 'tracks' | 'images'>;
+
+export type AudioListResponse = {
+	items: AudioListItem[];
+	total: number;
+	page: number;
+	limit: number;
+};
+
+export type VoiceActor = {
+	id: number;
+	name: string;
+	count: number;
+};
+
+export type VoiceActorListResponse = {
+	items: VoiceActor[];
+	total: number;
+	page: number;
+	limit: number;
+};
+
+// Cover URL carries updated_at so the long-lived immutable cache busts when a
+// rescan changes the work's first image. The backend always serves the first
+// image, so there is no index in the URL.
+export function audioCoverSrc(audio: { id: string; updated_at: string }): string {
+	return `/api/audio/${audio.id}/cover?v=${encodeURIComponent(audio.updated_at)}`;
+}
+
 export type SearchEntityResult = {
 	id: number;
 	name: string;
@@ -265,6 +327,13 @@ export type Library = {
 	created_at: string;
 	updated_at: string;
 };
+
+// The first library that isn't an audio library. Archive-only screens (home
+// carousels, archive back links, global search) need a doujinshi library;
+// once audio libraries exist, libraries[0] may well be one of them.
+export function firstArchiveLibrary(libraries: Library[]): Library | undefined {
+	return libraries.find((library) => library.type !== 'audio');
+}
 
 export type LibrarySource = {
 	source: string;

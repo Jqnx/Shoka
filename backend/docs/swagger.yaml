@@ -135,6 +135,105 @@ definitions:
           type: string
         type: array
     type: object
+  handlers.AudioImageResponse:
+    properties:
+      index:
+        type: integer
+      name:
+        type: string
+    type: object
+  handlers.AudioListItem:
+    properties:
+      circle:
+        type: string
+      cover_ready:
+        type: boolean
+      duration_seconds:
+        type: integer
+      id:
+        type: string
+      is_favorited:
+        type: boolean
+      language:
+        type: string
+      library_id:
+        type: string
+      rating:
+        type: integer
+      release_date:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  handlers.AudioListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/handlers.AudioListItem'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
+  handlers.AudioResponse:
+    properties:
+      artists:
+        items:
+          type: string
+        type: array
+      circle:
+        type: string
+      cover_ready:
+        type: boolean
+      duration_seconds:
+        type: integer
+      id:
+        type: string
+      images:
+        items:
+          $ref: '#/definitions/handlers.AudioImageResponse'
+        type: array
+      is_favorited:
+        type: boolean
+      language:
+        type: string
+      library_id:
+        type: string
+      rating:
+        type: integer
+      release_date:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      tracks:
+        items:
+          $ref: '#/definitions/handlers.AudioTrackResponse'
+        type: array
+      updated_at:
+        type: string
+      voice_actors:
+        items:
+          type: string
+        type: array
+    type: object
+  handlers.AudioTrackResponse:
+    properties:
+      duration_seconds:
+        type: integer
+      index:
+        type: integer
+      name:
+        type: string
+    type: object
   handlers.BulkFailure:
     properties:
       error:
@@ -701,6 +800,30 @@ definitions:
           type: string
         type: array
     type: object
+  handlers.UpdateAudioRequest:
+    properties:
+      artists:
+        items:
+          type: string
+        type: array
+      circle:
+        type: string
+      language:
+        type: string
+      release_date:
+        description: '"YYYY-MM-DD" or null'
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      voice_actors:
+        items:
+          type: string
+        type: array
+    type: object
   handlers.UpdateLibraryRequest:
     properties:
       name:
@@ -759,6 +882,28 @@ definitions:
   handlers.UpdateTagDescriptionRequest:
     properties:
       description:
+        type: string
+    type: object
+  handlers.VoiceActorListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/handlers.VoiceActorResponse'
+        type: array
+      limit:
+        type: integer
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
+  handlers.VoiceActorResponse:
+    properties:
+      count:
+        type: integer
+      id:
+        type: integer
+      name:
         type: string
     type: object
   handlers.libraryAccessRequest:
@@ -2945,6 +3090,317 @@ paths:
       summary: List every artist
       tags:
       - artists
+  /api/audio:
+    get:
+      parameters:
+      - description: Only this audio library
+        in: query
+        name: library_id
+        type: string
+      - description: Title/artist/tag/circle/voice actor search (3+ characters)
+        in: query
+        name: q
+        type: string
+      - description: Only works the current user has favorited
+        in: query
+        name: favorites
+        type: boolean
+      - description: Only works the current user rated this many stars (1-5)
+        in: query
+        name: rating
+        type: integer
+      - description: Filter by tag name (repeatable)
+        in: query
+        name: tag
+        type: string
+      - description: Filter by artist name (repeatable)
+        in: query
+        name: artist
+        type: string
+      - description: Filter by circle name (repeatable)
+        in: query
+        name: circle
+        type: string
+      - description: Filter by voice actor name (repeatable)
+        in: query
+        name: voice_actor
+        type: string
+      - default: 1
+        description: Page number (1-based)
+        in: query
+        name: page
+        type: integer
+      - default: 50
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.AudioListResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List audio works with pagination
+      tags:
+      - audio
+  /api/audio/{id}:
+    get:
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.AudioResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Get a single audio work
+      tags:
+      - audio
+    patch:
+      consumes:
+      - application/json
+      description: 'Full replacement of the scalar metadata and every relation. This
+        is a manual edit: there is no remote metadata source for audio.'
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to set
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.UpdateAudioRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.AudioResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Update an audio work's metadata
+      tags:
+      - audio
+  /api/audio/{id}/cover:
+    get:
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - image/webp
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Get an audio work's cover image
+      tags:
+      - audio
+  /api/audio/{id}/favorite:
+    delete:
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Unfavorite an audio work
+      tags:
+      - audio
+    put:
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Favorite an audio work
+      tags:
+      - audio
+  /api/audio/{id}/images/{index}:
+    get:
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 0-based image index
+        in: path
+        name: index
+        required: true
+        type: integer
+      produces:
+      - image/*
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Get one image of an audio work
+      tags:
+      - audio
+  /api/audio/{id}/rating:
+    delete:
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Clear an audio work's rating
+      tags:
+      - audio
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Rating (1-5)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.SetRatingRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Rate an audio work
+      tags:
+      - audio
+  /api/audio/{id}/tracks/{index}:
+    get:
+      description: Supports HTTP Range requests, so the browser can seek.
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 0-based track index
+        in: path
+        name: index
+        required: true
+        type: integer
+      produces:
+      - audio/*
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "206":
+          description: Partial Content
+          schema:
+            type: file
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Get one audio file of a work
+      tags:
+      - audio
   /api/characters:
     get:
       parameters:
@@ -3596,6 +4052,79 @@ paths:
       summary: Test
       tags:
       - test
+  /api/voice-actors:
+    get:
+      parameters:
+      - default: 1
+        description: Page number (1-based)
+        in: query
+        name: page
+        type: integer
+      - default: 50
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.VoiceActorListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List voice actors with pagination
+      tags:
+      - voice-actors
+  /api/voice-actors/{id}:
+    delete:
+      description: Removes the voice actor. Its audio links cascade away; the works
+        themselves remain.
+      parameters:
+      - description: Voice actor ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Delete a voice actor
+      tags:
+      - voice-actors
+  /api/voice-actors/all:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/handlers.VoiceActorResponse'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List every voice actor
+      tags:
+      - voice-actors
 securityDefinitions:
   BearerAuth:
     in: header

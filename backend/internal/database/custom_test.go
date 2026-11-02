@@ -115,6 +115,49 @@ CREATE TABLE archive_character (
     FOREIGN KEY (archive_id) REFERENCES archive (id) ON DELETE CASCADE,
     FOREIGN KEY (character_id) REFERENCES character (id) ON DELETE CASCADE
 );
+
+CREATE TABLE audio (
+    id TEXT PRIMARY KEY NOT NULL,
+    library_id TEXT NOT NULL REFERENCES library (id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    folder_path TEXT UNIQUE NOT NULL,
+    mod_time DATETIME NOT NULL,
+    duration_seconds INTEGER NOT NULL DEFAULT 0,
+    release_date DATETIME,
+    language TEXT,
+    created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+    updated_at DATETIME NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE voice_actor (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    count INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE audio_artist (
+    audio_id TEXT NOT NULL REFERENCES audio (id) ON DELETE CASCADE,
+    artist_id INTEGER NOT NULL REFERENCES artist (id) ON DELETE CASCADE,
+    PRIMARY KEY (audio_id, artist_id)
+);
+
+CREATE TABLE audio_tag (
+    audio_id TEXT NOT NULL REFERENCES audio (id) ON DELETE CASCADE,
+    tag_id INTEGER NOT NULL REFERENCES tag (id) ON DELETE CASCADE,
+    PRIMARY KEY (audio_id, tag_id)
+);
+
+CREATE TABLE audio_circle (
+    audio_id TEXT NOT NULL REFERENCES audio (id) ON DELETE CASCADE,
+    circle_id INTEGER NOT NULL REFERENCES circle (id) ON DELETE CASCADE,
+    PRIMARY KEY (audio_id, circle_id)
+);
+
+CREATE TABLE audio_voice_actor (
+    audio_id TEXT NOT NULL REFERENCES audio (id) ON DELETE CASCADE,
+    voice_actor_id INTEGER NOT NULL REFERENCES voice_actor (id) ON DELETE CASCADE,
+    PRIMARY KEY (audio_id, voice_actor_id)
+);
 `
 
 // The fixture stores counts equal to the true number of links: artist three
@@ -433,7 +476,7 @@ func TestDeleteLibraryClearsRelationCounts(t *testing.T) {
 	}
 
 	runCountsCases(t, cases, func(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) error {
-		_, err := DeleteLibrary(ctx, q, db, id)
+		_, _, err := DeleteLibrary(ctx, q, db, id)
 		return err
 	})
 }
@@ -448,7 +491,7 @@ func TestDeleteLibraryReturnsDeletedArchiveIDs(t *testing.T) {
 	q := sqlc.New(db)
 	ctx := t.Context()
 
-	ids, err := DeleteLibrary(ctx, q, db, libraryOne)
+	ids, _, err := DeleteLibrary(ctx, q, db, libraryOne)
 	if err != nil {
 		t.Fatalf("DeleteLibrary(%q): %v", libraryOne, err)
 	}
@@ -461,7 +504,7 @@ func TestDeleteLibraryReturnsDeletedArchiveIDs(t *testing.T) {
 		t.Errorf("returned ids = %v, want %v", ids, want)
 	}
 
-	ids, err = DeleteLibrary(ctx, q, db, neverExists)
+	ids, _, err = DeleteLibrary(ctx, q, db, neverExists)
 	if err != nil {
 		t.Fatalf("DeleteLibrary(missing): %v", err)
 	}

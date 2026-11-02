@@ -14,6 +14,19 @@ func (p *Processor) ThumbDir(archiveID string) string {
 	return filepath.Join(p.cacheDir, archiveID, "thumbs")
 }
 
+// AudioCacheKey is the cache directory key for an audio work. Thumbnail
+// helpers are keyed by string, so audio works reuse them under their own
+// namespace instead of colliding with an archive id.
+func AudioCacheKey(audioID string) string {
+	return "audio-" + audioID
+}
+
+// AudioCoverPath returns the path to an audio work's cover thumbnail, or ""
+// when it has not been generated yet.
+func (p *Processor) AudioCoverPath(audioID string) string {
+	return p.ThumbPath(AudioCacheKey(audioID), 0)
+}
+
 func (p *Processor) thumbPath(archiveID string, index int) string {
 	return filepath.Join(p.ThumbDir(archiveID), fmt.Sprintf("%03d.webp", index+1))
 }

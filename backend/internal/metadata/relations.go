@@ -254,11 +254,12 @@ var (
 	)
 )
 
-// applyRelation reconciles one archive relation to the desired set: it upserts
-// the names, resolves them to IDs, diffs against the archive's current links,
-// then links/unlinks and adjusts the relation's counter table. Behaviour is
-// identical for every relation; each supplies its sqlc calls via rel.
-func applyRelation(ctx context.Context, q *sqlc.Queries, archiveID string, names []string, rel relationSpec) error {
+// applyRelation reconciles one relation of an owner (an archive or an audio
+// work) to the desired set: it upserts the names, resolves them to IDs, diffs
+// against the owner's current links, then links/unlinks and adjusts the
+// relation's counter table. Behaviour is identical for every relation; each
+// supplies its sqlc calls via rel.
+func applyRelation(ctx context.Context, q *sqlc.Queries, ownerID string, names []string, rel relationSpec) error {
 	namesJSON, _ := json.Marshal(names)
 
 	if err := rel.upsert(ctx, q, namesJSON); err != nil {
@@ -270,7 +271,7 @@ func applyRelation(ctx context.Context, q *sqlc.Queries, archiveID string, names
 		return fmt.Errorf("get %s: %w", rel.name, err)
 	}
 
-	currentIDs, err := rel.currentIDs(ctx, q, archiveID)
+	currentIDs, err := rel.currentIDs(ctx, q, ownerID)
 	if err != nil {
 		return fmt.Errorf("get current %s: %w", rel.name, err)
 	}
@@ -279,14 +280,14 @@ func applyRelation(ctx context.Context, q *sqlc.Queries, archiveID string, names
 
 	if len(toAdd) > 0 {
 		toAddJSON, _ := json.Marshal(toAdd)
-		if err := rel.link(ctx, q, archiveID, toAddJSON); err != nil {
+		if err := rel.link(ctx, q, ownerID, toAddJSON); err != nil {
 			return fmt.Errorf("link %s: %w", rel.name, err)
 		}
 	}
 
 	if len(toRemove) > 0 {
 		toRemoveJSON, _ := json.Marshal(toRemove)
-		if err := rel.unlink(ctx, q, archiveID, toRemoveJSON); err != nil {
+		if err := rel.unlink(ctx, q, ownerID, toRemoveJSON); err != nil {
 			return fmt.Errorf("unlink %s: %w", rel.name, err)
 		}
 	}
@@ -306,18 +307,24 @@ func applyRelation(ctx context.Context, q *sqlc.Queries, archiveID string, names
 	return nil
 }
 
-// linkArchiveArtistsToCircles records every (artist, circle) pair the
-// archive currently has in artist_circle. Insert-only: a pair is never
-// removed here, because another archive may still justify it.
-func linkArchiveArtistsToCircles(ctx context.Context, q *sqlc.Queries, archiveID string) error {
-	artists, err := q.GetArchiveArtistIDs(ctx, archiveID)
+// linkArtistsToCircles records every (artist, circle) pair an owner currently
+// has in artist_circle. Insert-only: a pair is never removed here, because
+// another work may still justify it. artistIDs/circleIDs are the owner's own
+// relation queries.
+func linkArtistsToCircles(
+	ctx context.Context,
+	q *sqlc.Queries,
+	ownerID, label string,
+	artistIDs, circleIDs func(context.Context, string) ([]int64, error),
+) error {
+	artists, err := artistIDs(ctx, ownerID)
 	if err != nil {
-		return fmt.Errorf("get archive artists: %w", err)
+		return fmt.Errorf("get %s artists: %w", label, err)
 	}
 
-	circles, err := q.GetArchiveCircleIDs(ctx, archiveID)
+	circles, err := circleIDs(ctx, ownerID)
 	if err != nil {
-		return fmt.Errorf("get archive circles: %w", err)
+		return fmt.Errorf("get %s circles: %w", label, err)
 	}
 
 	if len(artists) == 0 || len(circles) == 0 {
@@ -335,6 +342,13 @@ func linkArchiveArtistsToCircles(ctx context.Context, q *sqlc.Queries, archiveID
 	}
 
 	return nil
+}
+
+// linkArchiveArtistsToCircles records the archive's current artist×circle
+// pairs in artist_circle.
+func linkArchiveArtistsToCircles(ctx context.Context, q *sqlc.Queries, archiveID string) error {
+	return linkArtistsToCircles(ctx, q, archiveID, "archive",
+		q.GetArchiveArtistIDs, q.GetArchiveCircleIDs)
 }
 
 // ClearRelationCounts subtracts the archive's contribution from every relation

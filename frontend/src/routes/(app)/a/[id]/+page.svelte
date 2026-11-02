@@ -34,6 +34,7 @@
 		ImageMinus
 	} from '@lucide/svelte';
 	import { can } from '$lib/auth/permissions';
+	import { firstArchiveLibrary } from '$lib/types';
 
 	let { data, form } = $props();
 	const a = $derived(data.archive);
@@ -82,10 +83,11 @@
 	// Same resolved id used for both the back-link label and, further down,
 	// which library's metadata source settings the edit sheet's fetch dialog
 	// should respect (see MetadataFetchDialog's disabled-source picker).
-	const libraryId = $derived(fromLibraryId ?? data.libraries[0]?.id ?? '');
+	const libraryId = $derived(fromLibraryId ?? firstArchiveLibrary(data.libraries)?.id ?? '');
 
 	const archivesHref = $derived(
-		fromParam ?? (data.libraries[0] ? `/${data.libraries[0].id}` : '/')
+		fromParam ??
+			(firstArchiveLibrary(data.libraries) ? `/${firstArchiveLibrary(data.libraries)!.id}` : '/')
 	);
 	const archivesLabel = $derived(
 		data.libraries.find((l) => l.id === libraryId)?.name ?? 'Archives'

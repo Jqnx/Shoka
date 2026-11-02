@@ -87,13 +87,18 @@ func UserExists(ctx context.Context, db *sql.DB, id string) (bool, error) {
 	return true, nil
 }
 
-// DeleteArchive removes an archive and, inside the same transaction, subtracts
-// its contribution from every taxonomy counter. It is the way archives are
-// deleted: the generated sqlc.Queries.DeleteArchive stays the single-row
-// building block it always was, minus the counter maintenance this wraps
-// around it. The counters must be read before the delete: the archive_* join
-// rows cascade away with the archive row.
-func DeleteArchive(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) error {
+// deleteWithCounts removes one owner row and, inside the same transaction,
+// subtracts its contribution from every taxonomy counter. The counters must
+// be read before the delete: the join rows cascade away with the owner row.
+// clearCounts and remove are the owner-specific counter and delete calls.
+func deleteWithCounts(
+	ctx context.Context,
+	q *sqlc.Queries,
+	db *sql.DB,
+	id string,
+	clearCounts func(context.Context, *sqlc.Queries, string) error,
+	remove func(context.Context, *sqlc.Queries, string) error,
+) error {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
@@ -102,11 +107,11 @@ func DeleteArchive(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) 
 
 	qtx := q.WithTx(tx)
 
-	if err := metadata.ClearRelationCounts(ctx, qtx, id); err != nil {
+	if err := clearCounts(ctx, qtx, id); err != nil {
 		return err
 	}
 
-	if err := qtx.DeleteArchive(ctx, id); err != nil {
+	if err := remove(ctx, qtx, id); err != nil {
 		return err
 	}
 
@@ -117,41 +122,75 @@ func DeleteArchive(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) 
 	return nil
 }
 
+// DeleteArchive removes an archive and, inside the same transaction, subtracts
+// its contribution from every taxonomy counter. It is the way archives are
+// deleted: the generated sqlc.Queries.DeleteArchive stays the single-row
+// building block it always was, minus the counter maintenance this wraps
+// around it.
+func DeleteArchive(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) error {
+	return deleteWithCounts(ctx, q, db, id, metadata.ClearRelationCounts,
+		func(ctx context.Context, q *sqlc.Queries, id string) error {
+			return q.DeleteArchive(ctx, id)
+		})
+}
+
+// DeleteAudio removes an audio work and, inside the same transaction,
+// subtracts its contribution from every taxonomy counter. Same ordering rule
+// as DeleteArchive: the audio_* join rows cascade away with the work, so the
+// counters must be read first.
+func DeleteAudio(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) error {
+	return deleteWithCounts(ctx, q, db, id, metadata.ClearAudioRelationCounts,
+		func(ctx context.Context, q *sqlc.Queries, id string) error {
+			return q.DeleteAudio(ctx, id)
+		})
+}
+
 // DeleteLibrary removes a library and, inside the same transaction, subtracts
-// each of its archives' contribution from every taxonomy counter. The
-// archives themselves go with the library (archive.library_id cascades), so
+// each of its archives' and audio works' contribution from every taxonomy
+// counter. The rows themselves go with the library (library_id cascades), so
 // their counters have to be read before that delete, exactly as in
-// DeleteArchive. Returns the ids of the archives that went with the library,
-// so callers can evict their caches after the commit.
-func DeleteLibrary(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) ([]string, error) {
+// DeleteArchive. Returns the ids that went with the library, so callers can
+// evict their caches after the commit.
+func DeleteLibrary(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) (archiveIDs, audioIDs []string, err error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("begin transaction: %w", err)
+		return nil, nil, fmt.Errorf("begin transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }() // no-op once committed
 
 	qtx := q.WithTx(tx)
 
-	archiveIDs, err := qtx.ListArchiveIDsByLibrary(ctx, id)
+	archiveIDs, err = qtx.ListArchiveIDsByLibrary(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("list archives of library %s: %w", id, err)
+		return nil, nil, fmt.Errorf("list archives of library %s: %w", id, err)
 	}
 
 	for _, archiveID := range archiveIDs {
 		if err := metadata.ClearRelationCounts(ctx, qtx, archiveID); err != nil {
-			return nil, fmt.Errorf("clear counts of archive %s: %w", archiveID, err)
+			return nil, nil, fmt.Errorf("clear counts of archive %s: %w", archiveID, err)
+		}
+	}
+
+	audioIDs, err = qtx.ListAudioIDsByLibrary(ctx, id)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list audio of library %s: %w", id, err)
+	}
+
+	for _, audioID := range audioIDs {
+		if err := metadata.ClearAudioRelationCounts(ctx, qtx, audioID); err != nil {
+			return nil, nil, fmt.Errorf("clear counts of audio %s: %w", audioID, err)
 		}
 	}
 
 	if err := qtx.DeleteLibrary(ctx, id); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("commit transaction: %w", err)
+		return nil, nil, fmt.Errorf("commit transaction: %w", err)
 	}
 
-	return archiveIDs, nil
+	return archiveIDs, audioIDs, nil
 }
 
 // GetArchiveMetadata loads an archive and its complete metadata: the

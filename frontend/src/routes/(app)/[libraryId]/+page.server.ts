@@ -1,4 +1,4 @@
-import { error, fail } from '@sveltejs/kit';
+import { error, fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { errorMessage } from '$lib/server/api';
 import { guard } from '$lib/server/guard';
@@ -21,6 +21,9 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 	const { libraries } = await parent();
 	const library = libraries.find((l) => l.id === params.libraryId);
 	if (!library) error(404, 'Library not found');
+	// Audio libraries have their own list/detail pages; this route is
+	// archive-only. Direct links land on the audio list scoped to it.
+	if (library.type === 'audio') redirect(302, '/audio?library_id=' + library.id);
 
 	const page = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'));
 	const limit = Math.min(

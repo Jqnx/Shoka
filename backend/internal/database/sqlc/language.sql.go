@@ -14,10 +14,14 @@ import (
 
 const getAllLanguage = `-- name: GetAllLanguage :many
 select distinct language
-from archive
+from (
+    select language, library_id from archive
+    union all
+    select language, library_id from audio
+)
 where language is not null
   and (?1 = 1
-       or archive.library_id in (select library_id from library_access where user_id = ?2))
+       or library_id in (select library_id from library_access where user_id = ?2))
 order by language
 `
 

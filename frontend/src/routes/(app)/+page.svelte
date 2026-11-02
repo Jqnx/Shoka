@@ -4,6 +4,7 @@
 	import ArchiveCard from '$lib/components/ArchiveCard.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { can } from '$lib/auth/permissions';
+	import { firstArchiveLibrary } from '$lib/types';
 	import { Clock, BookPlus, CalendarDays } from '@lucide/svelte';
 
 	let { data } = $props();
@@ -12,10 +13,10 @@
 	const recentlyAdded = $derived(data.recentlyAdded);
 	const recentlyReleased = $derived(data.recentlyReleased);
 
-	// Same "default to the first library" fallback as the carousels' own data.
-	const archivesHref = $derived(
-		(data.libraries[0] ? `/${data.libraries[0].id}` : '/') as `/${string}`
-	);
+	// Same "default to the first doujinshi library" fallback as the carousels'
+	// own data.
+	const archiveLibrary = $derived(firstArchiveLibrary(data.libraries));
+	const archivesHref = $derived((archiveLibrary ? `/${archiveLibrary.id}` : '/') as `/${string}`);
 
 	const carouselOpts = { align: 'start' as const, dragFree: true, loop: true };
 </script>

@@ -4,13 +4,16 @@
 	import { page } from '$app/state';
 	import { Search, Loader2 } from '@lucide/svelte';
 	import ArchiveCover from '$lib/components/ArchiveCover.svelte';
+	import { firstArchiveLibrary } from '$lib/types';
 	import type { Library, SearchEntityResult, SearchResponse } from '$lib/types';
 
 	let { libraries }: { libraries: Library[] } = $props();
 
 	// Results are scoped to a single library (the backend has no cross-library
-	// search) - use whichever one is being browsed, else the first.
-	const libraryId = $derived(page.params.libraryId ?? libraries[0]?.id ?? '');
+	// search) - use whichever one is being browsed, else the first doujinshi
+	// one. An audio-only install yields '', which skips the request entirely
+	// (the archive search endpoint requires a doujinshi library id).
+	const libraryId = $derived(page.params.libraryId ?? firstArchiveLibrary(libraries)?.id ?? '');
 	const targetPath = $derived(libraryId ? `/${libraryId}` : '/');
 
 	const DEBOUNCE_MS = 300;

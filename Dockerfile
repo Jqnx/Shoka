@@ -91,6 +91,7 @@ FROM node-base AS runtime
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       ca-certificates \
+      ffmpeg \
       gosu \
       libvips42t64 \
       tini \

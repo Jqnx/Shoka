@@ -868,6 +868,7 @@ func (h *ArtistHandler) moveArtistData(ctx context.Context, w http.ResponseWrite
 		run  func() error
 	}{
 		{"repoint archive links", func() error { return q.RepointArtistArchiveLinks(ctx, params) }},
+		{"repoint audio links", func() error { return q.RepointAudioArtistLinks(ctx, sqlc.RepointAudioArtistLinksParams(params)) }},
 		{"move urls", func() error { return q.MoveArtistUrls(ctx, sqlc.MoveArtistUrlsParams(params)) }},
 		{"copy circles", func() error { return q.CopyArtistCircles(ctx, sqlc.CopyArtistCirclesParams(params)) }},
 		{"copy favorites", func() error { return q.CopyArtistFavorites(ctx, sqlc.CopyArtistFavoritesParams(params)) }},

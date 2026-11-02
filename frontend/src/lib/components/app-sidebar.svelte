@@ -4,10 +4,12 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import {
+		AudioLines,
 		BookOpen,
 		Drama,
 		House,
 		Library,
+		Mic,
 		Paintbrush,
 		Settings,
 		Tags,
@@ -28,7 +30,10 @@
 		libraries: LibraryType[];
 	} = $props();
 
-	const generalLinks = [{ path: '/', label: 'Home', icon: House }];
+	const generalLinks = [
+		{ path: '/', label: 'Home', icon: House },
+		{ path: '/audio', label: 'Audio', icon: AudioLines }
+	];
 
 	const adminLinks = $derived(
 		canAccessAdmin(user) ? [{ path: '/admin', label: 'Admin', icon: Settings }] : []
@@ -39,7 +44,8 @@
 		{ path: '/tag', label: 'Tags', icon: Tags },
 		{ path: '/character', label: 'Characters', icon: Users },
 		{ path: '/parody', label: 'Parodies', icon: Drama },
-		{ path: '/circle', label: 'Circles', icon: UserGroup }
+		{ path: '/circle', label: 'Circles', icon: UserGroup },
+		{ path: '/voice-actor', label: 'Voice actors', icon: Mic }
 	];
 </script>
 
@@ -95,11 +101,23 @@
 			{:else}
 				<Sidebar.Menu>
 					{#each libraries as library (library.id)}
-						{@const isActive = page.url.pathname === `/${library.id}`}
+						{@const isAudio = library.type === 'audio'}
+						{@const isActive = isAudio
+							? page.url.pathname === '/audio' &&
+								page.url.searchParams.get('library_id') === library.id
+							: page.url.pathname === `/${library.id}`}
 						<Sidebar.MenuItem>
 							<Sidebar.MenuButton {isActive}>
 								{#snippet child({ props })}
-									<a href={resolve(`/${library.id}`)} data-sveltekit-preload-data="tap" {...props}>
+									<a
+										href={resolve(
+											(isAudio
+												? `/audio?library_id=${library.id}`
+												: `/${library.id}`) as `/${string}`
+										)}
+										data-sveltekit-preload-data="tap"
+										{...props}
+									>
 										<Library />
 										<span>{library.name}</span>
 									</a>

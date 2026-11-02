@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { firstArchiveLibrary } from '$lib/types';
 	import { goto, afterNavigate } from '$app/navigation';
 
 	afterNavigate((nav) => {
@@ -11,11 +12,12 @@
 
 	let { data } = $props();
 
-	// The tag/character/parody-by-name endpoints aren't library-scoped, so
-	// there's no library context here; default to the first one, same as
-	// the rest of the app until there's a "current library" concept.
+	// The tag/character/parody/circle-by-name endpoints aren't library-scoped,
+	// so there's no library context here; fall back to the first doujinshi
+	// library rather than possibly an audio one.
+	const archiveLibrary = $derived(firstArchiveLibrary(data.libraries));
 	const archivesHref = $derived(
-		(data.libraries[0] ? `/${data.libraries[0].id}` : '/') as `/${string}`
+		(archiveLibrary ? `/${archiveLibrary.id}` : '/') as `/${string}`
 	);
 </script>
 

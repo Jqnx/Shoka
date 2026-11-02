@@ -911,21 +911,10 @@ func (h *ArchiveHandler) mutateScopedArchive(
 	logMsg, failMsg string,
 	mutate func(id, userID string) error,
 ) {
-	id := chi.URLParam(r, "id")
-	userID := auth.UserIDFromContext(r.Context())
-
-	if _, ok := h.loadScopedArchive(w, r, id); !ok {
-		return
-	}
-
-	if err := mutate(id, userID); err != nil {
-		h.logger.Error(logMsg, "id", id, "error", err)
-		response.InternalError(w, failMsg)
-
-		return
-	}
-
-	response.NoContent(w)
+	mutateScoped(w, r, h.logger, logMsg, failMsg, func(id string) bool {
+		_, ok := h.loadScopedArchive(w, r, id)
+		return ok
+	}, mutate)
 }
 
 // DeleteProgress godoc

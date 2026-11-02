@@ -60,11 +60,10 @@ func NewManager(cfg *config.Config, queries *sqlc.Queries, db *sql.DB, queue Job
 		cancels: make(map[string]context.CancelFunc),
 	}
 
-	// Registry of Scanner implementations by library type. "audio" has no
-	// implementation yet — libraries of that type are accepted by the
-	// schema but rejected at the admin API layer until that scanner exists.
+	// Registry of Scanner implementations by library type.
 	m.scanners = map[string]Scanner{
 		"doujinshi": NewArchiveScanner(cfg, queries, db, queue, logger),
+		"audio":     NewAudioScanner(cfg, queries, db, queue, logger),
 	}
 
 	return m
