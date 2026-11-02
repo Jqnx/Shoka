@@ -24,9 +24,7 @@
 	let hoveredStar = $state<number | null>(null);
 	let previewIndex = $state<number | null>(null);
 
-	const backHref = $derived(
-		`/audio?library_id=${encodeURIComponent(a.library_id)}` as `/${string}`
-	);
+	const backHref = $derived(`/${a.library_id}` as `/${string}`);
 	const languageName = $derived(
 		a.language ? (data.languages.find((l) => l.code === a.language)?.name ?? a.language) : null
 	);
@@ -59,7 +57,7 @@
 		class="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
 	>
 		<ChevronLeft class="size-4" />
-		Audio
+		Library
 	</a>
 
 	<div class="flex flex-col gap-8 md:flex-row">

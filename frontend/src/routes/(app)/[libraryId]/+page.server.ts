@@ -1,4 +1,4 @@
-import { error, fail, redirect } from '@sveltejs/kit';
+import { error, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { errorMessage } from '$lib/server/api';
 import { guard } from '$lib/server/guard';
@@ -6,12 +6,14 @@ import type {
 	Artist,
 	ArchiveLanguage,
 	ArchiveListResponse,
+	AudioListResponse,
 	ArchiveSortOption,
 	Character,
 	Circle,
 	MetadataSourceInfo,
 	Parody,
-	Tag
+	Tag,
+	VoiceActor
 } from '$lib/types';
 
 const DEFAULT_LIMIT = 40;
@@ -21,15 +23,70 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 	const { libraries } = await parent();
 	const library = libraries.find((l) => l.id === params.libraryId);
 	if (!library) error(404, 'Library not found');
-	// Audio libraries have their own list/detail pages; this route is
-	// archive-only. Direct links land on the audio list scoped to it.
-	if (library.type === 'audio') redirect(302, '/audio?library_id=' + library.id);
 
 	const page = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'));
 	const limit = Math.min(
 		MAX_LIMIT,
 		Math.max(1, parseInt(url.searchParams.get('limit') ?? String(DEFAULT_LIMIT)) || DEFAULT_LIMIT)
 	);
+
+	// An audio library is browsed exactly like a doujinshi one, at its own
+	// library URL; only the data and the rendered view differ.
+	if (library.type === 'audio') {
+		const rawRating = url.searchParams.get('rating') ?? '';
+		const filters = {
+			q: url.searchParams.get('q') ?? '',
+			favorites: url.searchParams.get('favorites') === 'true' ? 'true' : '',
+			rating: /^[1-5]$/.test(rawRating) ? rawRating : '',
+			tag: url.searchParams.getAll('tag'),
+			artist: url.searchParams.getAll('artist'),
+			circle: url.searchParams.getAll('circle'),
+			voice_actor: url.searchParams.getAll('voice_actor')
+		};
+
+		const audioParams = new URLSearchParams({
+			library_id: library.id,
+			page: String(page),
+			limit: String(limit)
+		});
+		if (filters.q) audioParams.set('q', filters.q);
+		if (filters.favorites) audioParams.set('favorites', filters.favorites);
+		if (filters.rating) audioParams.set('rating', filters.rating);
+		for (const tag of filters.tag) audioParams.append('tag', tag);
+		for (const artist of filters.artist) audioParams.append('artist', artist);
+		for (const circle of filters.circle) audioParams.append('circle', circle);
+		for (const voiceActor of filters.voice_actor) audioParams.append('voice_actor', voiceActor);
+
+		const [res, artistsRes, tagsRes, circlesRes, voiceActorsRes] = await Promise.all([
+			fetch(`/api/audio?${audioParams}`),
+			fetch('/api/artists/all'),
+			fetch('/api/tags/all'),
+			fetch('/api/circles/all'),
+			fetch('/api/voice-actors/all')
+		]);
+
+		const audio: AudioListResponse = res.ok
+			? await res.json()
+			: { items: [], total: 0, page, limit };
+		const artists: Artist[] = artistsRes.ok ? await artistsRes.json() : [];
+		const tags: Tag[] = tagsRes.ok ? await tagsRes.json() : [];
+		const allCircles: Circle[] = circlesRes.ok ? await circlesRes.json() : [];
+		const voiceActors: VoiceActor[] = voiceActorsRes.ok ? await voiceActorsRes.json() : [];
+
+		return {
+			kind: 'audio' as const,
+			library,
+			audio: audio.items ?? [],
+			total: Number(audio.total),
+			page,
+			limit,
+			filters,
+			artists,
+			tags,
+			allCircles,
+			voiceActors
+		};
+	}
 
 	// Only 'true'/'false' are meaningful here - the backend ignores anything
 	// else and filters on neither, so normalising junk to '' keeps the UI's
@@ -116,6 +173,7 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 	const metadataSources: MetadataSourceInfo[] = sourcesRes.ok ? await sourcesRes.json() : [];
 
 	return {
+		kind: 'archive' as const,
 		library,
 		archives: archivesData.items ?? [],
 		total: Number(archivesData.total),

@@ -17,6 +17,7 @@
 	// own data.
 	const archiveLibrary = $derived(firstArchiveLibrary(data.libraries));
 	const archivesHref = $derived((archiveLibrary ? `/${archiveLibrary.id}` : '/') as `/${string}`);
+	const audioLibrary = $derived(data.libraries.find((library) => library.type === 'audio'));
 
 	const carouselOpts = { align: 'start' as const, dragFree: true, loop: true };
 </script>
@@ -142,9 +143,13 @@
 			{#if !archiveLibrary && data.libraries.length > 0}
 				<p class="text-base font-medium text-foreground">No archives yet</p>
 				<p class="mt-1 text-sm text-muted-foreground">
-					Your audio libraries are available in the Audio section.
+					Your audio libraries are available in the sidebar.
 				</p>
-				<Button class="mt-4" href={resolve('/audio')}>Open audio</Button>
+				{#if audioLibrary}
+					<Button class="mt-4" href={resolve(`/${audioLibrary.id}` as `/${string}`)}>
+						Open audio
+					</Button>
+				{/if}
 			{:else}
 				<p class="text-base font-medium text-foreground">Your library is empty</p>
 				<p class="mt-1 text-sm text-muted-foreground">Add some archives to get started</p>

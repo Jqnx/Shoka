@@ -77,9 +77,15 @@
 	// MetadataFetchDialog fail open on every source). Validate it against the
 	// libraries actually loaded before trusting it.
 	const fromSegment = $derived(fromParam?.match(/^\/([^/?]+)/)?.[1]);
-	const fromLibraryId = $derived(
-		fromSegment && data.libraries.some((l) => l.id === fromSegment) ? fromSegment : undefined
-	);
+	const fromLibraryId = $derived.by(() => {
+		const library = fromSegment
+			? data.libraries.find((candidate) => candidate.id === fromSegment)
+			: undefined;
+
+		// Audio libraries are not archive contexts; a stale/audio `from` would
+		// mis-gate the metadata-source picker on this archive's edit sheet.
+		return library && library.type !== 'audio' ? library.id : undefined;
+	});
 	// Same resolved id used for both the back-link label and, further down,
 	// which library's metadata source settings the edit sheet's fetch dialog
 	// should respect (see MetadataFetchDialog's disabled-source picker).

@@ -85,13 +85,14 @@
 			</Pagination.Root>
 		</div>
 	{/if}
-	{#if data.audioTotal > 0}
+	{#each data.audioSections as section (section.library.id)}
 		<Separator class="my-8" />
 
 		<AudioSection
-			works={data.audio}
-			total={data.audioTotal}
-			href={`/audio?tag=${encodeURIComponent(data.name)}`}
+			works={section.works}
+			total={section.total}
+			heading={section.library.name}
+			href={`/${section.library.id}?tag=${encodeURIComponent(data.name)}`}
 		/>
-	{/if}
+	{/each}
 </div>

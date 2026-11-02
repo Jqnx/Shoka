@@ -3,11 +3,13 @@ import type { Actions, PageServerLoad } from './$types';
 import { errorMessage } from '$lib/server/api';
 import { guard } from '$lib/server/guard';
 import { can } from '$lib/auth/permissions';
-import type { Artist, ArtistDetail, ArchiveListResponse, AudioListResponse } from '$lib/types';
+import { loadAudioSections } from '$lib/server/audio-sections';
+import type { Artist, ArtistDetail, ArchiveListResponse } from '$lib/types';
 
 const LIMIT = 40;
 
-export const load: PageServerLoad = async ({ fetch, params, url, locals }) => {
+export const load: PageServerLoad = async ({ fetch, params, url, locals, parent }) => {
+	const { libraries } = await parent();
 	const page = Math.max(1, parseInt(url.searchParams.get('page') ?? '1'));
 	const canMerge =
 		can(locals.user, { taxonomy: ['update'] }) && can(locals.user, { taxonomy: ['delete'] });
@@ -27,10 +29,12 @@ export const load: PageServerLoad = async ({ fetch, params, url, locals }) => {
 
 	const artist: ArtistDetail = await artistRes.json();
 
-	// Audio is a separate section on the page; a failure there must not fail
-	// the archive listing.
-	const audioRes = await fetch(`/api/audio?artist=${encodeURIComponent(artist.name)}&limit=12`);
-	const audioData: AudioListResponse | null = audioRes.ok ? await audioRes.json() : null;
+	// Audio is a separate section per audio library on the page; a failure
+	// there must not fail the archive listing.
+	const audioSections = await loadAudioSections(fetch, libraries, {
+		name: 'artist',
+		value: artist.name
+	});
 
 	const data: ArchiveListResponse = await archivesRes.json();
 	// The merge picker is optional UI; a missing or failed list must not fail
@@ -52,8 +56,7 @@ export const load: PageServerLoad = async ({ fetch, params, url, locals }) => {
 		limit: LIMIT,
 		backHref,
 		allArtists,
-		audio: audioData?.items ?? [],
-		audioTotal: Number(audioData?.total ?? 0)
+		audioSections
 	};
 };
 

@@ -12,18 +12,19 @@
 	}: {
 		works: AudioListItem[];
 		total: number;
-		href: string;
+		/** Link to the first audio library; omitted when the install has none. */
+		href?: string;
 		heading?: string;
 	} = $props();
 </script>
 
 {#if total > 0}
-	{@const viewAll = href as `/${string}`}
 	<div class="mb-4 flex items-center gap-2">
 		<AudioLines class="size-4 text-muted-foreground" />
 		<h2 class="text-lg font-semibold">{heading}</h2>
 		<span class="text-sm text-muted-foreground">({total})</span>
-		{#if total > works.length}
+		{#if total > works.length && href}
+			{@const viewAll = href as `/${string}`}
 			<a
 				href={resolve(viewAll)}
 				class="ml-auto text-xs text-muted-foreground transition-colors hover:text-foreground"

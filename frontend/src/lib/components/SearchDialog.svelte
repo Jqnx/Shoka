@@ -10,11 +10,25 @@
 	let { libraries }: { libraries: Library[] } = $props();
 
 	// Results are scoped to a single library (the backend has no cross-library
-	// search) - use whichever one is being browsed, else the first doujinshi
-	// one. An audio-only install yields '', which skips the request entirely
-	// (the archive search endpoint requires a doujinshi library id).
-	const libraryId = $derived(page.params.libraryId ?? firstArchiveLibrary(libraries)?.id ?? '');
+	// search) - use whichever doujinshi library is being browsed, else the
+	// first doujinshi one. /[libraryId] also matches audio libraries now, and
+	// the archive search endpoint would reject one; an audio-only install
+	// yields '', which skips the request entirely.
+	const libraryId = $derived.by(() => {
+		const current = libraries.find((library) => library.id === page.params.libraryId);
+
+		if (current && current.type !== 'audio') return current.id;
+
+		return firstArchiveLibrary(libraries)?.id ?? '';
+	});
 	const targetPath = $derived(libraryId ? `/${libraryId}` : '/');
+
+	// The topbar search dialog always searches archives. On an audio library
+	// page the page's `q` belongs to the audio list, so echoing it here would
+	// claim the archive search is filtering that library.
+	const browsingAudioLibrary = $derived(
+		libraries.some((library) => library.id === page.params.libraryId && library.type === 'audio')
+	);
 
 	const DEBOUNCE_MS = 300;
 	const PREVIEW_LIMIT = 6;
@@ -67,7 +81,12 @@
 		return `${targetPath}?${params}`;
 	});
 
-	const fromParam = $derived(encodeURIComponent(page.url.pathname + page.url.search));
+	// Archive results opened from an audio library must not carry that audio
+	// library into the archive detail's metadata-source context; point `from`
+	// at the archive library the search actually used instead.
+	const fromParam = $derived(
+		encodeURIComponent(browsingAudioLibrary ? targetPath : page.url.pathname + page.url.search)
+	);
 
 	async function fetchResults(value: string) {
 		const q = value.trim();
@@ -144,7 +163,9 @@
 	class="flex h-10 w-full max-w-lg items-center gap-2 rounded-lg border border-input bg-transparent px-3 text-sm text-muted-foreground transition-colors hover:bg-accent/50 dark:bg-input/30"
 >
 	<Search class="size-4 shrink-0" />
-	<span class="truncate">{page.url.searchParams.get('q') || 'Search'}</span>
+	<span class="truncate">
+		{browsingAudioLibrary ? 'Search' : page.url.searchParams.get('q') || 'Search'}
+	</span>
 	<kbd
 		class="ms-auto hidden h-5 shrink-0 items-center rounded border border-border px-1.5 pt-[2px] font-mono text-[10px] leading-none text-muted-foreground sm:inline-flex"
 	>
@@ -156,7 +177,7 @@
 	bind:open
 	shouldFilter={false}
 	title="Search archives"
-	description="Search this library by title, artist, tag, parody, character, or circle."
+	description="Search archives by title, artist, tag, parody, character, or circle."
 	class="top-[15%] sm:max-w-4xl [&_[data-slot=input-group]]:h-11!"
 >
 	<Command.Input
@@ -168,7 +189,7 @@
 	<Command.List class="max-h-[60vh]">
 		{#if !trimmed}
 			<p class="py-10 text-center text-sm text-muted-foreground">
-				Start typing to search this library.
+				Start typing to search archives.
 			</p>
 		{:else if queryTooShort}
 			<p class="py-10 text-center text-sm text-muted-foreground">
