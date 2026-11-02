@@ -171,7 +171,16 @@
 				This removes all its archives from Shoka, but not from disk.
 			</AlertDialog.Description>
 		</AlertDialog.Header>
-		<form method="POST" action="?/delete" use:enhance>
+		<form
+			method="POST"
+			action="?/delete"
+			use:enhance={() => {
+				return async ({ result, update }) => {
+					if (result.type === 'success') deleteTarget = null;
+					await update();
+				};
+			}}
+		>
 			<input type="hidden" name="id" value={deleteTarget?.id ?? ''} />
 			<AlertDialog.Footer>
 				<AlertDialog.Cancel type="button">Cancel</AlertDialog.Cancel>

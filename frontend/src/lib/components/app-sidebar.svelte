@@ -4,6 +4,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import {
+		AudioLines,
 		BookOpen,
 		Drama,
 		House,
@@ -106,7 +107,11 @@
 										data-sveltekit-preload-data="tap"
 										{...props}
 									>
-										<Library />
+										{#if library.type === 'audio'}
+											<AudioLines />
+										{:else}
+											<Library />
+										{/if}
 										<span>{library.name}</span>
 									</a>
 								{/snippet}
