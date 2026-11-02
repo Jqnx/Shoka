@@ -15,8 +15,10 @@
 	// Bound so a filter change (which re-runs the load) does not snap the
 	// panel shut between clicks.
 	let filtersOpen = $state(false);
-	// svelte-ignore state_referenced_locally
-	let search = $state(data.filters.q);
+	// Writable derived: typing overrides it locally, while a same-route
+	// navigation (sidebar library link, back/forward) that changes q resets it
+	// to what the backend actually applied.
+	let search = $derived(data.filters.q);
 
 	const activeFilters = $derived.by(() => {
 		const values: string[] = [];

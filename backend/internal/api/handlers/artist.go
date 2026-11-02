@@ -776,7 +776,7 @@ type MergeArtistRequest struct {
 // MergeArtist godoc
 //
 //	@Summary		Merge an artist into another
-//	@Description	Moves the artist's archives, URLs, circles, favorites and ratings to the target; adds its name and aliases to the target; deletes the artist. An alias that already belongs to a different artist fails the merge with 409.
+//	@Description	Moves the artist's archives, audio works, URLs, circles, favorites and ratings to the target; adds its name and aliases to the target; deletes the artist. An alias that already belongs to a different artist fails the merge with 409.
 //	@Tags			artists
 //	@Accept			json
 //	@Param			id		path	int					true	"Artist ID"

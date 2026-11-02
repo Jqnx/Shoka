@@ -45,6 +45,10 @@ type AudioListRow struct {
 // arguments are caller-supplied constants, never user input.
 func addAudioRelationFilterNames(sb *strings.Builder, args *[]any, joinTable, entityTable, joinCol string, names []string) {
 	for _, name := range names {
+		if name == "" {
+			continue
+		}
+
 		fmt.Fprintf(
 			sb,
 			"AND EXISTS (SELECT 1 FROM %s JOIN %s ON %s.%s = %s.id WHERE %s.audio_id = audio.id AND %s.name = ?) ",

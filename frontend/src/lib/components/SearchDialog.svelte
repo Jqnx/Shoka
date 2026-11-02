@@ -180,21 +180,25 @@
 				Searching...
 			</div>
 		{:else}
-			<Command.Group>
-				<!-- First item so it's selected by default: pressing Enter right
-				     after typing goes straight to the full results page. Kept
-				     outside the grid below so it stays visible even when there
-				     are zero archive matches. -->
-				<Command.LinkItem
-					value="see-all"
-					href={resultsHref}
-					onSelect={() => (open = false)}
-					class="gap-2.5 py-2.5 text-base"
-				>
-					<Search class="size-4 shrink-0" />
-					<span class="truncate">See all results for "{trimmed}"</span>
-				</Command.LinkItem>
-			</Command.Group>
+			{#if libraryId}
+				<Command.Group>
+					<!-- First item so it's selected by default: pressing Enter right
+					     after typing goes straight to the full results page. Kept
+					     outside the grid below so it stays visible even when there
+					     are zero archive matches. Only rendered with a searchable
+					     archive library: an audio-only install has nowhere to land,
+					     so the home page would silently ignore the query. -->
+					<Command.LinkItem
+						value="see-all"
+						href={resultsHref}
+						onSelect={() => (open = false)}
+						class="gap-2.5 py-2.5 text-base"
+					>
+						<Search class="size-4 shrink-0" />
+						<span class="truncate">See all results for "{trimmed}"</span>
+					</Command.LinkItem>
+				</Command.Group>
+			{/if}
 
 			<div class="grid grid-cols-1 gap-x-4 sm:grid-cols-2 lg:grid-cols-3">
 				{#if results?.archives.items.length}

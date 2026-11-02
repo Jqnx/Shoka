@@ -160,11 +160,12 @@ CREATE TABLE audio_voice_actor (
 );
 `
 
-// The fixture stores counts equal to the true number of links: artist three
-// (a1, a2, a4), circle two (a1, a2), tag two (a1, a2), parody one (a2 only),
-// character two (a1, a2). a3 has no links at all, and both libraries hold at
-// least one linked archive - so a library delete that ignored its own id
-// would move the wrong counters and fail the assertions.
+// The fixture stores counts equal to the true number of links: artist five
+// (archives a1, a2, a4 plus audio au1, au2), circle four, tag four, parody
+// one (a2 only), character two (a1, a2), voice actor two (au1, au2). a3 has
+// no links at all, and both libraries hold at least one linked archive and one
+// linked audio work - so a delete that ignored its own id would move the wrong
+// counters and fail the assertions.
 const taxonomyFixture = `
 INSERT INTO library (id, name, path) VALUES
     ('lib1', 'Library One', '/library/one'),
@@ -176,21 +177,32 @@ INSERT INTO archive (id, title, file_path, file_size, mod_time, library_id) VALU
     ('a3', 'Three', '/library/two/a3.zip', 1, '2026-01-01', 'lib2'),
     ('a4', 'Four', '/library/two/a4.zip', 1, '2026-01-01', 'lib2');
 
-INSERT INTO artist (id, name, count) VALUES (1, 'artist-x', 3);
-INSERT INTO circle (id, name, count) VALUES (1, 'circle-c', 2);
-INSERT INTO tag (id, name, count) VALUES (1, 'tag-t', 2);
+INSERT INTO audio (id, title, folder_path, mod_time, library_id) VALUES
+    ('au1', 'Audio One', '/library/one/au1', '2026-01-01', 'lib1'),
+    ('au2', 'Audio Two', '/library/two/au2', '2026-01-01', 'lib2');
+
+INSERT INTO artist (id, name, count) VALUES (1, 'artist-x', 5);
+INSERT INTO circle (id, name, count) VALUES (1, 'circle-c', 4);
+INSERT INTO tag (id, name, count) VALUES (1, 'tag-t', 4);
 INSERT INTO parody (id, name, count) VALUES (1, 'parody-p', 1);
 INSERT INTO character (id, name, count) VALUES (1, 'character-k', 2);
+INSERT INTO voice_actor (id, name, count) VALUES (1, 'voice-v', 2);
 
 INSERT INTO archive_artist (archive_id, artist_id) VALUES ('a1', 1), ('a2', 1), ('a4', 1);
 INSERT INTO archive_circle (archive_id, circle_id) VALUES ('a1', 1), ('a2', 1);
 INSERT INTO archive_tag (archive_id, tag_id) VALUES ('a1', 1), ('a2', 1);
 INSERT INTO archive_parody (archive_id, parody_id) VALUES ('a2', 1);
 INSERT INTO archive_character (archive_id, character_id) VALUES ('a1', 1), ('a2', 1);
+
+INSERT INTO audio_artist (audio_id, artist_id) VALUES ('au1', 1), ('au2', 1);
+INSERT INTO audio_circle (audio_id, circle_id) VALUES ('au1', 1), ('au2', 1);
+INSERT INTO audio_tag (audio_id, tag_id) VALUES ('au1', 1), ('au2', 1);
+INSERT INTO audio_voice_actor (audio_id, voice_actor_id) VALUES ('au1', 1), ('au2', 1);
 `
 
 var (
 	fixtureArchives  = []string{"a1", "a2", "a3", "a4"}
+	fixtureAudios    = []string{audioOne, audioTwo}
 	fixtureLibraries = []string{libraryOne, libraryTwo}
 )
 
@@ -200,6 +212,8 @@ const (
 	libraryOne  = "lib1"
 	libraryTwo  = "lib2"
 	neverExists = "never-existed"
+	audioOne    = "au1"
+	audioTwo    = "au2"
 )
 
 func newTaxonomyDB(t *testing.T) *sql.DB {
@@ -266,15 +280,16 @@ func columnValues(t *testing.T, db *sql.DB, query string) []string {
 	return values
 }
 
-// linkKey identifies one archive's rows within one relation, keyed by the
-// link query itself so the snapshot read cannot drift from the assertion.
+// linkKey identifies one owner's rows within one relation, keyed by the link
+// query itself so the snapshot read cannot drift from the assertion. Owners
+// are archives or audio works, depending on which query the relation uses.
 type linkKey struct {
-	links     string
-	archiveID string
+	links   string
+	ownerID string
 }
 
-// taxonomySnapshot reads the fixture archives' joined rows before a delete,
-// so the archives that survive can be checked against their own rows.
+// taxonomySnapshot reads the fixture owners' joined rows before a delete, so
+// the rows that survive can be checked against their own counts.
 func taxonomySnapshot(t *testing.T, db *sql.DB) map[linkKey]int64 {
 	t.Helper()
 
@@ -282,7 +297,19 @@ func taxonomySnapshot(t *testing.T, db *sql.DB) map[linkKey]int64 {
 
 	for _, rel := range taxonomyRelations {
 		for _, id := range fixtureArchives {
+			if rel.links == "" {
+				continue
+			}
+
 			before[linkKey{rel.links, id}] = countRows(t, db, rel.links, id)
+		}
+
+		for _, id := range fixtureAudios {
+			if rel.audioLinks == "" {
+				continue
+			}
+
+			before[linkKey{rel.audioLinks, id}] = countRows(t, db, rel.audioLinks, id)
 		}
 	}
 
@@ -291,29 +318,34 @@ func taxonomySnapshot(t *testing.T, db *sql.DB) map[linkKey]int64 {
 
 // taxonomyCounts is the expected counter of each taxonomy table.
 type taxonomyCounts struct {
-	artist, circle, tag, parody, character int64
+	artist, circle, tag, parody, character, voiceActor int64
 }
 
-// taxonomyRelation is one archive relation under test: its label plus the
-// literal queries the assertions use — the archive's rows in the join table,
-// the join table total, and the denormalized counter a delete must maintain.
-// Nothing is read through the list/page queries, so the test cannot pass by
-// agreeing with a query that shares the bug.
+// taxonomyRelation is one taxonomy relation under test: its label plus the
+// literal queries the assertions use - the owner's rows in each join table,
+// each join table's total, and the denormalized counter a delete must
+// maintain. An empty links/total (or audioLinks/audioTotal) means that entity
+// has no relation of that kind. Nothing is read through the list/page queries,
+// so the test cannot pass by agreeing with a query that shares the bug.
 type taxonomyRelation struct {
-	entity  string
-	links   string
-	total   string
-	counter string
+	entity     string
+	links      string
+	total      string
+	audioLinks string
+	audioTotal string
+	counter    string
 	// count pulls this relation's expected value out of a case's counts.
 	count func(taxonomyCounts) int64
 }
 
-// taxonomyRelations covers all five counters a delete must maintain.
+// taxonomyRelations covers all six counters a delete must maintain.
 var taxonomyRelations = []taxonomyRelation{
 	{
 		"artist",
 		"SELECT count(*) FROM archive_artist WHERE archive_id = ?",
 		"SELECT count(*) FROM archive_artist",
+		"SELECT count(*) FROM audio_artist WHERE audio_id = ?",
+		"SELECT count(*) FROM audio_artist",
 		"SELECT count FROM artist WHERE id = 1",
 		func(w taxonomyCounts) int64 { return w.artist },
 	},
@@ -321,6 +353,8 @@ var taxonomyRelations = []taxonomyRelation{
 		"circle",
 		"SELECT count(*) FROM archive_circle WHERE archive_id = ?",
 		"SELECT count(*) FROM archive_circle",
+		"SELECT count(*) FROM audio_circle WHERE audio_id = ?",
+		"SELECT count(*) FROM audio_circle",
 		"SELECT count FROM circle WHERE id = 1",
 		func(w taxonomyCounts) int64 { return w.circle },
 	},
@@ -328,6 +362,8 @@ var taxonomyRelations = []taxonomyRelation{
 		"tag",
 		"SELECT count(*) FROM archive_tag WHERE archive_id = ?",
 		"SELECT count(*) FROM archive_tag",
+		"SELECT count(*) FROM audio_tag WHERE audio_id = ?",
+		"SELECT count(*) FROM audio_tag",
 		"SELECT count FROM tag WHERE id = 1",
 		func(w taxonomyCounts) int64 { return w.tag },
 	},
@@ -335,6 +371,8 @@ var taxonomyRelations = []taxonomyRelation{
 		"parody",
 		"SELECT count(*) FROM archive_parody WHERE archive_id = ?",
 		"SELECT count(*) FROM archive_parody",
+		"",
+		"",
 		"SELECT count FROM parody WHERE id = 1",
 		func(w taxonomyCounts) int64 { return w.parody },
 	},
@@ -342,8 +380,19 @@ var taxonomyRelations = []taxonomyRelation{
 		"character",
 		"SELECT count(*) FROM archive_character WHERE archive_id = ?",
 		"SELECT count(*) FROM archive_character",
+		"",
+		"",
 		"SELECT count FROM character WHERE id = 1",
 		func(w taxonomyCounts) int64 { return w.character },
+	},
+	{
+		"voice actor",
+		"",
+		"",
+		"SELECT count(*) FROM audio_voice_actor WHERE audio_id = ?",
+		"SELECT count(*) FROM audio_voice_actor",
+		"SELECT count FROM voice_actor WHERE id = 1",
+		func(w taxonomyCounts) int64 { return w.voiceActor },
 	},
 }
 
@@ -351,12 +400,14 @@ var taxonomyRelations = []taxonomyRelation{
 type countsRemover func(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) error
 
 // countsCase is one delete scenario: the ids to pass to the delete, the
-// counters left behind, and the rows of archive/library that must survive.
+// counters left behind, and the rows of archive/audio/library that must
+// survive.
 type countsCase struct {
 	name          string
 	deletes       []string
 	wantCounts    taxonomyCounts
 	wantArchives  []string
+	wantAudios    []string
 	wantLibraries []string
 }
 
@@ -381,40 +432,98 @@ func runCountsCases(t *testing.T, cases []countsCase, remove countsRemover) {
 				}
 			}
 
-			gotArchives := columnValues(t, db, "SELECT id FROM archive ORDER BY id")
-			if !slices.Equal(gotArchives, tc.wantArchives) {
-				t.Errorf("archives left = %v, want %v", gotArchives, tc.wantArchives)
-			}
-
-			gotLibraries := columnValues(t, db, "SELECT id FROM library ORDER BY id")
-			if !slices.Equal(gotLibraries, tc.wantLibraries) {
-				t.Errorf("libraries left = %v, want %v", gotLibraries, tc.wantLibraries)
-			}
-
-			for _, rel := range taxonomyRelations {
-				want := rel.count(tc.wantCounts)
-
-				if got := countRows(t, db, rel.total); got != want {
-					t.Errorf("%s: %d join rows, want %d (the counter value)", rel.entity, got, want)
-				}
-
-				if got := countRows(t, db, rel.counter); got != want {
-					t.Errorf("%s.count = %d, want %d", rel.entity, got, want)
-				}
-
-				for _, id := range fixtureArchives {
-					wantRows := before[linkKey{rel.links, id}]
-					if !slices.Contains(tc.wantArchives, id) {
-						// The archive is gone, so its links cascaded with it.
-						wantRows = 0
-					}
-
-					if got := countRows(t, db, rel.links, id); got != wantRows {
-						t.Errorf("%s: rows for %s = %d, want %d", rel.entity, id, got, wantRows)
-					}
-				}
-			}
+			assertSurvivors(t, db, tc)
+			assertRelationCounts(t, db, tc, before)
 		})
+	}
+}
+
+// assertSurvivors checks that exactly the expected archive, audio and library
+// rows remain after a delete.
+func assertSurvivors(t *testing.T, db *sql.DB, tc countsCase) {
+	t.Helper()
+
+	gotArchives := columnValues(t, db, "SELECT id FROM archive ORDER BY id")
+	if !slices.Equal(gotArchives, tc.wantArchives) {
+		t.Errorf("archives left = %v, want %v", gotArchives, tc.wantArchives)
+	}
+
+	gotAudios := columnValues(t, db, "SELECT id FROM audio ORDER BY id")
+	if !slices.Equal(gotAudios, tc.wantAudios) {
+		t.Errorf("audios left = %v, want %v", gotAudios, tc.wantAudios)
+	}
+
+	gotLibraries := columnValues(t, db, "SELECT id FROM library ORDER BY id")
+	if !slices.Equal(gotLibraries, tc.wantLibraries) {
+		t.Errorf("libraries left = %v, want %v", gotLibraries, tc.wantLibraries)
+	}
+}
+
+// assertRelationCounts checks every counter against its join tables and every
+// surviving owner's rows against the pre-delete snapshot.
+func assertRelationCounts(t *testing.T, db *sql.DB, tc countsCase, before map[linkKey]int64) {
+	t.Helper()
+
+	for _, rel := range taxonomyRelations {
+		assertRelationCount(t, db, rel, tc, before)
+	}
+}
+
+// assertRelationCount checks one relation's counter, its combined join-table
+// total, and the surviving rows of every fixture owner.
+func assertRelationCount(t *testing.T, db *sql.DB, rel taxonomyRelation, tc countsCase, before map[linkKey]int64) {
+	t.Helper()
+
+	var archiveRows, audioRows int64
+
+	if rel.total != "" {
+		archiveRows = countRows(t, db, rel.total)
+	}
+
+	if rel.audioTotal != "" {
+		audioRows = countRows(t, db, rel.audioTotal)
+	}
+
+	want := rel.count(tc.wantCounts)
+
+	if got := archiveRows + audioRows; got != want {
+		t.Errorf("%s: %d join rows, want %d (the counter value)", rel.entity, got, want)
+	}
+
+	if got := countRows(t, db, rel.counter); got != want {
+		t.Errorf("%s.count = %d, want %d", rel.entity, got, want)
+	}
+
+	for _, id := range fixtureArchives {
+		if rel.links == "" {
+			continue
+		}
+
+		wantRows := before[linkKey{rel.links, id}]
+		if !slices.Contains(tc.wantArchives, id) {
+			// The archive is gone, so its links cascaded with it.
+			wantRows = 0
+		}
+
+		if got := countRows(t, db, rel.links, id); got != wantRows {
+			t.Errorf("%s: rows for %s = %d, want %d", rel.entity, id, got, wantRows)
+		}
+	}
+
+	for _, id := range fixtureAudios {
+		if rel.audioLinks == "" {
+			continue
+		}
+
+		wantRows := before[linkKey{rel.audioLinks, id}]
+		if !slices.Contains(tc.wantAudios, id) {
+			// The audio work is gone, so its links cascaded with it.
+			wantRows = 0
+		}
+
+		if got := countRows(t, db, rel.audioLinks, id); got != wantRows {
+			t.Errorf("%s: rows for %s = %d, want %d", rel.entity, id, got, wantRows)
+		}
 	}
 }
 
@@ -425,22 +534,25 @@ func TestDeleteArchiveClearsRelationCounts(t *testing.T) {
 		{
 			name:          "decrements counts and removes only the deleted archive's links",
 			deletes:       []string{"a1"},
-			wantCounts:    taxonomyCounts{artist: 2, circle: 1, tag: 1, parody: 1, character: 1},
+			wantCounts:    taxonomyCounts{artist: 4, circle: 3, tag: 3, parody: 1, character: 1, voiceActor: 2},
 			wantArchives:  []string{"a2", "a3", "a4"},
+			wantAudios:    fixtureAudios,
 			wantLibraries: fixtureLibraries,
 		},
 		{
 			name:          "repeated and missing deletes are no-ops",
 			deletes:       []string{"a1", "a1", neverExists},
-			wantCounts:    taxonomyCounts{artist: 2, circle: 1, tag: 1, parody: 1, character: 1},
+			wantCounts:    taxonomyCounts{artist: 4, circle: 3, tag: 3, parody: 1, character: 1, voiceActor: 2},
 			wantArchives:  []string{"a2", "a3", "a4"},
+			wantAudios:    fixtureAudios,
 			wantLibraries: fixtureLibraries,
 		},
 		{
 			name:          "archive without relations leaves every count untouched",
 			deletes:       []string{"a3"},
-			wantCounts:    taxonomyCounts{artist: 3, circle: 2, tag: 2, parody: 1, character: 2},
+			wantCounts:    taxonomyCounts{artist: 5, circle: 4, tag: 4, parody: 1, character: 2, voiceActor: 2},
 			wantArchives:  []string{"a1", "a2", "a4"},
+			wantAudios:    fixtureAudios,
 			wantLibraries: fixtureLibraries,
 		},
 	}
@@ -448,29 +560,73 @@ func TestDeleteArchiveClearsRelationCounts(t *testing.T) {
 	runCountsCases(t, cases, DeleteArchive)
 }
 
+func TestDeleteAudioClearsRelationCounts(t *testing.T) {
+	t.Parallel()
+
+	cases := []countsCase{
+		{
+			name:          "decrements counts and removes only the deleted work's links",
+			deletes:       []string{audioOne},
+			wantCounts:    taxonomyCounts{artist: 4, circle: 3, tag: 3, parody: 1, character: 2, voiceActor: 1},
+			wantArchives:  fixtureArchives,
+			wantAudios:    []string{audioTwo},
+			wantLibraries: fixtureLibraries,
+		},
+		{
+			name:          "repeated and missing deletes are no-ops",
+			deletes:       []string{audioOne, audioOne, neverExists},
+			wantCounts:    taxonomyCounts{artist: 4, circle: 3, tag: 3, parody: 1, character: 2, voiceActor: 1},
+			wantArchives:  fixtureArchives,
+			wantAudios:    []string{audioTwo},
+			wantLibraries: fixtureLibraries,
+		},
+		{
+			name:          "deleting the other library's work leaves this one alone",
+			deletes:       []string{audioTwo},
+			wantCounts:    taxonomyCounts{artist: 4, circle: 3, tag: 3, parody: 1, character: 2, voiceActor: 1},
+			wantArchives:  fixtureArchives,
+			wantAudios:    []string{audioOne},
+			wantLibraries: fixtureLibraries,
+		},
+		{
+			name:          "missing work leaves every counter untouched",
+			deletes:       []string{neverExists},
+			wantCounts:    taxonomyCounts{artist: 5, circle: 4, tag: 4, parody: 1, character: 2, voiceActor: 2},
+			wantArchives:  fixtureArchives,
+			wantAudios:    fixtureAudios,
+			wantLibraries: fixtureLibraries,
+		},
+	}
+
+	runCountsCases(t, cases, DeleteAudio)
+}
+
 func TestDeleteLibraryClearsRelationCounts(t *testing.T) {
 	t.Parallel()
 
 	cases := []countsCase{
 		{
-			name:          "decrements counts for every archive of the deleted library",
+			name:          "decrements counts for every archive and audio work of the deleted library",
 			deletes:       []string{libraryOne},
-			wantCounts:    taxonomyCounts{artist: 1},
+			wantCounts:    taxonomyCounts{artist: 2, circle: 1, tag: 1, voiceActor: 1},
 			wantArchives:  []string{"a3", "a4"},
+			wantAudios:    []string{audioTwo},
 			wantLibraries: []string{libraryTwo},
 		},
 		{
 			name:          "repeated and missing deletes are no-ops",
 			deletes:       []string{libraryOne, libraryOne, neverExists},
-			wantCounts:    taxonomyCounts{artist: 1},
+			wantCounts:    taxonomyCounts{artist: 2, circle: 1, tag: 1, voiceActor: 1},
 			wantArchives:  []string{"a3", "a4"},
+			wantAudios:    []string{audioTwo},
 			wantLibraries: []string{libraryTwo},
 		},
 		{
-			name:          "leaves the archives and counters of other libraries alone",
+			name:          "leaves the archives, audio and counters of other libraries alone",
 			deletes:       []string{libraryTwo},
-			wantCounts:    taxonomyCounts{artist: 2, circle: 2, tag: 2, parody: 1, character: 2},
+			wantCounts:    taxonomyCounts{artist: 3, circle: 3, tag: 3, parody: 1, character: 2, voiceActor: 1},
 			wantArchives:  []string{"a1", "a2"},
+			wantAudios:    []string{audioOne},
 			wantLibraries: []string{libraryOne},
 		},
 	}
@@ -481,35 +637,40 @@ func TestDeleteLibraryClearsRelationCounts(t *testing.T) {
 	})
 }
 
-// TestDeleteLibraryReturnsDeletedArchiveIDs pins the return contract the
-// library-delete handler evicts caches with: the ids of the archives the
+// TestDeleteLibraryReturnsDeletedIDs pins the return contract the
+// library-delete handler evicts caches with: the archive and audio ids the
 // cascade took, and nothing for a library that never existed.
-func TestDeleteLibraryReturnsDeletedArchiveIDs(t *testing.T) {
+func TestDeleteLibraryReturnsDeletedIDs(t *testing.T) {
 	t.Parallel()
 
 	db := newTaxonomyDB(t)
 	q := sqlc.New(db)
 	ctx := t.Context()
 
-	ids, _, err := DeleteLibrary(ctx, q, db, libraryOne)
+	archiveIDs, audioIDs, err := DeleteLibrary(ctx, q, db, libraryOne)
 	if err != nil {
 		t.Fatalf("DeleteLibrary(%q): %v", libraryOne, err)
 	}
 
-	// ListArchiveIDsByLibrary has no ORDER BY, so compare as a set: the
-	// handler evicts per id and does not care which comes first.
-	slices.Sort(ids)
+	// The id-list queries have no ORDER BY, so compare as sets: the handler
+	// evicts per id and does not care which comes first.
+	slices.Sort(archiveIDs)
+	slices.Sort(audioIDs)
 
-	if want := []string{"a1", "a2"}; !slices.Equal(ids, want) {
-		t.Errorf("returned ids = %v, want %v", ids, want)
+	if want := []string{"a1", "a2"}; !slices.Equal(archiveIDs, want) {
+		t.Errorf("returned archive ids = %v, want %v", archiveIDs, want)
 	}
 
-	ids, _, err = DeleteLibrary(ctx, q, db, neverExists)
+	if want := []string{audioOne}; !slices.Equal(audioIDs, want) {
+		t.Errorf("returned audio ids = %v, want %v", audioIDs, want)
+	}
+
+	archiveIDs, audioIDs, err = DeleteLibrary(ctx, q, db, neverExists)
 	if err != nil {
 		t.Fatalf("DeleteLibrary(missing): %v", err)
 	}
 
-	if len(ids) != 0 {
-		t.Errorf("missing library returned ids %v, want none", ids)
+	if len(archiveIDs) != 0 || len(audioIDs) != 0 {
+		t.Errorf("missing library returned ids %v/%v, want none", archiveIDs, audioIDs)
 	}
 }

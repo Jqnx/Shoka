@@ -98,11 +98,13 @@
 			</Pagination.Root>
 		</div>
 	{/if}
-	<Separator class="my-8" />
+	{#if data.audioTotal > 0}
+		<Separator class="my-8" />
 
-	<AudioSection
-		works={data.audio}
-		total={data.audioTotal}
-		href={`/audio?circle=${encodeURIComponent(data.name)}`}
-	/>
+		<AudioSection
+			works={data.audio}
+			total={data.audioTotal}
+			href={`/audio?circle=${encodeURIComponent(data.name)}`}
+		/>
+	{/if}
 </div>

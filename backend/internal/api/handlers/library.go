@@ -303,7 +303,7 @@ func (h *LibraryHandler) UpdateLibrary(w http.ResponseWriter, r *http.Request) {
 // DeleteLibrary godoc
 //
 //	@Summary		Delete a library
-//	@Description	Cascade-deletes every archive and cached data belonging to this library. Does not touch files on disk.
+//	@Description	Cascade-deletes every archive and audio work, and cached data belonging to this library. Does not touch files on disk.
 //	@Tags			admin
 //	@Param			id	path	string	true	"Library ID"
 //	@Success		204

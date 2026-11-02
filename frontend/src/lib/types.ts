@@ -221,11 +221,8 @@ export type ArtistListResponse = {
 	limit: number;
 };
 
-// GET /api/search - one name match from a metadata entity category
-// (artists, tags, parodies, circles, characters). Unlike the archive
-// category, these are global entities (not scoped to a library).
 // GET /api/audio/{id} - one audio work with its ordered tracks and images.
-// The list endpoint omits the four array fields (see AudioListItem).
+// The list endpoint omits the five array fields (see AudioListItem).
 export type AudioTrack = {
 	index: number;
 	name: string;
@@ -286,6 +283,9 @@ export function audioCoverSrc(audio: { id: string; updated_at: string }): string
 	return `/api/audio/${audio.id}/cover?v=${encodeURIComponent(audio.updated_at)}`;
 }
 
+// GET /api/search - one name match from a metadata entity category
+// (artists, tags, parodies, circles, characters). Unlike the archive
+// category, these are global entities (not scoped to a library).
 export type SearchEntityResult = {
 	id: number;
 	name: string;

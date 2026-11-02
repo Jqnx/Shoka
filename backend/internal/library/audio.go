@@ -320,7 +320,7 @@ func (s *AudioScanner) addAudio(ctx context.Context, lib sqlc.Library, work audi
 		return err
 	}
 
-	if err := s.writeFiles(ctx, audioID, work, durations); err != nil {
+	if err := s.writeFiles(ctx, s.queries, audioID, work, durations); err != nil {
 		return err
 	}
 
@@ -399,18 +399,19 @@ func (s *AudioScanner) probeFiles(ctx context.Context, work audioWork) []time.Du
 }
 
 // writeFiles replaces the work's file and image rows with the scanned lists,
-// using the durations already probed for this scan.
-func (s *AudioScanner) writeFiles(ctx context.Context, audioID string, work audioWork, durations []time.Duration) error {
-	if err := s.queries.DeleteAudioFiles(ctx, audioID); err != nil {
+// using the durations already probed for this scan. q is the caller's query
+// set so an update can keep the file and work-level writes in one transaction.
+func (s *AudioScanner) writeFiles(ctx context.Context, q *sqlc.Queries, audioID string, work audioWork, durations []time.Duration) error {
+	if err := q.DeleteAudioFiles(ctx, audioID); err != nil {
 		return err
 	}
 
-	if err := s.queries.DeleteAudioImages(ctx, audioID); err != nil {
+	if err := q.DeleteAudioImages(ctx, audioID); err != nil {
 		return err
 	}
 
 	for i, rel := range work.audio {
-		if err := s.queries.CreateAudioFile(ctx, sqlc.CreateAudioFileParams{
+		if err := q.CreateAudioFile(ctx, sqlc.CreateAudioFileParams{
 			AudioID:         audioID,
 			RelativePath:    rel,
 			DurationSeconds: int64(durations[i] / time.Second),
@@ -421,7 +422,7 @@ func (s *AudioScanner) writeFiles(ctx context.Context, audioID string, work audi
 	}
 
 	for i, rel := range work.images {
-		if err := s.queries.CreateAudioImage(ctx, sqlc.CreateAudioImageParams{
+		if err := q.CreateAudioImage(ctx, sqlc.CreateAudioImageParams{
 			AudioID:      audioID,
 			RelativePath: rel,
 			SortOrder:    int64(i),
@@ -439,16 +440,24 @@ func (s *AudioScanner) writeFiles(ctx context.Context, audioID string, work audi
 func (s *AudioScanner) updateAudio(ctx context.Context, audioID string, work audioWork) error {
 	durations := s.probeFiles(ctx, work)
 
-	if err := s.writeFiles(ctx, audioID, work, durations); err != nil {
-		return err
-	}
-
 	var total int64
 	for _, d := range durations {
 		total += int64(d / time.Second)
 	}
 
-	if err := s.queries.UpdateAudioMeta(ctx, sqlc.UpdateAudioMetaParams{
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }() // no-op once committed
+
+	qtx := s.queries.WithTx(tx)
+
+	if err := s.writeFiles(ctx, qtx, audioID, work, durations); err != nil {
+		return err
+	}
+
+	if err := qtx.UpdateAudioMeta(ctx, sqlc.UpdateAudioMetaParams{
 		ID:              audioID,
 		ModTime:         work.modTime,
 		DurationSeconds: total,
@@ -456,10 +465,17 @@ func (s *AudioScanner) updateAudio(ctx context.Context, audioID string, work aud
 		return err
 	}
 
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+
 	_ = os.RemoveAll(filepath.Join(s.cfg.Cache.Dir, image.AudioCacheKey(audioID)))
 
 	if len(work.images) > 0 {
-		if err := s.queue.EnqueueOnce(ctx, jobs.JobTypeAudioCover, jobs.AudioCoverPayload{AudioID: audioID}); err != nil {
+		// Enqueue rather than EnqueueOnce: a cover job that was already
+		// running read the pre-update image list, and EnqueueOnce would treat
+		// it as pending and suppress the replacement.
+		if err := s.queue.Enqueue(ctx, jobs.JobTypeAudioCover, jobs.AudioCoverPayload{AudioID: audioID}); err != nil {
 			return err
 		}
 	}

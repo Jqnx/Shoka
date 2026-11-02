@@ -267,7 +267,7 @@
         },
         "/api/admin/libraries/{id}": {
             "delete": {
-                "description": "Cascade-deletes every archive and cached data belonging to this library. Does not touch files on disk.",
+                "description": "Cascade-deletes every archive and audio work, and cached data belonging to this library. Does not touch files on disk.",
                 "tags": [
                     "admin"
                 ],
@@ -2837,7 +2837,7 @@
         },
         "/api/artists/{id}/merge": {
             "post": {
-                "description": "Moves the artist's archives, URLs, circles, favorites and ratings to the target; adds its name and aliases to the target; deletes the artist. An alias that already belongs to a different artist fails the merge with 409.",
+                "description": "Moves the artist's archives, audio works, URLs, circles, favorites and ratings to the target; adds its name and aliases to the target; deletes the artist. An alias that already belongs to a different artist fails the merge with 409.",
                 "consumes": [
                     "application/json"
                 ],

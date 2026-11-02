@@ -384,11 +384,13 @@
 			</Pagination.Root>
 		</div>
 	{/if}
-	<Separator class="my-8" />
+	{#if data.audioTotal > 0}
+		<Separator class="my-8" />
 
-	<AudioSection
-		works={data.audio}
-		total={data.audioTotal}
-		href={`/audio?artist=${encodeURIComponent(data.artist.name)}`}
-	/>
+		<AudioSection
+			works={data.audio}
+			total={data.audioTotal}
+			href={`/audio?artist=${encodeURIComponent(data.artist.name)}`}
+		/>
+	{/if}
 </div>

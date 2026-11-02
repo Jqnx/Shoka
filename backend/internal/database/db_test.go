@@ -108,8 +108,8 @@ func TestConnectionStringReadBeforeWrite(t *testing.T) {
 		t.Fatalf("concurrent increment: %v", err)
 	}
 
-	// Seeded 3, minus this transaction's decrement, plus the queued increment.
-	if got := countRows(t, db, "select count from artist where id = 1"); got != 3 {
-		t.Errorf("artist.count = %d, want 3", got)
+	// Seeded 5, minus this transaction's decrement, plus the queued increment.
+	if got := countRows(t, db, "select count from artist where id = 1"); got != 5 {
+		t.Errorf("artist.count = %d, want 5", got)
 	}
 }

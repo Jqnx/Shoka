@@ -139,10 +139,18 @@
 
 	{#if recentlyRead.length === 0 && recentlyAdded.length === 0 && recentlyReleased.length === 0}
 		<div class="flex flex-col items-center justify-center py-24 text-center">
-			<p class="text-base font-medium text-foreground">Your library is empty</p>
-			<p class="mt-1 text-sm text-muted-foreground">Add some archives to get started</p>
-			{#if data.libraries.length === 0 && can(data.user, { library: ['create'] })}
-				<Button class="mt-4" href={resolve('/setup')}>Add your first library</Button>
+			{#if !archiveLibrary && data.libraries.length > 0}
+				<p class="text-base font-medium text-foreground">No archives yet</p>
+				<p class="mt-1 text-sm text-muted-foreground">
+					Your audio libraries are available in the Audio section.
+				</p>
+				<Button class="mt-4" href={resolve('/audio')}>Open audio</Button>
+			{:else}
+				<p class="text-base font-medium text-foreground">Your library is empty</p>
+				<p class="mt-1 text-sm text-muted-foreground">Add some archives to get started</p>
+				{#if data.libraries.length === 0 && can(data.user, { library: ['create'] })}
+					<Button class="mt-4" href={resolve('/setup')}>Add your first library</Button>
+				{/if}
 			{/if}
 		</div>
 	{/if}
