@@ -12,16 +12,18 @@
 	data-sveltekit-preload-data="tap"
 	class="group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-lg border border-border bg-card transition-all select-none hover:-translate-y-0.5 hover:shadow-md"
 >
-	<div class="relative aspect-square w-full overflow-hidden bg-muted">
+	<div class="relative w-full overflow-hidden bg-muted">
 		{#if audio.cover_ready}
 			<img
 				src={audioCoverSrc(audio)}
 				alt={audio.title}
 				loading="lazy"
-				class="absolute inset-0 size-full object-cover"
+				width={audio.cover_width || undefined}
+				height={audio.cover_height || undefined}
+				class="block h-auto w-full"
 			/>
 		{:else}
-			<div class="absolute inset-0 flex items-center justify-center">
+			<div class="flex aspect-square items-center justify-center">
 				<AudioLines class="size-10 text-muted-foreground/40" />
 			</div>
 		{/if}

@@ -248,6 +248,11 @@ export type Audio = {
 	tracks: AudioTrack[];
 	images: AudioImage[];
 	cover_ready: boolean;
+	/** Cached cover render time; changes when the cover is re-rendered. */
+	cover_updated_at: string | null;
+	/** Rendered cover size, for reserving its space before it loads. */
+	cover_width: number;
+	cover_height: number;
 	is_favorited: boolean;
 	rating: number | null;
 	updated_at: string;
@@ -276,11 +281,16 @@ export type VoiceActorListResponse = {
 	limit: number;
 };
 
-// Cover URL carries updated_at so the long-lived immutable cache busts when a
-// rescan changes the work's first image. The backend always serves the first
-// image, so there is no index in the URL.
-export function audioCoverSrc(audio: { id: string; updated_at: string }): string {
-	return `/api/audio/${audio.id}/cover?v=${encodeURIComponent(audio.updated_at)}`;
+// Cover URL carries the cached render's mtime so the long-lived immutable
+// cache busts when the cover is re-rendered (quality change, new first image).
+// Falls back to updated_at until a cover exists. The backend always serves the
+// first image, so there is no index in the URL.
+export function audioCoverSrc(audio: {
+	id: string;
+	updated_at: string;
+	cover_updated_at?: string | null;
+}): string {
+	return `/api/audio/${audio.id}/cover?v=${encodeURIComponent(audio.cover_updated_at ?? audio.updated_at)}`;
 }
 
 // GET /api/search - one name match from a metadata entity category

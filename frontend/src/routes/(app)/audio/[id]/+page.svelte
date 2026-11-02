@@ -61,14 +61,18 @@
 	</a>
 
 	<div class="flex flex-col gap-8 md:flex-row">
-		<div class="w-full shrink-0 md:w-56 lg:w-64">
-			<div
-				class="relative aspect-square w-full overflow-hidden rounded-lg border border-border bg-muted"
-			>
+		<div class="w-full shrink-0 md:w-64 lg:w-[27rem]">
+			<div class="relative w-full overflow-hidden rounded-lg border border-border bg-muted">
 				{#if a.cover_ready}
-					<img src={audioCoverSrc(a)} alt={a.title} class="size-full object-cover" />
+					<img
+						src={audioCoverSrc(a)}
+						alt={a.title}
+						width={a.cover_width || undefined}
+						height={a.cover_height || undefined}
+						class="block h-auto w-full"
+					/>
 				{:else}
-					<div class="absolute inset-0 flex items-center justify-center">
+					<div class="flex aspect-square items-center justify-center">
 						<AudioLines class="size-10 text-muted-foreground/40" />
 					</div>
 				{/if}

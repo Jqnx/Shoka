@@ -74,6 +74,9 @@ type AudioListItem struct {
 	Language        *string    `json:"language"`
 	Circle          *string    `json:"circle"`
 	CoverReady      bool       `json:"cover_ready"`
+	CoverUpdatedAt  *time.Time `json:"cover_updated_at"`
+	CoverWidth      int        `json:"cover_width"`
+	CoverHeight     int        `json:"cover_height"`
 	IsFavorited     bool       `json:"is_favorited"`
 	Rating          *int       `json:"rating"`
 	UpdatedAt       time.Time  `json:"updated_at"`
@@ -94,6 +97,9 @@ type AudioResponse struct {
 	Tracks          []AudioTrackResponse `json:"tracks"`
 	Images          []AudioImageResponse `json:"images"`
 	CoverReady      bool                 `json:"cover_ready"`
+	CoverUpdatedAt  *time.Time           `json:"cover_updated_at"`
+	CoverWidth      int                  `json:"cover_width"`
+	CoverHeight     int                  `json:"cover_height"`
 	IsFavorited     bool                 `json:"is_favorited"`
 	Rating          *int                 `json:"rating"`
 	UpdatedAt       time.Time            `json:"updated_at"`
@@ -210,6 +216,8 @@ func (h *AudioHandler) audioResponseFor(ctx context.Context, audio sqlc.Audio, u
 		return AudioResponse{}, err
 	}
 
+	cover := h.processor.CachedAudioCover(audio.ID)
+
 	resp := AudioResponse{
 		ID:              audio.ID,
 		Title:           audio.Title,
@@ -222,7 +230,10 @@ func (h *AudioHandler) audioResponseFor(ctx context.Context, audio sqlc.Audio, u
 		VoiceActors:     rel.voiceActors,
 		Tracks:          make([]AudioTrackResponse, 0, len(files)),
 		Images:          make([]AudioImageResponse, 0, len(images)),
-		CoverReady:      h.processor.AudioCoverPath(audio.ID) != "",
+		CoverReady:      cover.Path != "",
+		CoverUpdatedAt:  cover.ModTime,
+		CoverWidth:      cover.Width,
+		CoverHeight:     cover.Height,
 		IsFavorited:     isFavorited,
 		Rating:          rating,
 		UpdatedAt:       audio.UpdatedAt,
@@ -402,6 +413,8 @@ func (h *AudioHandler) audioListItems(ctx context.Context, rows []database.Audio
 
 	items := make([]AudioListItem, 0, len(rows))
 	for _, row := range rows {
+		cover := h.processor.CachedAudioCover(row.ID)
+
 		item := AudioListItem{
 			ID:              row.ID,
 			Title:           row.Title,
@@ -410,7 +423,10 @@ func (h *AudioHandler) audioListItems(ctx context.Context, rows []database.Audio
 			ReleaseDate:     row.ReleaseDate,
 			Language:        row.Language,
 			Circle:          row.Circle,
-			CoverReady:      h.processor.AudioCoverPath(row.ID) != "",
+			CoverReady:      cover.Path != "",
+			CoverUpdatedAt:  cover.ModTime,
+			CoverWidth:      cover.Width,
+			CoverHeight:     cover.Height,
 			IsFavorited:     favorited[row.ID],
 			UpdatedAt:       row.UpdatedAt,
 		}

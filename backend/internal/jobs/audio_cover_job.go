@@ -35,7 +35,7 @@ func NewAudioCoverHandler(processor *image.Processor, queries *sqlc.Queries, log
 		}
 
 		// Registered before the existence check so it also covers a delete
-		// that lands during GenerateThumbnail: that delete already evicted the
+		// that lands during GenerateAudioCover: that delete already evicted the
 		// cache directory, so this reclaims whatever was written after it.
 		defer func() {
 			if _, err := queries.GetAudioByID(ctx, p.AudioID); errors.Is(err, sql.ErrNoRows) {
@@ -74,7 +74,7 @@ func NewAudioCoverHandler(processor *image.Processor, queries *sqlc.Queries, log
 		}
 		defer func() { _ = f.Close() }()
 
-		if err := processor.GenerateThumbnail(ctx, image.AudioCacheKey(p.AudioID), 0, f); err != nil {
+		if err := processor.GenerateAudioCover(ctx, p.AudioID, f); err != nil {
 			return err
 		}
 
@@ -83,9 +83,10 @@ func NewAudioCoverHandler(processor *image.Processor, queries *sqlc.Queries, log
 }
 
 // ensureAudioCoverCurrent discards a cover rendered from an image list that
-// changed while the job was decoding. GenerateThumbnail skips a destination
-// that already exists, so without this the old first image would stick around
-// indefinitely; returning an error lets the retry rebuild it.
+// changed while the job was decoding. GenerateAudioCover overwrites the file,
+// but it renders whatever images[0] named before this check ran, so a changed
+// first image would otherwise leave the wrong cover in place. Evicting and
+// returning an error makes the retry rebuild it from the new list.
 func ensureAudioCoverCurrent(
 	ctx context.Context,
 	processor *image.Processor,

@@ -4770,8 +4770,17 @@ const docTemplate = `{
                 "circle": {
                     "type": "string"
                 },
+                "cover_height": {
+                    "type": "integer"
+                },
                 "cover_ready": {
                     "type": "boolean"
+                },
+                "cover_updated_at": {
+                    "type": "string"
+                },
+                "cover_width": {
+                    "type": "integer"
                 },
                 "duration_seconds": {
                     "type": "integer"
@@ -4834,8 +4843,17 @@ const docTemplate = `{
                 "circle": {
                     "type": "string"
                 },
+                "cover_height": {
+                    "type": "integer"
+                },
                 "cover_ready": {
                     "type": "boolean"
+                },
+                "cover_updated_at": {
+                    "type": "string"
+                },
+                "cover_width": {
+                    "type": "integer"
                 },
                 "duration_seconds": {
                     "type": "integer"

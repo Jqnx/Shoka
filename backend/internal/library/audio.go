@@ -244,7 +244,13 @@ func (s *AudioScanner) process(ctx context.Context, lib sqlc.Library, works map[
 			}
 
 			updated++
+
+			continue
 		}
+
+		// Unchanged files, but the cached cover may be missing or rendered with
+		// older settings: re-render it without touching the work's rows.
+		s.enqueueStaleCover(ctx, record.ID, work)
 	}
 
 	for path, record := range inDB {
@@ -290,6 +296,18 @@ func (s *AudioScanner) hasChanged(ctx context.Context, record sqlc.GetAudioPaths
 	}
 
 	return !slices.Equal(filePaths(files), work.audio) || !slices.Equal(imagePaths(images), work.images), nil
+}
+
+// enqueueStaleCover re-renders an unchanged work's cover when the cache is
+// missing or predates the current render settings.
+func (s *AudioScanner) enqueueStaleCover(ctx context.Context, audioID string, work audioWork) {
+	if len(work.images) == 0 || !image.AudioCoverStale(s.cfg.Cache.Dir, audioID) {
+		return
+	}
+
+	if err := s.queue.EnqueueOnce(ctx, jobs.JobTypeAudioCover, jobs.AudioCoverPayload{AudioID: audioID}); err != nil {
+		s.log.Warn("failed to enqueue audio cover", "audio_id", audioID, "error", err)
+	}
 }
 
 func filePaths(files []sqlc.AudioFile) []string {

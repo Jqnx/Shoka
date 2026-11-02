@@ -18,6 +18,12 @@ const (
 	maxPageWidth = 2400
 	thumbQuality = 75
 	pageQuality  = 85
+
+	// Audio covers are shown up to ~432 CSS px wide on the detail page, so
+	// 2x displays need ~864 - render a little above that instead of reusing
+	// the 360px page-thumbnail settings.
+	audioCoverWidth   = 960
+	audioCoverQuality = 88
 )
 
 // Processor renders images with libvips and owns the on-disk cache layout
@@ -125,6 +131,23 @@ func (p *Processor) GenerateThumbnail(_ context.Context, archiveID string, index
 	p.log.Debug("thumbnail generated", "archive_id", archiveID, "index", index)
 
 	return nil
+}
+
+// GenerateAudioCover renders an audio work's cover at the resolution the
+// detail page displays, replacing any cached render so quality changes reach
+// existing works. The marker is written only after the image, so an
+// interrupted render stays stale and the next scan retries it.
+func (p *Processor) GenerateAudioCover(_ context.Context, audioID string, r io.Reader) error {
+	key := AudioCacheKey(audioID)
+	if err := util.EnsureDir(p.ThumbDir(key)); err != nil {
+		return err
+	}
+
+	if err := p.processImage(r, p.thumbPath(key, 0), audioCoverWidth, audioCoverQuality); err != nil {
+		return fmt.Errorf("generate audio cover audio=%s: %w", audioID, err)
+	}
+
+	return writeFileAtomic(audioCoverMarkerPath(p.cacheDir, audioID), []byte(audioCoverMarker()))
 }
 
 // ComputePHash computes a 64-bit perceptual hash (DCT-based, see

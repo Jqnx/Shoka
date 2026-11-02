@@ -7,6 +7,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
+
+	"golang.org/x/image/webp"
 )
 
 // ThumbDir returns the directory that holds an archive's thumbnails.
@@ -27,8 +30,73 @@ func (p *Processor) AudioCoverPath(audioID string) string {
 	return p.ThumbPath(AudioCacheKey(audioID), 0)
 }
 
+// AudioCoverInfo is an audio work's cached cover. Path is empty when no cover
+// has been rendered; Width/Height are zero when the file cannot be decoded.
+type AudioCoverInfo struct {
+	Path    string
+	ModTime *time.Time
+	Width   int
+	Height  int
+}
+
+// CachedAudioCover returns the cached cover's path, mtime and pixel size. The
+// size comes from the WebP header of the file being served, so list handlers
+// can reserve the cover's space without a separate cache format.
+func (p *Processor) CachedAudioCover(audioID string) AudioCoverInfo {
+	path := p.thumbPath(AudioCacheKey(audioID), 0)
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return AudioCoverInfo{}
+	}
+
+	mod := info.ModTime().UTC()
+	cover := AudioCoverInfo{Path: path, ModTime: &mod}
+
+	//nolint:gosec // G304: path is built from an audio ID under the cache dir, not user input
+	f, err := os.Open(path)
+	if err != nil {
+		return cover
+	}
+	defer func() { _ = f.Close() }()
+
+	if cfg, err := webp.DecodeConfig(f); err == nil {
+		cover.Width, cover.Height = cfg.Width, cfg.Height
+	}
+
+	return cover
+}
+
+// audioCoverMarker identifies the render settings an audio cover was produced
+// with. Keep it derived from the constants so changing either invalidates
+// every cached cover.
+func audioCoverMarker() string {
+	return fmt.Sprintf("%dx%d", audioCoverWidth, audioCoverQuality)
+}
+
+func audioCoverMarkerPath(cacheDir, audioID string) string {
+	return filepath.Join(cacheDir, AudioCacheKey(audioID), "thumbs", "cover-version")
+}
+
+// AudioCoverStale reports whether an audio work's cached cover is missing or
+// was rendered with settings other than the current constants. Scans use it to
+// re-enqueue covers for works whose files did not otherwise change.
+func AudioCoverStale(cacheDir, audioID string) bool {
+	if _, err := os.Stat(thumbPathIn(cacheDir, AudioCacheKey(audioID), 0)); err != nil {
+		return true
+	}
+
+	data, err := os.ReadFile(audioCoverMarkerPath(cacheDir, audioID))
+
+	return err != nil || strings.TrimSpace(string(data)) != audioCoverMarker()
+}
+
+func thumbPathIn(cacheDir, archiveID string, index int) string {
+	return filepath.Join(cacheDir, archiveID, "thumbs", fmt.Sprintf("%03d.webp", index+1))
+}
+
 func (p *Processor) thumbPath(archiveID string, index int) string {
-	return filepath.Join(p.ThumbDir(archiveID), fmt.Sprintf("%03d.webp", index+1))
+	return thumbPathIn(p.cacheDir, archiveID, index)
 }
 
 // ThumbPath returns the path to a page's thumbnail, or "" when it has not
