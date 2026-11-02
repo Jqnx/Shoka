@@ -7,24 +7,63 @@
 	let {
 		audioId,
 		updatedAt,
-		tracks
+		tracks,
+		defaultFolder
 	}: {
 		audioId: string;
 		updatedAt: string;
 		tracks: AudioTrack[];
+		/** Top-level track folder to open; empty or missing falls back to the first. */
+		defaultFolder: string;
 	} = $props();
 
-	let selected = $state(0);
 	// The element is only read from event handlers, so it needs no reactivity.
 	let player: HTMLAudioElement | null = null;
 
-	// A reload can shrink the track list (a rescan removed files); clamping at
-	// read time keeps the player from ever getting an empty src.
-	const current = $derived(
-		tracks.length === 0 ? 0 : Math.min(Math.max(selected, 0), tracks.length - 1)
+	// Works can ship several versions as sibling folders (with/without sound
+	// effects). Group in scan order; the API already returns tracks sorted by
+	// path, so each folder's tracks stay contiguous.
+	const groups = $derived.by(() => {
+		const grouped: { folder: string; tracks: AudioTrack[] }[] = [];
+
+		for (const track of tracks) {
+			const group = grouped.find((candidate) => candidate.folder === track.folder);
+			if (group) group.tracks.push(track);
+			else grouped.push({ folder: track.folder, tracks: [track] });
+		}
+
+		return grouped;
+	});
+
+	// svelte-ignore state_referenced_locally
+	let selectedFolder = $state<string | null>(defaultFolder === '' ? null : defaultFolder);
+
+	// Clamp at read time: the configured folder may not exist in every work,
+	// and a reload can remove the folder or track currently selected. A null
+	// selection means "no preference" so it cannot be confused with the ''
+	// group that holds root-level tracks.
+	const activeFolder = $derived(
+		selectedFolder !== null && groups.some((group) => group.folder === selectedFolder)
+			? selectedFolder
+			: (groups[0]?.folder ?? '')
 	);
-	const active = $derived(tracks[current] ?? null);
+	const activeTracks = $derived(
+		groups.find((group) => group.folder === activeFolder)?.tracks ?? []
+	);
+
+	let selected = $state<number | null>(null);
+
+	const current = $derived.by(() => {
+		if (activeTracks.length === 0) return 0;
+
+		return activeTracks.find((track) => track.index === selected)?.index ?? activeTracks[0].index;
+	});
+	const active = $derived(tracks.find((track) => track.index === current) ?? null);
 	const src = $derived(active ? audioTrackSrc(audioId, active.index, updatedAt) : '');
+
+	function folderLabel(folder: string) {
+		return folder === '' ? 'Top level' : folder;
+	}
 
 	// Attachment instead of bind:this: the element is captured without making
 	// it a reactive binding.
@@ -43,17 +82,26 @@
 		await player?.play().catch(() => {});
 	}
 
+	function selectFolder(folder: string) {
+		if (folder === activeFolder) return;
+
+		selectedFolder = folder;
+		// Open the folder on its first track but do not start playback.
+		selected = null;
+	}
+
 	function selectTrack(index: number) {
 		if (index !== current) selected = index;
 		void playCurrent();
 	}
 
-	// Stop at the last track instead of wrapping around: a work is meant to
-	// be listened to front to back once.
+	// Stop at the last track of the open folder instead of wrapping around,
+	// and never spill into the next version.
 	async function handleEnded() {
-		if (current >= tracks.length - 1) return;
+		const index = activeTracks.findIndex((track) => track.index === current);
+		if (index === -1 || index >= activeTracks.length - 1) return;
 
-		selected = current + 1;
+		selected = activeTracks[index + 1].index;
 		await playCurrent();
 	}
 </script>
@@ -61,6 +109,28 @@
 {#if tracks.length === 0}
 	<p class="text-sm text-muted-foreground">No audio files.</p>
 {:else}
+	{#if groups.length > 1}
+		<div class="mb-3 flex flex-wrap gap-1.5" role="group" aria-label="Version folder">
+			{#each groups as group (group.folder)}
+				{@const isActive = group.folder === activeFolder}
+				<button
+					type="button"
+					class="rounded-md border px-2.5 py-1 text-xs font-medium transition-colors {isActive
+						? 'border-primary bg-primary text-primary-foreground'
+						: 'border-border text-muted-foreground hover:text-foreground'}"
+					aria-label="{folderLabel(group.folder)} ({group.tracks.length} tracks)"
+					aria-pressed={isActive}
+					onclick={() => selectFolder(group.folder)}
+				>
+					{folderLabel(group.folder)}
+					<span class="ms-1 opacity-70">{group.tracks.length}</span>
+				</button>
+			{/each}
+		</div>
+	{:else if activeFolder}
+		<p class="mb-2 text-xs text-muted-foreground">{folderLabel(activeFolder)}</p>
+	{/if}
+
 	<audio
 		{@attach capturePlayer}
 		controls
@@ -71,7 +141,7 @@
 	></audio>
 
 	<ol class="mt-2 divide-y divide-border rounded-md border border-border">
-		{#each tracks as track (track.index)}
+		{#each activeTracks as track (track.index)}
 			<li>
 				<button
 					type="button"

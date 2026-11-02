@@ -233,6 +233,7 @@ type Library struct {
 	ScanIntervalMinutes int64      `json:"scan_interval_minutes"`
 	WatchEnabled        int64      `json:"watch_enabled"`
 	LastScannedAt       *time.Time `json:"last_scanned_at"`
+	DefaultAudioFolder  string     `json:"default_audio_folder"`
 }
 
 type LibraryAccess struct {

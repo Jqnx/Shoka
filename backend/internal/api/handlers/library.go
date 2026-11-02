@@ -71,6 +71,9 @@ type LibraryResponse struct {
 	// 0 means periodic scanning is off.
 	ScanIntervalMinutes int64 `json:"scan_interval_minutes"`
 	WatchEnabled        bool  `json:"watch_enabled"`
+	// Audio-only: top-level folder each work opens on. Empty means no
+	// preference (the first folder).
+	DefaultAudioFolder string `json:"default_audio_folder"`
 	// Omitted when the library has never been scanned.
 	LastScannedAt string `json:"last_scanned_at,omitempty"`
 	CreatedAt     string `json:"created_at"`
@@ -85,6 +88,7 @@ func toLibraryResponse(lib sqlc.Library) LibraryResponse {
 		Type:                lib.Type,
 		ScanIntervalMinutes: lib.ScanIntervalMinutes,
 		WatchEnabled:        lib.WatchEnabled != 0,
+		DefaultAudioFolder:  lib.DefaultAudioFolder,
 		CreatedAt:           lib.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt:           lib.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}
@@ -216,12 +220,39 @@ type UpdateLibraryRequest struct {
 	// 0 disables periodic scanning; anything else must be >= 15.
 	ScanIntervalMinutes *int64 `json:"scan_interval_minutes"`
 	WatchEnabled        *bool  `json:"watch_enabled"`
+	// Audio libraries only: the top-level track folder works open on. Empty
+	// clears the preference. Send the folder name alone, not a path.
+	DefaultAudioFolder *string `json:"default_audio_folder"`
+}
+
+// parseDefaultAudioFolder resolves the optional update field against the
+// stored value. Only a top-level folder name is meaningful: works are grouped
+// by their first path segment, so separators could never match.
+func parseDefaultAudioFolder(w http.ResponseWriter, raw *string, current sqlc.Library) (string, bool) {
+	if raw == nil {
+		return current.DefaultAudioFolder, true
+	}
+
+	folder := strings.TrimSpace(*raw)
+	if current.Type != "audio" && folder != "" {
+		response.BadRequest(w, "default_audio_folder is only valid for audio libraries")
+
+		return "", false
+	}
+
+	if strings.ContainsAny(folder, `/\`) || folder == "." || folder == ".." {
+		response.BadRequest(w, "default_audio_folder must be a top-level folder name")
+
+		return "", false
+	}
+
+	return folder, true
 }
 
 // UpdateLibrary godoc
 //
 //	@Summary		Update a library's name and scan settings
-//	@Description	Partial update — omitted fields are left unchanged. The library's path and type are immutable after creation. Set scan_interval_minutes to 0 to disable periodic scanning, or to at least 15 to enable it.
+//	@Description	Partial update — omitted fields are left unchanged. The library's path and type are immutable after creation. Set scan_interval_minutes to 0 to disable periodic scanning, or to at least 15 to enable it. default_audio_folder names the top-level folder audio works open on; empty clears it.
 //	@Tags			admin
 //	@Accept			json
 //	@Param			id		path		string					true	"Library ID"
@@ -282,11 +313,17 @@ func (h *LibraryHandler) UpdateLibrary(w http.ResponseWriter, r *http.Request) {
 		watchEnabled = boolToInt(*body.WatchEnabled)
 	}
 
+	defaultAudioFolder, ok := parseDefaultAudioFolder(w, body.DefaultAudioFolder, current)
+	if !ok {
+		return
+	}
+
 	updated, err := h.queries.UpdateLibrary(r.Context(), sqlc.UpdateLibraryParams{
 		ID:                  id,
 		Name:                name,
 		ScanIntervalMinutes: scanInterval,
 		WatchEnabled:        watchEnabled,
+		DefaultAudioFolder:  defaultAudioFolder,
 	})
 	if err != nil {
 		h.logger.Error("update library failed", "id", id, "error", err)

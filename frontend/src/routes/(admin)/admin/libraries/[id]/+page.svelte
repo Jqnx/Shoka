@@ -169,6 +169,22 @@
 						</Field.Description>
 					</Field.Field>
 
+					{#if data.library.type === 'audio'}
+						<Field.Field>
+							<Field.Label for="default-audio-folder">Default version folder</Field.Label>
+							<Input
+								id="default-audio-folder"
+								name="default_audio_folder"
+								value={data.library.default_audio_folder}
+								placeholder="e.g. SEなし"
+							/>
+							<Field.Description>
+								Top-level track folder each work opens on, such as the version without sound
+								effects. Works that don't have it open on their first folder.
+							</Field.Description>
+						</Field.Field>
+					{/if}
+
 					<Field.Field orientation="horizontal">
 						<Field.Content>
 							<Field.Label for="watch-enabled">Watch for file changes</Field.Label>

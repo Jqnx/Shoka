@@ -17,7 +17,7 @@ insert into library (
   type
 )
 values (?, ?, ?, ?)
-returning id, name, path, type, created_at, updated_at, scan_interval_minutes, watch_enabled, last_scanned_at
+returning id, name, path, type, created_at, updated_at, scan_interval_minutes, watch_enabled, last_scanned_at, default_audio_folder
 `
 
 type CreateLibraryParams struct {
@@ -45,6 +45,7 @@ func (q *Queries) CreateLibrary(ctx context.Context, arg CreateLibraryParams) (L
 		&i.ScanIntervalMinutes,
 		&i.WatchEnabled,
 		&i.LastScannedAt,
+		&i.DefaultAudioFolder,
 	)
 	return i, err
 }
@@ -60,7 +61,7 @@ func (q *Queries) DeleteLibrary(ctx context.Context, id string) error {
 }
 
 const getLibraryByID = `-- name: GetLibraryByID :one
-select id, name, path, type, created_at, updated_at, scan_interval_minutes, watch_enabled, last_scanned_at
+select id, name, path, type, created_at, updated_at, scan_interval_minutes, watch_enabled, last_scanned_at, default_audio_folder
 from library
 where id = ?
 `
@@ -78,6 +79,7 @@ func (q *Queries) GetLibraryByID(ctx context.Context, id string) (Library, error
 		&i.ScanIntervalMinutes,
 		&i.WatchEnabled,
 		&i.LastScannedAt,
+		&i.DefaultAudioFolder,
 	)
 	return i, err
 }
@@ -85,7 +87,7 @@ func (q *Queries) GetLibraryByID(ctx context.Context, id string) (Library, error
 const getLibraryByPath = `-- name: GetLibraryByPath :one
 ;
 
-select id, name, path, type, created_at, updated_at, scan_interval_minutes, watch_enabled, last_scanned_at
+select id, name, path, type, created_at, updated_at, scan_interval_minutes, watch_enabled, last_scanned_at, default_audio_folder
 from library
 where path = ?
 `
@@ -103,6 +105,7 @@ func (q *Queries) GetLibraryByPath(ctx context.Context, path string) (Library, e
 		&i.ScanIntervalMinutes,
 		&i.WatchEnabled,
 		&i.LastScannedAt,
+		&i.DefaultAudioFolder,
 	)
 	return i, err
 }
@@ -110,7 +113,7 @@ func (q *Queries) GetLibraryByPath(ctx context.Context, path string) (Library, e
 const listLibraries = `-- name: ListLibraries :many
 ;
 
-select id, name, path, type, created_at, updated_at, scan_interval_minutes, watch_enabled, last_scanned_at
+select id, name, path, type, created_at, updated_at, scan_interval_minutes, watch_enabled, last_scanned_at, default_audio_folder
 from library
 order by name
 `
@@ -134,6 +137,7 @@ func (q *Queries) ListLibraries(ctx context.Context) ([]Library, error) {
 			&i.ScanIntervalMinutes,
 			&i.WatchEnabled,
 			&i.LastScannedAt,
+			&i.DefaultAudioFolder,
 		); err != nil {
 			return nil, err
 		}
@@ -149,7 +153,7 @@ func (q *Queries) ListLibraries(ctx context.Context) ([]Library, error) {
 }
 
 const listLibrariesDueForScan = `-- name: ListLibrariesDueForScan :many
-select id, name, path, type, created_at, updated_at, scan_interval_minutes, watch_enabled, last_scanned_at
+select id, name, path, type, created_at, updated_at, scan_interval_minutes, watch_enabled, last_scanned_at, default_audio_folder
 from library
 where scan_interval_minutes > 0
   and (
@@ -182,6 +186,7 @@ func (q *Queries) ListLibrariesDueForScan(ctx context.Context) ([]Library, error
 			&i.ScanIntervalMinutes,
 			&i.WatchEnabled,
 			&i.LastScannedAt,
+			&i.DefaultAudioFolder,
 		); err != nil {
 			return nil, err
 		}
@@ -217,15 +222,17 @@ set
     name = ?,
     scan_interval_minutes = ?,
     watch_enabled = ?,
+    default_audio_folder = ?,
     updated_at = datetime('now')
 where id = ?
-returning id, name, path, type, created_at, updated_at, scan_interval_minutes, watch_enabled, last_scanned_at
+returning id, name, path, type, created_at, updated_at, scan_interval_minutes, watch_enabled, last_scanned_at, default_audio_folder
 `
 
 type UpdateLibraryParams struct {
 	Name                string `json:"name"`
 	ScanIntervalMinutes int64  `json:"scan_interval_minutes"`
 	WatchEnabled        int64  `json:"watch_enabled"`
+	DefaultAudioFolder  string `json:"default_audio_folder"`
 	ID                  string `json:"id"`
 }
 
@@ -234,6 +241,7 @@ func (q *Queries) UpdateLibrary(ctx context.Context, arg UpdateLibraryParams) (L
 		arg.Name,
 		arg.ScanIntervalMinutes,
 		arg.WatchEnabled,
+		arg.DefaultAudioFolder,
 		arg.ID,
 	)
 	var i Library
@@ -247,6 +255,7 @@ func (q *Queries) UpdateLibrary(ctx context.Context, arg UpdateLibraryParams) (L
 		&i.ScanIntervalMinutes,
 		&i.WatchEnabled,
 		&i.LastScannedAt,
+		&i.DefaultAudioFolder,
 	)
 	return i, err
 }

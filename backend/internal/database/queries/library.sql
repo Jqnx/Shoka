@@ -33,6 +33,7 @@ set
     name = ?,
     scan_interval_minutes = ?,
     watch_enabled = ?,
+    default_audio_folder = ?,
     updated_at = datetime('now')
 where id = ?
 returning *;

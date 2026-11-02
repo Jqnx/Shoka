@@ -53,8 +53,11 @@ func NewAudioHandler(queries *sqlc.Queries, db *sql.DB, processor *image.Process
 
 // AudioTrackResponse is one playable file of a work.
 type AudioTrackResponse struct {
-	Index           int    `json:"index"`
-	Name            string `json:"name"`
+	Index int    `json:"index"`
+	Name  string `json:"name"`
+	// Top-level folder under the work, or "" for files at the work root. Works
+	// that ship versions (with/without sound effects) keep each version here.
+	Folder          string `json:"folder"`
 	DurationSeconds int64  `json:"duration_seconds"`
 }
 
@@ -247,6 +250,7 @@ func (h *AudioHandler) audioResponseFor(ctx context.Context, audio sqlc.Audio, u
 		resp.Tracks = append(resp.Tracks, AudioTrackResponse{
 			Index:           i,
 			Name:            filepath.Base(f.RelativePath),
+			Folder:          trackFolder(f.RelativePath),
 			DurationSeconds: f.DurationSeconds,
 		})
 	}
@@ -576,6 +580,20 @@ func parseAudioReleaseDate(w http.ResponseWriter, raw *string) (*time.Time, bool
 	}
 
 	return &parsed, true
+}
+
+// trackFolder returns the top-level folder a track lives in, relative to the
+// work root, or "" when the file sits at the root. Versions are sibling
+// folders, so this is the unit the explorer opens.
+func trackFolder(relativePath string) string {
+	dir := filepath.ToSlash(filepath.Dir(relativePath))
+	if dir == "." {
+		return ""
+	}
+
+	folder, _, _ := strings.Cut(dir, "/")
+
+	return folder
 }
 
 // optionalName trims an optional name, turning a blank into nil.

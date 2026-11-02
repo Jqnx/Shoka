@@ -312,7 +312,7 @@ const docTemplate = `{
                 }
             },
             "patch": {
-                "description": "Partial update — omitted fields are left unchanged. The library's path and type are immutable after creation. Set scan_interval_minutes to 0 to disable periodic scanning, or to at least 15 to enable it.",
+                "description": "Partial update — omitted fields are left unchanged. The library's path and type are immutable after creation. Set scan_interval_minutes to 0 to disable periodic scanning, or to at least 15 to enable it. default_audio_folder names the top-level folder audio works open on; empty clears it.",
                 "consumes": [
                     "application/json"
                 ],
@@ -4914,6 +4914,10 @@ const docTemplate = `{
                 "duration_seconds": {
                     "type": "integer"
                 },
+                "folder": {
+                    "description": "Top-level folder under the work, or \"\" for files at the work root. Works\nthat ship versions (with/without sound effects) keep each version here.",
+                    "type": "string"
+                },
                 "index": {
                     "type": "integer"
                 },
@@ -5349,6 +5353,10 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "default_audio_folder": {
+                    "description": "Audio-only: top-level folder each work opens on. Empty means no\npreference (the first folder).",
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -5779,6 +5787,10 @@ const docTemplate = `{
         "handlers.UpdateLibraryRequest": {
             "type": "object",
             "properties": {
+                "default_audio_folder": {
+                    "description": "Audio libraries only: the top-level track folder works open on. Empty\nclears the preference. Send the folder name alone, not a path.",
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },

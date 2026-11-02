@@ -226,6 +226,8 @@ export type ArtistListResponse = {
 export type AudioTrack = {
 	index: number;
 	name: string;
+	/** Top-level folder under the work, or "" for root-level files. */
+	folder: string;
 	duration_seconds: number;
 };
 
@@ -332,6 +334,8 @@ export type Library = {
 	scan_interval_minutes: number;
 	/** Whether the backend's filesystem watcher is running for this library. */
 	watch_enabled: boolean;
+	/** Audio only: top-level track folder each work opens on. Empty = first folder. */
+	default_audio_folder: string;
 	/** Absent when the library has never been scanned. */
 	last_scanned_at?: string;
 	created_at: string;

@@ -7,6 +7,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
 	import * as Dialog from '$lib/components/ui/dialog';
+	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import AudioPlayer from '$lib/components/AudioPlayer.svelte';
 	import EditAudioSheet from '$lib/components/EditAudioSheet.svelte';
 	import { audioCoverSrc } from '$lib/types';
@@ -17,12 +18,19 @@
 	let { data, form } = $props();
 
 	const a = $derived(data.audio);
+	const defaultFolder = $derived(
+		data.libraries.find((library) => library.id === a.library_id)?.default_audio_folder ?? ''
+	);
 	const canEdit = $derived(can(page.data.user, { audio: ['update'] }));
 
 	let favoriting = $state(false);
 	let settingRating = $state(false);
 	let hoveredStar = $state<number | null>(null);
 	let previewIndex = $state<number | null>(null);
+	// Tracks and gallery share the space below the header. Keep the player
+	// mounted while the gallery is shown - Tabs.Content only hides it - so
+	// playback survives switching tabs.
+	let section = $state('tracks');
 
 	const backHref = $derived(`/${a.library_id}` as `/${string}`);
 	const languageName = $derived(
@@ -232,30 +240,50 @@
 
 	<Separator class="my-8" />
 
-	<AudioPlayer audioId={a.id} updatedAt={a.updated_at} tracks={a.tracks} />
+	{#snippet player()}
+		<AudioPlayer
+			audioId={a.id}
+			updatedAt={a.updated_at}
+			tracks={a.tracks}
+			defaultFolder={defaultFolder}
+		/>
+	{/snippet}
 
 	{#if a.images.length}
-		<Separator class="my-8" />
+		<Tabs.Root bind:value={section} class="gap-6">
+			<Tabs.List class="self-center">
+				<Tabs.Trigger value="tracks">Tracks</Tabs.Trigger>
+				<Tabs.Trigger value="gallery">Gallery</Tabs.Trigger>
+			</Tabs.List>
 
-		<div
-			class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8"
-		>
-			{#each a.images as image (image.index)}
-				<button
-					type="button"
-					class="overflow-hidden rounded-lg border border-border bg-muted"
-					onclick={() => (previewIndex = image.index)}
-					aria-label="View {image.name}"
+			<Tabs.Content value="tracks">
+				{@render player()}
+			</Tabs.Content>
+
+			<Tabs.Content value="gallery">
+				<div
+					class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8"
 				>
-					<img
-						src={audioImageSrc(a.id, image.index, a.updated_at)}
-						alt={image.name}
-						loading="lazy"
-						class="aspect-square size-full object-cover transition-transform hover:scale-105"
-					/>
-				</button>
-			{/each}
-		</div>
+					{#each a.images as image (image.index)}
+						<button
+							type="button"
+							class="overflow-hidden rounded-lg border border-border bg-muted"
+							onclick={() => (previewIndex = image.index)}
+							aria-label="View {image.name}"
+						>
+							<img
+								src={audioImageSrc(a.id, image.index, a.updated_at)}
+								alt={image.name}
+								loading="lazy"
+								class="aspect-square size-full object-cover transition-transform hover:scale-105"
+							/>
+						</button>
+					{/each}
+				</div>
+			</Tabs.Content>
+		</Tabs.Root>
+	{:else}
+		{@render player()}
 	{/if}
 </div>
 

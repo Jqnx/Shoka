@@ -53,7 +53,8 @@ export const actions: Actions = {
 				scan_interval_minutes: scanInterval,
 				// Carried by a hidden input holding String(boolean), same as
 				// the "enabled" toggle in library-source-card.svelte.
-				watch_enabled: form.get('watch_enabled') === 'true'
+				watch_enabled: form.get('watch_enabled') === 'true',
+				default_audio_folder: String(form.get('default_audio_folder') ?? '').trim()
 			})
 		});
 
