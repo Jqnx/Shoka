@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+NEVER commit changes without explicit approval.
+
 ## Project Overview
 
 Shoka is a self-hosted doujinshi library manager. It consists of a Go backend REST API and a SvelteKit frontend, with SQLite for storage and search (FTS5 virtual tables using the trigram tokenizer — no external search service).
