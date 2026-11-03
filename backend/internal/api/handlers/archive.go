@@ -1512,6 +1512,9 @@ func (h *ArchiveHandler) GenerateThumbnails(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusAccepted)
 }
 
+// sseIndexKey is the field name of a "ready" event's page/image index.
+const sseIndexKey = "index"
+
 // thumbnailDoneEvent is the payload of the terminal "done" SSE event. Error
 // is omitted on success and set when generation permanently failed (all
 // retries exhausted) — see NewThumbnailHandler in internal/jobs.
@@ -1558,7 +1561,7 @@ func (h *ArchiveHandler) StreamThumbnailEvents(w http.ResponseWriter, r *http.Re
 
 	for i := range pageCount {
 		if h.processor.ThumbPath(archive.ID, i) != "" {
-			_ = response.SSEEvent(w, "ready", map[string]int{"index": i})
+			_ = response.SSEEvent(w, "ready", map[string]int{sseIndexKey: i})
 		} else {
 			allReady = false
 		}
@@ -1593,7 +1596,7 @@ func (h *ArchiveHandler) StreamThumbnailEvents(w http.ResponseWriter, r *http.Re
 				return
 			}
 
-			_ = response.SSEEvent(w, "ready", map[string]int{"index": event.Index})
+			_ = response.SSEEvent(w, "ready", map[string]int{sseIndexKey: event.Index})
 
 			flusher.Flush()
 		}

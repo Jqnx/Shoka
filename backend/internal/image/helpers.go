@@ -91,8 +91,87 @@ func AudioCoverStale(cacheDir, audioID string) bool {
 	return err != nil || strings.TrimSpace(string(data)) != audioCoverMarker()
 }
 
+// AudioGalleryDir returns the directory holding an audio work's gallery
+// thumbnails. It sits beside the cover in the same audio cache namespace, so a
+// 360px gallery thumb for image 0 can never collide with the 960px cover.
+func (p *Processor) AudioGalleryDir(audioID string) string {
+	return filepath.Join(p.cacheDir, AudioCacheKey(audioID), "gallery")
+}
+
+// audioGalleryMarker identifies the render settings an audio work's gallery
+// thumbnails were produced with. Derived from the constants, so changing
+// either invalidates every cached gallery.
+func audioGalleryMarker() string {
+	return fmt.Sprintf("%dx%d", thumbWidth, thumbQuality)
+}
+
+func (p *Processor) audioGalleryMarkerPath(audioID string) string {
+	return filepath.Join(p.AudioGalleryDir(audioID), "version")
+}
+
+// AudioThumbPath returns the path to an image's gallery thumbnail, or "" when
+// it has not been generated yet.
+func (p *Processor) AudioThumbPath(audioID string, index int) string {
+	path := numberedThumbPath(p.AudioGalleryDir(audioID), index)
+	if _, err := os.Stat(path); err != nil {
+		return ""
+	}
+
+	return path
+}
+
+// AudioGalleryStale reports whether the cached gallery was rendered with
+// settings other than the current ones.
+func (p *Processor) AudioGalleryStale(audioID string) bool {
+	data, err := os.ReadFile(p.audioGalleryMarkerPath(audioID))
+
+	return err != nil || strings.TrimSpace(string(data)) != audioGalleryMarker()
+}
+
+// WriteAudioGalleryVersion records that the gallery was rendered with the
+// current settings.
+func (p *Processor) WriteAudioGalleryVersion(audioID string) error {
+	if err := util.EnsureDir(p.AudioGalleryDir(audioID)); err != nil {
+		return err
+	}
+
+	return writeFileAtomic(p.audioGalleryMarkerPath(audioID), []byte(audioGalleryMarker()))
+}
+
+// EvictAudioGallery removes the gallery thumbnail directory (cover untouched).
+func (p *Processor) EvictAudioGallery(audioID string) error {
+	dir := p.AudioGalleryDir(audioID)
+	if err := os.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("evict audio gallery=%s: %w", audioID, err)
+	}
+
+	return nil
+}
+
+// AudioGalleryReady reports whether every one of imageCount images has a
+// current-settings thumbnail. Per-file stats rather than a count marker: a
+// thumbnail that failed to render must keep the trigger endpoint re-enqueuing
+// a job.
+func (p *Processor) AudioGalleryReady(audioID string, imageCount int) bool {
+	if p.AudioGalleryStale(audioID) {
+		return false
+	}
+
+	for index := range imageCount {
+		if p.AudioThumbPath(audioID, index) == "" {
+			return false
+		}
+	}
+
+	return true
+}
+
+func numberedThumbPath(dir string, index int) string {
+	return filepath.Join(dir, fmt.Sprintf("%03d.webp", index+1))
+}
+
 func thumbPathIn(cacheDir, archiveID string, index int) string {
-	return filepath.Join(cacheDir, archiveID, "thumbs", fmt.Sprintf("%03d.webp", index+1))
+	return numberedThumbPath(filepath.Join(cacheDir, archiveID, "thumbs"), index)
 }
 
 func (p *Processor) thumbPath(archiveID string, index int) string {

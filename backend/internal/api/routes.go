@@ -67,7 +67,7 @@ func (s *Server) newAPIHandlers() apiHandlers {
 		parody:         handlers.NewParodyHandler(s.Queries, s.Log, s.Processor),
 		circle:         handlers.NewCircleHandler(s.Queries, s.DB, s.Log, s.Processor),
 		artist:         handlers.NewArtistHandler(s.Queries, s.DB, s.Log, s.Processor),
-		audio:          handlers.NewAudioHandler(s.Queries, s.DB, s.Processor, s.Log),
+		audio:          handlers.NewAudioHandler(s.Queries, s.DB, s.Processor, s.Cache, s.Queue, s.Thumbnails, s.Log),
 		voiceActor:     handlers.NewVoiceActorHandler(s.Queries, s.Log),
 		readerSettings: handlers.NewReaderSettingsHandler(s.Queries, s.Log),
 		search:         handlers.NewSearchHandler(s.Queries, s.DB, s.Processor, s.Log),
@@ -197,6 +197,10 @@ func mountAudioRoutes(r chi.Router, h apiHandlers) {
 		r.With(requirePermission(auth.AudioUpdate)).Patch("/", h.audio.UpdateAudio)
 		r.Get("/cover", h.audio.GetCover)
 		r.Get("/images/{index}", h.audio.GetImage)
+		r.Get("/images/{index}/thumbnail", h.audio.GetImageThumbnail)
+		r.Get("/images/{index}/preview", h.audio.GetImagePreview)
+		r.Post("/thumbnails", h.audio.GenerateImageThumbnails)
+		r.Get("/thumbnails/events", h.audio.StreamImageThumbnailEvents)
 		r.Get("/tracks/{index}", h.audio.GetTrack)
 		r.Put("/favorite", h.audio.AddFavorite)
 		r.Delete("/favorite", h.audio.RemoveFavorite)

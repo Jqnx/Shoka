@@ -150,6 +150,25 @@ func (p *Processor) GenerateAudioCover(_ context.Context, audioID string, r io.R
 	return writeFileAtomic(audioCoverMarkerPath(p.cacheDir, audioID), []byte(audioCoverMarker()))
 }
 
+// GenerateAudioThumb renders the image read from r as index's gallery
+// thumbnail, skipping the work when that thumbnail already exists.
+func (p *Processor) GenerateAudioThumb(_ context.Context, audioID string, index int, r io.Reader) error {
+	if err := util.EnsureDir(p.AudioGalleryDir(audioID)); err != nil {
+		return err
+	}
+
+	dest := numberedThumbPath(p.AudioGalleryDir(audioID), index)
+	if _, err := os.Stat(dest); err == nil {
+		return nil
+	}
+
+	if err := p.processImage(r, dest, thumbWidth, thumbQuality); err != nil {
+		return fmt.Errorf("generate audio thumbnail audio=%s image=%d: %w", audioID, index, err)
+	}
+
+	return nil
+}
+
 // ComputePHash computes a 64-bit perceptual hash (DCT-based, see
 // goimagehash.PerceptionHash) of an image - used for duplicate detection
 // across archives whose cover looks the same even when the file doesn't

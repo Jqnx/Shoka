@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/davidbyttow/govips/v2/vips"
+	"golang.org/x/image/webp"
 )
 
 func TestMain(m *testing.M) {
@@ -246,5 +247,142 @@ func TestMarkThumbsReadyLeavesNoTempFiles(t *testing.T) {
 		}
 
 		t.Errorf("thumb dir holds %v, want only the marker", names)
+	}
+}
+
+// testAudioGalleryPNG encodes a w x h gradient PNG, so a resize is observable
+// through the decoded thumbnail width.
+func testAudioGalleryPNG(t *testing.T, width, height int) *bytes.Buffer {
+	t.Helper()
+
+	img := stdimage.NewRGBA(stdimage.Rect(0, 0, width, height))
+
+	for x := range width {
+		for y := range height {
+			img.Set(x, y, color.RGBA{R: uint8(x), G: uint8(y), B: 0x40, A: 0xff})
+		}
+	}
+
+	var src bytes.Buffer
+	if err := png.Encode(&src, img); err != nil {
+		t.Fatalf("encode source png: %v", err)
+	}
+
+	return &src
+}
+
+func TestAudioGalleryThumbnails(t *testing.T) {
+	t.Parallel()
+
+	p := newTestProcessor(t)
+
+	// Wider than thumbWidth so the render has to downscale.
+	for index := range 2 {
+		if err := p.GenerateAudioThumb(context.Background(), "work", index, testAudioGalleryPNG(t, 1000, 800)); err != nil {
+			t.Fatalf("generate audio thumb %d: %v", index, err)
+		}
+	}
+
+	for index := range 2 {
+		path := p.AudioThumbPath("work", index)
+		if path == "" {
+			t.Fatalf("thumbnail %d path is empty after a successful render", index)
+		}
+
+		f, err := os.Open(path) //nolint:gosec // test fixture path
+		if err != nil {
+			t.Fatalf("open thumbnail %d: %v", index, err)
+		}
+
+		cfg, err := webp.DecodeConfig(f)
+		_ = f.Close()
+
+		if err != nil {
+			t.Fatalf("decode thumbnail %d config: %v", index, err)
+		}
+
+		if cfg.Width != thumbWidth {
+			t.Errorf("thumbnail %d width = %d, want %d", index, cfg.Width, thumbWidth)
+		}
+	}
+}
+
+func TestAudioGalleryVersionMarker(t *testing.T) {
+	t.Parallel()
+
+	p := newTestProcessor(t)
+
+	if !p.AudioGalleryStale("work") {
+		t.Error("a gallery without a version marker is reported fresh")
+	}
+
+	if p.AudioGalleryReady("work", 0) {
+		t.Error("a gallery without a version marker is reported ready")
+	}
+
+	for index := range 2 {
+		if err := p.GenerateAudioThumb(context.Background(), "work", index, testAudioGalleryPNG(t, 40, 30)); err != nil {
+			t.Fatalf("generate audio thumb %d: %v", index, err)
+		}
+	}
+
+	if p.AudioGalleryReady("work", 2) {
+		t.Error("a gallery without a version marker is reported ready")
+	}
+
+	if err := p.WriteAudioGalleryVersion("work"); err != nil {
+		t.Fatalf("write gallery version: %v", err)
+	}
+
+	if p.AudioGalleryStale("work") {
+		t.Error("a gallery with the current marker is reported stale")
+	}
+
+	if !p.AudioGalleryReady("work", 2) {
+		t.Error("a complete gallery is reported not ready")
+	}
+
+	if p.AudioGalleryReady("work", 3) {
+		t.Error("a two-thumb gallery is reported ready for three images")
+	}
+
+	marker := filepath.Join(p.AudioGalleryDir("work"), "version")
+	if err := os.WriteFile(marker, []byte("1000x90"), 0o600); err != nil {
+		t.Fatalf("overwrite gallery version: %v", err)
+	}
+
+	if !p.AudioGalleryStale("work") {
+		t.Error("a gallery rendered with older settings is reported fresh")
+	}
+}
+
+func TestAudioGalleryEviction(t *testing.T) {
+	t.Parallel()
+
+	p := newTestProcessor(t)
+
+	if err := p.GenerateAudioThumb(context.Background(), "work", 0, testAudioGalleryPNG(t, 40, 30)); err != nil {
+		t.Fatalf("generate audio thumb: %v", err)
+	}
+
+	coverDir := filepath.Dir(thumbPathIn(p.cacheDir, AudioCacheKey("work"), 0))
+	if err := os.MkdirAll(coverDir, 0o700); err != nil {
+		t.Fatalf("create cover dir: %v", err)
+	}
+
+	if err := os.WriteFile(thumbPathIn(p.cacheDir, AudioCacheKey("work"), 0), []byte("cover"), 0o600); err != nil {
+		t.Fatalf("write cover: %v", err)
+	}
+
+	if err := p.EvictAudioGallery("work"); err != nil {
+		t.Fatalf("evict audio gallery: %v", err)
+	}
+
+	if path := p.AudioThumbPath("work", 0); path != "" {
+		t.Errorf("thumbnail survives eviction at %q", path)
+	}
+
+	if path := p.AudioCoverPath("work"); path == "" {
+		t.Error("evicting the gallery removed the cover")
 	}
 }

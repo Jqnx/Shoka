@@ -5,12 +5,16 @@ import (
 	"Shoka/internal/auth"
 	"Shoka/internal/database"
 	"Shoka/internal/database/sqlc"
+	"Shoka/internal/events"
 	"Shoka/internal/image"
+	"Shoka/internal/jobs"
 	"Shoka/internal/metadata"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"path/filepath"
@@ -34,20 +38,35 @@ func validAudioID(id string) bool {
 // AudioHandler serves the audio work list, detail, media, and per-user state
 // endpoints.
 type AudioHandler struct {
-	queries   *sqlc.Queries
-	db        *sql.DB
-	processor *image.Processor
-	logger    *slog.Logger
+	queries     *sqlc.Queries
+	db          *sql.DB
+	processor   *image.Processor
+	cache       *image.Cache
+	queue       *jobs.Queue
+	broadcaster *events.ThumbnailBroadcaster
+	logger      *slog.Logger
 }
 
-// NewAudioHandler returns an AudioHandler backed by queries, db, and the
-// shared image processor.
-func NewAudioHandler(queries *sqlc.Queries, db *sql.DB, processor *image.Processor, log *slog.Logger) *AudioHandler {
+// NewAudioHandler returns an AudioHandler backed by queries, db, the shared
+// image processor and preview cache, and the job queue plus thumbnail
+// progress broadcaster used by gallery generation.
+func NewAudioHandler(
+	queries *sqlc.Queries,
+	db *sql.DB,
+	processor *image.Processor,
+	cache *image.Cache,
+	queue *jobs.Queue,
+	broadcaster *events.ThumbnailBroadcaster,
+	log *slog.Logger,
+) *AudioHandler {
 	return &AudioHandler{
-		queries:   queries,
-		db:        db,
-		processor: processor,
-		logger:    log.With("handler", "audio"),
+		queries:     queries,
+		db:          db,
+		processor:   processor,
+		cache:       cache,
+		queue:       queue,
+		broadcaster: broadcaster,
+		logger:      log.With("handler", "audio"),
 	}
 }
 
@@ -679,6 +698,256 @@ func (h *AudioHandler) GetImage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "private, max-age=86400")
 
 	http.ServeFile(w, r, path)
+}
+
+// GetImageThumbnail godoc
+//
+//	@Summary		Get one image's gallery thumbnail
+//	@Description	Read-only — serves a 360px WebP thumbnail only if it has already been generated. Does not trigger generation; call POST .../thumbnails for that.
+//	@Tags			audio
+//	@Produce		image/webp
+//	@Param			id		path		string	true	"Audio ID"
+//	@Param			index	path		int		true	"0-based image index"
+//	@Success		200		{file}		binary
+//	@Failure		404		{object}	response.Error
+//	@Failure		500		{object}	response.Error
+//	@Router			/api/audio/{id}/images/{index}/thumbnail [get]
+func (h *AudioHandler) GetImageThumbnail(w http.ResponseWriter, r *http.Request) {
+	audio, ok := h.loadScopedAudio(w, r, chi.URLParam(r, "id"))
+	if !ok {
+		return
+	}
+
+	images, err := h.queries.GetAudioImages(r.Context(), audio.ID)
+	if err != nil {
+		h.logger.Error("get audio images failed", "id", audio.ID, "error", err)
+		response.InternalError(w, "failed to get image")
+
+		return
+	}
+
+	index, ok := mediaIndex(w, r, len(images))
+	if !ok {
+		return
+	}
+
+	path := h.processor.AudioThumbPath(audio.ID, index)
+	if path == "" {
+		// Same reasoning as the archive thumbnail's 404: this one stops being
+		// true once generation reaches this image, and a heuristically cached
+		// 404 under this unversioned URL would keep the thumbnail broken.
+		w.Header().Set("Cache-Control", "no-store")
+		response.NotFound(w, "thumbnail not ready")
+
+		return
+	}
+
+	// Set explicitly instead of relying on http.ServeFile's extension lookup.
+	w.Header().Set("Content-Type", "image/webp")
+	// Same policy as GetImage: a render-settings change ages out within a day
+	// rather than being pinned forever by a cache-busting query the client
+	// cannot know.
+	w.Header().Set("Cache-Control", "private, max-age=86400")
+
+	http.ServeFile(w, r, path)
+}
+
+// GetImagePreview godoc
+//
+//	@Summary		Get one image's preview render
+//	@Description	Rendered WebP, at most 2400 px wide, served through the in-memory image cache.
+//	@Tags			audio
+//	@Produce		image/webp
+//	@Param			id		path		string	true	"Audio ID"
+//	@Param			index	path		int		true	"0-based image index"
+//	@Success		200		{file}		binary
+//	@Failure		404		{object}	response.Error
+//	@Failure		500		{object}	response.Error
+//	@Router			/api/audio/{id}/images/{index}/preview [get]
+func (h *AudioHandler) GetImagePreview(w http.ResponseWriter, r *http.Request) {
+	audio, ok := h.loadScopedAudio(w, r, chi.URLParam(r, "id"))
+	if !ok {
+		return
+	}
+
+	images, err := h.queries.GetAudioImages(r.Context(), audio.ID)
+	if err != nil {
+		h.logger.Error("get audio images failed", "id", audio.ID, "error", err)
+		response.InternalError(w, "failed to get image")
+
+		return
+	}
+
+	index, ok := mediaIndex(w, r, len(images))
+	if !ok {
+		return
+	}
+
+	path, ok := audioMediaPath(w, audio.FolderPath, images[index].RelativePath)
+	if !ok {
+		return
+	}
+
+	// updated_at is part of the key so a rescan cannot serve a previous
+	// file's render from memory.
+	key := fmt.Sprintf("%s:%d:%d", image.AudioCacheKey(audio.ID), audio.UpdatedAt.UnixNano(), index)
+
+	data, err := h.cache.GetImageFile(key, path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			w.Header().Set("Cache-Control", "no-store")
+			response.NotFound(w, "image not found")
+
+			return
+		}
+
+		h.logger.Error("render image preview failed", "id", audio.ID, "index", index, "error", err)
+		response.InternalError(w, "failed to render image")
+
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/webp")
+	w.Header().Set("Cache-Control", "private, max-age=86400")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+// GenerateImageThumbnails godoc
+//
+//	@Summary		Trigger gallery thumbnail generation
+//	@Description	Enqueues background generation of this work's gallery thumbnails and returns immediately. Safe to call repeatedly — a job already pending/running is not duplicated, and existing thumbnails are skipped. Deliberately not permission-gated: any authenticated caller can already read the images, the work is deduplicated, and a read-only user must be able to fill the gallery.
+//	@Tags			audio
+//	@Param			id	path	string	true	"Audio ID"
+//	@Success		202	{object}	nil	"generation started"
+//	@Success		204	{object}	nil	"thumbnails already ready"
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/audio/{id}/thumbnails [post]
+func (h *AudioHandler) GenerateImageThumbnails(w http.ResponseWriter, r *http.Request) {
+	audio, ok := h.loadScopedAudio(w, r, chi.URLParam(r, "id"))
+	if !ok {
+		return
+	}
+
+	images, err := h.queries.GetAudioImages(r.Context(), audio.ID)
+	if err != nil {
+		h.logger.Error("get audio images failed", "id", audio.ID, "error", err)
+		response.InternalError(w, "failed to trigger thumbnail generation")
+
+		return
+	}
+
+	if len(images) == 0 || h.processor.AudioGalleryReady(audio.ID, len(images)) {
+		response.NoContent(w)
+
+		return
+	}
+
+	// Not gated by a permission on purpose: the images themselves are readable
+	// by any authenticated user, EnqueueOnce dedupes the work, and generation
+	// skips existing thumbnails - so a read-only user filling in skeletons is
+	// neither extra cost nor extra access.
+	if err := h.queue.EnqueueOnce(r.Context(), jobs.JobTypeAudioThumbnail,
+		jobs.AudioThumbnailPayload{AudioID: audio.ID}); err != nil {
+		h.logger.Error("enqueue audio thumbnail job failed", "id", audio.ID, "error", err)
+		response.InternalError(w, "failed to trigger thumbnail generation")
+
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+}
+
+// StreamImageThumbnailEvents godoc
+//
+//	@Summary		Stream gallery thumbnail generation progress
+//	@Description	Server-Sent Events. Emits a "ready" event ({"index": N}) for each image thumbnail as it becomes available — including an immediate snapshot of images already ready when the connection opens — followed by a terminal "done" event ({"done": true} on success, {"done": true, "error": "..."} if generation ended with failures or exhausted retries). Read-only: does not trigger generation, call POST .../thumbnails for that.
+//	@Tags			audio
+//	@Produce		text/event-stream
+//	@Param			id	path	string	true	"Audio ID"
+//	@Success		200
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/audio/{id}/thumbnails/events [get]
+func (h *AudioHandler) StreamImageThumbnailEvents(w http.ResponseWriter, r *http.Request) {
+	audio, ok := h.loadScopedAudio(w, r, chi.URLParam(r, "id"))
+	if !ok {
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		response.InternalError(w, "streaming unsupported")
+
+		return
+	}
+
+	key := image.AudioCacheKey(audio.ID)
+
+	// Subscribe before reading the on-disk snapshot so an event published in
+	// the gap between them cannot be missed; a duplicate ready is harmless.
+	ch, cancel := h.broadcaster.Subscribe(key)
+	defer cancel()
+
+	images, err := h.queries.GetAudioImages(r.Context(), audio.ID)
+	if err != nil {
+		h.logger.Error("get audio images failed", "id", audio.ID, "error", err)
+		response.InternalError(w, "failed to stream thumbnail progress")
+
+		return
+	}
+
+	response.SSEHeaders(w)
+
+	// A settings-stale gallery is reported unready so the client waits for the
+	// regenerated thumbs instead of marking old ones ready - this stays
+	// consistent with GenerateImageThumbnails.
+	current := !h.processor.AudioGalleryStale(audio.ID)
+	allReady := current
+
+	for index := range images {
+		if current && h.processor.AudioThumbPath(audio.ID, index) != "" {
+			_ = response.SSEEvent(w, "ready", map[string]int{sseIndexKey: index})
+		} else {
+			allReady = false
+		}
+	}
+
+	flusher.Flush()
+
+	if allReady {
+		_ = response.SSEEvent(w, "done", thumbnailDoneEvent{Done: true})
+
+		flusher.Flush()
+
+		return
+	}
+
+	ctx := r.Context()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case event, ok := <-ch:
+			if !ok {
+				return
+			}
+
+			if event.Done {
+				_ = response.SSEEvent(w, "done", thumbnailDoneEvent{Done: true, Error: event.Error})
+
+				flusher.Flush()
+
+				return
+			}
+
+			_ = response.SSEEvent(w, "ready", map[string]int{sseIndexKey: event.Index})
+
+			flusher.Flush()
+		}
+	}
 }
 
 // GetTrack godoc

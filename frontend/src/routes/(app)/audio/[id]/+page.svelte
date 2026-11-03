@@ -6,12 +6,12 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
-	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
+	import AudioImageGallery from '$lib/components/AudioImageGallery.svelte';
 	import AudioPlayer from '$lib/components/AudioPlayer.svelte';
 	import EditAudioSheet from '$lib/components/EditAudioSheet.svelte';
 	import { audioCoverSrc } from '$lib/types';
-	import { audioImageSrc, formatDuration } from '$lib/audio';
+	import { formatDuration } from '$lib/audio';
 	import { AudioLines, ChevronLeft, Heart, Star } from '@lucide/svelte';
 	import { can } from '$lib/auth/permissions';
 
@@ -26,7 +26,6 @@
 	let favoriting = $state(false);
 	let settingRating = $state(false);
 	let hoveredStar = $state<number | null>(null);
-	let previewIndex = $state<number | null>(null);
 	// Tracks and gallery share the space below the header. Keep the player
 	// mounted while the gallery is shown - Tabs.Content only hides it - so
 	// playback survives switching tabs.
@@ -49,10 +48,6 @@
 			day: 'numeric'
 		});
 	}
-
-	const previewImage = $derived(
-		previewIndex === null ? null : (a.images.find((image) => image.index === previewIndex) ?? null)
-	);
 </script>
 
 <svelte:head>
@@ -241,12 +236,7 @@
 	<Separator class="my-8" />
 
 	{#snippet player()}
-		<AudioPlayer
-			audioId={a.id}
-			updatedAt={a.updated_at}
-			tracks={a.tracks}
-			defaultFolder={defaultFolder}
-		/>
+		<AudioPlayer audioId={a.id} updatedAt={a.updated_at} tracks={a.tracks} {defaultFolder} />
 	{/snippet}
 
 	{#if a.images.length}
@@ -261,48 +251,10 @@
 			</Tabs.Content>
 
 			<Tabs.Content value="gallery">
-				<div
-					class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8"
-				>
-					{#each a.images as image (image.index)}
-						<button
-							type="button"
-							class="overflow-hidden rounded-lg border border-border bg-muted"
-							onclick={() => (previewIndex = image.index)}
-							aria-label="View {image.name}"
-						>
-							<img
-								src={audioImageSrc(a.id, image.index, a.updated_at)}
-								alt={image.name}
-								loading="lazy"
-								class="aspect-square size-full object-cover transition-transform hover:scale-105"
-							/>
-						</button>
-					{/each}
-				</div>
+				<AudioImageGallery audioId={a.id} updatedAt={a.updated_at} images={a.images} />
 			</Tabs.Content>
 		</Tabs.Root>
 	{:else}
 		{@render player()}
 	{/if}
 </div>
-
-<Dialog.Root
-	open={previewIndex !== null}
-	onOpenChange={(isOpen) => {
-		if (!isOpen) previewIndex = null;
-	}}
->
-	<Dialog.Content class="sm:max-w-[min(90vw,72rem)]">
-		<Dialog.Header>
-			<Dialog.Title class="sr-only">{previewImage?.name ?? 'Image'}</Dialog.Title>
-		</Dialog.Header>
-		{#if previewImage}
-			<img
-				src={audioImageSrc(a.id, previewImage.index, a.updated_at)}
-				alt={previewImage.name}
-				class="max-h-[80vh] w-full object-contain"
-			/>
-		{/if}
-	</Dialog.Content>
-</Dialog.Root>

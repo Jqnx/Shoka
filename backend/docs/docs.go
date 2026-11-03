@@ -3337,6 +3337,102 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/audio/{id}/images/{index}/preview": {
+            "get": {
+                "description": "Rendered WebP, at most 2400 px wide, served through the in-memory image cache.",
+                "produces": [
+                    "image/webp"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Get one image's preview render",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Audio ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "0-based image index",
+                        "name": "index",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/audio/{id}/images/{index}/thumbnail": {
+            "get": {
+                "description": "Read-only — serves a 360px WebP thumbnail only if it has already been generated. Does not trigger generation; call POST .../thumbnails for that.",
+                "produces": [
+                    "image/webp"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Get one image's gallery thumbnail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Audio ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "0-based image index",
+                        "name": "index",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/audio/{id}/rating": {
             "put": {
                 "consumes": [
@@ -3405,6 +3501,82 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/audio/{id}/thumbnails": {
+            "post": {
+                "description": "Enqueues background generation of this work's gallery thumbnails and returns immediately. Safe to call repeatedly — a job already pending/running is not duplicated, and existing thumbnails are skipped. Deliberately not permission-gated: any authenticated caller can already read the images, the work is deduplicated, and a read-only user must be able to fill the gallery.",
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Trigger gallery thumbnail generation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Audio ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "generation started"
+                    },
+                    "204": {
+                        "description": "thumbnails already ready"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/audio/{id}/thumbnails/events": {
+            "get": {
+                "description": "Server-Sent Events. Emits a \"ready\" event ({\"index\": N}) for each image thumbnail as it becomes available — including an immediate snapshot of images already ready when the connection opens — followed by a terminal \"done\" event ({\"done\": true} on success, {\"done\": true, \"error\": \"...\"} if generation ended with failures or exhausted retries). Read-only: does not trigger generation, call POST .../thumbnails for that.",
+                "produces": [
+                    "text/event-stream"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Stream gallery thumbnail generation progress",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Audio ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
                     },
                     "404": {
                         "description": "Not Found",

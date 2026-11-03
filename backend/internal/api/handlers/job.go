@@ -95,6 +95,7 @@ func payloadTarget(payload string) string {
 		keys  [2]string
 	}{
 		{"archive", [2]string{"archive_id", "ArchiveID"}},
+		{"audio", [2]string{"audio_id", "AudioID"}},
 		{"library", [2]string{"library_id", "LibraryID"}},
 	}
 

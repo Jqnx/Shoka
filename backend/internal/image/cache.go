@@ -6,6 +6,7 @@ import (
 	"Shoka/internal/library/archive"
 	"fmt"
 	"log/slog"
+	"os"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 )
@@ -54,6 +55,35 @@ func (c *Cache) GetPage(archiveID, filePath string, index int) ([]byte, error) {
 	c.log.Debug("page cache miss, extracting", "archive_id", archiveID, "index", index)
 
 	data, err := c.extractAndProcess(filePath, index)
+	if err != nil {
+		return nil, err
+	}
+
+	c.lru.Add(key, data)
+
+	return data, nil
+}
+
+// GetImageFile returns processed WebP bytes for a standalone image file,
+// checking the LRU under key before reading and rendering filePath. Audio
+// previews use it so a repeated open of the same image is served from memory;
+// the file is opened on a miss and its errors are wrapped so callers can match
+// fs.ErrNotExist.
+func (c *Cache) GetImageFile(key, filePath string) ([]byte, error) {
+	if data, ok := c.lru.Get(key); ok {
+		c.log.Debug("image cache hit", "key", key)
+
+		return data, nil
+	}
+
+	//nolint:gosec // G304: caller joins a validated audio folder with a filepath.IsLocal relative path
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("open image: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	data, err := c.processor.ProcessToBytes(f)
 	if err != nil {
 		return nil, err
 	}

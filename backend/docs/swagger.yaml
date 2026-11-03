@@ -3343,6 +3343,73 @@ paths:
       summary: Get one image of an audio work
       tags:
       - audio
+  /api/audio/{id}/images/{index}/preview:
+    get:
+      description: Rendered WebP, at most 2400 px wide, served through the in-memory
+        image cache.
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 0-based image index
+        in: path
+        name: index
+        required: true
+        type: integer
+      produces:
+      - image/webp
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Get one image's preview render
+      tags:
+      - audio
+  /api/audio/{id}/images/{index}/thumbnail:
+    get:
+      description: Read-only — serves a 360px WebP thumbnail only if it has already
+        been generated. Does not trigger generation; call POST .../thumbnails for
+        that.
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 0-based image index
+        in: path
+        name: index
+        required: true
+        type: integer
+      produces:
+      - image/webp
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Get one image's gallery thumbnail
+      tags:
+      - audio
   /api/audio/{id}/rating:
     delete:
       parameters:
@@ -3396,6 +3463,65 @@ paths:
           schema:
             $ref: '#/definitions/response.Error'
       summary: Rate an audio work
+      tags:
+      - audio
+  /api/audio/{id}/thumbnails:
+    post:
+      description: 'Enqueues background generation of this work''s gallery thumbnails
+        and returns immediately. Safe to call repeatedly — a job already pending/running
+        is not duplicated, and existing thumbnails are skipped. Deliberately not permission-gated:
+        any authenticated caller can already read the images, the work is deduplicated,
+        and a read-only user must be able to fill the gallery.'
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "202":
+          description: generation started
+        "204":
+          description: thumbnails already ready
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Trigger gallery thumbnail generation
+      tags:
+      - audio
+  /api/audio/{id}/thumbnails/events:
+    get:
+      description: 'Server-Sent Events. Emits a "ready" event ({"index": N}) for each
+        image thumbnail as it becomes available — including an immediate snapshot
+        of images already ready when the connection opens — followed by a terminal
+        "done" event ({"done": true} on success, {"done": true, "error": "..."} if
+        generation ended with failures or exhausted retries). Read-only: does not
+        trigger generation, call POST .../thumbnails for that.'
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Stream gallery thumbnail generation progress
       tags:
       - audio
   /api/audio/{id}/tracks/{index}:

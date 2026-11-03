@@ -24,6 +24,12 @@ export function audioTrackSrc(id: string, index: number, updatedAt: string): str
 	return `/api/audio/${id}/tracks/${index}?v=${encodeURIComponent(updatedAt)}`;
 }
 
-export function audioImageSrc(id: string, index: number, updatedAt: string): string {
-	return `/api/audio/${id}/images/${index}?v=${encodeURIComponent(updatedAt)}`;
+// Gallery thumbnails and previews carry updated_at for the same reason: the
+// grid never requests an original image.
+export function audioImageThumbSrc(id: string, index: number, updatedAt: string): string {
+	return `/api/audio/${id}/images/${index}/thumbnail?v=${encodeURIComponent(updatedAt)}`;
+}
+
+export function audioImagePreviewSrc(id: string, index: number, updatedAt: string): string {
+	return `/api/audio/${id}/images/${index}/preview?v=${encodeURIComponent(updatedAt)}`;
 }
