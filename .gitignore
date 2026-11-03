@@ -48,6 +48,7 @@ content-bak/
 backend/thumb/
 backend/data/
 cache/
+audio/
 
 # Metadata files
 ComicInfo.xml
