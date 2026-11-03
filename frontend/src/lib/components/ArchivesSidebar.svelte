@@ -9,6 +9,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { player } from '$lib/player.svelte';
 	import type { Artist, ArchiveLanguage, Character, Circle, Parody, Tag } from '$lib/types';
 
 	const ANY = 'any';
@@ -139,7 +140,15 @@
 	}
 </script>
 
-<Sidebar.Root side="right" collapsible="offcanvas" class="top-14 h-[calc(100svh-3.5rem)]">
+<Sidebar.Root
+	side="right"
+	collapsible="offcanvas"
+	class="top-14 h-[calc(100svh-3.5rem)] md:transition-[height,left,right,width] {player.source &&
+	player.barVisible &&
+	!player.expanded
+		? 'h-[calc(100svh-3.5rem-4.5rem)]'
+		: ''}"
+>
 	{#if hasActiveFilters}
 		<Sidebar.Header class="p-3">
 			<Button

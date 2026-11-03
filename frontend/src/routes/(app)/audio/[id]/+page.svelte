@@ -8,7 +8,7 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import AudioImageGallery from '$lib/components/AudioImageGallery.svelte';
-	import AudioPlayer from '$lib/components/AudioPlayer.svelte';
+	import AudioWorkTracks from '$lib/components/AudioWorkTracks.svelte';
 	import EditAudioSheet from '$lib/components/EditAudioSheet.svelte';
 	import { audioCoverSrc } from '$lib/types';
 	import { formatDuration } from '$lib/audio';
@@ -26,9 +26,6 @@
 	let favoriting = $state(false);
 	let settingRating = $state(false);
 	let hoveredStar = $state<number | null>(null);
-	// Tracks and gallery share the space below the header. Keep the player
-	// mounted while the gallery is shown - Tabs.Content only hides it - so
-	// playback survives switching tabs.
 	let section = $state('tracks');
 
 	const backHref = $derived(`/${a.library_id}` as `/${string}`);
@@ -236,7 +233,7 @@
 	<Separator class="my-8" />
 
 	{#snippet player()}
-		<AudioPlayer audioId={a.id} updatedAt={a.updated_at} tracks={a.tracks} {defaultFolder} />
+		<AudioWorkTracks audio={a} {defaultFolder} />
 	{/snippet}
 
 	{#if a.images.length}
