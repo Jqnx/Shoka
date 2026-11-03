@@ -92,7 +92,9 @@
 					error?: string;
 				};
 				if (payload.error) {
-					genError = payload.error;
+					// A failure to start generation is the root cause; the stream's
+					// "no job running" message must not replace it.
+					genError ??= payload.error;
 				} else {
 					// The broadcaster drops events beyond its buffer, so a
 					// successful done means every thumbnail is on disk.

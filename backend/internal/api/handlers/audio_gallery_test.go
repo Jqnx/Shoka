@@ -304,14 +304,48 @@ func TestAudioGenerateImageThumbnails(t *testing.T) {
 	}
 }
 
+// runAudioStream runs the events handler on its own goroutine and fails the
+// test instead of hanging when the stream never terminates. The deadline
+// matters for the early-return cases: a regression that removes the terminal
+// event would otherwise block the whole package until go test's timeout.
+func runAudioStream(t *testing.T, handler *AudioHandler, req *http.Request) *httptest.ResponseRecorder {
+	t.Helper()
+
+	rec := httptest.NewRecorder()
+
+	ctx, cancel := context.WithCancel(req.Context())
+	defer cancel()
+
+	req = req.WithContext(ctx)
+
+	finished := make(chan struct{})
+
+	go func() {
+		defer close(finished)
+
+		handler.StreamImageThumbnailEvents(rec, req)
+	}()
+
+	select {
+	case <-finished:
+		return rec
+	case <-time.After(2 * time.Second):
+		cancel()
+		<-finished
+
+		t.Fatal("stream did not finish within 2s")
+
+		return nil
+	}
+}
+
 func TestAudioStreamImageThumbnailEventsReady(t *testing.T) {
 	t.Parallel()
 
 	fx := newAudioGalleryHandler(t)
 	seedAudioGalleryThumb(t, fx)
 
-	rec := httptest.NewRecorder()
-	fx.handler.StreamImageThumbnailEvents(rec,
+	rec := runAudioStream(t, fx.handler,
 		audioGalleryRequest(t, http.MethodGet, "/api/audio/work1/thumbnails/events", "work1", ""))
 
 	if rec.Code != http.StatusOK {
@@ -342,8 +376,7 @@ func TestAudioStreamImageThumbnailEventsEmptyGallery(t *testing.T) {
 		t.Fatalf("clear images: %v", err)
 	}
 
-	rec := httptest.NewRecorder()
-	fx.handler.StreamImageThumbnailEvents(rec,
+	rec := runAudioStream(t, fx.handler,
 		audioGalleryRequest(t, http.MethodGet, "/api/audio/work1/thumbnails/events", "work1", ""))
 
 	body := rec.Body.String()
@@ -362,8 +395,7 @@ func TestAudioStreamImageThumbnailEventsReportsMissingJob(t *testing.T) {
 
 	fx := newAudioGalleryHandler(t)
 
-	rec := httptest.NewRecorder()
-	fx.handler.StreamImageThumbnailEvents(rec,
+	rec := runAudioStream(t, fx.handler,
 		audioGalleryRequest(t, http.MethodGet, "/api/audio/work1/thumbnails/events", "work1", ""))
 
 	body := rec.Body.String()
