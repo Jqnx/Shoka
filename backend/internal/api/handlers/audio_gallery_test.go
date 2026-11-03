@@ -67,6 +67,7 @@ CREATE TABLE job (
 // broadcaster the gallery endpoints depend on.
 type audioGalleryFixture struct {
 	handler     *AudioHandler
+	db          *sql.DB
 	processor   *image.Processor
 	folder      string
 	broadcaster *events.ThumbnailBroadcaster
@@ -134,6 +135,7 @@ func newAudioGalleryHandler(t *testing.T) audioGalleryFixture {
 
 	return audioGalleryFixture{
 		handler:     NewAudioHandler(queries, db, processor, cache, queue, broadcaster, logger),
+		db:          db,
 		processor:   processor,
 		folder:      folder,
 		broadcaster: broadcaster,
@@ -326,6 +328,32 @@ func TestAudioStreamImageThumbnailEventsReady(t *testing.T) {
 
 	if strings.Contains(body, `"error"`) {
 		t.Errorf("ready stream reports an error:\n%s", body)
+	}
+}
+
+func TestAudioStreamImageThumbnailEventsEmptyGallery(t *testing.T) {
+	t.Parallel()
+
+	fx := newAudioGalleryHandler(t)
+
+	// A work with no images has nothing to generate; no marker exists because
+	// no job was ever enqueued.
+	if _, err := fx.db.ExecContext(t.Context(), "DELETE FROM audio_image"); err != nil {
+		t.Fatalf("clear images: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	fx.handler.StreamImageThumbnailEvents(rec,
+		audioGalleryRequest(t, http.MethodGet, "/api/audio/work1/thumbnails/events", "work1", ""))
+
+	body := rec.Body.String()
+
+	if !strings.Contains(body, `"done":true`) {
+		t.Errorf("stream for a work without images is not done:\n%s", body)
+	}
+
+	if strings.Contains(body, `"error"`) {
+		t.Errorf("stream for a work without images reports an error:\n%s", body)
 	}
 }
 

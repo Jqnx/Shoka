@@ -950,6 +950,13 @@ func (h *AudioHandler) StreamImageThumbnailEvents(w http.ResponseWriter, r *http
 // snapshotAudioThumbnails emits a ready event for every thumbnail that already
 // exists and reports whether that is all of them.
 func (h *AudioHandler) snapshotAudioThumbnails(w http.ResponseWriter, audioID string, imageCount int) bool {
+	// A work with no images has nothing to generate and no job will ever run,
+	// so it is ready regardless of the version marker - same rule as
+	// GenerateImageThumbnails' 204 for an empty list.
+	if imageCount == 0 {
+		return true
+	}
+
 	current := !h.processor.AudioGalleryStale(audioID)
 	allReady := current
 
