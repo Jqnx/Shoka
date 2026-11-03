@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"Shoka/internal/database/sqlc"
+	"Shoka/internal/events"
 	"Shoka/internal/image"
+	"Shoka/internal/jobs"
 	"bytes"
 	"context"
 	"database/sql"
@@ -14,13 +16,16 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// audioGallerySchema is the part of migration 00044 the gallery handlers read.
+// audioGallerySchema is the part of migrations 00017 and 00044 the gallery
+// handlers read and write.
 const audioGallerySchema = `
 CREATE TABLE audio (
     id TEXT PRIMARY KEY NOT NULL,
@@ -42,10 +47,34 @@ CREATE TABLE audio_image (
     sort_order INTEGER NOT NULL,
     UNIQUE (audio_id, relative_path)
 );
+
+CREATE TABLE job (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    payload TEXT NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK(status IN ('pending', 'running', 'done', 'failed')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 3,
+    error TEXT,
+    created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+    updated_at DATETIME NOT NULL DEFAULT (datetime('now')),
+    run_after DATETIME NOT NULL DEFAULT (datetime('now'))
+);
 `
 
+// audioGalleryFixture is one work with one image plus the job queue and
+// broadcaster the gallery endpoints depend on.
+type audioGalleryFixture struct {
+	handler     *AudioHandler
+	processor   *image.Processor
+	folder      string
+	broadcaster *events.ThumbnailBroadcaster
+	queue       *jobs.Queue
+}
+
 // newAudioGalleryHandler seeds work "work1" with one 64x48 PNG.
-func newAudioGalleryHandler(t *testing.T) (*AudioHandler, *image.Processor, string) {
+func newAudioGalleryHandler(t *testing.T) audioGalleryFixture {
 	t.Helper()
 
 	db, err := sql.Open("sqlite3", ":memory:")
@@ -99,28 +128,70 @@ func newAudioGalleryHandler(t *testing.T) (*AudioHandler, *image.Processor, stri
 		t.Fatalf("new cache: %v", err)
 	}
 
-	return NewAudioHandler(sqlc.New(db), db, processor, cache, nil, nil, logger), processor, folder
+	queries := sqlc.New(db)
+	broadcaster := events.NewThumbnailBroadcaster()
+	queue := jobs.NewQueue(queries, logger)
+
+	return audioGalleryFixture{
+		handler:     NewAudioHandler(queries, db, processor, cache, queue, broadcaster, logger),
+		processor:   processor,
+		folder:      folder,
+		broadcaster: broadcaster,
+		queue:       queue,
+	}
 }
 
-// audioGalleryGet builds a request carrying chi's id/index path params.
+// seedAudioGalleryThumb renders work1's only image and marks the gallery
+// current, as the thumbnail job would.
+func seedAudioGalleryThumb(t *testing.T, fx audioGalleryFixture) {
+	t.Helper()
+
+	src, err := os.Open(filepath.Join(fx.folder, "001.png"))
+	if err != nil {
+		t.Fatalf("open source image: %v", err)
+	}
+
+	err = fx.processor.GenerateAudioThumb(context.Background(), "work1", 0, src)
+	_ = src.Close()
+
+	if err != nil {
+		t.Fatalf("generate thumbnail: %v", err)
+	}
+
+	if err := fx.processor.WriteAudioGalleryVersion("work1"); err != nil {
+		t.Fatalf("write gallery version: %v", err)
+	}
+}
+
+// audioGalleryRequest builds a request carrying chi's id and optional index
+// path params.
+func audioGalleryRequest(t *testing.T, method, path, id, index string) *http.Request {
+	t.Helper()
+
+	req := httptest.NewRequestWithContext(t.Context(), method, path, nil)
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", id)
+
+	if index != "" {
+		rctx.URLParams.Add("index", index)
+	}
+
+	return req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+}
+
 func audioGalleryGet(t *testing.T, id, index string) *http.Request {
 	t.Helper()
 
-	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/audio/"+id+"/images/"+index, nil)
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", id)
-	rctx.URLParams.Add("index", index)
-
-	return req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	return audioGalleryRequest(t, http.MethodGet, "/api/audio/"+id+"/images/"+index, id, index)
 }
 
 func TestAudioGetImageThumbnail(t *testing.T) {
 	t.Parallel()
 
-	h, processor, folder := newAudioGalleryHandler(t)
+	fx := newAudioGalleryHandler(t)
 
 	before := httptest.NewRecorder()
-	h.GetImageThumbnail(before, audioGalleryGet(t, "work1", "0"))
+	fx.handler.GetImageThumbnail(before, audioGalleryGet(t, "work1", "0"))
 
 	if before.Code != http.StatusNotFound {
 		t.Errorf("status before generation = %d, want 404", before.Code)
@@ -130,20 +201,10 @@ func TestAudioGetImageThumbnail(t *testing.T) {
 		t.Errorf("Cache-Control before generation = %q, want no-store", got)
 	}
 
-	src, err := os.Open(filepath.Join(folder, "001.png")) //nolint:gosec // test fixture path
-	if err != nil {
-		t.Fatalf("open source image: %v", err)
-	}
-
-	err = processor.GenerateAudioThumb(context.Background(), "work1", 0, src)
-	_ = src.Close()
-
-	if err != nil {
-		t.Fatalf("generate thumbnail: %v", err)
-	}
+	seedAudioGalleryThumb(t, fx)
 
 	after := httptest.NewRecorder()
-	h.GetImageThumbnail(after, audioGalleryGet(t, "work1", "0"))
+	fx.handler.GetImageThumbnail(after, audioGalleryGet(t, "work1", "0"))
 
 	if after.Code != http.StatusOK {
 		t.Fatalf("status after generation = %d, want 200", after.Code)
@@ -162,7 +223,7 @@ func TestAudioGetImageThumbnail(t *testing.T) {
 	}
 
 	outOfRange := httptest.NewRecorder()
-	h.GetImageThumbnail(outOfRange, audioGalleryGet(t, "work1", "99"))
+	fx.handler.GetImageThumbnail(outOfRange, audioGalleryGet(t, "work1", "99"))
 
 	if outOfRange.Code != http.StatusNotFound {
 		t.Errorf("status for index 99 = %d, want 404", outOfRange.Code)
@@ -172,10 +233,10 @@ func TestAudioGetImageThumbnail(t *testing.T) {
 func TestAudioGetImagePreview(t *testing.T) {
 	t.Parallel()
 
-	h, _, folder := newAudioGalleryHandler(t)
+	fx := newAudioGalleryHandler(t)
 
 	first := httptest.NewRecorder()
-	h.GetImagePreview(first, audioGalleryGet(t, "work1", "0"))
+	fx.handler.GetImagePreview(first, audioGalleryGet(t, "work1", "0"))
 
 	if first.Code != http.StatusOK {
 		t.Fatalf("preview status = %d, want 200", first.Code)
@@ -191,12 +252,12 @@ func TestAudioGetImagePreview(t *testing.T) {
 
 	// The second request is served from the in-memory LRU: removing the source
 	// must not turn it into a 404.
-	if err := os.Remove(filepath.Join(folder, "001.png")); err != nil {
+	if err := os.Remove(filepath.Join(fx.folder, "001.png")); err != nil {
 		t.Fatalf("remove source image: %v", err)
 	}
 
 	second := httptest.NewRecorder()
-	h.GetImagePreview(second, audioGalleryGet(t, "work1", "0"))
+	fx.handler.GetImagePreview(second, audioGalleryGet(t, "work1", "0"))
 
 	if second.Code != http.StatusOK {
 		t.Fatalf("cached preview status = %d, want 200", second.Code)
@@ -204,5 +265,141 @@ func TestAudioGetImagePreview(t *testing.T) {
 
 	if !bytes.Equal(first.Body.Bytes(), second.Body.Bytes()) {
 		t.Error("cached preview bytes differ from the rendered preview")
+	}
+}
+
+func TestAudioGenerateImageThumbnails(t *testing.T) {
+	t.Parallel()
+
+	fx := newAudioGalleryHandler(t)
+
+	started := httptest.NewRecorder()
+	fx.handler.GenerateImageThumbnails(started,
+		audioGalleryRequest(t, http.MethodPost, "/api/audio/work1/thumbnails", "work1", ""))
+
+	if started.Code != http.StatusAccepted {
+		t.Errorf("status for a gallery without thumbs = %d, want 202", started.Code)
+	}
+
+	pending, err := fx.queue.HasPendingJob(context.Background(), jobs.JobTypeAudioThumbnail,
+		jobs.AudioThumbnailPayload{AudioID: "work1"})
+	if err != nil {
+		t.Fatalf("check pending job: %v", err)
+	}
+
+	if !pending {
+		t.Error("no audio thumbnail job was enqueued")
+	}
+
+	seedAudioGalleryThumb(t, fx)
+
+	ready := httptest.NewRecorder()
+	fx.handler.GenerateImageThumbnails(ready,
+		audioGalleryRequest(t, http.MethodPost, "/api/audio/work1/thumbnails", "work1", ""))
+
+	if ready.Code != http.StatusNoContent {
+		t.Errorf("status for a complete gallery = %d, want 204", ready.Code)
+	}
+}
+
+func TestAudioStreamImageThumbnailEventsReady(t *testing.T) {
+	t.Parallel()
+
+	fx := newAudioGalleryHandler(t)
+	seedAudioGalleryThumb(t, fx)
+
+	rec := httptest.NewRecorder()
+	fx.handler.StreamImageThumbnailEvents(rec,
+		audioGalleryRequest(t, http.MethodGet, "/api/audio/work1/thumbnails/events", "work1", ""))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("stream status = %d, want 200", rec.Code)
+	}
+
+	body := rec.Body.String()
+
+	for _, want := range []string{"event: ready", `"index":0`, "event: done", `"done":true`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("stream body missing %q:\n%s", want, body)
+		}
+	}
+
+	if strings.Contains(body, `"error"`) {
+		t.Errorf("ready stream reports an error:\n%s", body)
+	}
+}
+
+func TestAudioStreamImageThumbnailEventsReportsMissingJob(t *testing.T) {
+	t.Parallel()
+
+	fx := newAudioGalleryHandler(t)
+
+	rec := httptest.NewRecorder()
+	fx.handler.StreamImageThumbnailEvents(rec,
+		audioGalleryRequest(t, http.MethodGet, "/api/audio/work1/thumbnails/events", "work1", ""))
+
+	body := rec.Body.String()
+
+	if !strings.Contains(body, "event: done") {
+		t.Fatalf("stream for a work with no generation running has no done event:\n%s", body)
+	}
+
+	if !strings.Contains(body, "thumbnail generation is not running") {
+		t.Errorf("done event does not explain the missing job:\n%s", body)
+	}
+}
+
+func TestAudioStreamImageThumbnailEventsForwardsTerminalEvent(t *testing.T) {
+	t.Parallel()
+
+	fx := newAudioGalleryHandler(t)
+
+	// A pending job is what keeps the stream waiting instead of reporting that
+	// generation is not running.
+	if err := fx.queue.Enqueue(context.Background(), jobs.JobTypeAudioThumbnail,
+		jobs.AudioThumbnailPayload{AudioID: "work1"}); err != nil {
+		t.Fatalf("enqueue job: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	finished := make(chan struct{})
+
+	req := audioGalleryRequest(t, http.MethodGet, "/api/audio/work1/thumbnails/events", "work1", "")
+
+	ctx, cancel := context.WithCancel(req.Context())
+	t.Cleanup(cancel)
+
+	req = req.WithContext(ctx)
+
+	go func() {
+		defer close(finished)
+
+		fx.handler.StreamImageThumbnailEvents(rec, req)
+	}()
+
+	key := image.AudioCacheKey("work1")
+	deadline := time.After(2 * time.Second)
+
+	for {
+		select {
+		case <-finished:
+			body := rec.Body.String()
+
+			if !strings.Contains(body, "event: done") || !strings.Contains(body, `"error":"boom"`) {
+				t.Errorf("stream did not forward the terminal event:\n%s", body)
+			}
+
+			return
+		case <-deadline:
+			cancel()
+			<-finished
+
+			t.Fatal("stream did not finish after a terminal event was published")
+		case <-time.After(20 * time.Millisecond):
+			// The subscription is installed before the snapshot, but publishing
+			// repeatedly tolerates the gap between starting the goroutine and
+			// reaching Subscribe.
+			fx.broadcaster.Publish(key, events.ThumbnailEvent{Done: true, Error: "boom"})
+		}
 	}
 }

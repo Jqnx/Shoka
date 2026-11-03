@@ -48,6 +48,21 @@ func (q *Queue) enqueue(ctx context.Context, jobType, payload string) error {
 	return nil
 }
 
+// HasPendingJob reports whether a job of jobType with the exact same payload
+// is pending or running. Streaming handlers use it to tell "generation is
+// still coming" from "the job that would report progress already finished".
+func (q *Queue) HasPendingJob(ctx context.Context, jobType string, payload any) (bool, error) {
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return false, err
+	}
+
+	return q.queries.HasPendingJob(ctx, sqlc.HasPendingJobParams{
+		Type:    jobType,
+		Payload: string(b),
+	})
+}
+
 // EnqueueOnce enqueues a job unless one with the same type AND payload is
 // already pending or running — e.g. two triggers to scan the same library,
 // or to generate thumbnails for the same archive, shouldn't both queue up.

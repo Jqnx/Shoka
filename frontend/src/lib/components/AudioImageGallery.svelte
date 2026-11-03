@@ -66,6 +66,8 @@
 	// This trigger is ungated, so there is no permission check here.
 	$effect(() => {
 		const id = audioId;
+		let cancelled = false;
+		let source: EventSource | undefined;
 
 		readyIndexes.clear();
 		genError = null;
@@ -73,36 +75,61 @@
 		previewStatus = null;
 		prefetched.clear();
 
-		fetch(`/api/audio/${id}/thumbnails`, { method: 'POST' }).catch(() => {});
+		function connect() {
+			if (cancelled) return;
 
-		const source = new EventSource(`/api/audio/${id}/thumbnails/events`);
+			const stream = new EventSource(`/api/audio/${id}/thumbnails/events`);
+			source = stream;
 
-		source.addEventListener('ready', (e) => {
-			const payload = JSON.parse((e as MessageEvent).data) as { index: number };
-			readyIndexes.add(payload.index);
-		});
+			stream.addEventListener('ready', (e) => {
+				const payload = JSON.parse((e as MessageEvent).data) as { index: number };
+				readyIndexes.add(payload.index);
+			});
 
-		source.addEventListener('done', (e) => {
-			const payload = JSON.parse((e as MessageEvent).data) as { done: boolean; error?: string };
-			if (payload.error) {
-				genError = payload.error;
-			} else {
-				// The broadcaster drops events beyond its buffer, so a
-				// successful done means every thumbnail is on disk.
-				for (const image of images) readyIndexes.add(image.index);
-			}
-			source.close();
-		});
+			stream.addEventListener('done', (e) => {
+				const payload = JSON.parse((e as MessageEvent).data) as {
+					done: boolean;
+					error?: string;
+				};
+				if (payload.error) {
+					genError = payload.error;
+				} else {
+					// The broadcaster drops events beyond its buffer, so a
+					// successful done means every thumbnail is on disk.
+					genError = null;
+					for (const image of images) readyIndexes.add(image.index);
+				}
+				stream.close();
+			});
 
-		source.onerror = () => {
-			if (source.readyState === EventSource.CLOSED) {
-				source.close();
-			}
-		};
+			stream.onerror = () => {
+				// A stream that gives up for good (auth failure, deleted work)
+				// never sends done, so otherwise the grid stays on skeletons.
+				if (stream.readyState === EventSource.CLOSED && !cancelled) {
+					genError ??= 'Lost connection while generating thumbnails.';
+					stream.close();
+				}
+			};
+		}
+
+		// The trigger has to land before the stream opens: the stream ends at
+		// once when no job is pending, so a GET that overtakes the POST would
+		// report a work that is about to generate as "not running". A failed
+		// trigger would otherwise leave the grid as silent skeletons, since the
+		// stream only carries progress.
+		fetch(`/api/audio/${id}/thumbnails`, { method: 'POST' })
+			.then((res) => {
+				if (!cancelled && !res.ok) genError = 'Failed to start thumbnail generation.';
+			})
+			.catch(() => {
+				if (!cancelled) genError = 'Failed to start thumbnail generation.';
+			})
+			.finally(connect);
 
 		return () => {
+			cancelled = true;
 			clearTimeout(prefetchTimer);
-			source.close();
+			source?.close();
 		};
 	});
 </script>
@@ -184,8 +211,12 @@
 						'max-h-[80vh] w-full object-contain transition-opacity duration-200',
 						previewState === 'ready' ? 'opacity-100' : 'h-0 opacity-0'
 					)}
-					onload={() => (previewStatus = { index: previewImage.index, state: 'ready' })}
-					onerror={() => (previewStatus = { index: previewImage.index, state: 'error' })}
+					onload={() => {
+						if (previewImage) previewStatus = { index: previewImage.index, state: 'ready' };
+					}}
+					onerror={() => {
+						if (previewImage) previewStatus = { index: previewImage.index, state: 'error' };
+					}}
 				/>
 			</div>
 		{/if}

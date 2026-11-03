@@ -3557,7 +3557,7 @@ const docTemplate = `{
         },
         "/api/audio/{id}/thumbnails/events": {
             "get": {
-                "description": "Server-Sent Events. Emits a \"ready\" event ({\"index\": N}) for each image thumbnail as it becomes available — including an immediate snapshot of images already ready when the connection opens — followed by a terminal \"done\" event ({\"done\": true} on success, {\"done\": true, \"error\": \"...\"} if generation ended with failures or exhausted retries). Read-only: does not trigger generation, call POST .../thumbnails for that.",
+                "description": "Server-Sent Events. Emits a \"ready\" event ({\"index\": N}) for each image thumbnail as it becomes available — including an immediate snapshot of images already ready when the connection opens — followed by a terminal \"done\" event ({\"done\": true} on success, {\"done\": true, \"error\": \"...\"} if generation ended with failures, exhausted retries, or no job is running for the work). Read-only: does not trigger generation, call POST .../thumbnails for that.",
                 "produces": [
                     "text/event-stream"
                 ],

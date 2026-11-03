@@ -862,7 +862,7 @@ func (h *AudioHandler) GenerateImageThumbnails(w http.ResponseWriter, r *http.Re
 // StreamImageThumbnailEvents godoc
 //
 //	@Summary		Stream gallery thumbnail generation progress
-//	@Description	Server-Sent Events. Emits a "ready" event ({"index": N}) for each image thumbnail as it becomes available — including an immediate snapshot of images already ready when the connection opens — followed by a terminal "done" event ({"done": true} on success, {"done": true, "error": "..."} if generation ended with failures or exhausted retries). Read-only: does not trigger generation, call POST .../thumbnails for that.
+//	@Description	Server-Sent Events. Emits a "ready" event ({"index": N}) for each image thumbnail as it becomes available — including an immediate snapshot of images already ready when the connection opens — followed by a terminal "done" event ({"done": true} on success, {"done": true, "error": "..."} if generation ended with failures, exhausted retries, or no job is running for the work). Read-only: does not trigger generation, call POST .../thumbnails for that.
 //	@Tags			audio
 //	@Produce		text/event-stream
 //	@Param			id	path	string	true	"Audio ID"
@@ -903,22 +903,19 @@ func (h *AudioHandler) StreamImageThumbnailEvents(w http.ResponseWriter, r *http
 	// A settings-stale gallery is reported unready so the client waits for the
 	// regenerated thumbs instead of marking old ones ready - this stays
 	// consistent with GenerateImageThumbnails.
-	current := !h.processor.AudioGalleryStale(audio.ID)
-	allReady := current
-
-	for index := range images {
-		if current && h.processor.AudioThumbPath(audio.ID, index) != "" {
-			_ = response.SSEEvent(w, "ready", map[string]int{sseIndexKey: index})
-		} else {
-			allReady = false
-		}
-	}
+	allReady := h.snapshotAudioThumbnails(w, audio.ID, len(images))
 
 	flusher.Flush()
 
 	if allReady {
 		_ = response.SSEEvent(w, "done", thumbnailDoneEvent{Done: true})
 
+		flusher.Flush()
+
+		return
+	}
+
+	if h.endStreamWithoutPendingJob(r.Context(), w, audio.ID, len(images)) {
 		flusher.Flush()
 
 		return
@@ -948,6 +945,64 @@ func (h *AudioHandler) StreamImageThumbnailEvents(w http.ResponseWriter, r *http
 			flusher.Flush()
 		}
 	}
+}
+
+// snapshotAudioThumbnails emits a ready event for every thumbnail that already
+// exists and reports whether that is all of them.
+func (h *AudioHandler) snapshotAudioThumbnails(w http.ResponseWriter, audioID string, imageCount int) bool {
+	current := !h.processor.AudioGalleryStale(audioID)
+	allReady := current
+
+	for index := range imageCount {
+		if current && h.processor.AudioThumbPath(audioID, index) != "" {
+			_ = response.SSEEvent(w, "ready", map[string]int{sseIndexKey: index})
+		} else {
+			allReady = false
+		}
+	}
+
+	return allReady
+}
+
+// endStreamWithoutPendingJob closes a stream whose snapshot is incomplete when
+// no job is pending: nothing would publish its terminal event otherwise. The
+// job that should have done it may have finished (with failures) before this
+// subscription opened, or generation was never triggered. Readiness is
+// rechecked first so a job that succeeded in that gap is not reported as a
+// failure. Returns false while a job is still pending, meaning the caller
+// should keep streaming.
+func (h *AudioHandler) endStreamWithoutPendingJob(
+	ctx context.Context,
+	w http.ResponseWriter,
+	audioID string,
+	imageCount int,
+) bool {
+	pending, err := h.queue.HasPendingJob(ctx, jobs.JobTypeAudioThumbnail,
+		jobs.AudioThumbnailPayload{AudioID: audioID})
+	if err != nil {
+		h.logger.Error("check pending audio thumbnail job failed", "id", audioID, "error", err)
+		_ = response.SSEEvent(w, "done", thumbnailDoneEvent{
+			Done:  true,
+			Error: "failed to check thumbnail generation",
+		})
+
+		return true
+	}
+
+	if pending {
+		return false
+	}
+
+	if h.processor.AudioGalleryReady(audioID, imageCount) {
+		_ = response.SSEEvent(w, "done", thumbnailDoneEvent{Done: true})
+	} else {
+		_ = response.SSEEvent(w, "done", thumbnailDoneEvent{
+			Done:  true,
+			Error: "thumbnail generation is not running",
+		})
+	}
+
+	return true
 }
 
 // GetTrack godoc
