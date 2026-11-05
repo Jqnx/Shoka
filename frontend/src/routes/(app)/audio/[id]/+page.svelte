@@ -61,7 +61,7 @@
 	</a>
 
 	<div class="flex flex-col gap-8 md:flex-row">
-		<div class="w-full shrink-0 md:w-64 lg:w-[27rem]">
+		<div class="w-full max-w-xs shrink-0 md:max-w-64 lg:max-w-[27rem]">
 			<div class="relative w-full overflow-hidden rounded-lg border border-border bg-muted">
 				{#if a.cover_ready}
 					<img

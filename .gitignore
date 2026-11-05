@@ -43,12 +43,15 @@ cmd/web/assets/css/output.css
 tailwindcss
 
 # Directories
-content/
-content-bak/
+# Anchored on purpose: Tailwind's source scanner honours .gitignore, so a
+# bare `audio/` silently drops any source dir of that name (it hid
+# frontend/src/routes/(app)/audio and every utility in it).
+/content/
+/content-bak/
 backend/thumb/
 backend/data/
-cache/
-audio/
+/cache/
+/audio/
 
 # Metadata files
 ComicInfo.xml
@@ -63,5 +66,5 @@ notes.txt
 .agents/
 .claude/
 .pi/
-agent/
+/agent/
 skills-lock.json
