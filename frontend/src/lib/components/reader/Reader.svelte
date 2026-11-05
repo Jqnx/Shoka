@@ -1,10 +1,11 @@
 <script lang="ts">
 	import type { ReaderSettings } from '$lib/types';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { browser } from '$app/environment';
 	import { replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
+	import { player } from '$lib/player.svelte';
 	import PagedView from './PagedView.svelte';
 	import ScrollView from './ScrollView.svelte';
 	import ReaderToolbar from './ReaderToolbar.svelte';
@@ -236,6 +237,14 @@
 		const page = currentPage;
 		const timeout = setTimeout(() => flushProgress(page), 600);
 		return () => clearTimeout(timeout);
+	});
+
+	// This route resets past the (app) layout, so the player bar unmounts
+	// while the singleton keeps playing - and the reader has no transport to
+	// stop it with. Pause on entry; the bar returns with the state on the way
+	// out, so resuming stays an explicit action.
+	onMount(() => {
+		player.pause();
 	});
 
 	// Covers leaving via SvelteKit's own client-side router (e.g. clicking
