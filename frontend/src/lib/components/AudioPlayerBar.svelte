@@ -20,7 +20,42 @@
 	import { Slider } from '$lib/components/ui/slider/index.js';
 	import { formatDuration } from '$lib/audio';
 	import { player } from '$lib/player.svelte';
+
+	// Space is the conventional play/pause key, but the audio element is
+	// created with `new Audio()` and never inserted, so it can never own the
+	// key. Until now only a focused player control made Space work, which is
+	// why expanding the card (unmounting the bar and its focused button)
+	// silently disabled it. A window listener covers every focus state.
+	//
+	// Bubble phase on purpose: page handlers that own Space (reader page
+	// turns, slideshow) listen in the capture phase and prevent the default,
+	// and focused controls act on the target, so checking `defaultPrevented`
+	// and the target keeps this from stealing their key.
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key !== ' ' || e.defaultPrevented) return;
+		if (e.ctrlKey || e.metaKey || e.altKey) return;
+		if (!player.source || !player.barVisible) return;
+		// A modal dialog owns the keyboard; bits-ui parks focus on its
+		// content (tabindex="-1"), which no selector below would catch.
+		if (document.querySelector('[aria-modal="true"]')) return;
+
+		const target = e.target;
+		if (
+			target instanceof Element &&
+			target.closest(
+				'input, textarea, select, button, a[href], [contenteditable]:not([contenteditable="false"]), [role="button"], [role="slider"], [role="checkbox"], [role="switch"], [role="radio"], [role="option"], [role="tab"], [role="menuitem"], [role="menuitemcheckbox"], [role="menuitemradio"], [role="combobox"], [role="listbox"]'
+			)
+		) {
+			return;
+		}
+
+		e.preventDefault();
+		// A held key must not strobe the transport, but still must not scroll.
+		if (!e.repeat) player.toggle();
+	}
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 {#if player.source}
 	{@const source = player.source}
