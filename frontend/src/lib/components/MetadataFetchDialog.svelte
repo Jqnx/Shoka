@@ -1,0 +1,694 @@
+<script lang="ts">
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
+	import { Switch } from '$lib/components/ui/switch/index.js';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import { Sparkles, Search, ArrowLeft, ImageOff } from '@lucide/svelte';
+	import { SvelteSet } from 'svelte/reactivity';
+	import { cn } from '$lib/utils.js';
+	import { errorMessage } from '$lib/api';
+	import { METADATA_SOURCE_INFO, sourceInfo } from '$lib/metadata-sources';
+	import {
+		sourceLinkUrls,
+		type Archive,
+		type ArchiveLanguage,
+		type FetchedMetadata,
+		type MetadataSearchResult,
+		type MetadataSourceInfo
+	} from '$lib/types';
+
+	type CurrentMetadata = {
+		title: string;
+		summary: string;
+		category: string;
+		language: string;
+		releaseDate: string;
+		artists: string[];
+		tags: string[];
+		parodies: string[];
+		circles: string[];
+		characters: string[];
+		urls: string[];
+	};
+
+	type DiffField = {
+		key: keyof CurrentMetadata;
+		label: string;
+		/** What applying the field writes. */
+		newValue: string | string[];
+	} & (
+		| {
+				kind: 'text';
+				/** Both values, formatted for display. */
+				oldDisplay: string;
+				newDisplay: string;
+		  }
+		| {
+				kind: 'list';
+				/** The entries each side holds, in display order. */
+				oldItems: string[];
+				newItems: string[];
+		  }
+	);
+
+	let {
+		archiveId,
+		libraryId,
+		current,
+		languages,
+		onApply
+	}: {
+		archiveId: string;
+		libraryId: string;
+		current: CurrentMetadata;
+		languages: ArchiveLanguage[];
+		onApply: (fields: Partial<CurrentMetadata>) => void;
+	} = $props();
+
+	const SOURCE_KEYS = Object.keys(METADATA_SOURCE_INFO);
+	const ALL_SOURCES = 'all';
+
+	let open = $state(false);
+	// 'search' shows a picker of results for the user to compare and choose
+	// from (when the source supports search); 'auto' skips that picker and
+	// goes straight to the top result's diff - see runFetch().
+	let mode = $state<'search' | 'auto'>('search');
+	let sourceValue = $state(ALL_SOURCES);
+	// Seeded from the archive's title (the backend's own default when no
+	// override is given), then freely editable - lets a source's search be
+	// retried with a better query when the title alone doesn't find it.
+	// Only meaningful for a specific source; "All sources" has no search of
+	// its own to query.
+	// svelte-ignore state_referenced_locally
+	let searchQuery = $state(current.title);
+	let loading = $state(false);
+	let picking = $state(false);
+	let error = $state<string | null>(null);
+	// Three steps, layered so "back" can reveal the previous one rather than
+	// discarding it: pick a source -> (if searchable) pick a result -> diff.
+	// searchResults stays populated while a diff is shown from a picked
+	// result, so going back from the diff returns to the same list.
+	let searchResults = $state<MetadataSearchResult[] | null>(null);
+	let fetched = $state<FetchedMetadata | null>(null);
+	/**
+	 * Fields whose fetched value is taken. A field is either switched to the
+	 * fetched value or left holding the current one, so this one set carries the
+	 * whole decision - the switches at the head of each column are its two sides.
+	 */
+	const selected = new SvelteSet<string>();
+
+	/**
+	 * Switch colour as a statement about its own side: green while that side is
+	 * the value the field will hold, red while it is the one being left behind.
+	 * Overrides the switch component's primary/input track - the dark variant
+	 * included, since the dark track colour is set through a different chain.
+	 */
+	const SWITCH_COLOUR =
+		'data-checked:bg-emerald-500 data-unchecked:bg-destructive dark:data-unchecked:bg-destructive';
+
+	// Per-library enabled state for each source, so a disabled one can be
+	// shown as such in the picker instead of only failing after the user
+	// tries to fetch from it. Loaded lazily (once) the first time the dialog
+	// opens - fails open (nothing marked disabled) if libraryId is unknown
+	// or the request fails, since that's strictly better than blocking the
+	// whole picker over a best-effort enhancement.
+	let disabledSources = $state<Set<string>>(new Set());
+	let sourcesLoaded = false;
+
+	async function loadSourceAvailability() {
+		if (sourcesLoaded || !libraryId) return;
+		sourcesLoaded = true;
+		try {
+			const res = await fetch(`/api/metadata/sources?library_id=${libraryId}`);
+			if (!res.ok) return;
+			const sources: MetadataSourceInfo[] = await res.json();
+			disabledSources = new Set(sources.filter((s) => !s.enabled).map((s) => s.name));
+		} catch {
+			// best-effort - leave everything selectable
+		}
+	}
+
+	const sourceLabel = $derived(
+		sourceValue === ALL_SOURCES ? 'All sources (pipeline)' : sourceInfo(sourceValue).label
+	);
+
+	// The picker's primary action, named for the dialog the user opened: the
+	// search dialog shows a result list to choose from, the fetch dialog takes
+	// the best match without asking. A source that can't search (comicinfo,
+	// filename, e-hentai) makes the search dialog fall through to a direct
+	// fetch anyway, so the label follows the mode rather than each source.
+	const runVerb = $derived(mode === 'auto' ? 'Fetch' : 'Search');
+
+	function languageLabel(code: string) {
+		return languages.find((l) => l.code === code)?.name ?? code;
+	}
+
+	// SearchResult.Language is expected to be a raw ISO code, same as every
+	// Result.Language elsewhere - this just guards against a source sending
+	// a display name instead (matching against both `code` and `name`),
+	// falling back to the raw value if it's not recognized as either -
+	// same graceful-degradation as languageLabel above.
+	function normalizeLanguage(value: string) {
+		if (!value) return '';
+		const match = languages.find((l) => l.code === value || l.name === value);
+		return match?.code ?? value;
+	}
+
+	function listsEqual(a: string[], b: string[]) {
+		if (a.length !== b.length) return false;
+		const sa = [...a].sort();
+		const sb = [...b].sort();
+		return sa.every((v, i) => v === sb[i]);
+	}
+
+	function computeDiff(cur: CurrentMetadata, result: FetchedMetadata): DiffField[] {
+		const fields: DiffField[] = [];
+
+		function addText(
+			key: keyof CurrentMetadata,
+			label: string,
+			oldVal: string,
+			newVal: string | null,
+			format: (v: string) => string = (v) => v
+		) {
+			if (newVal === null || newVal === undefined || newVal === oldVal) return;
+			fields.push({
+				key,
+				label,
+				kind: 'text',
+				oldDisplay: oldVal ? format(oldVal) : '—',
+				newDisplay: newVal ? format(newVal) : '—',
+				newValue: newVal
+			});
+		}
+
+		function addList(
+			key: keyof CurrentMetadata,
+			label: string,
+			oldVal: string[],
+			newVal: string[] | null
+		) {
+			if (newVal === null || newVal === undefined || listsEqual(oldVal, newVal)) return;
+			fields.push({
+				key,
+				label,
+				kind: 'list',
+				oldItems: oldVal,
+				newItems: newVal,
+				newValue: newVal
+			});
+		}
+
+		addText('title', 'Title', cur.title, result.title);
+		addText('summary', 'Summary', cur.summary, result.summary);
+		addText('category', 'Category', cur.category, result.category);
+		addText('language', 'Language', cur.language, result.language, languageLabel);
+		addText(
+			'releaseDate',
+			'Release date',
+			cur.releaseDate,
+			result.release_date?.slice(0, 10) ?? null
+		);
+		addList('artists', 'Artists', cur.artists, result.artists);
+		addList('tags', 'Tags', cur.tags, result.tags);
+		addList('parodies', 'Parodies', cur.parodies, result.parodies);
+		addList('circles', 'Circles', cur.circles, result.circles);
+		addList('characters', 'Characters', cur.characters, result.characters);
+		// URLs are additive by nature — an nhentai gallery link doesn't
+		// invalidate a hand-added e-hentai one — so the "new value" is the
+		// union of current and fetched, not a replacement. Every other field
+		// keeps replace behaviour.
+		addList(
+			'urls',
+			'Source links',
+			cur.urls,
+			result.urls ? [...new Set([...cur.urls, ...result.urls])] : null
+		);
+
+		return fields;
+	}
+
+	const diffFields = $derived(fetched ? computeDiff(current, fetched) : []);
+
+	/**
+	 * Starts every field in the diff switched to the fetched value, which is what
+	 * a fetch used to apply wholesale: the dialog opens on the source's proposal
+	 * and the user moves fields back to their current value one at a time.
+	 */
+	function seedSelection(result: FetchedMetadata) {
+		selected.clear();
+		for (const field of computeDiff(current, result)) selected.add(field.key);
+	}
+
+	async function fetchDirect(url: string) {
+		try {
+			const res = await fetch(url, { method: 'POST' });
+			if (!res.ok) {
+				error = await errorMessage(res, 'Failed to fetch metadata.');
+				return;
+			}
+			const result: FetchedMetadata = await res.json();
+			fetched = result;
+			seedSelection(result);
+		} catch {
+			error = 'Failed to fetch metadata.';
+		}
+	}
+
+	async function runFetch() {
+		loading = true;
+		error = null;
+		searchResults = null;
+		fetched = null;
+		selected.clear();
+
+		// "All sources" runs the whole priority-ordered pipeline at once -
+		// there's no per-source search equivalent for that, so it always
+		// goes straight to a direct fetch.
+		if (sourceValue !== ALL_SOURCES) {
+			try {
+				const q = searchQuery.trim();
+				const searchUrl = `/api/archives/${archiveId}/metadata/${sourceValue}/search${q ? `?q=${encodeURIComponent(q)}` : ''}`;
+				const res = await fetch(searchUrl);
+				if (res.ok) {
+					const results: MetadataSearchResult[] = await res.json();
+
+					// Auto mode: skip the picker entirely, take the top result
+					// (the source's own best-match ranking) straight to its diff.
+					// loading stays true through pickResult() too, so the Fetch
+					// button stays disabled/labeled for the whole round trip
+					// instead of flashing enabled again mid-fetch.
+					if (mode === 'auto') {
+						if (results.length === 0) {
+							loading = false;
+							error = 'No matching results found.';
+							return;
+						}
+						await pickResult(results[0]);
+						loading = false;
+						return;
+					}
+
+					searchResults = results;
+					loading = false;
+					return;
+				}
+				// 400 = this source doesn't implement search (comicinfo/filename/
+				// e-hentai today) - fall through to the direct fetch below rather
+				// than surfacing that as an error. Anything else (403 disabled,
+				// 500, ...) is a real error.
+				if (res.status !== 400) {
+					error = await errorMessage(res, 'Failed to search for metadata.');
+					loading = false;
+					return;
+				}
+			} catch {
+				error = 'Failed to search for metadata.';
+				loading = false;
+				return;
+			}
+		}
+
+		const url =
+			sourceValue === ALL_SOURCES
+				? `/api/archives/${archiveId}/metadata`
+				: `/api/archives/${archiveId}/metadata/${sourceValue}`;
+		await fetchDirect(url);
+		loading = false;
+	}
+
+	// A search result (MetadataSearchResult) is only ever a lightweight
+	// preview card - title/language/tags, nothing else. To diff on every
+	// field, fetch the picked result's full details via
+	// POST .../metadata/{source}/{source_id}, which now only *previews*
+	// what the archive would look like with it applied (the existing DB row
+	// with the result's fields overlaid on top) rather than saving anything.
+	async function pickResult(result: MetadataSearchResult) {
+		picking = true;
+		error = null;
+		try {
+			const res = await fetch(
+				`/api/archives/${archiveId}/metadata/${sourceValue}/${encodeURIComponent(result.id)}`,
+				{ method: 'POST' }
+			);
+			if (!res.ok) {
+				error = await errorMessage(res, 'Failed to fetch details for this result.');
+				return;
+			}
+			const preview: Archive = await res.json();
+			const asMetadata: FetchedMetadata = {
+				title: preview.title,
+				summary: preview.summary,
+				// Same conversion as the archive GET endpoint - a display name,
+				// not the raw code the rest of this dialog works in.
+				language: preview.language ? normalizeLanguage(preview.language) : null,
+				category: preview.category,
+				release_date: preview.release_date,
+				artists: preview.artists,
+				tags: preview.tags,
+				parodies: preview.parodies,
+				circles: preview.circles,
+				characters: preview.characters,
+				urls: preview.urls ? sourceLinkUrls(preview.urls) : null
+			};
+			fetched = asMetadata;
+			seedSelection(asMetadata);
+		} catch {
+			error = 'Failed to fetch details for this result.';
+		} finally {
+			picking = false;
+		}
+	}
+
+	/**
+	 * A field's switch, from either side: take the fetched value, or keep the one
+	 * already there. Both switches move the same choice, and the state the
+	 * primitive reports is what sets it - forcing a fixed state here would let a
+	 * switch read "off" while its own side still won.
+	 */
+	function chooseSide(key: string, takeFetched: boolean) {
+		if (takeFetched) selected.add(key);
+		else selected.delete(key);
+	}
+
+	function apply() {
+		const partial: Partial<CurrentMetadata> = {};
+		for (const field of diffFields) {
+			if (!selected.has(field.key)) continue;
+			(partial as Record<string, string | string[]>)[field.key] = field.newValue;
+		}
+		onApply(partial);
+		open = false;
+		searchResults = null;
+		fetched = null;
+		error = null;
+	}
+</script>
+
+<div class="flex gap-2">
+	<Button
+		type="button"
+		variant="outline"
+		class="flex-1 gap-1.5"
+		onclick={() => {
+			mode = 'search';
+			open = true;
+			loadSourceAvailability();
+		}}
+	>
+		<Search class="size-4" />
+		Search metadata
+	</Button>
+	<Button
+		type="button"
+		variant="outline"
+		class="flex-1 gap-1.5"
+		onclick={() => {
+			mode = 'auto';
+			open = true;
+			loadSourceAvailability();
+		}}
+	>
+		<Sparkles class="size-4" />
+		Fetch metadata
+	</Button>
+</div>
+
+<Dialog.Root
+	bind:open
+	onOpenChange={(isOpen) => {
+		if (!isOpen) {
+			searchResults = null;
+			fetched = null;
+			error = null;
+		}
+	}}
+>
+	<!-- Wider than the default, but never wider than the viewport minus the
+	     standard gutter: the size utility would otherwise override the cap the
+	     shared Dialog.Content puts on itself, and the dialog would run edge to
+	     edge on a browser window just over the sm breakpoint. -->
+	<Dialog.Content class="sm:max-w-[min(48rem,calc(100%-2rem))]">
+		<Dialog.Header>
+			<Dialog.Title>{mode === 'auto' ? 'Fetch metadata' : 'Search metadata'}</Dialog.Title>
+			<!-- The dialog points aria-describedby at a description whether or not one
+			     is rendered, so this stays as the thing that attribute resolves to
+			     without taking up any of the header. -->
+			<Dialog.Description class="sr-only">
+				{#if mode === 'auto'}
+					Automatically picks the best match from the selected source and shows you the differences.
+				{:else}
+					Pull metadata from a source, then switch each field to the value you want.
+				{/if}
+				Nothing is saved until you hit Save changes.
+			</Dialog.Description>
+		</Dialog.Header>
+
+		{#if fetched}
+			<Button
+				type="button"
+				variant="ghost"
+				size="sm"
+				class="w-fit gap-1.5"
+				onclick={() => {
+					fetched = null;
+					error = null;
+				}}
+			>
+				<ArrowLeft class="size-3.5" />
+				Back
+			</Button>
+
+			{#if diffFields.length === 0}
+				<p class="text-sm text-muted-foreground">No differences from the current form values.</p>
+			{:else}
+				<div class="flex max-h-[60vh] flex-col gap-2 overflow-y-auto">
+					<!-- Column headings for the pairs below, sticky so they stay up
+					     while the list scrolls. They carry the same padding and gap as
+					     a row's value grid, which is what keeps the halves lined up. -->
+					<div
+						class="sticky top-0 z-10 grid grid-cols-2 gap-3 border-b border-border bg-popover px-2.5 py-1.5 text-xs font-medium text-muted-foreground"
+					>
+						<span>Current</span>
+						<span>New</span>
+					</div>
+
+					{#each diffFields as field (field.key)}
+						{@const applied = selected.has(field.key)}
+						<div class="rounded-md border border-border p-2.5 text-sm">
+							<p class="font-medium">{field.label}</p>
+
+							<!-- One switch per side, and the green one is always the value the
+							     field will end up holding - so the pair reads as a choice
+							     between the two rather than as two independent toggles. A list
+							     is switched as a whole; its entries only carry the colour. -->
+							<div class="mt-2 grid grid-cols-2 items-start gap-3">
+								<div class="flex min-w-0 items-start gap-2">
+									<Switch
+										checked={!applied}
+										onCheckedChange={(keep) => chooseSide(field.key, !keep)}
+										class={cn(SWITCH_COLOUR, 'mt-0.5')}
+										aria-label={`Keep the current ${field.label}`}
+									/>
+									{#if field.kind === 'list'}
+										<span class="flex min-w-0 flex-wrap gap-1">
+											{#each field.oldItems as item, index (index)}
+												{@const dropped = applied && !field.newItems.includes(item)}
+												<Badge
+													variant={dropped ? 'destructive' : 'outline'}
+													class={cn('max-w-full truncate', dropped && 'line-through')}
+													title={item}
+												>
+													{item}
+												</Badge>
+											{/each}
+											{#if field.oldItems.length === 0}
+												<span class="text-muted-foreground">—</span>
+											{/if}
+										</span>
+									{:else}
+										<!-- An absent value stays muted rather than reading as a red "—". -->
+										<p
+											class={cn(
+												'min-w-0 break-words',
+												field.oldDisplay === '—'
+													? 'text-muted-foreground'
+													: applied && 'text-destructive line-through'
+											)}
+										>
+											{field.oldDisplay}
+										</p>
+									{/if}
+								</div>
+
+								<div class="flex min-w-0 items-start gap-2">
+									<Switch
+										checked={applied}
+										onCheckedChange={(takeFetched) => chooseSide(field.key, takeFetched)}
+										class={cn(SWITCH_COLOUR, 'mt-0.5')}
+										aria-label={`Take the fetched ${field.label}`}
+									/>
+									{#if field.kind === 'list'}
+										<span class="flex min-w-0 flex-wrap gap-1">
+											{#each field.newItems as item, index (index)}
+												{@const added = applied && !field.oldItems.includes(item)}
+												<Badge
+													variant="outline"
+													class={cn(
+														'max-w-full truncate',
+														applied
+															? added &&
+																	'border-transparent bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+															: 'text-muted-foreground'
+													)}
+													title={item}
+												>
+													{item}
+												</Badge>
+											{/each}
+											{#if field.newItems.length === 0}
+												<span class="text-muted-foreground">—</span>
+											{/if}
+										</span>
+									{:else}
+										<p
+											class={cn(
+												'min-w-0 break-words',
+												applied && field.newDisplay !== '—'
+													? 'text-emerald-600 dark:text-emerald-400'
+													: 'text-muted-foreground'
+											)}
+										>
+											{field.newDisplay}
+										</p>
+									{/if}
+								</div>
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		{:else if searchResults}
+			<Button
+				type="button"
+				variant="ghost"
+				size="sm"
+				class="w-fit gap-1.5"
+				onclick={() => {
+					searchResults = null;
+					error = null;
+				}}
+			>
+				<ArrowLeft class="size-3.5" />
+				Back
+			</Button>
+
+			{#if picking}
+				<p class="text-sm text-muted-foreground">Loading details…</p>
+			{/if}
+
+			{#if searchResults.length === 0}
+				<p class="text-sm text-muted-foreground">No results found.</p>
+			{:else}
+				<div class="flex max-h-96 flex-col gap-2 overflow-y-auto">
+					{#each searchResults as result (result.id)}
+						<button
+							type="button"
+							disabled={picking}
+							class="group flex items-center gap-3 rounded-md border border-border p-2 text-left text-sm hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+							onclick={() => pickResult(result)}
+						>
+							{#if result.cover_url}
+								<img
+									src={result.cover_url}
+									alt=""
+									class="h-16 w-12 shrink-0 rounded object-cover"
+								/>
+							{:else}
+								<div class="flex h-16 w-12 shrink-0 items-center justify-center rounded bg-muted">
+									<ImageOff class="size-4 text-muted-foreground" />
+								</div>
+							{/if}
+							<div class="min-w-0 flex-1">
+								<p class="truncate font-medium group-hover:whitespace-normal">{result.title}</p>
+								<div class="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+									<span>{result.page_count} pages</span>
+									{#if result.language}
+										<Badge variant="outline" class="px-1.5 py-0 text-[10px] font-normal">
+											{normalizeLanguage(result.language)}
+										</Badge>
+									{/if}
+								</div>
+							</div>
+						</button>
+					{/each}
+				</div>
+			{/if}
+		{:else}
+			<div class="flex flex-col gap-2">
+				<div class="flex items-center gap-2">
+					<Select.Root type="single" value={sourceValue} onValueChange={(v) => (sourceValue = v)}>
+						<Select.Trigger class="flex-1">
+							{sourceLabel}
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Item value={ALL_SOURCES} label="All sources (pipeline)">
+								All sources (pipeline)
+							</Select.Item>
+							{#each SOURCE_KEYS as key (key)}
+								<Select.Item
+									value={key}
+									label={sourceInfo(key).label}
+									disabled={disabledSources.has(key)}
+								>
+									{sourceInfo(key).label}
+									{#if disabledSources.has(key)}
+										<span class="text-muted-foreground">(disabled)</span>
+									{/if}
+								</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
+					<Button type="button" onclick={runFetch} disabled={loading} class="min-w-18">
+						{loading ? `${runVerb}ing…` : runVerb}
+					</Button>
+				</div>
+
+				{#if sourceValue !== ALL_SOURCES}
+					<Input
+						bind:value={searchQuery}
+						placeholder="Search query"
+						disabled={loading}
+						onkeydown={(e) => {
+							if (e.key === 'Enter') {
+								e.preventDefault();
+								runFetch();
+							}
+						}}
+					/>
+				{/if}
+			</div>
+		{/if}
+
+		{#if error}
+			<p class="text-sm text-destructive">{error}</p>
+		{/if}
+
+		<!-- The picker's action button and this footer's Close sit at the same
+		     right edge, one above the other, and in the monospace face "Search"
+		     is a wider word than "Close" - so without a shared floor their edges
+		     disagree, which only shows in the search dialog ("Fetch" and "Close"
+		     are the same length). The same min-w-18 as that button, rather than
+		     a fixed width, so "Searching…" can still spill wider while the
+		     request is in flight. -->
+		<Dialog.Footer showCloseButton class="[&_[data-dialog-close]]:min-w-18">
+			<!-- Nothing to apply before a search or fetch has produced a diff,
+			     and nothing to apply when it produced no differences. -->
+			{#if fetched && diffFields.length > 0}
+				<Button type="button" onclick={apply}>Apply selected</Button>
+			{/if}
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>

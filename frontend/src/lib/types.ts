@@ -1,0 +1,483 @@
+export type Progress = {
+	current_page: number;
+	last_read: string;
+	completed: boolean;
+};
+
+export type Archive = {
+	id: string;
+	title: string;
+	summary: string | null;
+	language: string | null;
+	category: string | null;
+	release_date: string | null;
+	page_count: number;
+	file_path: string;
+	created_at: string;
+	updated_at: string;
+
+	// The backend builds these by appending onto a zero-value Go slice, so an
+	// archive with zero of a given relation serializes it as JSON `null`, not
+	// `[]` - genuinely nullable, not just optional. Every consumer needs to
+	// account for that (see EditArchiveSheet's `?? []` when seeding editable
+	// state - the bug that happens when you don't).
+	artists: string[] | null;
+	tags: string[] | null;
+	parodies: string[] | null;
+	circles: string[] | null;
+	characters: string[] | null;
+
+	// Populated on the single-archive detail response only (GET
+	// /api/archives/{id} and the metadata preview endpoints). List/search
+	// responses leave it `null` to save a query per row. `source` is derived
+	// backend-side from each URL's host, not stored.
+	urls: ArchiveSourceLink[] | null;
+
+	progress: Progress | null;
+	thumbs_ready: boolean;
+	is_favorited: boolean;
+	rating: number | null;
+
+	// The 0-based page currently used as this archive's cover (see
+	// coverSrc() below) - defaults to 0, changeable via
+	// PUT /api/archives/{id}/cover.
+	cover_page: number;
+};
+
+export type ArchiveSourceLink = { source: string; url: string };
+
+// Builds the URL for an archive's cover image, versioned with cover_page so
+// the browser's long-lived immutable cache (see GetCover on the backend)
+// busts itself the moment the chosen page changes, without giving up
+// caching the rest of the time.
+export function coverSrc(archive: { id: string; cover_page: number }): string {
+	return `/api/archives/${archive.id}/cover?v=${archive.cover_page}`;
+}
+
+// Archive.urls (ArchiveSourceLink[]) and FetchedMetadata.urls (string[]) are
+// two different wire shapes for the same concept - the detail response
+// enriches each link with its derived source, the fetch/apply endpoints
+// don't. Go through this instead of an ad-hoc `.map((u) => u.url)` at each
+// call site so there's one place to update if that ever changes.
+export function sourceLinkUrls(links: ArchiveSourceLink[] | null | undefined): string[] {
+	return links?.map((l) => l.url) ?? [];
+}
+
+export type ArchiveListResponse = {
+	items: Archive[];
+	total: number;
+	page: number;
+	limit: number;
+};
+
+export type SortOption = 'latest' | 'title' | 'release';
+
+// The shape returned by POST /api/archives/{id}/metadata and
+// POST /api/archives/{id}/metadata/{source} - these only ever run the
+// pipeline/source and hand back a *preview* of what it found. Nothing is
+// persisted until the archive's own PATCH endpoint is called (i.e. the
+// normal Save button), so a field being null here just means "this
+// source/pipeline didn't provide a value for it", not "clear it".
+// page_count is intentionally omitted - it isn't editable (see
+// UpdateArchiveRequest's comment on the backend), so there's nothing to
+// diff/apply it against.
+export type FetchedMetadata = {
+	title: string | null;
+	summary: string | null;
+	language: string | null;
+	category: string | null;
+	release_date: string | null;
+	artists: string[] | null;
+	tags: string[] | null;
+	parodies: string[] | null;
+	circles: string[] | null;
+	characters: string[] | null;
+	urls: string[] | null;
+};
+
+// GET /api/metadata/sources?library_id=X - the enabled state is per-library
+// (each library has its own library_source rows), so this always needs a
+// library_id, unlike the archive-scoped fetch endpoints above.
+export type MetadataSourceInfo = {
+	name: string;
+	priority: number;
+	enabled: boolean;
+};
+
+// GET /api/archives/{id}/metadata/{source}/search - a lightweight preview
+// card for manual selection, NOT the full metadata.Result. The backend only
+// populates the rest of a result's fields (summary/category/release_date/
+// artists/parodies/circles/characters) when it actually applies a pick via
+// POST .../metadata/{source}/{source_id} - which persists immediately, with
+// no preview mode. MetadataFetchDialog deliberately never calls that
+// endpoint, so a diff built from a picked search result can only ever cover
+// what's here: title/language/tags.
+export type MetadataSearchResult = {
+	id: string;
+	title: string;
+	cover_url: string;
+	language: string;
+	tags: string[] | null;
+	page_count: number;
+	updated_at: string | null;
+};
+
+// Both endpoints reflect only what's actually in use across libraries right
+// now (nothing is seeded ahead of time) - see GetCategories/GetLanguages.
+export type ArchiveLanguage = {
+	code: string;
+	name: string;
+};
+
+export type Tag = {
+	id: number;
+	name: string;
+	description: string | null;
+	count: number;
+};
+
+export type TagListResponse = {
+	items: Tag[];
+	total: number;
+	page: number;
+	limit: number;
+};
+
+export type Character = {
+	id: number;
+	name: string;
+	count: number;
+};
+
+export type CharacterListResponse = {
+	items: Character[];
+	total: number;
+	page: number;
+	limit: number;
+};
+
+export type Parody = {
+	id: number;
+	name: string;
+	count: number;
+};
+
+export type ParodyListResponse = {
+	items: Parody[];
+	total: number;
+	page: number;
+	limit: number;
+};
+
+export type Circle = {
+	id: number;
+	name: string;
+	count: number;
+};
+
+export type CircleListResponse = {
+	items: Circle[];
+	total: number;
+	page: number;
+	limit: number;
+};
+
+export type CircleArtist = {
+	id: number;
+	name: string;
+};
+
+export type ArtistCover = {
+	archive_id: string;
+	page: number;
+	thumbs_ready: boolean;
+};
+
+// GET /api/artists/all returns names only (its consumers are pickers).
+export type Artist = {
+	id: number;
+	name: string;
+	count: number;
+};
+
+// GET /api/artists items.
+export type ArtistListItem = Artist & {
+	cover?: ArtistCover;
+	is_favorited: boolean;
+	rating: number | null;
+};
+
+// GET /api/artists/{id}.
+export type ArtistDetail = ArtistListItem & {
+	aliases?: string[];
+	urls?: string[];
+	circles?: CircleArtist[];
+};
+
+export type ArtistListResponse = {
+	items: ArtistListItem[];
+	total: number;
+	page: number;
+	limit: number;
+};
+
+// GET /api/audio/{id} - one audio work with its ordered tracks and images.
+// The list endpoint omits the five array fields (see AudioListItem).
+export type AudioTrack = {
+	index: number;
+	name: string;
+	/** Top-level folder under the work, or "" for root-level files. */
+	folder: string;
+	duration_seconds: number;
+};
+
+export type AudioImage = {
+	index: number;
+	name: string;
+};
+
+export type Audio = {
+	id: string;
+	title: string;
+	library_id: string;
+	duration_seconds: number;
+	release_date: string | null;
+	language: string | null;
+	circle: string | null;
+	artists: string[];
+	tags: string[];
+	voice_actors: string[];
+	tracks: AudioTrack[];
+	images: AudioImage[];
+	cover_ready: boolean;
+	/** Cached cover render time; changes when the cover is re-rendered. */
+	cover_updated_at: string | null;
+	/** Rendered cover size, for reserving its space before it loads. */
+	cover_width: number;
+	cover_height: number;
+	is_favorited: boolean;
+	rating: number | null;
+	updated_at: string;
+};
+
+// GET /api/audio list rows: the same scalars, without the per-work arrays.
+export type AudioListItem = Omit<Audio, 'artists' | 'tags' | 'voice_actors' | 'tracks' | 'images'>;
+
+export type AudioListResponse = {
+	items: AudioListItem[];
+	total: number;
+	page: number;
+	limit: number;
+};
+
+export type VoiceActor = {
+	id: number;
+	name: string;
+	count: number;
+};
+
+export type VoiceActorListResponse = {
+	items: VoiceActor[];
+	total: number;
+	page: number;
+	limit: number;
+};
+
+// Cover URL carries the cached render's mtime so the long-lived immutable
+// cache busts when the cover is re-rendered (quality change, new first image).
+// Falls back to updated_at until a cover exists. The backend always serves the
+// first image, so there is no index in the URL.
+export function audioCoverSrc(audio: {
+	id: string;
+	updated_at: string;
+	cover_updated_at?: string | null;
+}): string {
+	return `/api/audio/${audio.id}/cover?v=${encodeURIComponent(audio.cover_updated_at ?? audio.updated_at)}`;
+}
+
+// GET /api/search - one name match from a metadata entity category
+// (artists, tags, parodies, circles, characters). Unlike the archive
+// category, these are global entities (not scoped to a library).
+export type SearchEntityResult = {
+	id: number;
+	name: string;
+	count: number;
+};
+
+export type SearchEntityResponse = {
+	items: SearchEntityResult[];
+	total: number;
+};
+
+export type SearchArchiveResponse = {
+	items: Archive[];
+	total: number;
+};
+
+// GET /api/search - results grouped by category, each independently capped
+// (via the `limit` param) and separately counted via its own `total`.
+export type SearchResponse = {
+	archives: SearchArchiveResponse;
+	artists: SearchEntityResponse;
+	circles: SearchEntityResponse;
+	tags: SearchEntityResponse;
+	parodies: SearchEntityResponse;
+	characters: SearchEntityResponse;
+};
+
+export type Library = {
+	id: string;
+	name: string;
+	path: string;
+	type: string;
+	/** Periodic rescan cadence in minutes. 0 means periodic scanning is off. */
+	scan_interval_minutes: number;
+	/** Whether the backend's filesystem watcher is running for this library. */
+	watch_enabled: boolean;
+	/** Audio only: top-level track folder each work opens on. Empty = first folder. */
+	default_audio_folder: string;
+	/** Absent when the library has never been scanned. */
+	last_scanned_at?: string;
+	created_at: string;
+	updated_at: string;
+};
+
+// The first library that isn't an audio library. Archive-only screens (home
+// carousels, archive back links, global search) need a doujinshi library;
+// once audio libraries exist, libraries[0] may well be one of them.
+export function firstArchiveLibrary(libraries: Library[]): Library | undefined {
+	return libraries.find((library) => library.type !== 'audio');
+}
+
+export type LibrarySource = {
+	source: string;
+	enabled: boolean;
+	cookies?: string;
+	api_key?: string;
+	magazine_blocklist: string[];
+	misc_blocklist: string[];
+	/** Stored remote-source order; null/absent when never reordered. */
+	priority?: number | null;
+};
+
+export type LibraryType = {
+	type: string;
+	supported: boolean;
+};
+
+export type LibraryBrowseEntry = {
+	name: string;
+	path: string;
+};
+
+export type LibraryBrowseResponse = {
+	path: string;
+	/** Absent at the filesystem root. */
+	parent?: string;
+	entries: LibraryBrowseEntry[];
+};
+
+export type ArchiveSortOption = {
+	value: string;
+	display_name: string;
+};
+
+// GET/PATCH /api/reader-settings - per-user reader preferences, stored
+// backend-side (not localStorage) so they sync across devices/browsers, same
+// as reading progress. GET always returns a full, usable object even if the
+// user has never customized anything (the backend has its own defaults and
+// only creates a row on the first PATCH) - there's no "unset" state to
+// handle on this side.
+//
+// view_mode and reading_direction are orthogonal: view_mode picks paged vs.
+// scroll, reading_direction only decides which physical side is
+// "next" while paged (irrelevant in scroll mode, which always scrolls
+// top-to-bottom). The slideshow fields are used by the favorite-pages viewer
+// but stored here so they sync across devices like every other reader
+// preference.
+export type ViewMode = 'paged' | 'scroll';
+export type ReadingDirection = 'ltr' | 'rtl';
+export type PageLayout = 'single' | 'double';
+export type FitMode = 'width' | 'height' | 'original';
+export type ReaderBackground = 'black' | 'white' | 'gray';
+
+export type ReaderSettings = {
+	view_mode: ViewMode;
+	reading_direction: ReadingDirection;
+	page_layout: PageLayout;
+	fit_mode: FitMode;
+	background: ReaderBackground;
+	slideshow_interval_seconds: number;
+	slideshow_loop: boolean;
+};
+
+// One favorited page as returned by GET /api/archives/favorites/pages.
+export type FavoritePageItem = {
+	archive_id: string;
+	title: string;
+	page_count: number;
+	page_index: number; // 0-based, like every API page reference
+	favorited_at: string;
+};
+
+export type FavoritePageListResponse = {
+	items: FavoritePageItem[];
+	total: number;
+	page: number;
+	limit: number;
+};
+
+// One archive within a DuplicateGroup, as returned by GET /api/admin/duplicates.
+export type DuplicateArchive = {
+	id: string;
+	title: string;
+	library_id: string;
+	cover_page: number;
+	// Mean per-point Hamming distance to the group's first member (which is
+	// itself 0, i.e. the reference) - lower means more visually similar.
+	distance: number;
+	// Per-sample-point breakdown: p0 is the cover, p25/p50/p75 are that
+	// fraction through the archive. Points either side hasn't hashed are
+	// omitted rather than reported as 0.
+	distances: Record<string, number>;
+};
+
+export type DuplicateGroup = {
+	archives: DuplicateArchive[];
+};
+
+export type JobStatus = 'pending' | 'running' | 'done' | 'failed';
+
+// One job row in the admin job monitor, from GET /api/admin/jobs.
+export type JobView = {
+	id: number;
+	type: string;
+	status: JobStatus;
+	// Human-readable description of what the job acts on, derived from its
+	// payload server-side (e.g. "archive:a3f9…", "library:main"). Empty when
+	// the payload carries no recognisable target.
+	target: string;
+	attempts: number;
+	max_attempts: number;
+	error?: string;
+	created_at: string;
+	updated_at: string;
+};
+
+export type JobSnapshot = {
+	// Always contains all four statuses, zero-filled - these are whole-queue
+	// totals, not the length of the capped lists below.
+	counts: Record<JobStatus, number>;
+	// Pending + running jobs, running first. Capped server-side.
+	active: JobView[];
+	recent_failures: JobView[];
+};
+
+// One scheduled housekeeping task, from GET /api/admin/maintenance.
+export type MaintenanceTask = {
+	task: 'cover' | 'phash';
+	/** Minutes between automatic runs. Fixed backend-side at 12 hours. */
+	interval_minutes: number;
+	/** Absent when the task has never run. */
+	last_run_at?: string;
+};

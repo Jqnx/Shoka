@@ -1,0 +1,234 @@
+// Package sources provides the metadata providers Shoka scrapes or parses to
+// enrich a library entry: local parsers (ComicInfo.xml, filename heuristics)
+// and remote gallery APIs (nhentai, e-hentai).
+package sources
+
+import (
+	"Shoka/internal/library/archive"
+	"Shoka/internal/metadata"
+	"context"
+	"encoding/xml"
+	"fmt"
+	"strings"
+	"time"
+)
+
+type comicInfoXML struct {
+	// XMLName is untagged on purpose: a tagged field would make xml.Unmarshal
+	// reject documents whose root element is not <ComicInfo> (read.go enforces
+	// the tag name). Its value is set in MarshalComicInfo to emit the spec's
+	// <ComicInfo> root; parse stays lenient about the actual root name.
+	XMLName     xml.Name
+	Title       string `xml:"Title"`
+	Summary     string `xml:"Summary"`
+	LanguageISO string `xml:"LanguageISO"`
+	Genre       string `xml:"Genre"`
+	Year        int    `xml:"Year"`
+	Month       int    `xml:"Month"`
+	Day         int    `xml:"Day"`
+	PageCount   int64  `xml:"PageCount"`
+	Writer      string `xml:"Writer"`
+	Characters  string `xml:"Characters"`
+	Series      string `xml:"Series"`
+	Publisher   string `xml:"Publisher"`
+	Tags        string `xml:"Tags"`
+	Web         string `xml:"Web"`
+}
+
+// ComicInfoSource reads metadata from a ComicInfo.xml file embedded in a
+// local archive. It is the highest-priority source when the sidecar exists,
+// since that data was curated deliberately for the file.
+type ComicInfoSource struct{}
+
+// NewComicInfoSource returns a ComicInfoSource with no external dependencies.
+func NewComicInfoSource() *ComicInfoSource {
+	return &ComicInfoSource{}
+}
+
+// Name returns the stable source identifier, "comicinfo".
+func (s *ComicInfoSource) Name() string { return "comicinfo" }
+
+// Priority returns 1: an embedded ComicInfo.xml outranks every scrape.
+func (s *ComicInfoSource) Priority() int { return 1 }
+
+// IsLocal reports true: the source only reads the local archive.
+func (s *ComicInfoSource) IsLocal() bool { return true }
+
+// Fetch opens the archive and parses its ComicInfo.xml. It returns a nil
+// result without error when the archive has no such entry, so later sources
+// can supply the metadata instead.
+func (s *ComicInfoSource) Fetch(_ context.Context, input metadata.Input) (*metadata.Result, error) {
+	a, err := archive.Open(input.FilePath)
+	if err != nil {
+		return nil, fmt.Errorf("open archive: %w", err)
+	}
+	defer func() { _ = a.Close() }()
+
+	data, err := a.ReadFile("ComicInfo.xml")
+	if err != nil {
+		return nil, fmt.Errorf("read ComicInfo.xml: %w", err)
+	}
+
+	if data == nil {
+		return nil, nil
+	}
+
+	return s.parse(data)
+}
+
+func (s *ComicInfoSource) parse(data []byte) (*metadata.Result, error) {
+	var info comicInfoXML
+	if err := xml.Unmarshal(data, &info); err != nil {
+		return nil, fmt.Errorf("parse ComicInfo.xml: %w", err)
+	}
+
+	result := &metadata.Result{}
+
+	if info.Title != "" {
+		result.Title = &info.Title
+	}
+
+	if info.Summary != "" {
+		result.Summary = &info.Summary
+	}
+
+	if info.LanguageISO != "" {
+		result.Language = &info.LanguageISO
+	}
+
+	if info.Genre != "" {
+		result.Category = &info.Genre
+	}
+
+	if info.PageCount > 0 {
+		result.PageCount = &info.PageCount
+	}
+
+	info.setRelationFields(result)
+
+	if info.Year > 0 {
+		t := time.Date(info.Year, time.Month(info.Month), info.Day, 0, 0, 0, 0, time.UTC)
+		result.ReleaseDate = &t
+	}
+
+	// The ComicInfo spec allows <Web> to hold multiple space-separated URLs.
+	// The source name is derived from each link's host downstream, so a
+	// nhentai link here still shows the nhentai icon, not a "comicinfo" one.
+	if info.Web != "" {
+		result.URLs = strings.Fields(info.Web)
+	}
+
+	return result, nil
+}
+
+// setRelationFields fills the multi-valued relation fields, leaving a field
+// nil when its element is absent or contains no meaningful values (empty
+// tokens or "unknown"). A non-nil empty slice would read as "clear this
+// relation" in ApplyMetadata, so it must never be produced here. A doujin
+// circle is the publisher; importing that element keeps other managers'
+// files from dropping the relation.
+func (info comicInfoXML) setRelationFields(result *metadata.Result) {
+	if names := splitAndTrim(info.Writer, ","); len(names) > 0 {
+		result.Artists = names
+	}
+
+	if names := splitAndTrim(info.Tags, ","); len(names) > 0 {
+		result.Tags = names
+	}
+
+	if names := splitAndTrim(info.Characters, ","); len(names) > 0 {
+		result.Characters = names
+	}
+
+	if names := splitAndTrim(info.Series, ","); len(names) > 0 {
+		result.Parodies = names
+	}
+
+	if names := splitAndTrim(info.Publisher, ","); len(names) > 0 {
+		result.Circles = names
+	}
+}
+
+// MarshalComicInfo serialises a metadata.Result into ComicInfo.xml bytes,
+// including the XML header. Only the fields the schema supports are written;
+// multi-valued fields are joined with the separators the spec expects.
+func MarshalComicInfo(result *metadata.Result) ([]byte, error) {
+	info := comicInfoXML{}
+	info.XMLName = xml.Name{Local: "ComicInfo"}
+
+	if result.Title != nil {
+		info.Title = *result.Title
+	}
+
+	if result.Summary != nil {
+		info.Summary = *result.Summary
+	}
+
+	if result.Language != nil {
+		info.LanguageISO = *result.Language
+	}
+
+	if result.Category != nil {
+		info.Genre = *result.Category
+	}
+
+	if result.PageCount != nil {
+		info.PageCount = *result.PageCount
+	}
+
+	if result.ReleaseDate != nil {
+		info.Year = result.ReleaseDate.Year()
+		info.Month = int(result.ReleaseDate.Month())
+		info.Day = result.ReleaseDate.Day()
+	}
+
+	info.setRelationElements(result)
+
+	output, err := xml.MarshalIndent(info, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshal ComicInfo.xml: %w", err)
+	}
+
+	return append([]byte(xml.Header), output...), nil
+}
+
+// setRelationElements joins the multi-valued relation fields with the
+// separators the spec expects.
+func (info *comicInfoXML) setRelationElements(result *metadata.Result) {
+	if len(result.Artists) > 0 {
+		info.Writer = strings.Join(result.Artists, ", ")
+	}
+
+	if len(result.Tags) > 0 {
+		info.Tags = strings.Join(result.Tags, ", ")
+	}
+
+	if len(result.Characters) > 0 {
+		info.Characters = strings.Join(result.Characters, ", ")
+	}
+
+	if len(result.Parodies) > 0 {
+		info.Series = result.Parodies[0]
+	}
+
+	if len(result.Circles) > 0 {
+		info.Publisher = strings.Join(result.Circles, ", ")
+	}
+
+	if len(result.URLs) > 0 {
+		info.Web = strings.Join(result.URLs, " ")
+	}
+}
+
+func splitAndTrim(s, sep string) []string {
+	parts := strings.Split(s, sep)
+
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if t := strings.ToLower(strings.TrimSpace(p)); t != "" && t != "unknown" {
+			result = append(result, t)
+		}
+	}
+
+	return result
+}

@@ -1,0 +1,44 @@
+<script lang="ts">
+	import { resolve } from '$app/paths';
+	import { AudioLines } from '@lucide/svelte';
+	import AudioCard from '$lib/components/AudioCard.svelte';
+	import type { AudioListItem } from '$lib/types';
+
+	let {
+		works,
+		total,
+		href,
+		heading = 'Audio'
+	}: {
+		works: AudioListItem[];
+		total: number;
+		/** Link to the first audio library; omitted when the install has none. */
+		href?: string;
+		heading?: string;
+	} = $props();
+</script>
+
+{#if total > 0}
+	<div class="mb-4 flex items-center gap-2">
+		<AudioLines class="size-4 text-muted-foreground" />
+		<h2 class="text-lg font-semibold">{heading}</h2>
+		<span class="text-sm text-muted-foreground">({total})</span>
+		{#if total > works.length && href}
+			{@const viewAll = href as `/${string}`}
+			<a
+				href={resolve(viewAll)}
+				class="ml-auto text-xs text-muted-foreground transition-colors hover:text-foreground"
+			>
+				View all audio →
+			</a>
+		{/if}
+	</div>
+
+	<div
+		class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7"
+	>
+		{#each works as work (work.id)}
+			<AudioCard audio={work} />
+		{/each}
+	</div>
+{/if}

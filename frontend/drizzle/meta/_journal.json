@@ -1,0 +1,55 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1778277633503,
+      "tag": "0000_harsh_silverclaw",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1778516392101,
+      "tag": "0001_dusty_pretty_boy",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788621053365,
+      "tag": "0002_giant_agent_zero",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1789575363381,
+      "tag": "0003_stale_the_santerians",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1792429719125,
+      "tag": "0004_fixed_gateway",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1792933397138,
+      "tag": "0005_handy_captain_america",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793027100903,
+      "tag": "0006_blushing_stature",
+      "breakpoints": true
+    }
+  ]
+}

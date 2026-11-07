@@ -1,0 +1,111 @@
+<script lang="ts">
+	import { resolve } from '$app/paths';
+	import { firstArchiveLibrary } from '$lib/types';
+	import { goto, afterNavigate } from '$app/navigation';
+
+	afterNavigate((nav) => {
+		if (nav.type === 'goto') window.scrollTo({ top: 0, behavior: 'smooth' });
+	});
+	import * as Pagination from '$lib/components/ui/pagination';
+	import { Separator } from '$lib/components/ui/separator';
+	import { Badge } from '$lib/components/ui/badge';
+	import { ChevronLeft, UserGroup } from '@lucide/svelte';
+	import ArchiveCard from '$lib/components/ArchiveCard.svelte';
+	import AudioSection from '$lib/components/AudioSection.svelte';
+
+	let { data } = $props();
+
+	// The tag/character/parody/circle-by-name endpoints aren't library-scoped,
+	// so there's no library context here; fall back to the first doujinshi
+	// library rather than possibly an audio one.
+	const archiveLibrary = $derived(firstArchiveLibrary(data.libraries));
+	const archivesHref = $derived((archiveLibrary ? `/${archiveLibrary.id}` : '/') as `/${string}`);
+</script>
+
+<svelte:head>
+	<title>{data.name} | Shoka</title>
+</svelte:head>
+
+<div class="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6">
+	<a
+		href={resolve(archivesHref)}
+		class="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+	>
+		<ChevronLeft class="size-4" />
+		Archives
+	</a>
+
+	<div class="mb-6 flex items-center gap-2">
+		<UserGroup class="size-5 text-muted-foreground" />
+		<h1 class="text-2xl font-bold">{data.name}</h1>
+		<span class="text-sm text-muted-foreground">({data.total})</span>
+	</div>
+
+	{#if data.artists.length > 0}
+		<div class="mb-6 flex flex-wrap gap-1.5">
+			{#each data.artists as artist (artist.id)}
+				<Badge href={resolve(`/artist/${artist.id}`)} variant="secondary" class="text-sm">
+					{artist.name}
+				</Badge>
+			{/each}
+		</div>
+	{/if}
+
+	<h2 class="mb-3 text-sm font-semibold">Archives</h2>
+
+	{#if data.archives.length === 0}
+		<p class="text-muted-foreground">No archives found.</p>
+	{:else}
+		<div
+			class="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 2xl:grid-cols-8"
+		>
+			{#each data.archives as archive (archive.id)}
+				<ArchiveCard {archive} />
+			{/each}
+		</div>
+	{/if}
+
+	{#if data.total > data.limit}
+		<div class="mt-8">
+			<Pagination.Root
+				count={data.total}
+				perPage={data.limit}
+				page={data.page}
+				onPageChange={(p) =>
+					goto(resolve(`/circle/${encodeURIComponent(data.name)}?page=${p}`), { noScroll: true })}
+			>
+				{#snippet children({ pages })}
+					<Pagination.Content>
+						<Pagination.Item>
+							<Pagination.Previous />
+						</Pagination.Item>
+						{#each pages as p (p.key)}
+							{#if p.type === 'ellipsis'}
+								<Pagination.Item>
+									<Pagination.Ellipsis />
+								</Pagination.Item>
+							{:else}
+								<Pagination.Item>
+									<Pagination.Link page={p} isActive={data.page === p.value} />
+								</Pagination.Item>
+							{/if}
+						{/each}
+						<Pagination.Item>
+							<Pagination.Next />
+						</Pagination.Item>
+					</Pagination.Content>
+				{/snippet}
+			</Pagination.Root>
+		</div>
+	{/if}
+	{#each data.audioSections as section (section.library.id)}
+		<Separator class="my-8" />
+
+		<AudioSection
+			works={section.works}
+			total={section.total}
+			heading={section.library.name}
+			href={`/${section.library.id}?circle=${encodeURIComponent(data.name)}`}
+		/>
+	{/each}
+</div>

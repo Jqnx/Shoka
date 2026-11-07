@@ -1,0 +1,310 @@
+// Package database provides access to the SQLite database: connection setup,
+// embedded migrations, generated sqlc queries, and hand-written helpers.
+package database
+
+import (
+	"Shoka/internal/database/sqlc"
+	"Shoka/internal/metadata"
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"time"
+)
+
+// Session is the authenticated caller resolved from a Better Auth session
+// token. Role and Banned come from the frontend-owned admin plugin columns.
+type Session struct {
+	UserID string
+	// Role is "" when the column is NULL. That is the same thing the
+	// permission matrix does with any unrecognised role - grants nothing - so
+	// the empty string is the honest default rather than a substitute role.
+	Role   string
+	Banned bool
+}
+
+// GetSession looks up a Better Auth session token and returns the owning user.
+// Returns (nil, nil) if the token does not exist or has expired.
+func GetSession(ctx context.Context, db *sql.DB, token string) (*Session, error) {
+	var (
+		session   Session
+		expiresAt int64
+	)
+
+	err := db.QueryRowContext(ctx, `
+        SELECT s.user_id, s.expires_at,
+               COALESCE(u.role, ''), COALESCE(u.banned, 0)
+        FROM session s
+        JOIN user u ON u.id = s.user_id
+        WHERE s.token = ?
+        LIMIT 1
+    `, token).Scan(&session.UserID, &expiresAt, &session.Role, &session.Banned)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("session lookup: %w", err)
+	}
+
+	if time.Now().After(time.UnixMilli(expiresAt)) {
+		return nil, nil
+	}
+
+	return &session, nil
+}
+
+// AccessibleLibraryIDs returns the library ids granted to userID. The result
+// is never nil: no grants yields an empty slice, which the auth scope treats
+// as "nothing accessible" (nil would mean unrestricted).
+func AccessibleLibraryIDs(ctx context.Context, db *sql.DB, userID string) ([]string, error) {
+	rows, err := sqlc.New(db).ListLibraryAccessForUser(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list library access: %w", err)
+	}
+
+	ids := make([]string, 0, len(rows))
+	ids = append(ids, rows...)
+
+	return ids, nil
+}
+
+// UserExists reports whether a better-auth user row exists. The user table is
+// frontend-owned, so there is no generated query for it.
+func UserExists(ctx context.Context, db *sql.DB, id string) (bool, error) {
+	var one int
+
+	err := db.QueryRowContext(ctx, `SELECT 1 FROM user WHERE id = ? LIMIT 1`, id).Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, fmt.Errorf("user exists: %w", err)
+	}
+
+	return true, nil
+}
+
+// deleteWithCounts removes one owner row and, inside the same transaction,
+// subtracts its contribution from every taxonomy counter. The counters must
+// be read before the delete: the join rows cascade away with the owner row.
+// clearCounts and remove are the owner-specific counter and delete calls.
+func deleteWithCounts(
+	ctx context.Context,
+	q *sqlc.Queries,
+	db *sql.DB,
+	id string,
+	clearCounts func(context.Context, *sqlc.Queries, string) error,
+	remove func(context.Context, *sqlc.Queries, string) error,
+) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }() // no-op once committed
+
+	qtx := q.WithTx(tx)
+
+	if err := clearCounts(ctx, qtx, id); err != nil {
+		return err
+	}
+
+	if err := remove(ctx, qtx, id); err != nil {
+		return err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteArchive removes an archive and, inside the same transaction, subtracts
+// its contribution from every taxonomy counter. It is the way archives are
+// deleted: the generated sqlc.Queries.DeleteArchive stays the single-row
+// building block it always was, minus the counter maintenance this wraps
+// around it.
+func DeleteArchive(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) error {
+	return deleteWithCounts(ctx, q, db, id, metadata.ClearRelationCounts,
+		func(ctx context.Context, q *sqlc.Queries, id string) error {
+			return q.DeleteArchive(ctx, id)
+		})
+}
+
+// DeleteAudio removes an audio work and, inside the same transaction,
+// subtracts its contribution from every taxonomy counter. Same ordering rule
+// as DeleteArchive: the audio_* join rows cascade away with the work, so the
+// counters must be read first.
+func DeleteAudio(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) error {
+	return deleteWithCounts(ctx, q, db, id, metadata.ClearAudioRelationCounts,
+		func(ctx context.Context, q *sqlc.Queries, id string) error {
+			return q.DeleteAudio(ctx, id)
+		})
+}
+
+// DeleteLibrary removes a library and, inside the same transaction, subtracts
+// each of its archives' and audio works' contribution from every taxonomy
+// counter. The rows themselves go with the library (library_id cascades), so
+// their counters have to be read before that delete, exactly as in
+// DeleteArchive. Returns the ids that went with the library, so callers can
+// evict their caches after the commit.
+func DeleteLibrary(ctx context.Context, q *sqlc.Queries, db *sql.DB, id string) (archiveIDs, audioIDs []string, err error) {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("begin transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }() // no-op once committed
+
+	qtx := q.WithTx(tx)
+
+	archiveIDs, err = qtx.ListArchiveIDsByLibrary(ctx, id)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list archives of library %s: %w", id, err)
+	}
+
+	for _, archiveID := range archiveIDs {
+		if err := metadata.ClearRelationCounts(ctx, qtx, archiveID); err != nil {
+			return nil, nil, fmt.Errorf("clear counts of archive %s: %w", archiveID, err)
+		}
+	}
+
+	audioIDs, err = qtx.ListAudioIDsByLibrary(ctx, id)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list audio of library %s: %w", id, err)
+	}
+
+	for _, audioID := range audioIDs {
+		if err := metadata.ClearAudioRelationCounts(ctx, qtx, audioID); err != nil {
+			return nil, nil, fmt.Errorf("clear counts of audio %s: %w", audioID, err)
+		}
+	}
+
+	if err := qtx.DeleteLibrary(ctx, id); err != nil {
+		return nil, nil, err
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, nil, fmt.Errorf("commit transaction: %w", err)
+	}
+
+	return archiveIDs, audioIDs, nil
+}
+
+// GetArchiveMetadata loads an archive and its complete metadata: the
+// denormalized columns of the archive row plus the names of every related
+// artist, tag, parody, circle and character, and its source URLs. It backs
+// the archive metadata endpoint.
+func GetArchiveMetadata(ctx context.Context, q *sqlc.Queries, archiveID string) (*metadata.Result, error) {
+	archive, err := q.GetArchiveByID(ctx, archiveID)
+	if err != nil {
+		return nil, fmt.Errorf("get archive: %w", err)
+	}
+
+	result := archiveMetadataFields(archive)
+
+	if err := loadArchiveRelations(ctx, q, archiveID, result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// archiveMetadataFields copies the scalar archive columns into a Result,
+// leaving the relation slices for loadArchiveRelations. A nil column stays
+// nil in the Result so an absent value is not reported as a zero one.
+func archiveMetadataFields(archive sqlc.Archive) *metadata.Result {
+	result := &metadata.Result{}
+
+	if archive.Title != "" {
+		result.Title = &archive.Title
+	}
+
+	if archive.Summary != nil {
+		result.Summary = archive.Summary
+	}
+
+	if archive.Language != nil {
+		result.Language = archive.Language
+	}
+
+	if archive.Category != nil {
+		result.Category = archive.Category
+	}
+
+	if archive.PageCount > 0 {
+		result.PageCount = &archive.PageCount
+	}
+
+	if archive.ReleaseDate != nil {
+		result.ReleaseDate = archive.ReleaseDate
+	}
+
+	return result
+}
+
+// loadArchiveRelations fills the relation slices of result, stopping at the
+// first query that fails. The load order is the order the queries always ran
+// in, so callers still see the first (not an arbitrary) failure.
+func loadArchiveRelations(ctx context.Context, q *sqlc.Queries, archiveID string, result *metadata.Result) error {
+	var err error
+
+	result.Artists, err = loadRelationNames(ctx, q.GetArchiveArtists, archiveID, "artists", func(a sqlc.Artist) string { return a.Name })
+	if err != nil {
+		return err
+	}
+
+	result.Tags, err = loadRelationNames(ctx, q.GetArchiveTag, archiveID, "tags", func(t sqlc.Tag) string { return t.Name })
+	if err != nil {
+		return err
+	}
+
+	result.Parodies, err = loadRelationNames(ctx, q.GetArchiveParody, archiveID, "parodies", func(p sqlc.Parody) string { return p.Name })
+	if err != nil {
+		return err
+	}
+
+	result.Circles, err = loadRelationNames(ctx, q.GetArchiveCircle, archiveID, "circles", func(c sqlc.Circle) string { return c.Name })
+	if err != nil {
+		return err
+	}
+
+	result.Characters, err = loadRelationNames(ctx, q.GetArchiveCharacters, archiveID, "characters", func(c sqlc.Character) string { return c.Name })
+	if err != nil {
+		return err
+	}
+
+	urls, err := q.GetArchiveUrls(ctx, archiveID)
+	if err != nil {
+		return fmt.Errorf("get urls: %w", err)
+	}
+
+	result.URLs = urls
+
+	return nil
+}
+
+// loadRelationNames runs one archive-relation query and maps each row's Name
+// into a plain string slice. The slice stays nil when there are no rows, so
+// an archive without (say) parodies serialises the same as it always did.
+func loadRelationNames[T any](
+	ctx context.Context,
+	query func(context.Context, string) ([]T, error),
+	archiveID, label string,
+	name func(T) string,
+) ([]string, error) {
+	rows, err := query(ctx, archiveID)
+	if err != nil {
+		return nil, fmt.Errorf("get %s: %w", label, err)
+	}
+
+	var names []string
+
+	for _, row := range rows {
+		names = append(names, name(row))
+	}
+
+	return names, nil
+}

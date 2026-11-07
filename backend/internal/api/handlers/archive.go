@@ -1,0 +1,1604 @@
+package handlers
+
+import (
+	"Shoka/internal/api/response"
+	"Shoka/internal/auth"
+	"Shoka/internal/database"
+	"Shoka/internal/database/sqlc"
+	"Shoka/internal/events"
+	"Shoka/internal/image"
+	"Shoka/internal/jobs"
+	"Shoka/internal/language"
+	"Shoka/internal/metadata"
+	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+)
+
+// archiveIDPattern matches the IDs produced by util.GenerateID. The archive ID
+// arrives as an untrusted path parameter and is used to build filesystem paths
+// (thumbnail and page cache), so anything outside this alphabet — path
+// separators, "..", NUL — is rejected before it can escape the cache root.
+var archiveIDPattern = regexp.MustCompile(`^[A-Za-z0-9]+$`)
+
+func validArchiveID(id string) bool {
+	return archiveIDPattern.MatchString(id)
+}
+
+// ArchiveHandler serves the archive CRUD, browsing, progress, and cover
+// endpoints, coordinating the image cache and the metadata pipeline.
+type ArchiveHandler struct {
+	queries     *sqlc.Queries
+	db          *sql.DB
+	logger      *slog.Logger
+	processor   *image.Processor
+	cache       *image.Cache
+	queue       *jobs.Queue
+	broadcaster *events.ThumbnailBroadcaster
+	pipeline    *metadata.Pipeline
+}
+
+// NewArchiveHandler returns an ArchiveHandler wired to the given database,
+// image processor and cache, job queue, thumbnail broadcaster, and metadata
+// pipeline.
+func NewArchiveHandler(queries *sqlc.Queries, db *sql.DB, log *slog.Logger, processor *image.Processor, cache *image.Cache, queue *jobs.Queue, broadcaster *events.ThumbnailBroadcaster, pipeline *metadata.Pipeline) *ArchiveHandler {
+	return &ArchiveHandler{
+		queries:     queries,
+		db:          db,
+		processor:   processor,
+		cache:       cache,
+		queue:       queue,
+		broadcaster: broadcaster,
+		pipeline:    pipeline,
+		logger:      log.With("handler", "archive"),
+	}
+}
+
+// ArchiveResponse is the API representation of an archive, including its
+// related metadata names, progress, favorites, and cover state.
+type ArchiveResponse struct {
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	ReleaseDate *time.Time `json:"release_date"`
+	PageCount   int        `json:"page_count"`
+	FilePath    string     `json:"file_path"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+
+	Artists    []string `json:"artists"`
+	Tags       []string `json:"tags"`
+	Parodies   []string `json:"parodies"`
+	Circles    []string `json:"circles"`
+	Characters []string `json:"characters"`
+
+	// URLs is populated on the single-archive response only (GET
+	// /api/archives/{id} and the metadata preview endpoints); list/search
+	// responses leave it null to avoid an extra query per page.
+	URLs []ArchiveURLResponse `json:"urls"`
+
+	Progress *ProgressResponse `json:"progress"`
+
+	ThumbsReady bool `json:"thumbs_ready"`
+	IsFavorited bool `json:"is_favorited"`
+	Rating      *int `json:"rating"`
+
+	// CoverPage is the 0-based page currently used for the archive's cover
+	// (see GetCover) - callers append it as a `v` query param on the cover
+	// image URL to bust the cache when it changes without giving up the
+	// long-lived immutable cache the rest of the time.
+	CoverPage int `json:"cover_page"`
+}
+
+// ArchiveURLResponse is one source link on an archive. Source is derived
+// from the URL's host (see metadata.SourceFromURL), not stored — an
+// nhentai.net link is always "nhentai" regardless of which pipeline source
+// or manual paste produced it.
+type ArchiveURLResponse struct {
+	Source string `json:"source"`
+	URL    string `json:"url"`
+}
+
+// ProgressResponse is a user's reading progress for a single archive.
+type ProgressResponse struct {
+	CurrentPage int       `json:"current_page"`
+	LastRead    time.Time `json:"last_read"`
+	Completed   bool      `json:"completed"`
+}
+
+// ArchiveListResponse is a paginated page of archives.
+type ArchiveListResponse struct {
+	Items []ArchiveResponse `json:"items"`
+	Total int64             `json:"total"`
+	Page  int               `json:"page"`
+	Limit int               `json:"limit"`
+}
+
+// SortOptionResponse is one selectable sort field offered to clients.
+type SortOptionResponse struct {
+	Value       string `json:"value"`
+	DisplayName string `json:"display_name"`
+}
+
+// favoritedSet fetches, for a set of archive ids, which ones the given user
+// has favorited — one query instead of one ArchiveIsFavorited call per row.
+// Package-level (rather than an ArchiveHandler method) so other handlers
+// that hold their own *sqlc.Queries can build the same response shape —
+// e.g. SearchHandler assembling the archive category of a search result.
+func favoritedSet(ctx context.Context, queries *sqlc.Queries, userID string, ids []string) (map[string]bool, error) {
+	favoritedIDs, err := queries.GetFavoritedArchiveIDs(ctx, sqlc.GetFavoritedArchiveIDsParams{
+		Uid: userID,
+		Ids: ids,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	favorited := make(map[string]bool, len(favoritedIDs))
+	for _, id := range favoritedIDs {
+		favorited[id] = true
+	}
+
+	return favorited, nil
+}
+
+// ratingSet fetches, for a set of archive ids, the given user's own rating
+// (1-5) for each one that has been rated — one query instead of one
+// GetArchiveRating call per row. Package-level for the same reason as
+// favoritedSet above.
+func ratingSet(ctx context.Context, queries *sqlc.Queries, userID string, ids []string) (map[string]int, error) {
+	rows, err := queries.GetArchiveRatingsForIDs(ctx, sqlc.GetArchiveRatingsForIDsParams{
+		Uid: userID,
+		Ids: ids,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	ratings := make(map[string]int, len(rows))
+	for _, row := range rows {
+		ratings[row.ArchiveID] = int(row.Rating)
+	}
+
+	return ratings, nil
+}
+
+// buildArchiveListResponses converts archive list rows into ArchiveResponse
+// items, bulk-fetching relational metadata, favorite status and ratings in
+// a fixed number of queries (avoiding N+1). Shared by GetArchives and
+// SearchHandler.Search so both build the same response shape from a
+// []sqlc.GetArchiveListRow.
+func buildArchiveListResponses(
+	ctx context.Context,
+	queries *sqlc.Queries,
+	db *sql.DB,
+	processor *image.Processor,
+	userID string,
+	rows []sqlc.GetArchiveListRow,
+) ([]ArchiveResponse, error) {
+	ids := make([]string, len(rows))
+	for i, row := range rows {
+		ids[i] = row.ID
+	}
+
+	metaByID, err := database.GetBulkArchiveMetadata(ctx, db, ids)
+	if err != nil {
+		return nil, fmt.Errorf("get bulk archive metadata: %w", err)
+	}
+
+	favorited, err := favoritedSet(ctx, queries, userID, ids)
+	if err != nil {
+		return nil, fmt.Errorf("get favorited archive ids: %w", err)
+	}
+
+	ratings, err := ratingSet(ctx, queries, userID, ids)
+	if err != nil {
+		return nil, fmt.Errorf("get archive ratings: %w", err)
+	}
+
+	lc := language.NewConverter()
+
+	items := make([]ArchiveResponse, 0, len(rows))
+	for _, row := range rows {
+		resp := ArchiveResponse{
+			ID:          row.ID,
+			Title:       row.Title,
+			Summary:     row.Summary,
+			Language:    lc.DisplayName(row.Language),
+			Category:    row.Category,
+			ReleaseDate: row.ReleaseDate,
+			PageCount:   int(row.PageCount),
+			CreatedAt:   row.CreatedAt,
+			UpdatedAt:   row.UpdatedAt,
+			ThumbsReady: processor.ThumbsReady(row.ID, int(row.PageCount)),
+			IsFavorited: favorited[row.ID],
+			CoverPage:   int(row.CoverPage),
+		}
+		if rating, ok := ratings[row.ID]; ok {
+			resp.Rating = &rating
+		}
+
+		if meta, ok := metaByID[row.ID]; ok {
+			resp.Artists = meta.Artists
+			resp.Tags = meta.Tags
+			resp.Parodies = meta.Parodies
+			resp.Circles = meta.Circles
+			resp.Characters = meta.Characters
+		}
+
+		if row.Page != nil {
+			resp.Progress = &ProgressResponse{
+				CurrentPage: int(*row.Page),
+				Completed:   row.Completed != nil && *row.Completed,
+			}
+			if row.LastRead != nil {
+				resp.Progress.LastRead = *row.LastRead
+			}
+		}
+
+		items = append(items, resp)
+	}
+
+	return items, nil
+}
+
+// GetArchiveSortOptions godoc
+//
+//	@Summary		List archive sort options
+//	@Description	Returns every valid value for the "sort" query param on GET /api/archives, with a display name for UI dropdowns
+//	@Tags			archives
+//	@Produce		json
+//	@Success		200	{array}		SortOptionResponse
+//	@Router			/api/archives/sort-options [get]
+func (h *ArchiveHandler) GetArchiveSortOptions(w http.ResponseWriter, _ *http.Request) {
+	items := make([]SortOptionResponse, 0, len(database.SortOptions))
+	for _, opt := range database.SortOptions {
+		items = append(items, SortOptionResponse{
+			Value:       opt.Value,
+			DisplayName: opt.DisplayName,
+		})
+	}
+
+	response.JSON(w, http.StatusOK, items)
+}
+
+// GetCategories godoc
+//
+//	@Summary		List all archive categories
+//	@Description	Returns every distinct category currently in use across the libraries the caller may access (all of them for an admin), sorted. Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.
+//	@Tags			archives
+//	@Produce		json
+//	@Success		200	{array}		string
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/categories [get]
+func (h *ArchiveHandler) GetCategories(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.queries.GetAllCategory(r.Context(), sqlc.GetAllCategoryParams{
+		AllLibraries: auth.LibraryScopeFromContext(r.Context()).Unrestricted(),
+		Uid:          auth.UserIDFromContext(r.Context()),
+	})
+	if err != nil {
+		h.logger.Error("get categories failed", "error", err)
+		response.InternalError(w, "failed to get categories")
+
+		return
+	}
+
+	categories := make([]string, 0, len(rows))
+	for _, c := range rows {
+		if c != nil {
+			categories = append(categories, *c)
+		}
+	}
+
+	response.JSON(w, http.StatusOK, categories)
+}
+
+// LanguageResponse is one language in use, pairing its code with a
+// human-readable display name.
+type LanguageResponse struct {
+	Code string `json:"code"`
+	Name string `json:"name"`
+}
+
+// GetLanguages godoc
+//
+//	@Summary		List all languages
+//	@Description	Returns every distinct language code currently in use across the libraries the caller may access (all of them for an admin), paired with a display name (see language.Converter; falls back to the raw code if unrecognized). Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.
+//	@Tags			archives
+//	@Produce		json
+//	@Success		200	{array}		LanguageResponse
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/languages [get]
+func (h *ArchiveHandler) GetLanguages(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.queries.GetAllLanguage(r.Context(), sqlc.GetAllLanguageParams{
+		AllLibraries: auth.LibraryScopeFromContext(r.Context()).Unrestricted(),
+		Uid:          auth.UserIDFromContext(r.Context()),
+	})
+	if err != nil {
+		h.logger.Error("get languages failed", "error", err)
+		response.InternalError(w, "failed to get languages")
+
+		return
+	}
+
+	lc := language.NewConverter()
+
+	languages := make([]LanguageResponse, 0, len(rows))
+	for _, code := range rows {
+		if code == nil {
+			continue
+		}
+
+		name, err := lc.ToName(*code)
+		if err != nil {
+			name = *code
+		}
+
+		languages = append(languages, LanguageResponse{Code: *code, Name: name})
+	}
+
+	response.JSON(w, http.StatusOK, languages)
+}
+
+// hasPHashParam parses the has_phash filter. An absent or unparseable value
+// means "don't filter", matching how the other optional list params here
+// treat junk input - a bad value shouldn't silently hide half the library.
+func hasPHashParam(raw string) *bool {
+	if raw == "" {
+		return nil
+	}
+
+	v, err := strconv.ParseBool(raw)
+	if err != nil {
+		return nil
+	}
+
+	return &v
+}
+
+// GetArchives godoc
+//
+//	@Summary		List archives with pagination, filtering, and sorting
+//	@Tags			archives
+//	@Produce		json
+//	@Param			library_id	query		string		true	"Library ID to list archives from"
+//	@Param			q			query		string		false	"Full-text search over title, summary, artists, tags, parodies, circles, characters, category (substring match, min 3 characters - shorter values are ignored)"
+//	@Param			page		query		int		false	"Page number (1-based)"							default(1)
+//	@Param			limit		query		int		false	"Items per page"								default(24)
+//	@Param			sort		query		string		false	"Sort order (title_asc, title_desc, release_date_asc, release_date_desc, created_at_asc, created_at_desc, page_count_asc, page_count_desc, rating_asc, rating_desc)"
+//	@Param			artist		query		[]string	false	"Filter by artist name(s); archive must have all"
+//	@Param			tag			query		[]string	false	"Filter by tag name(s); archive must have all"
+//	@Param			character	query		[]string	false	"Filter by character name(s); archive must have all"
+//	@Param			parody		query		[]string	false	"Filter by parody name(s); archive must have all"
+//	@Param			circle		query		[]string	false	"Filter by circle/group name(s); archive must have all"
+//	@Param			language	query		string		false	"Filter by language code (e.g. en, ja)"
+//	@Param			category	query		string		false	"Filter by category"
+//	@Param			has_phash	query		bool		false	"Filter by whether the archive has been perceptually hashed (for duplicate detection). Omit to include both."
+//	@Param			rating		query		int			false	"Filter to archives the current user rated this many stars (1-5)"
+//	@Success		200	{object}	ArchiveListResponse
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives [get]
+func (h *ArchiveHandler) GetArchives(w http.ResponseWriter, r *http.Request) {
+	userID := auth.UserIDFromContext(r.Context())
+	q := r.URL.Query()
+
+	libraryID := q.Get("library_id")
+	if libraryID == "" {
+		response.BadRequest(w, "library_id is required")
+		return
+	}
+
+	if !auth.LibraryScopeFromContext(r.Context()).Allows(libraryID) {
+		response.NotFound(w, "library not found")
+		return
+	}
+
+	page, limit := parsePagination(r, defaultArchiveLimit)
+
+	filter := database.ArchiveFilter{
+		LibraryID:  libraryID,
+		Query:      q.Get("q"),
+		Artists:    q["artist"],
+		Tags:       q["tag"],
+		Characters: q["character"],
+		Parodies:   q["parody"],
+		Circles:    q["circle"],
+		Language:   q.Get("language"),
+		Category:   q.Get("category"),
+		HasPHash:   hasPHashParam(q.Get("has_phash")),
+		Rating:     int(ratingFilterParam(q.Get("rating"))),
+		Sort:       q.Get("sort"),
+		Limit:      int64(limit),
+		Offset:     int64((page - 1) * limit),
+		UserID:     userID,
+	}
+
+	rows, total, err := database.ListArchives(r.Context(), h.db, filter)
+	if err != nil {
+		h.logger.Error("list archives failed", "error", err)
+		response.InternalError(w, "failed to list archives")
+
+		return
+	}
+
+	items, err := buildArchiveListResponses(r.Context(), h.queries, h.db, h.processor, userID, rows)
+	if err != nil {
+		h.logger.Error("build archive responses failed", "error", err)
+		response.InternalError(w, "failed to get archive metadata")
+
+		return
+	}
+
+	response.JSON(w, http.StatusOK, ArchiveListResponse{
+		Items: items,
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	})
+}
+
+// GetRecentlyRead godoc
+//
+//	@Summary		List recently read archives across accessible libraries
+//	@Description	Returns archives with reading progress for the current user, most recently read first. Spans every library the caller may access (all of them for an admin); archives in ungranted libraries are omitted.
+//	@Tags			archives
+//	@Produce		json
+//	@Param			page	query		int	false	"Page number (1-based)"	default(1)
+//	@Param			limit	query		int	false	"Items per page"		default(24)
+//	@Success		200	{object}	ArchiveListResponse
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/recently-read [get]
+func (h *ArchiveHandler) GetRecentlyRead(w http.ResponseWriter, r *http.Request) {
+	userID := auth.UserIDFromContext(r.Context())
+
+	page, limit := parsePagination(r, defaultArchiveLimit)
+	offset := int64((page - 1) * limit)
+
+	total, err := h.queries.CountRecentlyReadArchives(r.Context(), sqlc.CountRecentlyReadArchivesParams{
+		Uid:          userID,
+		AllLibraries: auth.LibraryScopeFromContext(r.Context()).Unrestricted(),
+	})
+	if err != nil {
+		h.logger.Error("count recently read archives failed", "error", err)
+		response.InternalError(w, "failed to count recently read archives")
+
+		return
+	}
+
+	rows, err := h.queries.GetRecentlyReadArchives(r.Context(), sqlc.GetRecentlyReadArchivesParams{
+		Uid:          userID,
+		AllLibraries: auth.LibraryScopeFromContext(r.Context()).Unrestricted(),
+		Limit:        int64(limit),
+		Offset:       offset,
+	})
+	if err != nil {
+		h.logger.Error("get recently read archives failed", "error", err)
+		response.InternalError(w, "failed to get recently read archives")
+
+		return
+	}
+
+	ids := make([]string, len(rows))
+	for i, row := range rows {
+		ids[i] = row.ID
+	}
+
+	favorited, err := favoritedSet(r.Context(), h.queries, userID, ids)
+	if err != nil {
+		h.logger.Error("get favorited archive ids failed", "error", err)
+		response.InternalError(w, "failed to get favorite status")
+
+		return
+	}
+
+	ratings, err := ratingSet(r.Context(), h.queries, userID, ids)
+	if err != nil {
+		h.logger.Error("get archive ratings failed", "error", err)
+		response.InternalError(w, "failed to get rating")
+
+		return
+	}
+
+	metaByID, err := database.GetBulkArchiveMetadata(r.Context(), h.db, ids)
+	if err != nil {
+		h.logger.Error("get bulk archive metadata failed", "error", err)
+		response.InternalError(w, "failed to get archive metadata")
+
+		return
+	}
+
+	response.JSON(w, http.StatusOK, ArchiveListResponse{
+		Items: h.recentlyReadResponses(rows, favorited, ratings, metaByID),
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	})
+}
+
+// GetFavorites godoc
+//
+//	@Summary		List favorited archives across accessible libraries
+//	@Description	Returns archives the current user has favorited, most recently favorited first. Spans every library the caller may access (all of them for an admin); archives in ungranted libraries are omitted.
+//	@Tags			archives
+//	@Produce		json
+//	@Param			page	query		int	false	"Page number (1-based)"	default(1)
+//	@Param			limit	query		int	false	"Items per page"		default(24)
+//	@Success		200	{object}	ArchiveListResponse
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/favorites [get]
+func (h *ArchiveHandler) GetFavorites(w http.ResponseWriter, r *http.Request) {
+	userID := auth.UserIDFromContext(r.Context())
+
+	page, limit := parsePagination(r, defaultArchiveLimit)
+	offset := int64((page - 1) * limit)
+
+	total, err := h.queries.CountUserFavoriteArchive(r.Context(), sqlc.CountUserFavoriteArchiveParams{
+		Uid:          userID,
+		AllLibraries: auth.LibraryScopeFromContext(r.Context()).Unrestricted(),
+	})
+	if err != nil {
+		h.logger.Error("count favorite archives failed", "error", err)
+		response.InternalError(w, "failed to count favorite archives")
+
+		return
+	}
+
+	rows, err := h.queries.GetUserFavoriteArchiveList(r.Context(), sqlc.GetUserFavoriteArchiveListParams{
+		Uid:          userID,
+		AllLibraries: auth.LibraryScopeFromContext(r.Context()).Unrestricted(),
+		Limit:        int64(limit),
+		Offset:       offset,
+	})
+	if err != nil {
+		h.logger.Error("get favorite archives failed", "error", err)
+		response.InternalError(w, "failed to get favorite archives")
+
+		return
+	}
+
+	ids := make([]string, len(rows))
+	for i, row := range rows {
+		ids[i] = row.ID
+	}
+
+	ratings, err := ratingSet(r.Context(), h.queries, userID, ids)
+	if err != nil {
+		h.logger.Error("get archive ratings failed", "error", err)
+		response.InternalError(w, "failed to get rating")
+
+		return
+	}
+
+	response.JSON(w, http.StatusOK, ArchiveListResponse{
+		Items: h.favoriteFeedResponses(rows, ratings),
+		Total: total,
+		Page:  page,
+		Limit: limit,
+	})
+}
+
+// loadScopedArchive resolves an archive and enforces the caller's library
+// scope. Out-of-scope archives answer 404 so restricted ids are
+// indistinguishable from missing ones. It writes the error response itself
+// and returns false when it fails.
+func (h *ArchiveHandler) loadScopedArchive(w http.ResponseWriter, r *http.Request, id string) (sqlc.Archive, bool) {
+	archive, err := h.queries.GetArchiveByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "archive not found")
+			return sqlc.Archive{}, false
+		}
+
+		h.logger.Error("get archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
+
+		return sqlc.Archive{}, false
+	}
+
+	if !auth.LibraryScopeFromContext(r.Context()).Allows(archive.LibraryID) {
+		response.NotFound(w, "archive not found")
+		return sqlc.Archive{}, false
+	}
+
+	return archive, true
+}
+
+// GetArchive godoc
+//
+//	@Summary		Get a single archive
+//	@Tags			archives
+//	@Produce		json
+//	@Param			id	path		string	true	"Archive ID"
+//	@Success		200	{object}	ArchiveResponse
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id} [get]
+func (h *ArchiveHandler) GetArchive(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	userID := auth.UserIDFromContext(r.Context())
+
+	archive, ok := h.loadScopedArchive(w, r, id)
+	if !ok {
+		return
+	}
+
+	resp, err := h.archiveResponseFor(r.Context(), archive, userID)
+	if err != nil {
+		h.logger.Error("build archive response failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
+
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// UpdateArchiveRequest is a partial update: omitted fields are left
+// unchanged. For list fields (artists/tags/parodies/circles/characters),
+// omit the key to leave it unchanged, send an empty array to clear it, or
+// send a full list to replace it — there's no way to add/remove a single
+// value, this always replaces the whole relation.
+//
+// page_count is deliberately not editable here — it's a structural fact
+// about the archive file (used for pagination/thumbnail bounds checks
+// elsewhere), not curated metadata.
+//
+// urls follows the same omit/empty/replace rules as the other list fields:
+// omit the key to leave the links unchanged, send an empty array to clear
+// them, or send a full list to replace them. Each URL must be a valid
+// http(s) URL — the whole request is rejected otherwise.
+type UpdateArchiveRequest struct {
+	Title       *string    `json:"title"`
+	Summary     *string    `json:"summary"`
+	Language    *string    `json:"language"`
+	Category    *string    `json:"category"`
+	ReleaseDate *time.Time `json:"release_date"`
+	Artists     []string   `json:"artists"`
+	Tags        []string   `json:"tags"`
+	Parodies    []string   `json:"parodies"`
+	Circles     []string   `json:"circles"`
+	Characters  []string   `json:"characters"`
+	URLs        []string   `json:"urls"`
+}
+
+// UpdateArchive godoc
+//
+//	@Summary		Update an archive
+//	@Description	Partial update of an archive's metadata, including relations (artists/tags/parodies/circles/characters). This is a direct manual edit, not a metadata source — a subsequent "fetch metadata" call can still overwrite these values, there is currently no per-field locking.
+//	@Tags			archives
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path		string					true	"Archive ID"
+//	@Param			body	body	UpdateArchiveRequest	true	"Fields to update"
+//	@Success		200	{object}	ArchiveResponse
+//	@Failure		403	{object}	response.Error
+//	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id} [patch]
+func (h *ArchiveHandler) UpdateArchive(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	userID := auth.UserIDFromContext(r.Context())
+
+	if _, err := h.queries.GetArchiveByID(r.Context(), id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "archive not found")
+			return
+		}
+
+		h.logger.Error("get archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
+
+		return
+	}
+
+	var body UpdateArchiveRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if body.Title != nil && strings.TrimSpace(*body.Title) == "" {
+		response.BadRequest(w, "title cannot be empty")
+		return
+	}
+
+	for _, u := range body.URLs {
+		if _, ok := metadata.SourceFromURL(u); !ok {
+			response.BadRequest(w, fmt.Sprintf("invalid source URL: %q", u))
+			return
+		}
+	}
+
+	if err := metadata.ApplyMetadata(r.Context(), h.queries, h.db, id, &metadata.Result{
+		Title:       body.Title,
+		Summary:     body.Summary,
+		Language:    body.Language,
+		Category:    body.Category,
+		ReleaseDate: body.ReleaseDate,
+		Artists:     body.Artists,
+		Tags:        body.Tags,
+		Parodies:    body.Parodies,
+		Circles:     body.Circles,
+		Characters:  body.Characters,
+		URLs:        body.URLs,
+	}); err != nil {
+		h.logger.Error("update archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to update archive")
+
+		return
+	}
+
+	archive, err := h.queries.GetArchiveByID(r.Context(), id)
+	if err != nil {
+		h.logger.Error("get updated archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get updated archive")
+
+		return
+	}
+
+	meta, err := database.GetArchiveMetadata(r.Context(), h.queries, id)
+	if err != nil {
+		h.logger.Error("get archive metadata failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get updated archive")
+
+		return
+	}
+
+	progress := h.bestEffortProgress(r.Context(), id, userID)
+
+	isFavorited, err := h.queries.ArchiveIsFavorited(r.Context(), sqlc.ArchiveIsFavoritedParams{
+		ArchiveID: id,
+		Uid:       userID,
+	})
+	if err != nil {
+		h.logger.Error("get favorite status failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get updated archive")
+
+		return
+	}
+
+	rating, err := h.userArchiveRating(r.Context(), id, userID)
+	if err != nil {
+		h.logger.Error("get rating failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get updated archive")
+
+		return
+	}
+
+	response.JSON(w, http.StatusOK, h.buildResponse(archive, meta, progress, isFavorited, rating))
+}
+
+// DeleteArchive godoc
+//
+//	@Summary		Delete an archive
+//	@Description	Removes the archive and all its associated data (progress, favorites, ratings, metadata) from the library. By default the underlying file on disk is left untouched — pass delete_file=true to also remove it. Cache/thumbnail data is always evicted.
+//	@Tags			archives
+//	@Param			id			path	string	true	"Archive ID"
+//	@Param			delete_file	query	bool	false	"Also delete the archive file from disk"	default(false)
+//	@Success		204
+//	@Failure		403	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id} [delete]
+func (h *ArchiveHandler) DeleteArchive(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	deleteFile := r.URL.Query().Get("delete_file") == "true"
+
+	archive, err := h.queries.GetArchiveByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "archive not found")
+			return
+		}
+
+		h.logger.Error("get archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
+
+		return
+	}
+
+	if err := database.DeleteArchive(r.Context(), h.queries, h.db, id); err != nil {
+		h.logger.Error("delete archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to delete archive")
+
+		return
+	}
+
+	if err := h.processor.EvictAll(id); err != nil {
+		h.logger.Warn("evict archive cache failed", "id", id, "error", err)
+	}
+
+	if deleteFile {
+		if err := os.Remove(archive.FilePath); err != nil && !os.IsNotExist(err) {
+			h.logger.Warn("delete archive file failed", "id", id, "path", archive.FilePath, "error", err)
+		}
+	}
+
+	h.logger.Info("archive deleted", "id", id, "delete_file", deleteFile)
+	response.NoContent(w)
+}
+
+// UpdateProgressRequest is the body of the reading-progress update, with an
+// optional explicit completed flag.
+type UpdateProgressRequest struct {
+	Page int `json:"page"`
+	// Completed: omit to auto-derive (true once page reaches the archives
+	// last page), or set explicitly to override that (e.g. letting a user
+	// mark something finished/unfinished regardless of page position).
+	Completed *bool `json:"completed"`
+}
+
+// UpdateProgress godoc
+//
+//	@Summary		Record reading progress for an archive
+//	@Description	Upserts the current users reading progress. Idempotent - safe to call on every page turn with the new absolute page number.
+//	@Tags			archives
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path		string					true	"Archive ID"
+//	@Param			body	body	UpdateProgressRequest	true	"Progress"
+//	@Success		200	{object}	ProgressResponse
+//	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/progress [put]
+func (h *ArchiveHandler) UpdateProgress(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	userID := auth.UserIDFromContext(r.Context())
+
+	archive, ok := h.loadScopedArchive(w, r, id)
+	if !ok {
+		return
+	}
+
+	var body UpdateProgressRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if archive.PageCount > 0 && (body.Page < 0 || body.Page >= int(archive.PageCount)) {
+		response.BadRequest(w, "page out of range")
+		return
+	}
+
+	completed := archive.PageCount > 0 && body.Page >= int(archive.PageCount)-1
+	if body.Completed != nil {
+		completed = *body.Completed
+	}
+
+	row, err := h.queries.UpsertReadingProgress(r.Context(), sqlc.UpsertReadingProgressParams{
+		ArchiveID: id,
+		UserID:    userID,
+		Page:      int64(body.Page),
+		Completed: completed,
+	})
+	if err != nil {
+		h.logger.Error("upsert reading progress failed", "id", id, "error", err)
+		response.InternalError(w, "failed to update progress")
+
+		return
+	}
+
+	response.JSON(w, http.StatusOK, ProgressResponse{
+		CurrentPage: int(row.Page),
+		LastRead:    row.LastRead,
+		Completed:   row.Completed,
+	})
+}
+
+// mutateScopedArchive resolves the archive under the caller's library scope,
+// runs mutate against its id and the caller's user id, then answers 204. It
+// writes every error itself, logging under logMsg and answering with failMsg.
+func (h *ArchiveHandler) mutateScopedArchive(
+	w http.ResponseWriter,
+	r *http.Request,
+	logMsg, failMsg string,
+	mutate func(id, userID string) error,
+) {
+	mutateScoped(w, r, h.logger, logMsg, failMsg, func(id string) bool {
+		_, ok := h.loadScopedArchive(w, r, id)
+		return ok
+	}, mutate)
+}
+
+// DeleteProgress godoc
+//
+//	@Summary		Reset reading progress for an archive
+//	@Description	Removes the current users reading progress for this archive entirely (as opposed to setting page back to 0, which would still count as "in progress").
+//	@Tags			archives
+//	@Param			id	path	string	true	"Archive ID"
+//	@Success		204
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/progress [delete]
+func (h *ArchiveHandler) DeleteProgress(w http.ResponseWriter, r *http.Request) {
+	h.mutateScopedArchive(w, r, "delete reading progress failed", "failed to reset progress",
+		func(id, userID string) error {
+			return h.queries.DeleteReadingProgress(r.Context(), sqlc.DeleteReadingProgressParams{
+				ArchiveID: id,
+				UserID:    userID,
+			})
+		})
+}
+
+// AddFavorite godoc
+//
+//	@Summary		Favorite an archive
+//	@Description	Idempotent - adds the archive to the current users favorites. No-op if already favorited.
+//	@Tags			archives
+//	@Param			id	path	string	true	"Archive ID"
+//	@Success		204
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/favorite [put]
+func (h *ArchiveHandler) AddFavorite(w http.ResponseWriter, r *http.Request) {
+	h.mutateScopedArchive(w, r, "add favorite archive failed", "failed to favorite archive",
+		func(id, userID string) error {
+			return h.queries.AddFavoriteArchive(r.Context(), sqlc.AddFavoriteArchiveParams{
+				ArchiveID: id,
+				UserID:    userID,
+			})
+		})
+}
+
+// RemoveFavorite godoc
+//
+//	@Summary		Unfavorite an archive
+//	@Description	Removes the archive from the current users favorites. No-op if it wasn't favorited.
+//	@Tags			archives
+//	@Param			id	path	string	true	"Archive ID"
+//	@Success		204
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/favorite [delete]
+func (h *ArchiveHandler) RemoveFavorite(w http.ResponseWriter, r *http.Request) {
+	h.mutateScopedArchive(w, r, "remove favorite archive failed", "failed to unfavorite archive",
+		func(id, userID string) error {
+			return h.queries.RemoveFavoriteArchive(r.Context(), sqlc.RemoveFavoriteArchiveParams{
+				ArchiveID: id,
+				Uid:       userID,
+			})
+		})
+}
+
+// SetRatingRequest carries a 1-5 star rating to apply to an archive.
+type SetRatingRequest struct {
+	// Rating is 1-5, matching a classic 5-star rating widget. There's no
+	// 0/"unset" value here — clearing a rating is DELETE .../rating.
+	Rating int `json:"rating"`
+}
+
+// SetRating godoc
+//
+//	@Summary		Rate an archive
+//	@Description	Idempotent - sets the current users star rating (1-5) for this archive, overwriting any previous rating.
+//	@Tags			archives
+//	@Accept			json
+//	@Param			id		path	string				true	"Archive ID"
+//	@Param			body	body	SetRatingRequest	true	"Rating"
+//	@Success		204
+//	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/rating [put]
+func (h *ArchiveHandler) SetRating(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	userID := auth.UserIDFromContext(r.Context())
+
+	var body SetRatingRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if body.Rating < 1 || body.Rating > 5 {
+		response.BadRequest(w, "rating must be between 1 and 5")
+		return
+	}
+
+	if _, ok := h.loadScopedArchive(w, r, id); !ok {
+		return
+	}
+
+	if _, err := h.queries.UpsertArchiveRating(r.Context(), sqlc.UpsertArchiveRatingParams{
+		ArchiveID: id,
+		UserID:    userID,
+		Rating:    int64(body.Rating),
+	}); err != nil {
+		h.logger.Error("upsert archive rating failed", "id", id, "error", err)
+		response.InternalError(w, "failed to rate archive")
+
+		return
+	}
+
+	response.NoContent(w)
+}
+
+// RemoveRating godoc
+//
+//	@Summary		Clear an archive's rating
+//	@Description	Removes the current users star rating for this archive. No-op if it wasn't rated.
+//	@Tags			archives
+//	@Param			id	path	string	true	"Archive ID"
+//	@Success		204
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/rating [delete]
+func (h *ArchiveHandler) RemoveRating(w http.ResponseWriter, r *http.Request) {
+	h.mutateScopedArchive(w, r, "remove archive rating failed", "failed to clear rating",
+		func(id, userID string) error {
+			return h.queries.RemoveArchiveRating(r.Context(), sqlc.RemoveArchiveRatingParams{
+				ArchiveID: id,
+				Uid:       userID,
+			})
+		})
+}
+
+func (h *ArchiveHandler) buildResponse(
+	archive sqlc.Archive,
+	meta *metadata.Result,
+	progress *sqlc.ReadingProgress,
+	isFavorited bool,
+	rating *int,
+) ArchiveResponse {
+	return buildArchiveResponse(h.processor, archive, meta, progress, isFavorited, rating)
+}
+
+// archiveResponseFor assembles the full ArchiveResponse for one archive:
+// its relational metadata plus this user's progress, favorite and rating
+// state. Shared by GetArchive and SetCover so the two can't drift. A
+// missing progress or rating row is not an error (the field is left nil);
+// any other query failure is returned wrapped.
+func (h *ArchiveHandler) archiveResponseFor(
+	ctx context.Context,
+	archive sqlc.Archive,
+	userID string,
+) (ArchiveResponse, error) {
+	meta, err := database.GetArchiveMetadata(ctx, h.queries, archive.ID)
+	if err != nil {
+		return ArchiveResponse{}, fmt.Errorf("get archive metadata: %w", err)
+	}
+
+	var progress *sqlc.ReadingProgress
+
+	if p, err := h.queries.GetProgressForArchive(ctx, sqlc.GetProgressForArchiveParams{
+		ArchiveID: archive.ID,
+		UserID:    userID,
+	}); err == nil {
+		progress = &p
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return ArchiveResponse{}, fmt.Errorf("get reading progress: %w", err)
+	}
+
+	isFavorited, err := h.queries.ArchiveIsFavorited(ctx, sqlc.ArchiveIsFavoritedParams{
+		ArchiveID: archive.ID,
+		Uid:       userID,
+	})
+	if err != nil {
+		return ArchiveResponse{}, fmt.Errorf("get favorite status: %w", err)
+	}
+
+	var rating *int
+
+	if v, err := h.queries.GetArchiveRating(ctx, sqlc.GetArchiveRatingParams{
+		ArchiveID: archive.ID,
+		Uid:       userID,
+	}); err == nil {
+		iv := int(v)
+		rating = &iv
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return ArchiveResponse{}, fmt.Errorf("get rating: %w", err)
+	}
+
+	return h.buildResponse(archive, meta, progress, isFavorited, rating), nil
+}
+
+// buildArchiveResponse is the shared ArchiveResponse builder — a
+// package-level function (rather than an ArchiveHandler method) so other
+// handlers that hold their own *image.Processor can build the same
+// response shape, e.g. MetadataHandler previewing a fetched metadata
+// result without persisting it.
+func buildArchiveResponse(
+	processor *image.Processor,
+	archive sqlc.Archive,
+	meta *metadata.Result,
+	progress *sqlc.ReadingProgress,
+	isFavorited bool,
+	rating *int,
+) ArchiveResponse {
+	lc := language.NewConverter()
+
+	resp := ArchiveResponse{
+		ID:          archive.ID,
+		Title:       archive.Title,
+		Summary:     archive.Summary,
+		Language:    lc.DisplayName(archive.Language),
+		Category:    archive.Category,
+		ReleaseDate: archive.ReleaseDate,
+		PageCount:   int(archive.PageCount),
+		CreatedAt:   archive.CreatedAt,
+		UpdatedAt:   archive.UpdatedAt,
+		ThumbsReady: processor.ThumbsReady(archive.ID, int(archive.PageCount)),
+		IsFavorited: isFavorited,
+		Rating:      rating,
+		CoverPage:   int(archive.CoverPage),
+	}
+
+	if meta != nil {
+		resp.Artists = meta.Artists
+		resp.Tags = meta.Tags
+		resp.Parodies = meta.Parodies
+		resp.Circles = meta.Circles
+		resp.Characters = meta.Characters
+
+		for _, u := range meta.URLs {
+			source, ok := metadata.SourceFromURL(u)
+			if !ok {
+				continue
+			}
+
+			resp.URLs = append(resp.URLs, ArchiveURLResponse{Source: source, URL: u})
+		}
+	}
+
+	if progress != nil {
+		resp.Progress = &ProgressResponse{
+			CurrentPage: int(progress.Page),
+			LastRead:    progress.LastRead,
+			Completed:   progress.Completed,
+		}
+	}
+
+	return resp
+}
+
+// overlayResult returns a copy of archive with any non-nil scalar fields
+// from result overlaid on top. Used to preview what an archive would look
+// like with a fetched metadata result applied, without writing anything to
+// the database — the real archive row is never mutated by this.
+func overlayResult(archive sqlc.Archive, result *metadata.Result) sqlc.Archive {
+	preview := archive
+	if result.Title != nil {
+		preview.Title = *result.Title
+	}
+
+	if result.Summary != nil {
+		preview.Summary = result.Summary
+	}
+
+	if result.Language != nil {
+		preview.Language = result.Language
+	}
+
+	if result.Category != nil {
+		preview.Category = result.Category
+	}
+
+	if result.ReleaseDate != nil {
+		preview.ReleaseDate = result.ReleaseDate
+	}
+
+	if result.PageCount != nil {
+		preview.PageCount = *result.PageCount
+	}
+
+	return preview
+}
+
+// GetCover godoc
+//
+//	@Summary		Get the cover thumbnail for an archive
+//	@Description	Serves the thumbnail for archive.cover_page (page 0 by default, or whichever page was chosen via PUT .../cover). Callers should include the archive's cover_page as a `v` query param (see ArchiveResponse) to bust the long-lived cache when the chosen page changes - the response itself ignores the query string.
+//	@Tags			archives
+//	@Produce		image/webp
+//	@Param			id	path	string	true	"Archive ID"
+//	@Param			v	query	int		false	"Cache-busting version - the archive's current cover_page"
+//	@Success		200
+//	@Failure		404	{object}	response.Error
+//	@Router			/api/archives/{id}/cover [get]
+func (h *ArchiveHandler) GetCover(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if !validArchiveID(id) {
+		response.BadRequest(w, "invalid archive id")
+		return
+	}
+
+	archive, ok := h.loadScopedArchive(w, r, id)
+	if !ok {
+		return
+	}
+
+	// A rescan can shrink page_count out from under a previously-chosen
+	// cover_page (pages removed from the archive on disk) - clamp back to
+	// page 0 rather than serving a stale/out-of-range thumbnail path.
+	coverPage := int(archive.CoverPage)
+	if coverPage < 0 || coverPage >= int(archive.PageCount) {
+		coverPage = 0
+	}
+
+	path := h.processor.ThumbPath(id, coverPage)
+
+	// The chosen page's thumbnail hasn't been (re)generated yet (e.g. the
+	// cover job triggered by PUT .../cover is still queued) - fall back to
+	// page 0 rather than 404ing.
+	if path == "" && coverPage != 0 {
+		coverPage = 0
+		path = h.processor.ThumbPath(id, coverPage)
+	}
+
+	if path == "" {
+		// A 404 is heuristically cacheable, and this one is expected to stop
+		// being true as soon as the cover job finishes - without no-store the
+		// browser could keep the missing image pinned under this exact URL and
+		// no amount of re-fetching would ever show the real cover.
+		w.Header().Set("Cache-Control", "no-store")
+		response.NotFound(w, "cover not ready")
+
+		return
+	}
+
+	// Only the archive's actual chosen cover earns the long-lived immutable
+	// cache. Anything we clamped or fell back to is served no-store, so a
+	// client never pins the wrong image under its `?v=<cover_page>` URL once
+	// the real cover becomes available.
+	if coverPage == int(archive.CoverPage) {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	} else {
+		w.Header().Set("Cache-Control", "no-store")
+	}
+
+	//nolint:gosec // G703: id is constrained to [A-Za-z0-9]+ by validArchiveID above, so path stays inside the cache root
+	http.ServeFile(w, r, path)
+}
+
+// SetCoverRequest selects which page an archive's cover thumbnail is drawn
+// from.
+type SetCoverRequest struct {
+	Page int `json:"page"`
+}
+
+// SetCover godoc
+//
+//	@Summary		Set which page is used as an archive's cover
+//	@Description	Changes archive.cover_page and enqueues thumbnail generation for that page if it doesn't already have one. Deliberately a separate endpoint from PATCH /api/archives/{id} - cover choice is presentation state, not metadata, so a later metadata source fetch (which goes through that endpoint) can never overwrite it.
+//	@Tags			archives
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path		string				true	"Archive ID"
+//	@Param			body	body		SetCoverRequest	true	"0-based page index to use as the cover"
+//	@Success		200	{object}	ArchiveResponse
+//	@Failure		403	{object}	response.Error
+//	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/cover [put]
+func (h *ArchiveHandler) SetCover(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if !validArchiveID(id) {
+		response.BadRequest(w, "invalid archive id")
+		return
+	}
+
+	userID := auth.UserIDFromContext(r.Context())
+
+	archive, err := h.queries.GetArchiveByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "archive not found")
+			return
+		}
+
+		h.logger.Error("get archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
+
+		return
+	}
+
+	var body SetCoverRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if body.Page < 0 || body.Page >= int(archive.PageCount) {
+		response.BadRequest(w, "page out of range")
+		return
+	}
+
+	if err := h.queries.UpdateArchiveCoverPage(r.Context(), sqlc.UpdateArchiveCoverPageParams{
+		ID:        id,
+		CoverPage: int64(body.Page),
+	}); err != nil {
+		h.logger.Error("update cover page failed", "id", id, "error", err)
+		response.InternalError(w, "failed to update cover")
+
+		return
+	}
+
+	if h.processor.ThumbPath(id, body.Page) == "" {
+		if err := h.queue.EnqueueOnce(r.Context(), jobs.JobTypeCover, jobs.CoverPayload{
+			ArchiveID: id,
+			FilePath:  archive.FilePath,
+			PageIndex: body.Page,
+		}); err != nil {
+			h.logger.Error("enqueue cover job failed", "id", id, "error", err)
+			response.InternalError(w, "failed to trigger cover generation")
+
+			return
+		}
+	}
+
+	archive, err = h.queries.GetArchiveByID(r.Context(), id)
+	if err != nil {
+		h.logger.Error("get updated archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get updated archive")
+
+		return
+	}
+
+	resp, err := h.archiveResponseFor(r.Context(), archive, userID)
+	if err != nil {
+		h.logger.Error("build archive response failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get updated archive")
+
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// GetPage godoc
+//
+//	@Summary		Get a full-resolution page for an archive
+//	@Tags			archives
+//	@Produce		image/webp
+//	@Param			id		path	string	true	"Archive ID"
+//	@Param			index	path	int		true	"Page index (0-based)"
+//	@Success		200
+//	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/pages/{index} [get]
+func (h *ArchiveHandler) GetPage(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if !validArchiveID(id) {
+		response.BadRequest(w, "invalid archive id")
+		return
+	}
+
+	index, err := strconv.Atoi(chi.URLParam(r, "index"))
+	if err != nil || index < 0 {
+		response.BadRequest(w, "invalid page index")
+		return
+	}
+
+	archive, ok := h.loadScopedArchive(w, r, id)
+	if !ok {
+		return
+	}
+
+	if index >= int(archive.PageCount) {
+		response.NotFound(w, "page not found")
+		return
+	}
+
+	data, err := h.cache.GetPage(id, archive.FilePath, index)
+	if err != nil {
+		h.logger.Error("get page failed", "id", id, "index", index, "error", err)
+		response.InternalError(w, "failed to get page")
+
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/webp")
+	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	w.WriteHeader(http.StatusOK)
+	//nolint:gosec // data is WebP image bytes decoded from the archive by the page cache, served with the explicit content type set above
+	_, _ = w.Write(data)
+}
+
+// GetPageThumbnail godoc
+//
+//	@Summary		Get a page's thumbnail for an archive
+//	@Description	Read-only — serves a thumbnail only if it has already been generated. Does not trigger generation; call POST .../thumbnails for that.
+//	@Tags			archives
+//	@Produce		image/webp
+//	@Param			id		path	string	true	"Archive ID"
+//	@Param			index	path	int		true	"Page index (0-based)"
+//	@Success		200
+//	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/pages/{index}/thumbnail [get]
+func (h *ArchiveHandler) GetPageThumbnail(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if !validArchiveID(id) {
+		response.BadRequest(w, "invalid archive id")
+		return
+	}
+
+	index, err := strconv.Atoi(chi.URLParam(r, "index"))
+	if err != nil || index < 0 {
+		response.BadRequest(w, "invalid page index")
+		return
+	}
+
+	archive, ok := h.loadScopedArchive(w, r, id)
+	if !ok {
+		return
+	}
+
+	if index >= int(archive.PageCount) {
+		response.NotFound(w, "page not found")
+		return
+	}
+
+	path := h.processor.ThumbPath(id, index)
+	if path == "" {
+		// Same reasoning as GetCover's 404: this one is expected to stop being
+		// true once generation reaches this page, and a heuristically cached
+		// 404 under this unversioned URL would keep the thumbnail broken in that
+		// browser even after the file exists.
+		w.Header().Set("Cache-Control", "no-store")
+		response.NotFound(w, "thumbnail not ready")
+
+		return
+	}
+
+	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	//nolint:gosec // G703: id is constrained to [A-Za-z0-9]+ by validArchiveID above, so path stays inside the cache root
+	http.ServeFile(w, r, path)
+}
+
+// GenerateThumbnails godoc
+//
+//	@Summary		Trigger thumbnail generation for an archive
+//	@Description	Enqueues background generation of this archive's per-page thumbnails and returns immediately. Safe to call repeatedly — a job already pending/running for this archive is not duplicated. This is the only thing that triggers thumbnail generation; the GET endpoints only ever serve what already exists, so simply fetching a thumbnail URL (e.g. from curl/Postman) can't spin up generation work. Intended to be called by the frontend when a user opens an archive.
+//	@Tags			archives
+//	@Param			id	path	string	true	"Archive ID"
+//	@Success		202	{object}	nil	"generation started"
+//	@Success		204	{object}	nil	"thumbnails already ready"
+//	@Failure		403	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/thumbnails [post]
+func (h *ArchiveHandler) GenerateThumbnails(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	archive, err := h.queries.GetArchiveByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			response.NotFound(w, "archive not found")
+			return
+		}
+
+		h.logger.Error("get archive failed", "id", id, "error", err)
+		response.InternalError(w, "failed to get archive")
+
+		return
+	}
+
+	if h.processor.ThumbsReady(archive.ID, int(archive.PageCount)) {
+		response.NoContent(w)
+		return
+	}
+
+	if err := h.queue.EnqueueOnce(r.Context(), jobs.JobTypeThumbnail, jobs.ThumbnailPayload{
+		ArchiveID: archive.ID,
+		FilePath:  archive.FilePath,
+	}); err != nil {
+		h.logger.Error("enqueue thumbnail job failed", "id", id, "error", err)
+		response.InternalError(w, "failed to trigger thumbnail generation")
+
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+}
+
+// sseIndexKey is the field name of a "ready" event's page/image index.
+const sseIndexKey = "index"
+
+// thumbnailDoneEvent is the payload of the terminal "done" SSE event. Error
+// is omitted on success and set when generation permanently failed (all
+// retries exhausted) — see NewThumbnailHandler in internal/jobs.
+type thumbnailDoneEvent struct {
+	Done  bool   `json:"done"`
+	Error string `json:"error,omitempty"`
+}
+
+// StreamThumbnailEvents godoc
+//
+//	@Summary		Stream thumbnail generation progress
+//	@Description	Server-Sent Events. Emits a "ready" event ({"index": N}) for each page thumbnail as it becomes available — including an immediate snapshot of pages already ready when the connection opens — followed by a terminal "done" event ({"done": true} on success, {"done": true, "error": "..."} if generation permanently failed after exhausting retries). Read-only: does not trigger generation, call POST .../thumbnails for that.
+//	@Tags			archives
+//	@Produce		text/event-stream
+//	@Param			id	path	string	true	"Archive ID"
+//	@Success		200
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/archives/{id}/thumbnails/events [get]
+func (h *ArchiveHandler) StreamThumbnailEvents(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	archive, ok := h.loadScopedArchive(w, r, id)
+	if !ok {
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		response.InternalError(w, "streaming unsupported")
+		return
+	}
+
+	// Subscribe before reading the on-disk snapshot below so an event
+	// published in the gap between them can't be missed — worst case it's
+	// reported twice (once in the snapshot, once live), which is harmless.
+	ch, cancel := h.broadcaster.Subscribe(archive.ID)
+	defer cancel()
+
+	response.SSEHeaders(w)
+
+	pageCount := int(archive.PageCount)
+	allReady := true
+
+	for i := range pageCount {
+		if h.processor.ThumbPath(archive.ID, i) != "" {
+			_ = response.SSEEvent(w, "ready", map[string]int{sseIndexKey: i})
+		} else {
+			allReady = false
+		}
+	}
+
+	flusher.Flush()
+
+	if allReady {
+		_ = response.SSEEvent(w, "done", thumbnailDoneEvent{Done: true})
+
+		flusher.Flush()
+
+		return
+	}
+
+	ctx := r.Context()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case event, ok := <-ch:
+			if !ok {
+				return
+			}
+
+			if event.Done {
+				_ = response.SSEEvent(w, "done", thumbnailDoneEvent{Done: true, Error: event.Error})
+
+				flusher.Flush()
+
+				return
+			}
+
+			_ = response.SSEEvent(w, "ready", map[string]int{sseIndexKey: event.Index})
+
+			flusher.Flush()
+		}
+	}
+}

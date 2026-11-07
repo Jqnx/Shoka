@@ -1,0 +1,119 @@
+// Package image renders archive pages and thumbnails with libvips and caches
+// the resulting WebP bytes on disk and in a small in-memory LRU.
+package image
+
+import (
+	"Shoka/internal/library/archive"
+	"fmt"
+	"log/slog"
+	"os"
+
+	lru "github.com/hashicorp/golang-lru/v2"
+)
+
+const lruSize = 128 // number of pages to keep in the LRU
+
+// Cache serves processed page images, keeping a bounded LRU of recently
+// requested pages so hot archives are not re-decoded on every request.
+type Cache struct {
+	processor *Processor
+	lru       *lru.Cache[string, []byte]
+	log       *slog.Logger
+}
+
+// NewCache returns a Cache that renders through processor and starts with an
+// empty LRU.
+func NewCache(processor *Processor, log *slog.Logger) (*Cache, error) {
+	l, err := lru.New[string, []byte](lruSize)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Cache{
+		processor: processor,
+		lru:       l,
+		log:       log.With("component", "image_cache"),
+	}, nil
+}
+
+// lruKey returns a unique key for an archive page
+// format: archiveID:index
+func lruKey(archiveID string, index int) string {
+	return fmt.Sprintf("%s:%d", archiveID, index)
+}
+
+// GetPage returns processed WebP bytes for a page.
+// Checks LRU first, then opens the archive on a miss.
+func (c *Cache) GetPage(archiveID, filePath string, index int) ([]byte, error) {
+	key := lruKey(archiveID, index)
+
+	if data, ok := c.lru.Get(key); ok {
+		c.log.Debug("page cache hit", "archive_id", archiveID, "index", index)
+		return data, nil
+	}
+
+	c.log.Debug("page cache miss, extracting", "archive_id", archiveID, "index", index)
+
+	data, err := c.extractAndProcess(filePath, index)
+	if err != nil {
+		return nil, err
+	}
+
+	c.lru.Add(key, data)
+
+	return data, nil
+}
+
+// GetImageFile returns processed WebP bytes for a standalone image file,
+// checking the LRU under key before reading and rendering filePath. Audio
+// previews use it so a repeated open of the same image is served from memory;
+// the file is opened on a miss and its errors are wrapped so callers can match
+// fs.ErrNotExist.
+func (c *Cache) GetImageFile(key, filePath string) ([]byte, error) {
+	if data, ok := c.lru.Get(key); ok {
+		c.log.Debug("image cache hit", "key", key)
+
+		return data, nil
+	}
+
+	//nolint:gosec // G304: caller joins a validated audio folder with a filepath.IsLocal relative path
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("open image: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	data, err := c.processor.ProcessToBytes(f)
+	if err != nil {
+		return nil, err
+	}
+
+	c.lru.Add(key, data)
+
+	return data, nil
+}
+
+func (c *Cache) extractAndProcess(filePath string, index int) ([]byte, error) {
+	a, err := archive.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("open archive: %w", err)
+	}
+	defer func() { _ = a.Close() }()
+
+	pages, err := a.Pages()
+	if err != nil {
+		return nil, fmt.Errorf("list pages: %w", err)
+	}
+
+	if index < 0 || index >= len(pages) {
+		return nil, fmt.Errorf("page index %d out of range", index)
+	}
+
+	r, err := a.Extract(pages[index])
+	if err != nil {
+		return nil, fmt.Errorf("extract page %d: %w", index, err)
+	}
+	defer func() { _ = r.Close() }()
+
+	return c.processor.ProcessToBytes(r)
+}

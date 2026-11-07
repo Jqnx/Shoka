@@ -1,0 +1,81 @@
+<script lang="ts">
+	import { resolve } from '$app/paths';
+	import { goto, afterNavigate } from '$app/navigation';
+
+	afterNavigate((nav) => {
+		if (nav.type === 'goto') window.scrollTo({ top: 0, behavior: 'smooth' });
+	});
+	import * as Pagination from '$lib/components/ui/pagination';
+	import { ChevronLeft, Mic } from '@lucide/svelte';
+	import AudioCard from '$lib/components/AudioCard.svelte';
+
+	let { data } = $props();
+</script>
+
+<svelte:head>
+	<title>{data.name} | Shoka</title>
+</svelte:head>
+
+<div class="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6">
+	<a
+		href={resolve('/voice-actor')}
+		class="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+	>
+		<ChevronLeft class="size-4" />
+		Voice actors
+	</a>
+
+	<div class="mb-6 flex items-center gap-2">
+		<Mic class="size-5 text-muted-foreground" />
+		<h1 class="text-2xl font-bold">{data.name}</h1>
+		<span class="text-sm text-muted-foreground">({data.total})</span>
+	</div>
+
+	{#if data.audio.length === 0}
+		<p class="text-muted-foreground">No audio found.</p>
+	{:else}
+		<div
+			class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7"
+		>
+			{#each data.audio as work (work.id)}
+				<AudioCard audio={work} />
+			{/each}
+		</div>
+	{/if}
+
+	{#if data.total > data.limit}
+		<div class="mt-8">
+			<Pagination.Root
+				count={data.total}
+				perPage={data.limit}
+				page={data.page}
+				onPageChange={(p) =>
+					goto(resolve(`/voice-actor/${encodeURIComponent(data.name)}?page=${p}`), {
+						noScroll: true
+					})}
+			>
+				{#snippet children({ pages })}
+					<Pagination.Content>
+						<Pagination.Item>
+							<Pagination.Previous />
+						</Pagination.Item>
+						{#each pages as p (p.key)}
+							{#if p.type === 'ellipsis'}
+								<Pagination.Item>
+									<Pagination.Ellipsis />
+								</Pagination.Item>
+							{:else}
+								<Pagination.Item>
+									<Pagination.Link page={p} isActive={data.page === p.value} />
+								</Pagination.Item>
+							{/if}
+						{/each}
+						<Pagination.Item>
+							<Pagination.Next />
+						</Pagination.Item>
+					</Pagination.Content>
+				{/snippet}
+			</Pagination.Root>
+		</div>
+	{/if}
+</div>

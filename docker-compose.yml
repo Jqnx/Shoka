@@ -1,0 +1,43 @@
+name: shoka
+
+services:
+  shoka:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: shoka:local
+    restart: unless-stopped
+    ports:
+      - "${SHOKA_PORT:-3000}:3000"
+    environment:
+      # Must match the URL you actually browse to. adapter-node rejects every
+      # form POST as a CSRF failure when this doesn't line up.
+      ORIGIN: ${ORIGIN:-http://localhost:3000}
+      BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:?generate one with 'openssl rand -base64 32'}"
+      # Own the data volume and the library as this uid/gid — set them to the
+      # host user that owns your collection.
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
+      TZ: ${TZ:-UTC}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - shoka-data:/app/data
+      - shoka-cache:/cache
+      # Shoka rewrites archives in place — it injects ComicInfo.xml and
+      # converts 7z/rar to zip — so the library cannot be mounted read-only.
+      - ${SHOKA_LIBRARY:-./content}:/library
+
+  # Not reachable from outside the compose network, and currently unused: the
+  # backend defines metadata.flaresolverr.url but nothing reads it yet. Kept
+  # here so scraping sources behind Cloudflare work the moment it is wired up.
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    restart: unless-stopped
+    environment:
+      LOG_LEVEL: ${FLARESOLVERR_LOG_LEVEL:-info}
+    expose:
+      - "8191"
+
+volumes:
+  shoka-data:
+  shoka-cache:
