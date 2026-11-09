@@ -13,7 +13,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/joho/godotenv v1.5.1
 	github.com/mattn/go-sqlite3 v1.14.41
-	github.com/nwaples/rardecode/v2 v2.2.2
+	github.com/nwaples/rardecode/v2 v2.4.6
 	github.com/pressly/goose/v3 v3.27.0
 	github.com/rs/zerolog v1.35.0
 	github.com/spf13/viper v1.21.0
