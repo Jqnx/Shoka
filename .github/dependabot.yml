@@ -1,0 +1,24 @@
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  # The Dockerfile selects base images through GO_VERSION/NODE_VERSION/
+  # BUN_VERSION build args, so only tags Dependabot can resolve are proposed.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+
+  # frontend is intentionally absent. package-lock.json and bun.lock must move
+  # together (the Docker build installs with `bun install --frozen-lockfile`,
+  # while the runtime stage uses `npm ci`), and Dependabot's npm ecosystem only
+  # updates package-lock.json. Use Renovate, or bump both lockfiles manually.
