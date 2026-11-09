@@ -5,7 +5,7 @@ go 1.26.1
 require (
 	github.com/bodgit/sevenzip v1.6.5
 	github.com/corona10/goimagehash v1.1.0
-	github.com/davidbyttow/govips/v2 v2.18.0
+	github.com/davidbyttow/govips/v2 v2.20.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gabriel-vasile/mimetype v1.4.13
 	github.com/go-chi/chi/v5 v5.2.5
@@ -19,7 +19,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/swaggo/http-swagger/v2 v2.0.2
 	github.com/swaggo/swag v1.16.6
-	golang.org/x/image v0.38.0
+	golang.org/x/image v0.41.0
 	golang.org/x/time v0.15.0
 )
 
