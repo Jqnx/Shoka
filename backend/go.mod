@@ -15,7 +15,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.41
 	github.com/nwaples/rardecode/v2 v2.4.6
 	github.com/pressly/goose/v3 v3.27.0
-	github.com/rs/zerolog v1.35.0
+	github.com/rs/zerolog v1.35.1
 	github.com/spf13/viper v1.21.0
 	github.com/swaggo/http-swagger/v2 v2.0.2
 	github.com/swaggo/swag v1.16.6
