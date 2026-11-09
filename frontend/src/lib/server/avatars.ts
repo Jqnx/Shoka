@@ -16,7 +16,10 @@ const ACCEPTED_FORMATS = new Set(['jpeg', 'png', 'webp', 'avif']);
 // resolves). AVATAR_DIR is an escape hatch for deployments that want to split
 // blob storage from the DB file.
 function avatarDir(): string {
-	return env.AVATAR_DIR ?? path.join(path.dirname(env.DATABASE_URL), 'avatars');
+	const databaseUrl = env.DATABASE_URL;
+	if (!databaseUrl) throw new Error('DATABASE_URL is not set');
+
+	return env.AVATAR_DIR ?? path.join(path.dirname(databaseUrl), 'avatars');
 }
 
 let dirReady: Promise<void> | undefined;

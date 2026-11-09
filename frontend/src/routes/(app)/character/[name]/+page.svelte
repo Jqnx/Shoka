@@ -16,9 +16,7 @@
 	// so there's no library context here; fall back to the first doujinshi
 	// library rather than possibly an audio one.
 	const archiveLibrary = $derived(firstArchiveLibrary(data.libraries));
-	const archivesHref = $derived(
-		(archiveLibrary ? `/${archiveLibrary.id}` : '/') as `/${string}`
-	);
+	const archivesHref = $derived((archiveLibrary ? `/${archiveLibrary.id}` : '/') as `/${string}`);
 </script>
 
 <svelte:head>
@@ -58,7 +56,10 @@
 				count={data.total}
 				perPage={data.limit}
 				page={data.page}
-				onPageChange={(p) => goto(resolve(`/character/${encodeURIComponent(data.name)}?page=${p}`), { noScroll: true })}
+				onPageChange={(p) =>
+					goto(resolve(`/character/${encodeURIComponent(data.name)}?page=${p}`), {
+						noScroll: true
+					})}
 			>
 				{#snippet children({ pages })}
 					<Pagination.Content>
