@@ -5,7 +5,7 @@
 # backend in-process (frontend/src/hooks.server.ts), so only 3000 is published
 # and the API is never directly reachable from outside the container.
 
-ARG GO_VERSION=1.26
+ARG GO_VERSION=1.27.4
 ARG NODE_VERSION=24
 ARG BUN_VERSION=1.4
 
