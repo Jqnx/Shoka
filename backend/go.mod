@@ -19,7 +19,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/swaggo/http-swagger/v2 v2.0.2
 	github.com/swaggo/swag v1.16.6
-	golang.org/x/image v0.41.0
+	golang.org/x/image v0.48.0
 	golang.org/x/time v0.16.0
 )
 
