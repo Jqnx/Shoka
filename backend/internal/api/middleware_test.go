@@ -303,3 +303,56 @@ func TestAuthMiddlewareFailsClosedOnAccessLookupError(t *testing.T) {
 		t.Errorf("status = %d, want %d", rec.Code, http.StatusInternalServerError)
 	}
 }
+
+// sessionCookie builds a request-side cookie; Secure/HttpOnly/SameSite do not
+// apply to a cookie sent to a test handler.
+func sessionCookie(name string) *http.Cookie {
+	//nolint:gosec // request fixture, not a response Set-Cookie
+	return &http.Cookie{Name: name, Value: testToken + ".signature"}
+}
+
+// Better Auth names the session cookie differently over HTTPS (the __Secure-
+// prefix a browser only accepts on a secure origin), and the value it sends is
+// "<token>.<signature>". Both names must authenticate.
+func TestAuthMiddlewareAcceptsSessionCookies(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		cookie *http.Cookie
+		want   int
+	}{
+		{
+			name:   "plain cookie name",
+			cookie: sessionCookie("better-auth.session_token"),
+			want:   http.StatusTeapot,
+		},
+		{
+			name:   "secure cookie name",
+			cookie: sessionCookie("__Secure-better-auth.session_token"),
+			want:   http.StatusTeapot,
+		},
+		{name: "missing cookie", want: http.StatusUnauthorized},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			db := newAuthDB(t)
+			addSession(t, db, testToken, "u1", auth.RoleAdmin, false, time.Now().Add(time.Hour))
+
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+			if tt.cookie != nil {
+				req.AddCookie(tt.cookie)
+			}
+
+			rec := httptest.NewRecorder()
+			authOnlyRouter(db).ServeHTTP(rec, req)
+
+			if rec.Code != tt.want {
+				t.Errorf("status = %d, want %d", rec.Code, tt.want)
+			}
+		})
+	}
+}

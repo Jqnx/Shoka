@@ -70,6 +70,12 @@ func requirePermission(permission auth.Permission) func(http.Handler) http.Handl
 	}
 }
 
+// sessionCookieName is the unprefixed Better Auth session cookie. Better Auth
+// prepends "__Secure-" when its baseURL is https, so a production instance
+// behind TLS sends "__Secure-better-auth.session_token" instead; both carry
+// the same token.
+const sessionCookieName = "better-auth.session_token"
+
 // extractToken checks the Authorization header first, then falls back
 // to the Better Auth session cookie.
 func extractToken(r *http.Request) (string, error) {
@@ -81,9 +87,12 @@ func extractToken(r *http.Request) (string, error) {
 		return token, nil
 	}
 
-	// Better Auth sets a cookie named "better-auth.session_token" by default.
 	// A missing cookie just means "no token" — any other error is real.
-	cookie, err := r.Cookie("better-auth.session_token")
+	cookie, err := r.Cookie(sessionCookieName)
+	if errors.Is(err, http.ErrNoCookie) {
+		cookie, err = r.Cookie("__Secure-" + sessionCookieName)
+	}
+
 	if errors.Is(err, http.ErrNoCookie) {
 		return "", nil
 	}
