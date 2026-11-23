@@ -87,10 +87,13 @@ func extractToken(r *http.Request) (string, error) {
 		return token, nil
 	}
 
+	// Prefer the secure name: after an http -> https move the browser can still
+	// send the old plain cookie, and Better Auth only writes/clears the secure
+	// one, so it is the authoritative session.
 	// A missing cookie just means "no token" — any other error is real.
-	cookie, err := r.Cookie(sessionCookieName)
+	cookie, err := r.Cookie("__Secure-" + sessionCookieName)
 	if errors.Is(err, http.ErrNoCookie) {
-		cookie, err = r.Cookie("__Secure-" + sessionCookieName)
+		cookie, err = r.Cookie(sessionCookieName)
 	}
 
 	if errors.Is(err, http.ErrNoCookie) {
