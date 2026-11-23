@@ -68,8 +68,9 @@ RUN DATABASE_URL=/tmp/build-placeholder.db \
 # can't be used here for that reason, so the runtime `dependencies` are pinned
 # by package-lock.json and installed with `npm ci`; regenerate it with
 # `make frontend/lock` after touching package.json, or this build fails.
-# The import check fails the build if a native binary is missing, rather than
-# letting the container crash on first request.
+# The import check fails the build if a native binary or sharp's WebAssembly
+# fallback (@img/sharp-wasm32) is missing, rather than letting the container
+# crash on first request.
 # ---------------------------------------------------------------------------
 FROM node-base AS frontend-deps
 
@@ -78,7 +79,7 @@ WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund \
  && npm cache clean --force \
- && node --input-type=module -e "import 'better-sqlite3'; import 'sharp'; console.log('native modules ok')"
+ && node --input-type=module -e "import { createRequire } from 'node:module'; import 'better-sqlite3'; import 'sharp'; createRequire(import.meta.url)('@img/sharp-wasm32/sharp.node'); console.log('native modules ok')"
 
 # ---------------------------------------------------------------------------
 # Runtime
