@@ -64,6 +64,13 @@ volumes:
   shoka-cache:
 ```
 
+> **Warning:** `/library` is mounted read-write, and Shoka does modify it:
+> saving metadata injects `ComicInfo.xml` into archives, and for 7z and RAR
+> archives it rewrites the container as a `.cbz` with the same base name,
+> replacing the original. Keep your own backups if that isn't what you want.
+> `/app/data` (the `shoka-data` volume) holds the database and config — back it
+> up too.
+
 Generate the secret once with `openssl rand -base64 32` (32+ characters) and
 paste it into `BETTER_AUTH_SECRET`; changing it later signs everyone out. Set
 `ORIGIN` to the URL you actually browse — behind a reverse proxy, the public

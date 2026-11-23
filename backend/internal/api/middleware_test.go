@@ -88,6 +88,26 @@ func guardedRouter(db *sql.DB, permission auth.Permission) http.Handler {
 	return r
 }
 
+func TestAuthMiddlewarePrefersSecureSessionCookie(t *testing.T) {
+	t.Parallel()
+
+	db := newAuthDB(t)
+	addSession(t, db, testToken, "u1", auth.RoleAdmin, false, time.Now().Add(time.Hour))
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
+	// Both can arrive after an http -> https move; the plain one is stale.
+	//nolint:gosec // request fixture, not a response Set-Cookie
+	req.AddCookie(&http.Cookie{Name: "better-auth.session_token", Value: "stale.signature"})
+	req.AddCookie(sessionCookie("__Secure-better-auth.session_token"))
+
+	rec := httptest.NewRecorder()
+	authOnlyRouter(db).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusTeapot {
+		t.Errorf("status = %d, want %d", rec.Code, http.StatusTeapot)
+	}
+}
+
 func TestAuthMiddleware(t *testing.T) {
 	t.Parallel()
 
