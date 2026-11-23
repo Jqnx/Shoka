@@ -4,6 +4,71 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 NEVER commit changes without explicit approval.
 
+## Making changes
+
+`main` is protected. Direct pushes are rejected, changes must arrive through a
+pull request, and the repository allows squash merges only. All required checks
+must pass on a branch that is up to date with `main`.
+
+1. **Start from `main`:**
+   ```bash
+   git switch main
+   git pull --ff-only
+   ```
+2. **Create a branch** — never work on `main`:
+   ```bash
+   git switch -c <type>/<short-name>   # e.g. fix/reader-progress, docs/repo-workflow
+   ```
+3. **Make the change.** Regenerate anything it invalidates: `make sqlc` after
+   editing queries, `make swag` after handler annotations, `make frontend/lock`
+   after `frontend/package.json` changes.
+4. **Run the relevant checks:**
+   ```bash
+   make lint
+   cd backend && go build -tags sqlite_fts5 ./... && go test -tags sqlite_fts5 ./...
+   cd ../frontend && npm run lint
+   ```
+   CI additionally runs the production frontend build, so a local build failure
+   still blocks the PR.
+5. **Commit** with a conventional subject (`type(scope): summary`) and a prose
+   body explaining why. Keep one logical change per commit. Do not commit until
+   the user approves (see the rule above).
+6. **Push and open a pull request:**
+   ```bash
+   git push -u origin <branch>
+   gh pr create --base main --title "<same conventional summary>" --body "<why>"
+   ```
+   The PR title becomes the squash commit subject, so make it the final message
+   you want on `main`.
+7. **Wait for CI.** The required checks are `Backend (lint + tests)`,
+   `Frontend (check + lint + build)`, and `Docker image`; `Publish image` is
+   skipped on PRs and runs only for pushes to `main`. The required-check policy
+   is strict: if `main` moved, update the branch with
+   `gh pr update-branch <pr>` (or merge `main` into the branch) and wait again.
+8. **Squash-merge.** The ruleset requires no approving reviews, but commits
+   not attributed to a GitHub account trigger its extra-approval requirement.
+   Every required check must pass and all review threads must be resolved.
+   Merge commits and rebase merges are disabled; auto-merge is off:
+   ```bash
+   gh pr merge <pr> --squash --delete-branch
+   ```
+   GitHub deletes the head branch afterwards.
+9. **Sync afterwards:**
+   ```bash
+   git switch main
+   git pull --ff-only
+   ```
+   `--delete-branch` normally removes the local branch too. If it remains,
+   delete it with `git branch -D <branch>` — a squash merge creates a new SHA,
+   so `-d` would refuse.
+10. **On `main`, CI publishes the image.** After the three checks pass, the
+    `Publish image` job pushes `ghcr.io/jqnx/shoka:latest` and
+    `sha-<7-char-commit>`. There are no release tags.
+
+Never force-push `main` or rewrite its history; the ruleset blocks
+non-fast-forward updates and deletions. Keep generated files (`sqlc/`, swagger,
+lockfiles) in the same PR as the change that requires them.
+
 ## Project Overview
 
 Shoka is a self-hosted doujinshi library manager. It consists of a Go backend REST API and a SvelteKit frontend, with SQLite for storage and search (FTS5 virtual tables using the trigram tokenizer — no external search service).
