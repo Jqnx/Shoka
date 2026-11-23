@@ -281,3 +281,26 @@ select audio_id, rating
 from audio_rating
 where user_id = sqlc.arg('uid') and audio_id in (sqlc.slice('ids'))
 ;
+
+-- name: MarkAudioPlayed :exec
+insert into audio_played (audio_id, user_id, played_at)
+values (?, ?, datetime('now'))
+on conflict (audio_id, user_id) do nothing
+;
+
+-- name: MarkAudioUnplayed :exec
+delete from audio_played
+where audio_id = ? and user_id = sqlc.arg('uid')
+;
+
+-- name: AudioIsPlayed :one
+select exists (
+    select 1 from audio_played where audio_id = ? and user_id = sqlc.arg('uid')
+) = 1
+;
+
+-- name: GetPlayedAudioIDs :many
+select audio_id
+from audio_played
+where user_id = sqlc.arg('uid') and audio_id in (sqlc.slice('ids'))
+;

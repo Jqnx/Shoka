@@ -3433,6 +3433,72 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/audio/{id}/played": {
+            "put": {
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Mark an audio work as played",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Audio ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Mark an audio work as unplayed",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Audio ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/audio/{id}/rating": {
             "put": {
                 "consumes": [
@@ -4963,6 +5029,9 @@ const docTemplate = `{
                 "is_favorited": {
                     "type": "boolean"
                 },
+                "is_played": {
+                    "type": "boolean"
+                },
                 "language": {
                     "type": "string"
                 },
@@ -5040,6 +5109,9 @@ const docTemplate = `{
                     }
                 },
                 "is_favorited": {
+                    "type": "boolean"
+                },
+                "is_played": {
                     "type": "boolean"
                 },
                 "language": {

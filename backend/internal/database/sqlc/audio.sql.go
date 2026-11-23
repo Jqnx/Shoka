@@ -49,6 +49,26 @@ func (q *Queries) AudioIsFavorited(ctx context.Context, arg AudioIsFavoritedPara
 	return column_1, err
 }
 
+const audioIsPlayed = `-- name: AudioIsPlayed :one
+;
+
+select exists (
+    select 1 from audio_played where audio_id = ? and user_id = ?2
+) = 1
+`
+
+type AudioIsPlayedParams struct {
+	AudioID string `json:"audio_id"`
+	Uid     string `json:"uid"`
+}
+
+func (q *Queries) AudioIsPlayed(ctx context.Context, arg AudioIsPlayedParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, audioIsPlayed, arg.AudioID, arg.Uid)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const bulkAddAudioArtists = `-- name: BulkAddAudioArtists :exec
 ;
 
@@ -1016,6 +1036,53 @@ func (q *Queries) GetFavoritedAudioIDs(ctx context.Context, arg GetFavoritedAudi
 	return items, nil
 }
 
+const getPlayedAudioIDs = `-- name: GetPlayedAudioIDs :many
+;
+
+select audio_id
+from audio_played
+where user_id = ?1 and audio_id in (/*SLICE:ids*/?)
+`
+
+type GetPlayedAudioIDsParams struct {
+	Uid string   `json:"uid"`
+	Ids []string `json:"ids"`
+}
+
+func (q *Queries) GetPlayedAudioIDs(ctx context.Context, arg GetPlayedAudioIDsParams) ([]string, error) {
+	query := getPlayedAudioIDs
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Uid)
+	if len(arg.Ids) > 0 {
+		for _, v := range arg.Ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var audio_id string
+		if err := rows.Scan(&audio_id); err != nil {
+			return nil, err
+		}
+		items = append(items, audio_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAudioIDsByLibrary = `-- name: ListAudioIDsByLibrary :many
 ;
 
@@ -1045,6 +1112,41 @@ func (q *Queries) ListAudioIDsByLibrary(ctx context.Context, libraryID string) (
 		return nil, err
 	}
 	return items, nil
+}
+
+const markAudioPlayed = `-- name: MarkAudioPlayed :exec
+;
+
+insert into audio_played (audio_id, user_id, played_at)
+values (?, ?, datetime('now'))
+on conflict (audio_id, user_id) do nothing
+`
+
+type MarkAudioPlayedParams struct {
+	AudioID string `json:"audio_id"`
+	UserID  string `json:"user_id"`
+}
+
+func (q *Queries) MarkAudioPlayed(ctx context.Context, arg MarkAudioPlayedParams) error {
+	_, err := q.db.ExecContext(ctx, markAudioPlayed, arg.AudioID, arg.UserID)
+	return err
+}
+
+const markAudioUnplayed = `-- name: MarkAudioUnplayed :exec
+;
+
+delete from audio_played
+where audio_id = ? and user_id = ?2
+`
+
+type MarkAudioUnplayedParams struct {
+	AudioID string `json:"audio_id"`
+	Uid     string `json:"uid"`
+}
+
+func (q *Queries) MarkAudioUnplayed(ctx context.Context, arg MarkAudioUnplayedParams) error {
+	_, err := q.db.ExecContext(ctx, markAudioUnplayed, arg.AudioID, arg.Uid)
+	return err
 }
 
 const removeAudioRating = `-- name: RemoveAudioRating :exec

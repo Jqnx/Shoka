@@ -100,6 +100,7 @@ type AudioListItem struct {
 	CoverWidth      int        `json:"cover_width"`
 	CoverHeight     int        `json:"cover_height"`
 	IsFavorited     bool       `json:"is_favorited"`
+	IsPlayed        bool       `json:"is_played"`
 	Rating          *int       `json:"rating"`
 	UpdatedAt       time.Time  `json:"updated_at"`
 }
@@ -123,6 +124,7 @@ type AudioResponse struct {
 	CoverWidth      int                  `json:"cover_width"`
 	CoverHeight     int                  `json:"cover_height"`
 	IsFavorited     bool                 `json:"is_favorited"`
+	IsPlayed        bool                 `json:"is_played"`
 	Rating          *int                 `json:"rating"`
 	UpdatedAt       time.Time            `json:"updated_at"`
 }
@@ -226,6 +228,14 @@ func (h *AudioHandler) audioResponseFor(ctx context.Context, audio sqlc.Audio, u
 		return AudioResponse{}, err
 	}
 
+	isPlayed, err := h.queries.AudioIsPlayed(ctx, sqlc.AudioIsPlayedParams{
+		AudioID: audio.ID,
+		Uid:     userID,
+	})
+	if err != nil {
+		return AudioResponse{}, err
+	}
+
 	var rating *int
 
 	if v, err := h.queries.GetAudioRating(ctx, sqlc.GetAudioRatingParams{
@@ -257,6 +267,7 @@ func (h *AudioHandler) audioResponseFor(ctx context.Context, audio sqlc.Audio, u
 		CoverWidth:      cover.Width,
 		CoverHeight:     cover.Height,
 		IsFavorited:     isFavorited,
+		IsPlayed:        isPlayed,
 		Rating:          rating,
 		UpdatedAt:       audio.UpdatedAt,
 	}
@@ -397,10 +408,11 @@ func (h *AudioHandler) applyAudioScope(w http.ResponseWriter, r *http.Request, f
 	return true
 }
 
-// audioListItems attaches this user's favorite/rating state and cover
-// readiness to a page of list rows.
+// audioListItems attaches this user's favorite, played, and rating state and
+// cover readiness to a page of list rows.
 func (h *AudioHandler) audioListItems(ctx context.Context, rows []database.AudioListRow, userID string) ([]AudioListItem, error) {
 	favorited := make(map[string]bool)
+	played := make(map[string]bool)
 	ratings := make(map[string]int)
 
 	if len(rows) > 0 {
@@ -419,6 +431,18 @@ func (h *AudioHandler) audioListItems(ctx context.Context, rows []database.Audio
 
 		for _, id := range favoritedIDs {
 			favorited[id] = true
+		}
+
+		playedIDs, err := h.queries.GetPlayedAudioIDs(ctx, sqlc.GetPlayedAudioIDsParams{
+			Uid: userID,
+			Ids: ids,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		for _, id := range playedIDs {
+			played[id] = true
 		}
 
 		ratingRows, err := h.queries.GetAudioRatingsForIDs(ctx, sqlc.GetAudioRatingsForIDsParams{
@@ -451,6 +475,7 @@ func (h *AudioHandler) audioListItems(ctx context.Context, rows []database.Audio
 			CoverWidth:      cover.Width,
 			CoverHeight:     cover.Height,
 			IsFavorited:     favorited[row.ID],
+			IsPlayed:        played[row.ID],
 			UpdatedAt:       row.UpdatedAt,
 		}
 
@@ -1141,6 +1166,44 @@ func (h *AudioHandler) RemoveFavorite(w http.ResponseWriter, r *http.Request) {
 	h.mutateScopedAudio(w, r, "remove favorite audio failed", "failed to unfavorite audio",
 		func(id, userID string) error {
 			return h.queries.RemoveFavoriteAudio(r.Context(), sqlc.RemoveFavoriteAudioParams{
+				AudioID: id,
+				Uid:     userID,
+			})
+		})
+}
+
+// MarkPlayed godoc
+//
+//	@Summary		Mark an audio work as played
+//	@Tags			audio
+//	@Param			id	path	string	true	"Audio ID"
+//	@Success		204
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/audio/{id}/played [put]
+func (h *AudioHandler) MarkPlayed(w http.ResponseWriter, r *http.Request) {
+	h.mutateScopedAudio(w, r, "mark audio played failed", "failed to mark audio as played",
+		func(id, userID string) error {
+			return h.queries.MarkAudioPlayed(r.Context(), sqlc.MarkAudioPlayedParams{
+				AudioID: id,
+				UserID:  userID,
+			})
+		})
+}
+
+// MarkUnplayed godoc
+//
+//	@Summary		Mark an audio work as unplayed
+//	@Tags			audio
+//	@Param			id	path	string	true	"Audio ID"
+//	@Success		204
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/audio/{id}/played [delete]
+func (h *AudioHandler) MarkUnplayed(w http.ResponseWriter, r *http.Request) {
+	h.mutateScopedAudio(w, r, "mark audio unplayed failed", "failed to mark audio as unplayed",
+		func(id, userID string) error {
+			return h.queries.MarkAudioUnplayed(r.Context(), sqlc.MarkAudioUnplayedParams{
 				AudioID: id,
 				Uid:     userID,
 			})

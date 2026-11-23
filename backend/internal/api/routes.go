@@ -204,6 +204,8 @@ func mountAudioRoutes(r chi.Router, h apiHandlers) {
 		r.Get("/tracks/{index}", h.audio.GetTrack)
 		r.Put("/favorite", h.audio.AddFavorite)
 		r.Delete("/favorite", h.audio.RemoveFavorite)
+		r.Put("/played", h.audio.MarkPlayed)
+		r.Delete("/played", h.audio.MarkUnplayed)
 		r.Put("/rating", h.audio.SetRating)
 		r.Delete("/rating", h.audio.RemoveRating)
 	})
