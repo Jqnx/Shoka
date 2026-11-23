@@ -1,10 +1,26 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import sharp from 'sharp';
+import type sharp from 'sharp';
 import { env } from '$env/dynamic/private';
 import { AVATAR_FILENAME_RE } from '$lib/schemas/avatar';
 
 const AVATAR_SIZE = 512;
+
+// sharp is a native addon, loaded lazily so an unsupported CPU or a missing
+// prebuilt binary can't take down every route that imports this module - the
+// settings page only reads the path helpers, and sharp's loader throws at
+// import time. A failed load surfaces as an AvatarError from processAvatar
+// instead.
+//
+// sharp 0.35's linux-x64 binary requires the x86-64-v2 microarchitecture, so
+// @img/sharp-wasm32 is a regular dependency: sharp falls back to it on older
+// CPUs (and when the native binary is missing) instead of failing to load.
+let sharpModule: Promise<typeof sharp> | undefined;
+
+function loadSharp(): Promise<typeof sharp> {
+	sharpModule ??= import('sharp').then((module) => module.default);
+	return sharpModule;
+}
 
 // Formats sharp is willing to decode for us. SVG is deliberately excluded -
 // sharp can rasterize it via librsvg, but vector input has no business being
@@ -43,7 +59,14 @@ export class AvatarError extends Error {}
  * safety net for non-square input, not the primary cropping step.
  */
 export async function processAvatar(bytes: Buffer): Promise<Buffer> {
-	const image = sharp(bytes, { limitInputPixels: 64_000_000, failOn: 'warning' });
+	let sharpFn: typeof sharp;
+	try {
+		sharpFn = await loadSharp();
+	} catch (err) {
+		throw new AvatarError('Image processing is unavailable on this server.', { cause: err });
+	}
+
+	const image = sharpFn(bytes, { limitInputPixels: 64_000_000, failOn: 'warning' });
 
 	// Inferred structurally rather than typed as `sharp.Metadata` - the
 	// `export =` module TS uses for its default export doesn't merge that
