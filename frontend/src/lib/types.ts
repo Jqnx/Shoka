@@ -256,6 +256,7 @@ export type Audio = {
 	cover_width: number;
 	cover_height: number;
 	is_favorited: boolean;
+	is_played: boolean;
 	rating: number | null;
 	updated_at: string;
 };

@@ -160,6 +160,8 @@ definitions:
         type: string
       is_favorited:
         type: boolean
+      is_played:
+        type: boolean
       language:
         type: string
       library_id:
@@ -211,6 +213,8 @@ definitions:
           $ref: '#/definitions/handlers.AudioImageResponse'
         type: array
       is_favorited:
+        type: boolean
+      is_played:
         type: boolean
       language:
         type: string
@@ -3408,6 +3412,49 @@ paths:
           schema:
             $ref: '#/definitions/response.Error'
       summary: Get one image's gallery thumbnail
+      tags:
+      - audio
+  /api/audio/{id}/played:
+    delete:
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Mark an audio work as unplayed
+      tags:
+      - audio
+    put:
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Mark an audio work as played
       tags:
       - audio
   /api/audio/{id}/rating:

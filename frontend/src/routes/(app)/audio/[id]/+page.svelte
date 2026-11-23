@@ -12,7 +12,7 @@
 	import EditAudioSheet from '$lib/components/EditAudioSheet.svelte';
 	import { audioCoverSrc } from '$lib/types';
 	import { formatDuration } from '$lib/audio';
-	import { AudioLines, ChevronLeft, Heart, Star } from '@lucide/svelte';
+	import { AudioLines, Check, ChevronLeft, Heart, Star } from '@lucide/svelte';
 	import { can } from '$lib/auth/permissions';
 
 	let { data, form } = $props();
@@ -24,6 +24,7 @@
 	const canEdit = $derived(can(page.data.user, { audio: ['update'] }));
 
 	let favoriting = $state(false);
+	let markingPlayed = $state(false);
 	let settingRating = $state(false);
 	let hoveredStar = $state<number | null>(null);
 	let section = $state('tracks');
@@ -83,6 +84,30 @@
 			<div class="flex items-start justify-between gap-3">
 				<h1 class="text-2xl leading-tight font-bold">{a.title}</h1>
 				<div class="flex shrink-0 items-center gap-1.5">
+					<form
+						method="POST"
+						action="?/togglePlayed"
+						use:enhance={() => {
+							markingPlayed = true;
+							return async ({ update }) => {
+								markingPlayed = false;
+								await update();
+							};
+						}}
+					>
+						<input type="hidden" name="played" value={a.is_played} />
+						<Button
+							type="submit"
+							variant={a.is_played ? 'default' : 'outline'}
+							size="icon"
+							disabled={markingPlayed}
+							aria-label={a.is_played ? 'Mark as unplayed' : 'Mark as played'}
+							aria-pressed={a.is_played}
+							title={a.is_played ? 'Mark as unplayed' : 'Mark as played'}
+						>
+							<Check class="size-4" />
+						</Button>
+					</form>
 					<form
 						method="POST"
 						action="?/toggleFavorite"

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { AudioLines } from '@lucide/svelte';
+	import { AudioLines, Check } from '@lucide/svelte';
 	import { audioCoverSrc, type AudioListItem } from '$lib/types';
 	import { formatDuration } from '$lib/audio';
 
@@ -23,6 +23,17 @@
 		{:else}
 			<div class="absolute inset-0 flex items-center justify-center">
 				<AudioLines class="size-10 text-muted-foreground/40" />
+			</div>
+		{/if}
+
+		{#if audio.is_played}
+			<div class="pointer-events-none absolute top-1.5 left-1.5">
+				<span
+					class="flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[11px] font-medium text-white/90"
+				>
+					<Check class="size-3" />
+					Played
+				</span>
 			</div>
 		{/if}
 
