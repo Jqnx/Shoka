@@ -2,10 +2,7 @@ name: shoka
 
 services:
   shoka:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: shoka:local
+    image: ghcr.io/jqnx/shoka:latest
     restart: unless-stopped
     ports:
       - "${SHOKA_PORT:-3000}:3000"

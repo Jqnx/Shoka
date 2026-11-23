@@ -1,4 +1,4 @@
-.PHONY: dev sqlc tidy lint lint/fix fmt docker/build run stop logs frontend/lock help
+.PHONY: dev sqlc tidy lint lint/fix fmt run stop logs frontend/lock help
 
 APP_NAME   := Shoka
 BACKEND    := ./backend
@@ -30,9 +30,6 @@ dev/services: ## Start only background services
 	docker compose -f docker-compose.dev.yml up
 
 # ----- Production -----
-docker/build: ## Build the deployable Shoka image
-	docker compose build
-
 run: ## Start full production stack
 	docker compose up -d
 
