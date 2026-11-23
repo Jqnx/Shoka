@@ -40,7 +40,7 @@ values outrank anything scraped.
 
 The source takes no configuration. Saving metadata from the UI writes a
 `ComicInfo.xml` back into the archive; for RAR and 7z archives that operation
-rewrites the container as `.cbz` (see the README).
+rewrites the container as `.cbz` (see the warning in the README's Quick start).
 
 ## Filename
 
