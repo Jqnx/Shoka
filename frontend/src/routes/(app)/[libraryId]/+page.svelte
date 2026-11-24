@@ -6,7 +6,7 @@
 </script>
 
 {#if data.kind === 'audio'}
-	<AudioLibraryPage {data} />
+	<AudioLibraryPage {data} {form} />
 {:else}
 	<ArchiveLibraryPage {data} {form} />
 {/if}

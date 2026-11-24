@@ -3093,6 +3093,110 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/audio/bulk": {
+            "patch": {
+                "description": "Relations (artists/tags/voice_actors) MERGE into what each work already has rather than replacing it, so a work keeps its own values and gains the submitted ones; de-duplication is case-insensitive and submitted names are snapped to the spelling already in use. Because it only adds, an empty array is a no-op and bulk removal is unsupported. Scalars (language/circle) are SET, overwriting the current value; omit or null them to leave them alone, send \"\" to clear. Circle accepts at most one value. Each work is applied in its own transaction, so a failure part-way through leaves earlier works updated and is reported per-id in \"failed\".",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Update shared metadata on audio works in bulk",
+                "parameters": [
+                    {
+                        "description": "Audio works and metadata to merge or set",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BulkUpdateAudiosRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BulkResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/audio/bulk/played": {
+            "put": {
+                "description": "Marks every listed work played for the calling user, or clears its played state. Played state is per-user, so any authenticated user may call this. Ids that don't resolve to an audio work are reported in \"failed\" rather than failing the request. A batch containing a work the caller cannot access fails the whole request with 403.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Mark audio works played or unplayed in bulk",
+                "parameters": [
+                    {
+                        "description": "Audio works and desired played state",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BulkUpdateAudioPlayedRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.BulkResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/audio/{id}": {
             "get": {
                 "produces": [
@@ -5268,6 +5372,55 @@ const docTemplate = `{
                     }
                 },
                 "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "handlers.BulkUpdateAudioPlayedRequest": {
+            "type": "object",
+            "properties": {
+                "ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "played": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "handlers.BulkUpdateAudiosRequest": {
+            "type": "object",
+            "properties": {
+                "artists": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "circle": {
+                    "type": "string"
+                },
+                "ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "language": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "voice_actors": {
                     "type": "array",
                     "items": {
                         "type": "string"

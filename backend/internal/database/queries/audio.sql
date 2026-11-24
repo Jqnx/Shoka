@@ -304,3 +304,22 @@ select audio_id
 from audio_played
 where user_id = sqlc.arg('uid') and audio_id in (sqlc.slice('ids'))
 ;
+
+-- name: GetAudiosByIDs :many
+select id, library_id, title, release_date, language
+from audio
+where id in (sqlc.slice('ids'))
+;
+
+-- name: MarkAudioPlayedBulk :exec
+insert into audio_played (audio_id, user_id, played_at)
+select audio.id, sqlc.arg('uid'), datetime('now')
+from audio
+where audio.id in (sqlc.slice('ids'))
+on conflict (audio_id, user_id) do nothing
+;
+
+-- name: MarkAudioUnplayedBulk :exec
+delete from audio_played
+where user_id = sqlc.arg('uid') and audio_id in (sqlc.slice('ids'))
+;

@@ -228,31 +228,32 @@ func ListArchives(ctx context.Context, db *sql.DB, f ArchiveFilter) ([]sqlc.GetA
 	return items, total, rows.Err()
 }
 
-// getRelationNames fetches, for each archive in archiveIDs, the names of related
-// rows through a join table (e.g. archive_tag -> tag), grouped by archive ID.
-func getRelationNames(ctx context.Context, db *sql.DB, joinTable, entityTable, joinCol string, archiveIDs []string) (map[string][]string, error) {
+// getRelationNames fetches, for each owner in ids, the names of related rows
+// through a join table (e.g. archive_tag -> tag), grouped by owner ID. ownerCol
+// is the join table's owner column (archive_id, audio_id, …).
+func getRelationNames(ctx context.Context, db *sql.DB, joinTable, entityTable, joinCol, ownerCol string, ids []string) (map[string][]string, error) {
 	result := make(map[string][]string)
-	if len(archiveIDs) == 0 {
+	if len(ids) == 0 {
 		return result, nil
 	}
 
-	placeholders := strings.Repeat(",?", len(archiveIDs))[1:]
-	//nolint:gosec // table/column names are caller-supplied constants; archive IDs are bound via "?" placeholders
+	placeholders := strings.Repeat(",?", len(ids))[1:]
+	//nolint:gosec // table/column names are caller-supplied constants; ids are bound via "?" placeholders
 	query := fmt.Sprintf(
-		`SELECT %s.archive_id, %s.name
+		`SELECT %s.%s, %s.name
 		FROM %s
 		JOIN %s ON %s.%s = %s.id
-		WHERE %s.archive_id IN (%s)
+		WHERE %s.%s IN (%s)
 		ORDER BY %s.name`,
-		joinTable, entityTable,
+		joinTable, ownerCol, entityTable,
 		joinTable,
 		entityTable, joinTable, joinCol, entityTable,
-		joinTable, placeholders,
+		joinTable, ownerCol, placeholders,
 		entityTable,
 	)
 
-	args := make([]any, len(archiveIDs))
-	for i, id := range archiveIDs {
+	args := make([]any, len(ids))
+	for i, id := range ids {
 		args[i] = id
 	}
 
@@ -276,33 +277,33 @@ func getRelationNames(ctx context.Context, db *sql.DB, joinTable, entityTable, j
 
 // GetBulkArchiveMetadata fetches artists, tags, parodies, circles, and characters
 // for a set of archives in a fixed number of queries (avoiding N+1).
-func GetBulkArchiveMetadata(ctx context.Context, db *sql.DB, archiveIDs []string) (map[string]*metadata.Result, error) {
-	result := make(map[string]*metadata.Result, len(archiveIDs))
-	for _, id := range archiveIDs {
+func GetBulkArchiveMetadata(ctx context.Context, db *sql.DB, ids []string) (map[string]*metadata.Result, error) {
+	result := make(map[string]*metadata.Result, len(ids))
+	for _, id := range ids {
 		result[id] = &metadata.Result{}
 	}
 
-	artists, err := getRelationNames(ctx, db, "archive_artist", "artist", "artist_id", archiveIDs)
+	artists, err := getRelationNames(ctx, db, "archive_artist", "artist", "artist_id", "archive_id", ids)
 	if err != nil {
 		return nil, fmt.Errorf("get artists: %w", err)
 	}
 
-	tags, err := getRelationNames(ctx, db, "archive_tag", "tag", "tag_id", archiveIDs)
+	tags, err := getRelationNames(ctx, db, "archive_tag", "tag", "tag_id", "archive_id", ids)
 	if err != nil {
 		return nil, fmt.Errorf("get tags: %w", err)
 	}
 
-	parodies, err := getRelationNames(ctx, db, "archive_parody", "parody", "parody_id", archiveIDs)
+	parodies, err := getRelationNames(ctx, db, "archive_parody", "parody", "parody_id", "archive_id", ids)
 	if err != nil {
 		return nil, fmt.Errorf("get parodies: %w", err)
 	}
 
-	circles, err := getRelationNames(ctx, db, "archive_circle", "circle", "circle_id", archiveIDs)
+	circles, err := getRelationNames(ctx, db, "archive_circle", "circle", "circle_id", "archive_id", ids)
 	if err != nil {
 		return nil, fmt.Errorf("get circles: %w", err)
 	}
 
-	characters, err := getRelationNames(ctx, db, "archive_character", "character", "character_id", archiveIDs)
+	characters, err := getRelationNames(ctx, db, "archive_character", "character", "character_id", "archive_id", ids)
 	if err != nil {
 		return nil, fmt.Errorf("get characters: %w", err)
 	}

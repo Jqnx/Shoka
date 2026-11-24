@@ -1,6 +1,7 @@
 package database
 
 import (
+	"Shoka/internal/metadata"
 	"context"
 	"database/sql"
 	"fmt"
@@ -158,4 +159,42 @@ func ListAudio(ctx context.Context, db *sql.DB, f AudioFilter) ([]AudioListRow, 
 	}
 
 	return items, total, rows.Err()
+}
+
+// GetBulkAudioMetadata returns each audio work's current relation names,
+// keyed by id, for the merge in a bulk edit. Every requested id is present.
+func GetBulkAudioMetadata(ctx context.Context, db *sql.DB, audioIDs []string) (map[string]*metadata.AudioResult, error) {
+	result := make(map[string]*metadata.AudioResult, len(audioIDs))
+	for _, id := range audioIDs {
+		result[id] = &metadata.AudioResult{}
+	}
+
+	artists, err := getRelationNames(ctx, db, "audio_artist", "artist", "artist_id", "audio_id", audioIDs)
+	if err != nil {
+		return nil, fmt.Errorf("get artists: %w", err)
+	}
+
+	tags, err := getRelationNames(ctx, db, "audio_tag", "tag", "tag_id", "audio_id", audioIDs)
+	if err != nil {
+		return nil, fmt.Errorf("get tags: %w", err)
+	}
+
+	circles, err := getRelationNames(ctx, db, "audio_circle", "circle", "circle_id", "audio_id", audioIDs)
+	if err != nil {
+		return nil, fmt.Errorf("get circles: %w", err)
+	}
+
+	voiceActors, err := getRelationNames(ctx, db, "audio_voice_actor", "voice_actor", "voice_actor_id", "audio_id", audioIDs)
+	if err != nil {
+		return nil, fmt.Errorf("get voice actors: %w", err)
+	}
+
+	for id, r := range result {
+		r.Artists = artists[id]
+		r.Tags = tags[id]
+		r.Circles = circles[id]
+		r.VoiceActors = voiceActors[id]
+	}
+
+	return result, nil
 }
