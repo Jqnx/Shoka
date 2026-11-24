@@ -33,6 +33,8 @@ const (
 	defaultArchiveLimit = 24
 	// maxListLimit caps the page size a request may ask for.
 	maxListLimit = 100
+	// queryTrue is the only string the boolean query-param checks accept.
+	queryTrue = "true"
 )
 
 // parsePagination reads the page/limit query parameters, falling back to

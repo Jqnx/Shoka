@@ -1174,7 +1174,7 @@ const markAudioPlayed = `-- name: MarkAudioPlayed :exec
 
 insert into audio_played (audio_id, user_id, played_at)
 values (?, ?, datetime('now'))
-on conflict (audio_id, user_id) do nothing
+on conflict (audio_id, user_id) do update set played_at = excluded.played_at
 `
 
 type MarkAudioPlayedParams struct {
@@ -1194,7 +1194,7 @@ insert into audio_played (audio_id, user_id, played_at)
 select audio.id, ?1, datetime('now')
 from audio
 where audio.id in (/*SLICE:ids*/?)
-on conflict (audio_id, user_id) do nothing
+on conflict (audio_id, user_id) do update set played_at = excluded.played_at
 `
 
 type MarkAudioPlayedBulkParams struct {

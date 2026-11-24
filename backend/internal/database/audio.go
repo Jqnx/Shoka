@@ -23,10 +23,14 @@ type AudioFilter struct {
 	Circles       []string
 	VoiceActors   []string
 	FavoritesOnly bool
-	Rating        int
-	Limit         int64
-	Offset        int64
-	UserID        string
+	// PlayedOnly restricts the list to works the caller has marked played.
+	PlayedOnly bool
+	Rating     int
+	// Sort selects the ordering; unknown values fall back to title_asc.
+	Sort   string
+	Limit  int64
+	Offset int64
+	UserID string
 }
 
 // AudioListRow is one row of the audio list.
@@ -95,6 +99,12 @@ func buildAudioWhere(f AudioFilter) (string, []any) {
 		args = append(args, f.UserID)
 	}
 
+	if f.PlayedOnly {
+		sb.WriteString("AND EXISTS (SELECT 1 FROM audio_played ap WHERE ap.audio_id = audio.id AND ap.user_id = ?) ")
+
+		args = append(args, f.UserID)
+	}
+
 	if f.Rating > 0 {
 		sb.WriteString("AND EXISTS (SELECT 1 FROM audio_rating ar WHERE ar.audio_id = audio.id AND ar.user_id = ? AND ar.rating = ?) ")
 
@@ -113,6 +123,38 @@ func buildAudioWhere(f AudioFilter) (string, []any) {
 	}
 
 	return sb.String(), args
+}
+
+// resolveAudioSort maps the public "sort" parameter to an ORDER BY clause.
+// Only constants are returned, so the value can be concatenated into the
+// statement safely; unknown values fall back to the historical title order.
+func resolveAudioSort(sort string) string {
+	switch sort {
+	case "title_desc":
+		return "audio.title DESC, audio.id ASC"
+	case "release_date_desc":
+		return "audio.release_date IS NULL, audio.release_date DESC, audio.id ASC"
+	case "release_date_asc":
+		return "audio.release_date IS NULL, audio.release_date ASC, audio.id ASC"
+	case "created_at_desc":
+		return "audio.created_at DESC, audio.id ASC"
+	case "created_at_asc":
+		return "audio.created_at ASC, audio.id ASC"
+	case "played_at_desc":
+		return "audio_played.played_at IS NULL, audio_played.played_at DESC, audio.id ASC"
+	default:
+		return "audio.title ASC, audio.id ASC"
+	}
+}
+
+// audioPlayedJoin adds the caller's play state only when it is needed for the
+// ordering, avoiding the extra join on every list request.
+func audioPlayedJoin(sort string) string {
+	if sort == "played_at_desc" {
+		return "LEFT JOIN audio_played ON audio.id = audio_played.audio_id AND audio_played.user_id = ? "
+	}
+
+	return ""
 }
 
 // ListAudio returns one page of audio works matching f, along with the total
@@ -134,9 +176,15 @@ func ListAudio(ctx context.Context, db *sql.DB, f AudioFilter) ([]AudioListRow, 
 		audio.updated_at
 	FROM audio
 	JOIN library ON library.id = audio.library_id
-	` + whereSQL + " ORDER BY audio.title ASC, audio.id ASC LIMIT ? OFFSET ?"
+	` + audioPlayedJoin(f.Sort) + whereSQL + " ORDER BY " + resolveAudioSort(f.Sort) + " LIMIT ? OFFSET ?"
 
-	selectArgs := append(append([]any{}, whereArgs...), f.Limit, f.Offset)
+	selectArgs := make([]any, 0, len(whereArgs)+3)
+	if f.Sort == "played_at_desc" {
+		selectArgs = append(selectArgs, f.UserID)
+	}
+
+	selectArgs = append(selectArgs, whereArgs...)
+	selectArgs = append(selectArgs, f.Limit, f.Offset)
 
 	rows, err := db.QueryContext(ctx, selectSQL, selectArgs...)
 	if err != nil {

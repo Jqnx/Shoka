@@ -303,6 +303,8 @@ func (h *AudioHandler) audioResponseFor(ctx context.Context, audio sqlc.Audio, u
 //	@Param			library_id	query		string	false	"Only this audio library"
 //	@Param			q			query		string	false	"Title/artist/tag/circle/voice actor search (3+ characters)"
 //	@Param			favorites	query		bool	false	"Only works the current user has favorited"
+//	@Param			played		query		bool	false	"Only works the current user has marked played"
+//	@Param			sort		query		string	false	"Sort order (title_asc, title_desc, release_date_asc, release_date_desc, created_at_asc, created_at_desc, played_at_desc)"
 //	@Param			rating		query		int		false	"Only works the current user rated this many stars (1-5)"
 //	@Param			tag			query		string	false	"Filter by tag name (repeatable)"
 //	@Param			artist		query		string	false	"Filter by artist name (repeatable)"
@@ -360,8 +362,10 @@ func audioFilterFromRequest(r *http.Request, page, limit int) database.AudioFilt
 		Tags:          query["tag"],
 		Circles:       query["circle"],
 		VoiceActors:   query["voice_actor"],
-		FavoritesOnly: query.Get("favorites") == "true",
+		FavoritesOnly: query.Get("favorites") == queryTrue,
+		PlayedOnly:    query.Get("played") == queryTrue,
 		Rating:        int(ratingFilterParam(query.Get("rating"))),
+		Sort:          query.Get("sort"),
 		Limit:         int64(limit),
 		Offset:        int64((page - 1) * limit),
 		UserID:        auth.UserIDFromContext(r.Context()),

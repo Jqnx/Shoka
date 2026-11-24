@@ -84,7 +84,7 @@ func (h *ArtistHandler) GetArtists(w http.ResponseWriter, r *http.Request) {
 	offset := int64((page - 1) * limit)
 
 	favoritesOnly := int64(0)
-	if r.URL.Query().Get("favorites") == "true" {
+	if r.URL.Query().Get("favorites") == queryTrue {
 		favoritesOnly = 1
 	}
 
