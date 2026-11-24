@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { fly } from 'svelte/transition';
 	import {
 		AudioLines,
@@ -60,6 +61,7 @@
 
 {#if player.source}
 	{@const source = player.source}
+	{@const workHref = resolve(`/audio/${source.audioId}`)}
 	{@const VolumeIcon =
 		player.muted || player.volume === 0 ? VolumeX : player.volume < 0.5 ? Volume1 : Volume2}
 
@@ -70,11 +72,9 @@
 			class="fixed right-0 bottom-0 left-0 z-40 flex h-[4.5rem] items-center gap-2 border-t border-border bg-background/95 px-3 text-foreground backdrop-blur supports-backdrop-filter:bg-background/85 sm:px-4 md:left-(--sidebar-width) md:peer-data-[state=collapsed]:left-0"
 			title={player.error ?? undefined}
 		>
-			<button
-				type="button"
-				class="flex min-w-0 flex-1 items-center gap-2 text-left"
-				aria-label={`Open player: ${player.track?.name ?? source.title}`}
-				onclick={() => (player.expanded = true)}
+			<a
+				href={workHref}
+				class="group flex min-w-0 flex-1 items-center gap-2 rounded-md text-left focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-hidden"
 			>
 				{#if source.coverUrl}
 					<img src={source.coverUrl} alt="" class="size-12 shrink-0 rounded-md object-cover" />
@@ -89,11 +89,13 @@
 				<span class="flex min-w-0 flex-col">
 					<ScrollOnHoverText
 						text={player.track?.name ?? source.title}
-						class="text-sm font-medium"
+						class="text-sm font-medium group-hover:underline"
 					/>
-					<span class="truncate text-xs text-muted-foreground">{source.title}</span>
+					<span class="truncate text-xs text-muted-foreground group-hover:underline">
+						{source.title}
+					</span>
 				</span>
-			</button>
+			</a>
 
 			<div class="flex min-w-0 flex-none flex-col items-center justify-center gap-0.5 sm:flex-[2]">
 				<div class="flex shrink-0 items-center gap-1">
@@ -160,7 +162,8 @@
 				<Button
 					variant="ghost"
 					size="icon"
-					aria-label="Expand player"
+					aria-label="Open large player"
+					title="Open large player"
 					onclick={() => (player.expanded = true)}
 				>
 					<ChevronUp class="size-4" />
@@ -210,9 +213,22 @@
 				</span>
 			</div>
 
-			<div class="min-w-0">
-				<ScrollOnHoverText text={player.track?.name ?? source.title} class="text-sm font-medium" />
-				<p class="truncate text-center text-xs text-muted-foreground">{source.title}</p>
+			<div class="flex min-w-0 flex-col">
+				<a
+					href={workHref}
+					class="block min-w-0 rounded-sm hover:underline focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-hidden"
+				>
+					<ScrollOnHoverText
+						text={player.track?.name ?? source.title}
+						class="text-sm font-medium"
+					/>
+				</a>
+				<a
+					href={workHref}
+					class="truncate rounded-sm text-center text-xs text-muted-foreground hover:underline focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-hidden"
+				>
+					{source.title}
+				</a>
 			</div>
 
 			<div class="flex items-center justify-center gap-1">
