@@ -37,6 +37,7 @@ CREATE TABLE audio_played (
     audio_id TEXT NOT NULL,
     user_id TEXT NOT NULL,
     played_at DATETIME NOT NULL,
+    completed INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (audio_id, user_id)
 );
 
@@ -391,14 +392,16 @@ func TestBulkUpdateAudioPlayed(t *testing.T) {
 		t.Fatalf("result = %+v, want requested 2, succeeded 2", result)
 	}
 
-	var played int
+	var played, finished int
 
-	if err := db.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM audio_played WHERE user_id = 'u1'`).Scan(&played); err != nil {
+	if err := db.QueryRowContext(context.Background(),
+		`SELECT COUNT(*), coalesce(SUM(completed = 1), 0) FROM audio_played WHERE user_id = 'u1'`,
+	).Scan(&played, &finished); err != nil {
 		t.Fatalf("count played: %v", err)
 	}
 
-	if played != 2 {
-		t.Fatalf("played rows = %d, want 2", played)
+	if played != 2 || finished != 2 {
+		t.Fatalf("played rows = %d, finished = %d, want 2 and 2", played, finished)
 	}
 
 	rec = bulkAudioRequest(t, h, http.MethodPut, "/api/audio/bulk/played",

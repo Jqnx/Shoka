@@ -52,6 +52,7 @@ CREATE TABLE audio_played (
     audio_id TEXT NOT NULL REFERENCES audio (id) ON DELETE CASCADE,
     user_id TEXT NOT NULL,
     played_at DATETIME NOT NULL,
+    completed INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (audio_id, user_id)
 );
 `
@@ -64,10 +65,10 @@ INSERT INTO audio (id, library_id, title, folder_path, mod_time, created_at, upd
     ('au2', 'lib1', 'Alpha', '/audio/au2', '2026-01-01', '2026-01-03', '2026-01-01', '2026-01-01'),
     ('au3', 'lib1', 'Gamma', '/audio/au3', '2026-01-01', '2026-01-02', '2026-01-01', NULL);
 
-INSERT INTO audio_played (audio_id, user_id, played_at) VALUES
-    ('au1', 'user1', '2026-02-01'),
-    ('au3', 'user1', '2026-02-03'),
-    ('au2', 'user2', '2026-02-04');
+INSERT INTO audio_played (audio_id, user_id, played_at, completed) VALUES
+    ('au1', 'user1', '2026-02-01', 1),
+    ('au3', 'user1', '2026-02-03', 1),
+    ('au2', 'user2', '2026-02-04', 1);
 `
 
 func newAudioListDB(t *testing.T) *sql.DB {
@@ -180,13 +181,36 @@ func TestMarkAudioPlayedBumpsTimestamp(t *testing.T) {
 		assertPlayedAtBumped(t, db, audioOne)
 	})
 
+	t.Run("started work becomes finished", func(t *testing.T) {
+		t.Parallel()
+
+		db := newAudioListDB(t)
+
+		if _, err := db.ExecContext(ctx,
+			"UPDATE audio_played SET played_at = '2020-01-01', completed = 0 WHERE audio_id = ? AND user_id = ?",
+			audioOne, audioListUser,
+		); err != nil {
+			t.Fatalf("age played_at: %v", err)
+		}
+
+		err := sqlc.New(db).MarkAudioPlayed(ctx, sqlc.MarkAudioPlayedParams{
+			AudioID: audioOne,
+			UserID:  audioListUser,
+		})
+		if err != nil {
+			t.Fatalf("MarkAudioPlayed: %v", err)
+		}
+
+		assertPlayedAtBumped(t, db, audioOne)
+	})
+
 	t.Run("bulk", func(t *testing.T) {
 		t.Parallel()
 
 		db := newAudioListDB(t)
 
 		if _, err := db.ExecContext(ctx,
-			"UPDATE audio_played SET played_at = '2020-01-01' WHERE audio_id = ? AND user_id = ?",
+			"UPDATE audio_played SET played_at = '2020-01-01', completed = 0 WHERE audio_id = ? AND user_id = ?",
 			audioOne, audioListUser,
 		); err != nil {
 			t.Fatalf("age played_at: %v", err)
@@ -205,19 +229,79 @@ func TestMarkAudioPlayedBumpsTimestamp(t *testing.T) {
 	})
 }
 
+func TestMarkAudioStartedPreservesCompletion(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+
+	t.Run("finished work stays finished", func(t *testing.T) {
+		t.Parallel()
+
+		db := newAudioListDB(t)
+
+		if _, err := db.ExecContext(ctx,
+			"UPDATE audio_played SET played_at = '2020-01-01' WHERE audio_id = ? AND user_id = ?",
+			audioOne, audioListUser,
+		); err != nil {
+			t.Fatalf("age played_at: %v", err)
+		}
+
+		err := sqlc.New(db).MarkAudioStarted(ctx, sqlc.MarkAudioStartedParams{
+			AudioID: audioOne,
+			UserID:  audioListUser,
+		})
+		if err != nil {
+			t.Fatalf("MarkAudioStarted: %v", err)
+		}
+
+		assertPlayedAtBumped(t, db, audioOne)
+	})
+
+	t.Run("new start is unfinished", func(t *testing.T) {
+		t.Parallel()
+
+		db := newAudioListDB(t)
+
+		err := sqlc.New(db).MarkAudioStarted(ctx, sqlc.MarkAudioStartedParams{
+			AudioID: audioTwo,
+			UserID:  audioListUser,
+		})
+		if err != nil {
+			t.Fatalf("MarkAudioStarted: %v", err)
+		}
+
+		var total, completed int
+		if err := db.QueryRowContext(ctx,
+			"SELECT count(*), coalesce(sum(completed = 1), 0) FROM audio_played WHERE audio_id = ? AND user_id = ?",
+			audioTwo, audioListUser,
+		).Scan(&total, &completed); err != nil {
+			t.Fatalf("read play state: %v", err)
+		}
+
+		if total != 1 || completed != 0 {
+			t.Errorf("new start state = rows:%d completed:%d, want rows:1 completed:0", total, completed)
+		}
+	})
+}
+
 func assertPlayedAtBumped(t *testing.T, db *sql.DB, audioID string) {
 	t.Helper()
 
-	var total, stale int
+	var total, stale, completed int
 	if err := db.QueryRowContext(t.Context(),
-		`SELECT count(*), coalesce(sum(played_at = '2020-01-01'), 0)
+		`SELECT count(*),
+			coalesce(sum(played_at = '2020-01-01'), 0),
+			coalesce(sum(completed = 1), 0)
 		FROM audio_played WHERE audio_id = ? AND user_id = ?`,
 		audioID, audioListUser,
-	).Scan(&total, &stale); err != nil {
+	).Scan(&total, &stale, &completed); err != nil {
 		t.Fatalf("read played_at for %s: %v", audioID, err)
 	}
 
-	if total != 1 || stale != 0 {
-		t.Errorf("%s played_at was not bumped (rows=%d, stale=%d)", audioID, total, stale)
+	if total != 1 || stale != 0 || completed != 1 {
+		t.Errorf(
+			"%s played state wrong (rows=%d, stale=%d, completed=%d)",
+			audioID, total, stale, completed,
+		)
 	}
 }

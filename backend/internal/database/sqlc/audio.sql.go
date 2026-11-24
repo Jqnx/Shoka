@@ -49,26 +49,6 @@ func (q *Queries) AudioIsFavorited(ctx context.Context, arg AudioIsFavoritedPara
 	return column_1, err
 }
 
-const audioIsPlayed = `-- name: AudioIsPlayed :one
-;
-
-select exists (
-    select 1 from audio_played where audio_id = ? and user_id = ?2
-) = 1
-`
-
-type AudioIsPlayedParams struct {
-	AudioID string `json:"audio_id"`
-	Uid     string `json:"uid"`
-}
-
-func (q *Queries) AudioIsPlayed(ctx context.Context, arg AudioIsPlayedParams) (bool, error) {
-	row := q.db.QueryRowContext(ctx, audioIsPlayed, arg.AudioID, arg.Uid)
-	var column_1 bool
-	err := row.Scan(&column_1)
-	return column_1, err
-}
-
 const bulkAddAudioArtists = `-- name: BulkAddAudioArtists :exec
 ;
 
@@ -783,6 +763,78 @@ func (q *Queries) GetAudioPathsByLibrary(ctx context.Context, libraryID string) 
 	return items, nil
 }
 
+const getAudioPlayState = `-- name: GetAudioPlayState :one
+;
+
+select completed
+from audio_played
+where audio_id = ? and user_id = ?2
+`
+
+type GetAudioPlayStateParams struct {
+	AudioID string `json:"audio_id"`
+	Uid     string `json:"uid"`
+}
+
+func (q *Queries) GetAudioPlayState(ctx context.Context, arg GetAudioPlayStateParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getAudioPlayState, arg.AudioID, arg.Uid)
+	var completed int64
+	err := row.Scan(&completed)
+	return completed, err
+}
+
+const getAudioPlayStates = `-- name: GetAudioPlayStates :many
+;
+
+select audio_id, completed
+from audio_played
+where user_id = ?1 and audio_id in (/*SLICE:ids*/?)
+`
+
+type GetAudioPlayStatesParams struct {
+	Uid string   `json:"uid"`
+	Ids []string `json:"ids"`
+}
+
+type GetAudioPlayStatesRow struct {
+	AudioID   string `json:"audio_id"`
+	Completed int64  `json:"completed"`
+}
+
+func (q *Queries) GetAudioPlayStates(ctx context.Context, arg GetAudioPlayStatesParams) ([]GetAudioPlayStatesRow, error) {
+	query := getAudioPlayStates
+	var queryParams []interface{}
+	queryParams = append(queryParams, arg.Uid)
+	if len(arg.Ids) > 0 {
+		for _, v := range arg.Ids {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
+	}
+	rows, err := q.db.QueryContext(ctx, query, queryParams...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetAudioPlayStatesRow
+	for rows.Next() {
+		var i GetAudioPlayStatesRow
+		if err := rows.Scan(&i.AudioID, &i.Completed); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getAudioRating = `-- name: GetAudioRating :one
 ;
 
@@ -1091,53 +1143,6 @@ func (q *Queries) GetFavoritedAudioIDs(ctx context.Context, arg GetFavoritedAudi
 	return items, nil
 }
 
-const getPlayedAudioIDs = `-- name: GetPlayedAudioIDs :many
-;
-
-select audio_id
-from audio_played
-where user_id = ?1 and audio_id in (/*SLICE:ids*/?)
-`
-
-type GetPlayedAudioIDsParams struct {
-	Uid string   `json:"uid"`
-	Ids []string `json:"ids"`
-}
-
-func (q *Queries) GetPlayedAudioIDs(ctx context.Context, arg GetPlayedAudioIDsParams) ([]string, error) {
-	query := getPlayedAudioIDs
-	var queryParams []interface{}
-	queryParams = append(queryParams, arg.Uid)
-	if len(arg.Ids) > 0 {
-		for _, v := range arg.Ids {
-			queryParams = append(queryParams, v)
-		}
-		query = strings.Replace(query, "/*SLICE:ids*/?", strings.Repeat(",?", len(arg.Ids))[1:], 1)
-	} else {
-		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
-	}
-	rows, err := q.db.QueryContext(ctx, query, queryParams...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var audio_id string
-		if err := rows.Scan(&audio_id); err != nil {
-			return nil, err
-		}
-		items = append(items, audio_id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listAudioIDsByLibrary = `-- name: ListAudioIDsByLibrary :many
 ;
 
@@ -1172,9 +1177,11 @@ func (q *Queries) ListAudioIDsByLibrary(ctx context.Context, libraryID string) (
 const markAudioPlayed = `-- name: MarkAudioPlayed :exec
 ;
 
-insert into audio_played (audio_id, user_id, played_at)
-values (?, ?, datetime('now'))
-on conflict (audio_id, user_id) do update set played_at = excluded.played_at
+insert into audio_played (audio_id, user_id, played_at, completed)
+values (?, ?, datetime('now'), 1)
+on conflict (audio_id, user_id) do update set
+    played_at = excluded.played_at,
+    completed = 1
 `
 
 type MarkAudioPlayedParams struct {
@@ -1182,6 +1189,8 @@ type MarkAudioPlayedParams struct {
 	UserID  string `json:"user_id"`
 }
 
+// Explicit "mark as finished" and automatic end-of-queue tracking both use
+// this: the work is finished and its played_at is the completion time.
 func (q *Queries) MarkAudioPlayed(ctx context.Context, arg MarkAudioPlayedParams) error {
 	_, err := q.db.ExecContext(ctx, markAudioPlayed, arg.AudioID, arg.UserID)
 	return err
@@ -1190,11 +1199,13 @@ func (q *Queries) MarkAudioPlayed(ctx context.Context, arg MarkAudioPlayedParams
 const markAudioPlayedBulk = `-- name: MarkAudioPlayedBulk :exec
 ;
 
-insert into audio_played (audio_id, user_id, played_at)
-select audio.id, ?1, datetime('now')
+insert into audio_played (audio_id, user_id, played_at, completed)
+select audio.id, ?1, datetime('now'), 1
 from audio
 where audio.id in (/*SLICE:ids*/?)
-on conflict (audio_id, user_id) do update set played_at = excluded.played_at
+on conflict (audio_id, user_id) do update set
+    played_at = excluded.played_at,
+    completed = 1
 `
 
 type MarkAudioPlayedBulkParams struct {
@@ -1215,6 +1226,27 @@ func (q *Queries) MarkAudioPlayedBulk(ctx context.Context, arg MarkAudioPlayedBu
 		query = strings.Replace(query, "/*SLICE:ids*/?", "NULL", 1)
 	}
 	_, err := q.db.ExecContext(ctx, query, queryParams...)
+	return err
+}
+
+const markAudioStarted = `-- name: MarkAudioStarted :exec
+;
+
+insert into audio_played (audio_id, user_id, played_at)
+values (?, ?, datetime('now'))
+on conflict (audio_id, user_id) do update set played_at = excluded.played_at
+`
+
+type MarkAudioStartedParams struct {
+	AudioID string `json:"audio_id"`
+	UserID  string `json:"user_id"`
+}
+
+// Records the latest playback start without changing completion. The insert
+// defaults completed to false; the conflict branch deliberately leaves it
+// alone so replaying a finished work keeps its finished state.
+func (q *Queries) MarkAudioStarted(ctx context.Context, arg MarkAudioStartedParams) error {
+	_, err := q.db.ExecContext(ctx, markAudioStarted, arg.AudioID, arg.UserID)
 	return err
 }
 

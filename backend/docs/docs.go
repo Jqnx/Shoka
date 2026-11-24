@@ -3028,7 +3028,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
-                        "description": "Only works the current user has marked played",
+                        "description": "Only works the current user has started or finished",
                         "name": "played",
                         "in": "query"
                     },
@@ -3159,7 +3159,7 @@ const docTemplate = `{
         },
         "/api/audio/bulk/played": {
             "put": {
-                "description": "Marks every listed work played for the calling user, or clears its played state. Played state is per-user, so any authenticated user may call this. Ids that don't resolve to an audio work are reported in \"failed\" rather than failing the request. A batch containing a work the caller cannot access fails the whole request with 403.",
+                "description": "Marks every listed work finished for the calling user, or clears its play state entirely. Played state is per-user, so any authenticated user may call this. Ids that don't resolve to an audio work are reported in \"failed\" rather than failing the request. A batch containing a work the caller cannot access fails the whole request with 403.",
                 "consumes": [
                     "application/json"
                 ],
@@ -3169,7 +3169,7 @@ const docTemplate = `{
                 "tags": [
                     "audio"
                 ],
-                "summary": "Mark audio works played or unplayed in bulk",
+                "summary": "Mark audio works finished or unplayed in bulk",
                 "parameters": [
                     {
                         "description": "Audio works and desired played state",
@@ -3554,7 +3554,7 @@ const docTemplate = `{
                 "tags": [
                     "audio"
                 ],
-                "summary": "Mark an audio work as played",
+                "summary": "Mark an audio work as finished",
                 "parameters": [
                     {
                         "type": "string",
@@ -3671,6 +3671,41 @@ const docTemplate = `{
                     "audio"
                 ],
                 "summary": "Clear an audio work's rating",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Audio ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/audio/{id}/started": {
+            "put": {
+                "description": "Updates the caller's last-played time without marking the work finished. Used by the player when playback actually begins; replaying a finished work keeps it finished.",
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Record that an audio work started playing",
                 "parameters": [
                     {
                         "type": "string",
@@ -5142,6 +5177,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "is_completed": {
+                    "type": "boolean"
+                },
                 "is_favorited": {
                     "type": "boolean"
                 },
@@ -5223,6 +5261,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/handlers.AudioImageResponse"
                     }
+                },
+                "is_completed": {
+                    "type": "boolean"
                 },
                 "is_favorited": {
                     "type": "boolean"
