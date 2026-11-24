@@ -192,6 +192,10 @@ func mountEntityRoutes(r chi.Router, h apiHandlers) {
 // the voice actor taxonomy endpoints.
 func mountAudioRoutes(r chi.Router, h apiHandlers) {
 	r.Get("/api/audio", h.audio.GetAudios)
+	r.Route("/api/audio/bulk", func(r chi.Router) {
+		r.With(requirePermission(auth.AudioUpdate)).Patch("/", h.audio.BulkUpdateAudios)
+		r.Put("/played", h.audio.BulkUpdateAudioPlayed)
+	})
 	r.Route("/api/audio/{id}", func(r chi.Router) {
 		r.Get("/", h.audio.GetAudio)
 		r.With(requirePermission(auth.AudioUpdate)).Patch("/", h.audio.UpdateAudio)

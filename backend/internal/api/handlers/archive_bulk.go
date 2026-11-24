@@ -16,22 +16,22 @@ import (
 	"strings"
 )
 
-// maxBulkArchives caps how many archives a single bulk request may touch.
+// maxBulkIDs caps how many ids a single bulk request may touch.
 // The cap exists mostly to keep the id list well clear of SQLite's bound
 // parameter limit, and to stop one request from monopolising the worker
 // pool - it is not a meaningful workflow limit at this app's scale.
-const maxBulkArchives = 1000
+const maxBulkIDs = 1000
 
-// BulkFailure explains why one archive in a batch didn't get processed.
+// BulkFailure explains why one item in a batch didn't get processed.
 type BulkFailure struct {
 	ID    string `json:"id"`
 	Error string `json:"error"`
 }
 
 // BulkResult is the shared response for every bulk endpoint. Bulk
-// operations are deliberately partial-success: one bad archive reports
+// operations are deliberately partial-success: one bad item reports
 // itself in Failed rather than rolling back the ones that worked, since
-// re-running a whole batch to get past a single broken archive is worse
+// re-running a whole batch to get past a single broken item is worse
 // than knowing precisely which one to fix.
 type BulkResult struct {
 	Requested int           `json:"requested"`
@@ -46,10 +46,10 @@ func normalizeBulkIDs(raw []string) ([]string, error) {
 	ids := util.DedupeTrimmed(raw)
 
 	if len(ids) == 0 {
-		return nil, errors.New("ids is required and must contain at least one archive id")
+		return nil, errors.New("ids is required and must contain at least one id")
 	}
 
-	if len(ids) > maxBulkArchives {
+	if len(ids) > maxBulkIDs {
 		return nil, errors.New("too many ids in one request")
 	}
 

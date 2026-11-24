@@ -9,6 +9,7 @@ from (
     select language, library_id from audio
 )
 where language is not null
+  and trim(language) <> ''
   and (sqlc.arg('all_libraries') = 1
        or library_id in (select library_id from library_access where user_id = sqlc.arg('uid')))
 order by language

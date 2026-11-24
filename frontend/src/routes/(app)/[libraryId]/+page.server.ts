@@ -57,12 +57,13 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 		for (const circle of filters.circle) audioParams.append('circle', circle);
 		for (const voiceActor of filters.voice_actor) audioParams.append('voice_actor', voiceActor);
 
-		const [res, artistsRes, tagsRes, circlesRes, voiceActorsRes] = await Promise.all([
+		const [res, artistsRes, tagsRes, circlesRes, voiceActorsRes, languagesRes] = await Promise.all([
 			fetch(`/api/audio?${audioParams}`),
 			fetch('/api/artists/all'),
 			fetch('/api/tags/all'),
 			fetch('/api/circles/all'),
-			fetch('/api/voice-actors/all')
+			fetch('/api/voice-actors/all'),
+			fetch('/api/archives/languages')
 		]);
 
 		const audio: AudioListResponse = res.ok
@@ -72,6 +73,7 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 		const tags: Tag[] = tagsRes.ok ? await tagsRes.json() : [];
 		const allCircles: Circle[] = circlesRes.ok ? await circlesRes.json() : [];
 		const voiceActors: VoiceActor[] = voiceActorsRes.ok ? await voiceActorsRes.json() : [];
+		const languages: ArchiveLanguage[] = languagesRes.ok ? await languagesRes.json() : [];
 
 		return {
 			kind: 'audio' as const,
@@ -84,7 +86,8 @@ export const load: PageServerLoad = async ({ fetch, url, params, parent }) => {
 			artists,
 			tags,
 			allCircles,
-			voiceActors
+			voiceActors,
+			languages
 		};
 	}
 
@@ -308,5 +311,68 @@ export const actions: Actions = {
 			});
 		}
 		return summarize('edit', await res.json());
+	},
+
+	bulkAudioPlayed: async ({ request, fetch }) => {
+		const form = await request.formData();
+		const ids = form.getAll('ids').map(String);
+		const played = form.get('played') === 'true';
+		if (ids.length === 0) {
+			return fail(400, { action: 'bulkAudioPlayed' as const, error: 'No works selected.' });
+		}
+
+		const res = await fetch('/api/audio/bulk/played', {
+			method: 'PUT',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ ids, played })
+		});
+		if (!res.ok) {
+			return fail(res.status, {
+				action: 'bulkAudioPlayed' as const,
+				error: await errorMessage(res, 'Failed to update audio works.')
+			});
+		}
+		return summarize(played ? 'markPlayed' : 'markUnplayed', await res.json());
+	},
+
+	bulkAudioEdit: async ({ request, fetch, locals }) => {
+		const denied = guard(
+			locals.user,
+			{ audio: ['update'] },
+			'bulkAudioEdit',
+			'You cannot edit audio works.'
+		);
+		if (denied) return denied;
+
+		const form = await request.formData();
+		const ids = form.getAll('ids').map(String);
+		if (ids.length === 0) {
+			return fail(400, { action: 'bulkAudioEdit' as const, error: 'No works selected.' });
+		}
+
+		// Relations merge on the backend and an omitted key means "leave alone",
+		// so empty lists are dropped. Scalars overwrite, and '' is how you
+		// deliberately blank one, hence the explicit "was it submitted" check.
+		const body: Record<string, unknown> = { ids };
+		for (const field of ['artists', 'tags', 'voice_actors']) {
+			const values = form.getAll(field).map(String).filter(Boolean);
+			if (values.length > 0) body[field] = values;
+		}
+		for (const field of ['language', 'circle']) {
+			if (form.has(field)) body[field] = String(form.get(field) ?? '');
+		}
+
+		const res = await fetch('/api/audio/bulk', {
+			method: 'PATCH',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(body)
+		});
+		if (!res.ok) {
+			return fail(res.status, {
+				action: 'bulkAudioEdit' as const,
+				error: await errorMessage(res, 'Failed to update audio works.')
+			});
+		}
+		return summarize('audioEdit', await res.json());
 	}
 };

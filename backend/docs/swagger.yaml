@@ -329,6 +329,38 @@ definitions:
           type: string
         type: array
     type: object
+  handlers.BulkUpdateAudioPlayedRequest:
+    properties:
+      ids:
+        items:
+          type: string
+        type: array
+      played:
+        type: boolean
+    type: object
+  handlers.BulkUpdateAudiosRequest:
+    properties:
+      artists:
+        items:
+          type: string
+        type: array
+      circle:
+        type: string
+      ids:
+        items:
+          type: string
+        type: array
+      language:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      voice_actors:
+        items:
+          type: string
+        type: array
+    type: object
   handlers.CharacterListResponse:
     properties:
       items:
@@ -3602,6 +3634,86 @@ paths:
           schema:
             $ref: '#/definitions/response.Error'
       summary: Get one audio file of a work
+      tags:
+      - audio
+  /api/audio/bulk:
+    patch:
+      consumes:
+      - application/json
+      description: Relations (artists/tags/voice_actors) MERGE into what each work
+        already has rather than replacing it, so a work keeps its own values and gains
+        the submitted ones; de-duplication is case-insensitive and submitted names
+        are snapped to the spelling already in use. Because it only adds, an empty
+        array is a no-op and bulk removal is unsupported. Scalars (language/circle)
+        are SET, overwriting the current value; omit or null them to leave them alone,
+        send "" to clear. Circle accepts at most one value. Each work is applied in
+        its own transaction, so a failure part-way through leaves earlier works updated
+        and is reported per-id in "failed".
+      parameters:
+      - description: Audio works and metadata to merge or set
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.BulkUpdateAudiosRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.BulkResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Update shared metadata on audio works in bulk
+      tags:
+      - audio
+  /api/audio/bulk/played:
+    put:
+      consumes:
+      - application/json
+      description: Marks every listed work played for the calling user, or clears
+        its played state. Played state is per-user, so any authenticated user may
+        call this. Ids that don't resolve to an audio work are reported in "failed"
+        rather than failing the request. A batch containing a work the caller cannot
+        access fails the whole request with 403.
+      parameters:
+      - description: Audio works and desired played state
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.BulkUpdateAudioPlayedRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.BulkResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Mark audio works played or unplayed in bulk
       tags:
       - audio
   /api/characters:
