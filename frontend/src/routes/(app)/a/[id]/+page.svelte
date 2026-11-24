@@ -34,6 +34,7 @@
 		ImageMinus
 	} from '@lucide/svelte';
 	import { can } from '$lib/auth/permissions';
+	import { progressPercent } from '$lib/progress';
 	import { firstArchiveLibrary } from '$lib/types';
 
 	let { data, form } = $props();
@@ -145,7 +146,7 @@
 					<div class="absolute inset-x-0 top-0 h-1.5">
 						<div
 							class="h-full bg-sidebar-primary transition-all"
-							style="width: {Math.round((a.progress.current_page / a.page_count) * 100)}%"
+							style="width: {progressPercent(a.progress, a.page_count)}%"
 						></div>
 					</div>
 				{/if}
