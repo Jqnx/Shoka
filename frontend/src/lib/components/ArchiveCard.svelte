@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import ArchiveCover from '$lib/components/ArchiveCover.svelte';
 	import { Badge } from '$lib/components/ui/badge';
+	import { progressPercent } from '$lib/progress';
 	import { Check } from '@lucide/svelte';
 	import type { Archive } from '$lib/types';
 
@@ -140,7 +141,7 @@
 			<div class="pointer-events-none absolute inset-x-0 top-0 h-1.5">
 				<div
 					class="h-full bg-sidebar-primary transition-all"
-					style="width: {Math.round((archive.progress.current_page / archive.page_count) * 100)}%"
+					style="width: {progressPercent(archive.progress, archive.page_count)}%"
 				></div>
 			</div>
 		{/if}
