@@ -16,6 +16,7 @@
 		VolumeX
 	} from '@lucide/svelte';
 	import AudioSeekSlider from '$lib/components/AudioSeekSlider.svelte';
+	import ScrollOnHoverText from '$lib/components/ScrollOnHoverText.svelte';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Slider } from '$lib/components/ui/slider/index.js';
 	import { formatDuration } from '$lib/audio';
@@ -86,7 +87,10 @@
 					</span>
 				{/if}
 				<span class="flex min-w-0 flex-col">
-					<span class="truncate text-sm font-medium">{player.track?.name ?? source.title}</span>
+					<ScrollOnHoverText
+						text={player.track?.name ?? source.title}
+						class="text-sm font-medium"
+					/>
 					<span class="truncate text-xs text-muted-foreground">{source.title}</span>
 				</span>
 			</button>
@@ -207,7 +211,7 @@
 			</div>
 
 			<div class="min-w-0">
-				<p class="truncate text-sm font-medium">{player.track?.name ?? source.title}</p>
+				<ScrollOnHoverText text={player.track?.name ?? source.title} class="text-sm font-medium" />
 				<p class="truncate text-center text-xs text-muted-foreground">{source.title}</p>
 			</div>
 
