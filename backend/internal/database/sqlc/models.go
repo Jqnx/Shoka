@@ -169,9 +169,10 @@ type AudioImage struct {
 }
 
 type AudioPlayed struct {
-	AudioID  string    `json:"audio_id"`
-	UserID   string    `json:"user_id"`
-	PlayedAt time.Time `json:"played_at"`
+	AudioID   string    `json:"audio_id"`
+	UserID    string    `json:"user_id"`
+	PlayedAt  time.Time `json:"played_at"`
+	Completed int64     `json:"completed"`
 }
 
 type AudioRating struct {

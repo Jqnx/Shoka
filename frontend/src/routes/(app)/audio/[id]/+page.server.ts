@@ -48,22 +48,22 @@ export const actions: Actions = {
 		return { action: 'toggleFavorite' as const, success: true };
 	},
 
-	togglePlayed: async ({ request, fetch, params }) => {
+	toggleFinished: async ({ request, fetch, params }) => {
 		const form = await request.formData();
-		const wasPlayed = form.get('played') === 'true';
+		const wasCompleted = form.get('played') === 'true';
 
 		const res = await fetch(`/api/audio/${params.id}/played`, {
-			method: wasPlayed ? 'DELETE' : 'PUT'
+			method: wasCompleted ? 'DELETE' : 'PUT'
 		});
 
 		if (!res.ok) {
 			return fail(res.status, {
-				action: 'togglePlayed' as const,
-				error: await errorMessage(res, 'Failed to update played state.')
+				action: 'toggleFinished' as const,
+				error: await errorMessage(res, 'Failed to update finished state.')
 			});
 		}
 
-		return { action: 'togglePlayed' as const, success: true };
+		return { action: 'toggleFinished' as const, success: true };
 	},
 
 	setRating: async ({ request, fetch, params }) => {

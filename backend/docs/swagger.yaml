@@ -158,6 +158,8 @@ definitions:
         type: integer
       id:
         type: string
+      is_completed:
+        type: boolean
       is_favorited:
         type: boolean
       is_played:
@@ -212,6 +214,8 @@ definitions:
         items:
           $ref: '#/definitions/handlers.AudioImageResponse'
         type: array
+      is_completed:
+        type: boolean
       is_favorited:
         type: boolean
       is_played:
@@ -3170,7 +3174,7 @@ paths:
         in: query
         name: favorites
         type: boolean
-      - description: Only works the current user has marked played
+      - description: Only works the current user has started or finished
         in: query
         name: played
         type: boolean
@@ -3495,7 +3499,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.Error'
-      summary: Mark an audio work as played
+      summary: Mark an audio work as finished
       tags:
       - audio
   /api/audio/{id}/rating:
@@ -3551,6 +3555,31 @@ paths:
           schema:
             $ref: '#/definitions/response.Error'
       summary: Rate an audio work
+      tags:
+      - audio
+  /api/audio/{id}/started:
+    put:
+      description: Updates the caller's last-played time without marking the work
+        finished. Used by the player when playback actually begins; replaying a finished
+        work keeps it finished.
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Record that an audio work started playing
       tags:
       - audio
   /api/audio/{id}/thumbnails:
@@ -3691,9 +3720,9 @@ paths:
     put:
       consumes:
       - application/json
-      description: Marks every listed work played for the calling user, or clears
-        its played state. Played state is per-user, so any authenticated user may
-        call this. Ids that don't resolve to an audio work are reported in "failed"
+      description: Marks every listed work finished for the calling user, or clears
+        its play state entirely. Played state is per-user, so any authenticated user
+        may call this. Ids that don't resolve to an audio work are reported in "failed"
         rather than failing the request. A batch containing a work the caller cannot
         access fails the whole request with 403.
       parameters:
@@ -3722,7 +3751,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/response.Error'
-      summary: Mark audio works played or unplayed in bulk
+      summary: Mark audio works finished or unplayed in bulk
       tags:
       - audio
   /api/characters:

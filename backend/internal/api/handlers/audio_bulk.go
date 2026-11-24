@@ -117,8 +117,8 @@ func checkAudioScope(w http.ResponseWriter, r *http.Request, rows []sqlc.GetAudi
 
 // BulkUpdateAudioPlayed godoc
 //
-//	@Summary		Mark audio works played or unplayed in bulk
-//	@Description	Marks every listed work played for the calling user, or clears its played state. Played state is per-user, so any authenticated user may call this. Ids that don't resolve to an audio work are reported in "failed" rather than failing the request. A batch containing a work the caller cannot access fails the whole request with 403.
+//	@Summary		Mark audio works finished or unplayed in bulk
+//	@Description	Marks every listed work finished for the calling user, or clears its play state entirely. Played state is per-user, so any authenticated user may call this. Ids that don't resolve to an audio work are reported in "failed" rather than failing the request. A batch containing a work the caller cannot access fails the whole request with 403.
 //	@Tags			audio
 //	@Accept			json
 //	@Produce		json

@@ -24,7 +24,7 @@
 	const canEdit = $derived(can(page.data.user, { audio: ['update'] }));
 
 	let favoriting = $state(false);
-	let markingPlayed = $state(false);
+	let markingFinished = $state(false);
 	let settingRating = $state(false);
 	let hoveredStar = $state<number | null>(null);
 	let section = $state('tracks');
@@ -86,24 +86,24 @@
 				<div class="flex shrink-0 items-center gap-1.5">
 					<form
 						method="POST"
-						action="?/togglePlayed"
+						action="?/toggleFinished"
 						use:enhance={() => {
-							markingPlayed = true;
+							markingFinished = true;
 							return async ({ update }) => {
-								markingPlayed = false;
+								markingFinished = false;
 								await update();
 							};
 						}}
 					>
-						<input type="hidden" name="played" value={a.is_played} />
+						<input type="hidden" name="played" value={a.is_completed} />
 						<Button
 							type="submit"
-							variant={a.is_played ? 'default' : 'outline'}
+							variant={a.is_completed ? 'default' : 'outline'}
 							size="icon"
-							disabled={markingPlayed}
-							aria-label={a.is_played ? 'Mark as unplayed' : 'Mark as played'}
-							aria-pressed={a.is_played}
-							title={a.is_played ? 'Mark as unplayed' : 'Mark as played'}
+							disabled={markingFinished}
+							aria-label={a.is_completed ? 'Mark as unplayed' : 'Mark as finished'}
+							aria-pressed={a.is_completed}
+							title={a.is_completed ? 'Mark as unplayed' : 'Mark as finished'}
 						>
 							<Check class="size-4" />
 						</Button>

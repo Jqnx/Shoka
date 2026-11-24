@@ -43,7 +43,7 @@
 	const selectedList = $derived(selectedWorks.map((w) => w.id));
 
 	const BULK_LABELS: Record<string, string> = {
-		markPlayed: 'marked as played',
+		markPlayed: 'marked as finished',
 		markUnplayed: 'marked as unplayed',
 		audioEdit: 'updated'
 	};
@@ -163,7 +163,7 @@
 							{/snippet}
 						</DropdownMenu.Trigger>
 						<DropdownMenu.Content align="end" class="min-w-44">
-							{@render bulkItem('?/bulkAudioPlayed', 'Mark as played', Check, 'true')}
+							{@render bulkItem('?/bulkAudioPlayed', 'Mark as finished', Check, 'true')}
 							{@render bulkItem('?/bulkAudioPlayed', 'Mark as unplayed', RotateCcw, 'false')}
 						</DropdownMenu.Content>
 					</DropdownMenu.Root>

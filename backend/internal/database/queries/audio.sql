@@ -282,10 +282,23 @@ from audio_rating
 where user_id = sqlc.arg('uid') and audio_id in (sqlc.slice('ids'))
 ;
 
--- name: MarkAudioPlayed :exec
+-- name: MarkAudioStarted :exec
+-- Records the latest playback start without changing completion. The insert
+-- defaults completed to false; the conflict branch deliberately leaves it
+-- alone so replaying a finished work keeps its finished state.
 insert into audio_played (audio_id, user_id, played_at)
 values (?, ?, datetime('now'))
 on conflict (audio_id, user_id) do update set played_at = excluded.played_at
+;
+
+-- name: MarkAudioPlayed :exec
+-- Explicit "mark as finished" and automatic end-of-queue tracking both use
+-- this: the work is finished and its played_at is the completion time.
+insert into audio_played (audio_id, user_id, played_at, completed)
+values (?, ?, datetime('now'), 1)
+on conflict (audio_id, user_id) do update set
+    played_at = excluded.played_at,
+    completed = 1
 ;
 
 -- name: MarkAudioUnplayed :exec
@@ -293,14 +306,14 @@ delete from audio_played
 where audio_id = ? and user_id = sqlc.arg('uid')
 ;
 
--- name: AudioIsPlayed :one
-select exists (
-    select 1 from audio_played where audio_id = ? and user_id = sqlc.arg('uid')
-) = 1
+-- name: GetAudioPlayState :one
+select completed
+from audio_played
+where audio_id = ? and user_id = sqlc.arg('uid')
 ;
 
--- name: GetPlayedAudioIDs :many
-select audio_id
+-- name: GetAudioPlayStates :many
+select audio_id, completed
 from audio_played
 where user_id = sqlc.arg('uid') and audio_id in (sqlc.slice('ids'))
 ;
@@ -312,11 +325,13 @@ where id in (sqlc.slice('ids'))
 ;
 
 -- name: MarkAudioPlayedBulk :exec
-insert into audio_played (audio_id, user_id, played_at)
-select audio.id, sqlc.arg('uid'), datetime('now')
+insert into audio_played (audio_id, user_id, played_at, completed)
+select audio.id, sqlc.arg('uid'), datetime('now'), 1
 from audio
 where audio.id in (sqlc.slice('ids'))
-on conflict (audio_id, user_id) do update set played_at = excluded.played_at
+on conflict (audio_id, user_id) do update set
+    played_at = excluded.played_at,
+    completed = 1
 ;
 
 -- name: MarkAudioUnplayedBulk :exec

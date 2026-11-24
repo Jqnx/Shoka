@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { AudioLines, Check } from '@lucide/svelte';
+	import { AudioLines, Check, Clock } from '@lucide/svelte';
 	import { audioCoverSrc, type AudioListItem } from '$lib/types';
 	import { formatDuration } from '$lib/audio';
 
@@ -142,8 +142,13 @@
 				<span
 					class="flex items-center gap-1 rounded bg-black/60 px-1.5 py-0.5 text-[11px] font-medium text-white/90"
 				>
-					<Check class="size-3" />
-					Played
+					{#if audio.is_completed}
+						<Check class="size-3" />
+						Played
+					{:else}
+						<Clock class="size-3" />
+						In progress
+					{/if}
 				</span>
 			</div>
 		{/if}

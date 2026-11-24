@@ -63,6 +63,13 @@ class PlayerStore {
 	#generation = 0;
 	#positions: Record<string, number> = {};
 	#lastSavedAt = 0;
+	// The work already reported as started for this source. Reset when a new
+	// source loads or the player stops, so resuming one work does not write to
+	// the API on every track or pause.
+	#markedStartedFor: string | null = null;
+	// Tracks started in the current source. Completion requires the whole
+	// queue, so starting at the last track does not count as finishing.
+	#heardTracks = new Set<number>();
 
 	#onPageHide = () => {
 		this.#savePosition(true);
@@ -89,6 +96,17 @@ class PlayerStore {
 		// Force-save before switching sources: the old time must stay under
 		// the old work's key, not be written under the new one.
 		this.#savePosition(true);
+
+		const continuing =
+			this.source?.audioId === source.audioId &&
+			this.source.folder === source.folder &&
+			this.source.updatedAt === source.updatedAt;
+
+		if (!continuing) {
+			this.#markedStartedFor = null;
+			this.#heardTracks = new Set();
+		}
+
 		this.source = source;
 		this.barVisible = true;
 		this.#load(index, true);
@@ -133,6 +151,7 @@ class PlayerStore {
 		this.playing = false;
 		this.loading = false;
 		this.error = null;
+		this.#markedStartedFor = null;
 		this.#savePosition(true);
 		this.#setPlaybackState();
 		this.#updatePositionState();
@@ -304,6 +323,7 @@ class PlayerStore {
 		el.addEventListener('playing', () => {
 			this.playing = true;
 			this.loading = false;
+			this.#trackStarted();
 		});
 
 		el.addEventListener('canplay', () => {
@@ -337,6 +357,41 @@ class PlayerStore {
 		window.addEventListener('pagehide', this.#onPageHide);
 	}
 
+	// Record the latest playback start the first time this source actually
+	// plays. Best-effort: a failed request must never interrupt playback.
+	#trackStarted(): void {
+		const source = this.source;
+		if (!browser || !source || this.#markedStartedFor === source.audioId) return;
+
+		const audioId = source.audioId;
+		this.#markedStartedFor = audioId;
+
+		void fetch(`/api/audio/${encodeURIComponent(audioId)}/started`, {
+			method: 'PUT'
+		})
+			.then((response) => {
+				if (!response.ok) throw new Error(`record playback start failed: ${response.status}`);
+			})
+			.catch(() => {
+				// Allow a later track/resume to retry, but only while this work
+				// is still the active source.
+				if (this.#markedStartedFor === audioId) this.#markedStartedFor = null;
+			});
+	}
+
+	// The queue ran out, so this is a finished listen rather than a partial
+	// one. The endpoint also bumps played_at to the completion time.
+	#trackFinished(): void {
+		const source = this.source;
+		if (!browser || !source) return;
+
+		void fetch(`/api/audio/${encodeURIComponent(source.audioId)}/played`, {
+			method: 'PUT'
+		}).catch(() => {
+			// Best-effort; the work stays unfinished in the UI until a retry.
+		});
+	}
+
 	#load(trackIndex: number, resume: boolean): void {
 		const source = this.source;
 		const el = this.#el;
@@ -345,6 +400,7 @@ class PlayerStore {
 		const track = source.tracks.find((candidate) => candidate.index === trackIndex);
 		if (!track) return;
 
+		this.#heardTracks.add(track.index);
 		this.trackIndex = trackIndex;
 		this.currentTime = 0;
 		this.error = null;
@@ -421,6 +477,11 @@ class PlayerStore {
 		if (next !== null) {
 			this.#load(next, false);
 			return;
+		}
+
+		const source = this.source;
+		if (source && this.#heardTracks.size === source.tracks.length) {
+			this.#trackFinished();
 		}
 
 		this.pause();
