@@ -3021,6 +3021,18 @@
                         "in": "query"
                     },
                     {
+                        "type": "boolean",
+                        "description": "Only works the current user has marked played",
+                        "name": "played",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort order (title_asc, title_desc, release_date_asc, release_date_desc, created_at_asc, created_at_desc, played_at_desc)",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Only works the current user rated this many stars (1-5)",
                         "name": "rating",

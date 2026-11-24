@@ -797,7 +797,7 @@ func (h *ArchiveHandler) UpdateArchive(w http.ResponseWriter, r *http.Request) {
 //	@Router			/api/archives/{id} [delete]
 func (h *ArchiveHandler) DeleteArchive(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	deleteFile := r.URL.Query().Get("delete_file") == "true"
+	deleteFile := r.URL.Query().Get("delete_file") == queryTrue
 
 	archive, err := h.queries.GetArchiveByID(r.Context(), id)
 	if err != nil {

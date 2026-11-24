@@ -3170,6 +3170,15 @@ paths:
         in: query
         name: favorites
         type: boolean
+      - description: Only works the current user has marked played
+        in: query
+        name: played
+        type: boolean
+      - description: Sort order (title_asc, title_desc, release_date_asc, release_date_desc,
+          created_at_asc, created_at_desc, played_at_desc)
+        in: query
+        name: sort
+        type: string
       - description: Only works the current user rated this many stars (1-5)
         in: query
         name: rating

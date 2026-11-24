@@ -22,7 +22,9 @@ declare global {
 
 		// interface Error {}
 		// interface PageData {}
-		// interface PageState {}
+		interface PageState {
+			tab?: 'archives' | 'audio';
+		}
 		// interface Platform {}
 	}
 }
