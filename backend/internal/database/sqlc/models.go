@@ -169,6 +169,13 @@ type AudioImage struct {
 	SortOrder    int64  `json:"sort_order"`
 }
 
+type AudioImageFavorite struct {
+	AudioID     string    `json:"audio_id"`
+	UserID      string    `json:"user_id"`
+	ImageIndex  int64     `json:"image_index"`
+	FavoritedAt time.Time `json:"favorited_at"`
+}
+
 type AudioPlayed struct {
 	AudioID   string    `json:"audio_id"`
 	UserID    string    `json:"user_id"`

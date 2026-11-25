@@ -1148,46 +1148,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/archives/favorites/pages": {
-            "get": {
-                "description": "Newest first. Pages an archive has since shrunk past are omitted.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "archives"
-                ],
-                "summary": "List the current user's favorited pages across accessible archives",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Page number (default 1)",
-                        "name": "page",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Page size (default 24, max 100)",
-                        "name": "limit",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/handlers.FavoritePageListResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/response.Error"
-                        }
-                    }
-                }
-            }
-        },
         "/api/archives/languages": {
             "get": {
                 "description": "Returns every distinct language code currently in use across the libraries the caller may access (all of them for an admin), paired with a display name (see language.Converter; falls back to the raw code if unrecognized). Purely reflects what's actually been scanned/tagged — nothing is seeded ahead of time.",
@@ -3475,6 +3435,46 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/audio/{id}/favorite-images": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "List the current user's favorited image indices for an audio work",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Audio ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.AudioImageFavoriteIndicesResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
         "/api/audio/{id}/images/{index}": {
             "get": {
                 "produces": [
@@ -3509,6 +3509,100 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/audio/{id}/images/{index}/favorite": {
+            "put": {
+                "description": "Idempotent. Adding the same image twice leaves one row.",
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Favorite one gallery image of an audio work",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Audio ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Image index (0-based)",
+                        "name": "index",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Idempotent no-op if the image wasn't favorited. Works for an index the work no longer has, so stale favorites can still be cleared.",
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Unfavorite one gallery image of an audio work",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Audio ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Image index (0-based)",
+                        "name": "index",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/response.Error"
                         }
@@ -4261,6 +4355,46 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/handlers.CircleArtistResponse"
                             }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/favorites/pages": {
+            "get": {
+                "description": "Newest first across both media. Items whose source has since shrunk past the index are omitted.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "favorites"
+                ],
+                "summary": "List the current user's favorited archive pages and audio images",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Page number (default 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page size (default 24, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.FavoriteImageListResponse"
                         }
                     },
                     "500": {
@@ -5205,6 +5339,17 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.AudioImageFavoriteIndicesResponse": {
+            "type": "object",
+            "properties": {
+                "indices": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
         "handlers.AudioImageResponse": {
             "type": "object",
             "properties": {
@@ -5701,24 +5846,19 @@ const docTemplate = `{
                 }
             }
         },
-        "handlers.FavoritePageIndicesResponse": {
-            "type": "object",
-            "properties": {
-                "indices": {
-                    "type": "array",
-                    "items": {
-                        "type": "integer"
-                    }
-                }
-            }
-        },
-        "handlers.FavoritePageItem": {
+        "handlers.FavoriteImageItem": {
             "type": "object",
             "properties": {
                 "archive_id": {
                     "type": "string"
                 },
+                "audio_id": {
+                    "type": "string"
+                },
                 "favorited_at": {
+                    "type": "string"
+                },
+                "kind": {
                     "type": "string"
                 },
                 "page_count": {
@@ -5729,16 +5869,20 @@ const docTemplate = `{
                 },
                 "title": {
                     "type": "string"
+                },
+                "updated_at": {
+                    "description": "UpdatedAt is the source work's timestamp; audio previews use it to bust\nthe browser cache when a rescan replaces the image at the same index.",
+                    "type": "string"
                 }
             }
         },
-        "handlers.FavoritePageListResponse": {
+        "handlers.FavoriteImageListResponse": {
             "type": "object",
             "properties": {
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/handlers.FavoritePageItem"
+                        "$ref": "#/definitions/handlers.FavoriteImageItem"
                     }
                 },
                 "limit": {
@@ -5749,6 +5893,17 @@ const docTemplate = `{
                 },
                 "total": {
                     "type": "integer"
+                }
+            }
+        },
+        "handlers.FavoritePageIndicesResponse": {
+            "type": "object",
+            "properties": {
+                "indices": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 }
             }
         },

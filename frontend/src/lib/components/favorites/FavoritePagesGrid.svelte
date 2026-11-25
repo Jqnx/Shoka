@@ -4,14 +4,23 @@
 	import * as ContextMenu from '$lib/components/ui/context-menu/index.js';
 	import ImageContextMenu from '$lib/components/ImageContextMenu.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { BookOpen, Heart, Images } from '@lucide/svelte';
+	import { AudioLines, BookOpen, Heart, Images } from '@lucide/svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import type { FavoritePageItem, FavoritePageListResponse } from '$lib/types';
+	import {
+		favoriteImageDownloadName,
+		favoriteImageEndpoint,
+		favoriteImageKey,
+		favoriteImageLabel,
+		favoriteImageSrc,
+		favoriteImageWorkHref,
+		type FavoriteImageItem,
+		type FavoriteImageListResponse
+	} from '$lib/types';
 
 	const DEFAULT_LIMIT = 40;
 
-	let items = $state<FavoritePageItem[]>([]);
+	let items = $state<FavoriteImageItem[]>([]);
 	let total = $state(0);
 	let currentPage = $state(1);
 	let loading = $state(true);
@@ -22,14 +31,14 @@
 
 	async function load(p: number) {
 		try {
-			const res = await fetch(`/api/archives/favorites/pages?page=${p}&limit=${DEFAULT_LIMIT}`);
+			const res = await fetch(`/api/favorites/pages?page=${p}&limit=${DEFAULT_LIMIT}`);
 			if (!res.ok) {
 				items = [];
 				total = 0;
 				return;
 			}
 
-			const data: FavoritePageListResponse = await res.json();
+			const data: FavoriteImageListResponse = await res.json();
 			items = data.items ?? [];
 			total = Number(data.total);
 			currentPage = p;
@@ -40,12 +49,9 @@
 		}
 	}
 
-	async function unfavorite(item: FavoritePageItem) {
+	async function unfavorite(item: FavoriteImageItem) {
 		try {
-			const res = await fetch(
-				`/api/archives/${item.archive_id}/pages/${item.page_index}/favorite`,
-				{ method: 'DELETE' }
-			);
+			const res = await fetch(favoriteImageEndpoint(item), { method: 'DELETE' });
 			if (!res.ok) return;
 		} catch {
 			return;
@@ -70,36 +76,41 @@
 	{#if items.length === 0}
 		<div class="flex flex-col items-center justify-center py-24 text-center">
 			<Images class="mb-3 size-10 text-muted-foreground/40" />
-			<p class="text-base font-medium text-foreground">No favorite pages yet</p>
+			<p class="text-base font-medium text-foreground">No favorite pages or images yet</p>
 			<p class="mt-1 text-sm text-muted-foreground">
-				Favorite a page from the reader to see it here.
+				Favorite a page from the reader or an image from a work's gallery to see it here.
 			</p>
 		</div>
 	{:else}
 		<div class="columns-2 gap-2 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 [&>div]:mb-2">
-			{#each items as item, i (item.archive_id + ':' + item.page_index)}
+			{#each items as item, i (favoriteImageKey(item))}
 				{#snippet cellActions()}
-					<ContextMenu.Item onSelect={() => goto(resolve(`/a/${item.archive_id}`))}>
-						<BookOpen class="size-4" />
-						Open in archive
+					<ContextMenu.Item onSelect={() => goto(resolve(favoriteImageWorkHref(item)))}>
+						{#if item.kind === 'audio'}
+							<AudioLines class="size-4" />
+							Open work
+						{:else}
+							<BookOpen class="size-4" />
+							Open in archive
+						{/if}
 					</ContextMenu.Item>
 				{/snippet}
 				<div class="group relative break-inside-avoid">
 					<ImageContextMenu
-						src={`/api/archives/${item.archive_id}/pages/${item.page_index}`}
-						downloadName="{item.archive_id}-page-{item.page_index + 1}"
+						src={favoriteImageSrc(item)}
+						downloadName={favoriteImageDownloadName(item)}
 						actions={cellActions}
 					>
 						{#snippet trigger({ props })}
 							<a
 								{...props}
 								href={resolve(`/favorites/viewer?at=${(currentPage - 1) * DEFAULT_LIMIT + i}`)}
-								aria-label="Open {item.title} page {item.page_index + 1} in the viewer"
+								aria-label="Open {item.title} {favoriteImageLabel(item)} in the viewer"
 								class="block"
 							>
 								<img
-									src={`/api/archives/${item.archive_id}/pages/${item.page_index}`}
-									alt="{item.title} page {item.page_index + 1}"
+									src={favoriteImageSrc(item)}
+									alt="{item.title} {favoriteImageLabel(item)}"
 									loading="lazy"
 									class="w-full select-none"
 									draggable="false"
@@ -113,7 +124,7 @@
 					>
 						<p class="truncate px-2 pb-2 text-xs font-medium text-white">
 							{item.title}
-							<span class="text-white/70">· p. {item.page_index + 1}</span>
+							<span class="text-white/70">· {favoriteImageLabel(item)}</span>
 						</p>
 					</div>
 
@@ -131,15 +142,19 @@
 								variant="secondary"
 								size="icon-sm"
 								aria-label="Open {item.title} in the library"
-								title="Open in archive"
-								onclick={() => goto(resolve(`/a/${item.archive_id}`))}
+								title={item.kind === 'audio' ? 'Open work' : 'Open in archive'}
+								onclick={() => goto(resolve(favoriteImageWorkHref(item)))}
 							>
-								<BookOpen class="size-4" />
+								{#if item.kind === 'audio'}
+									<AudioLines class="size-4" />
+								{:else}
+									<BookOpen class="size-4" />
+								{/if}
 							</Button>
 							<Button
 								variant="secondary"
 								size="icon-sm"
-								aria-label="Remove {item.title} page {item.page_index + 1} from favorites"
+								aria-label="Remove {item.title} {favoriteImageLabel(item)} from favorites"
 								title="Remove from favorites"
 								onclick={() => unfavorite(item)}
 							>

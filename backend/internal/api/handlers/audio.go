@@ -1332,6 +1332,149 @@ func (h *AudioHandler) RemoveFavorite(w http.ResponseWriter, r *http.Request) {
 		})
 }
 
+// AudioImageFavoriteIndicesResponse lists the current user's favorited image
+// indices for one work, ascending.
+type AudioImageFavoriteIndicesResponse struct {
+	Indices []int32 `json:"indices"`
+}
+
+// favoriteAudioImageTarget validates the work and image index path
+// parameters without checking the index against the work's current image
+// count - removing a favorite whose image has since disappeared must stay
+// possible. The add path checks the count itself.
+func (h *AudioHandler) favoriteAudioImageTarget(
+	w http.ResponseWriter,
+	r *http.Request,
+) (sqlc.Audio, int, bool) {
+	index, err := strconv.Atoi(chi.URLParam(r, "index"))
+	if err != nil || index < 0 {
+		response.BadRequest(w, "invalid image index")
+
+		return sqlc.Audio{}, 0, false
+	}
+
+	audio, ok := h.loadScopedAudio(w, r, chi.URLParam(r, "id"))
+	if !ok {
+		return sqlc.Audio{}, 0, false
+	}
+
+	return audio, index, true
+}
+
+// AddFavoriteImage godoc
+//
+//	@Summary		Favorite one gallery image of an audio work
+//	@Description	Idempotent. Adding the same image twice leaves one row.
+//	@Tags			audio
+//	@Param			id		path	string	true	"Audio ID"
+//	@Param			index	path	int		true	"Image index (0-based)"
+//	@Success		204
+//	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/audio/{id}/images/{index}/favorite [put]
+func (h *AudioHandler) AddFavoriteImage(w http.ResponseWriter, r *http.Request) {
+	audio, index, ok := h.favoriteAudioImageTarget(w, r)
+	if !ok {
+		return
+	}
+
+	images, err := h.queries.GetAudioImages(r.Context(), audio.ID)
+	if err != nil {
+		h.logger.Error("get audio images failed", "id", audio.ID, "error", err)
+		response.InternalError(w, "failed to favorite image")
+
+		return
+	}
+
+	if index >= len(images) {
+		response.NotFound(w, "image not found")
+		return
+	}
+
+	if err := h.queries.AddFavoriteAudioImage(r.Context(), sqlc.AddFavoriteAudioImageParams{
+		AudioID:    audio.ID,
+		Uid:        auth.UserIDFromContext(r.Context()),
+		ImageIndex: int64(index),
+	}); err != nil {
+		h.logger.Error("add favorite image failed", "id", audio.ID, "index", index, "error", err)
+		response.InternalError(w, "failed to favorite image")
+
+		return
+	}
+
+	response.NoContent(w)
+}
+
+// RemoveFavoriteImage godoc
+//
+//	@Summary		Unfavorite one gallery image of an audio work
+//	@Description	Idempotent no-op if the image wasn't favorited. Works for an index the work no longer has, so stale favorites can still be cleared.
+//	@Tags			audio
+//	@Param			id		path	string	true	"Audio ID"
+//	@Param			index	path	int		true	"Image index (0-based)"
+//	@Success		204
+//	@Failure		400	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/audio/{id}/images/{index}/favorite [delete]
+func (h *AudioHandler) RemoveFavoriteImage(w http.ResponseWriter, r *http.Request) { //nolint:dupl // same flow as the archive page-favorite handler; the typed queries differ
+	audio, index, ok := h.favoriteAudioImageTarget(w, r)
+	if !ok {
+		return
+	}
+
+	if err := h.queries.RemoveFavoriteAudioImage(r.Context(), sqlc.RemoveFavoriteAudioImageParams{
+		AudioID:    audio.ID,
+		Uid:        auth.UserIDFromContext(r.Context()),
+		ImageIndex: int64(index),
+	}); err != nil {
+		h.logger.Error("remove favorite image failed", "id", audio.ID, "index", index, "error", err)
+		response.InternalError(w, "failed to unfavorite image")
+
+		return
+	}
+
+	response.NoContent(w)
+}
+
+// GetFavoriteImageIndices godoc
+//
+//	@Summary		List the current user's favorited image indices for an audio work
+//	@Tags			audio
+//	@Produce		json
+//	@Param			id	path		string	true	"Audio ID"
+//	@Success		200	{object}	AudioImageFavoriteIndicesResponse
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/audio/{id}/favorite-images [get]
+func (h *AudioHandler) GetFavoriteImageIndices(w http.ResponseWriter, r *http.Request) {
+	audio, ok := h.loadScopedAudio(w, r, chi.URLParam(r, "id"))
+	if !ok {
+		return
+	}
+
+	rows, err := h.queries.GetFavoriteAudioImageIndices(r.Context(),
+		sqlc.GetFavoriteAudioImageIndicesParams{
+			AudioID: audio.ID,
+			Uid:     auth.UserIDFromContext(r.Context()),
+		})
+	if err != nil {
+		h.logger.Error("get favorite image indices failed", "id", audio.ID, "error", err)
+		response.InternalError(w, "failed to get favorite images")
+
+		return
+	}
+
+	indices := make([]int32, len(rows))
+	for i, index := range rows {
+		//nolint:gosec // image_index is CHECK (image_index >= 0) and bounded by the work's image count
+		indices[i] = int32(index)
+	}
+
+	response.JSON(w, http.StatusOK, AudioImageFavoriteIndicesResponse{Indices: indices})
+}
+
 // MarkStarted godoc
 //
 //	@Summary		Record that an audio work started playing

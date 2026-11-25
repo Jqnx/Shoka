@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
-import type { FavoritePageItem, FavoritePageListResponse, ReaderSettings } from '$lib/types';
+import type { FavoriteImageItem, FavoriteImageListResponse, ReaderSettings } from '$lib/types';
 
 // This route resets past the (app) layout (see +page@.svelte) for a
 // chrome-free, full-bleed viewer - which also means it skips that layout's
@@ -28,12 +28,12 @@ export const load: PageServerLoad = async ({ locals, fetch, url }) => {
 
 	// The whole list is loaded because the slideshow walks it in order; one
 	// page of metadata is tiny and the images lazy-load.
-	const items: FavoritePageItem[] = [];
+	const items: FavoriteImageItem[] = [];
 	for (let p = 1; ; p++) {
-		const res = await fetch(`/api/archives/favorites/pages?page=${p}&limit=${PAGE_SIZE}`);
+		const res = await fetch(`/api/favorites/pages?page=${p}&limit=${PAGE_SIZE}`);
 		if (!res.ok) break;
 
-		const data: FavoritePageListResponse = await res.json();
+		const data: FavoriteImageListResponse = await res.json();
 		const pageItems = data.items ?? [];
 		items.push(...pageItems);
 

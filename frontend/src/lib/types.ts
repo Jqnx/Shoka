@@ -418,21 +418,70 @@ export type ReaderSettings = {
 	slideshow_loop: boolean;
 };
 
-// One favorited page as returned by GET /api/archives/favorites/pages.
-export type FavoritePageItem = {
-	archive_id: string;
+// One favorited image in GET /api/favorites/pages: an archive page or an
+// audio gallery image. page_index is that work's 0-based page/image index.
+type FavoriteImageBase = {
 	title: string;
 	page_count: number;
-	page_index: number; // 0-based, like every API page reference
+	page_index: number;
 	favorited_at: string;
+	// Source work timestamp; audio previews version their URL with it.
+	updated_at: string;
 };
 
-export type FavoritePageListResponse = {
-	items: FavoritePageItem[];
+export type FavoriteImageItem =
+	| (FavoriteImageBase & { kind: 'archive'; archive_id: string; audio_id?: undefined })
+	| (FavoriteImageBase & { kind: 'audio'; audio_id: string; archive_id?: undefined });
+
+export type FavoriteImageListResponse = {
+	items: FavoriteImageItem[];
 	total: number;
 	page: number;
 	limit: number;
 };
+
+// Stable identity across the mixed feed; archive and audio ids can collide.
+export function favoriteImageKey(item: FavoriteImageItem): string {
+	return item.kind === 'audio'
+		? `audio:${item.audio_id}:${item.page_index}`
+		: `archive:${item.archive_id}:${item.page_index}`;
+}
+
+// The full image used by the feed grid and viewer. Audio uses the cached
+// preview render because gallery originals can be much larger than a page; a
+// rescan can reuse an index for a different file, so version it like the
+// gallery does.
+export function favoriteImageSrc(item: FavoriteImageItem): string {
+	return item.kind === 'audio'
+		? `/api/audio/${item.audio_id}/images/${item.page_index}/preview?v=${encodeURIComponent(item.updated_at)}`
+		: `/api/archives/${item.archive_id}/pages/${item.page_index}`;
+}
+
+// "p. 3" for archive pages, "img. 3" for audio images (both 1-based).
+export function favoriteImageLabel(item: FavoriteImageItem): string {
+	return item.kind === 'audio' ? `img. ${item.page_index + 1}` : `p. ${item.page_index + 1}`;
+}
+
+// Where the item lives in the library.
+export function favoriteImageWorkHref(
+	item: FavoriteImageItem
+): `/a/${string}` | `/audio/${string}` {
+	return item.kind === 'audio' ? `/audio/${item.audio_id}` : `/a/${item.archive_id}`;
+}
+
+// The per-item favorite endpoint used to remove it from either feed.
+export function favoriteImageEndpoint(item: FavoriteImageItem): string {
+	return item.kind === 'audio'
+		? `/api/audio/${item.audio_id}/images/${item.page_index}/favorite`
+		: `/api/archives/${item.archive_id}/pages/${item.page_index}/favorite`;
+}
+
+// Archive page originals keep their source extension; audio serves WebP.
+export function favoriteImageDownloadName(item: FavoriteImageItem): string {
+	return item.kind === 'audio'
+		? `${item.audio_id}-image-${item.page_index + 1}.webp`
+		: `${item.archive_id}-page-${item.page_index + 1}`;
+}
 
 // One archive within a DuplicateGroup, as returned by GET /api/admin/duplicates.
 export type DuplicateArchive = {

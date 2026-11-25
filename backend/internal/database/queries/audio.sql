@@ -261,6 +261,26 @@ select exists (
 ) = 1
 ;
 
+-- name: AddFavoriteAudioImage :exec
+insert into audio_image_favorite (audio_id, user_id, image_index, favorited_at)
+values (sqlc.arg('audio_id'), sqlc.arg('uid'), sqlc.arg('image_index'), datetime('now'))
+on conflict (audio_id, user_id, image_index) do nothing
+;
+
+-- name: RemoveFavoriteAudioImage :exec
+delete from audio_image_favorite
+where audio_id = sqlc.arg('audio_id')
+  and user_id = sqlc.arg('uid')
+  and image_index = sqlc.arg('image_index')
+;
+
+-- name: GetFavoriteAudioImageIndices :many
+select image_index
+from audio_image_favorite
+where audio_id = sqlc.arg('audio_id') and user_id = sqlc.arg('uid')
+order by image_index asc
+;
+
 -- name: GetFavoritedAudioIDs :many
 select audio_id
 from audio_favorite
