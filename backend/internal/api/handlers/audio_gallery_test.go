@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"Shoka/internal/auth"
 	"Shoka/internal/database/sqlc"
 	"Shoka/internal/events"
 	"Shoka/internal/image"
@@ -71,6 +72,13 @@ CREATE TABLE audio_voice_actor (audio_id TEXT NOT NULL, voice_actor_id INTEGER N
 CREATE TABLE audio_favorite (audio_id TEXT NOT NULL, user_id TEXT NOT NULL, favorited_at DATETIME NOT NULL);
 CREATE TABLE audio_played (audio_id TEXT NOT NULL, user_id TEXT NOT NULL, played_at DATETIME NOT NULL, completed INTEGER NOT NULL DEFAULT 0);
 CREATE TABLE audio_rating (audio_id TEXT NOT NULL, user_id TEXT NOT NULL, rating INTEGER NOT NULL, rated_at DATETIME NOT NULL);
+CREATE TABLE audio_image_favorite (
+    audio_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    image_index INTEGER NOT NULL CHECK (image_index >= 0),
+    favorited_at DATETIME NOT NULL,
+    PRIMARY KEY (audio_id, user_id, image_index)
+);
 
 CREATE TABLE job (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -665,5 +673,154 @@ func TestAudioSetCoverMissingImage(t *testing.T) {
 	after := fx.processor.CachedAudioCover("work1")
 	if after.Path != before.Path || after.ModTime == nil || !after.ModTime.Equal(*before.ModTime) {
 		t.Errorf("existing cover changed after a failed request: before=%+v after=%+v", before, after)
+	}
+}
+
+// favoriteImagesRequest adds the caller identity the favorite handlers read
+// from the request context.
+func favoriteImagesRequest(t *testing.T, method, id, index, uid string) *http.Request {
+	t.Helper()
+
+	req := audioGalleryRequest(t, method, "/api/audio/"+id, id, index)
+
+	return req.WithContext(auth.WithUserID(req.Context(), uid))
+}
+
+func favoriteImageIndices(t *testing.T, fx audioGalleryFixture, uid string) []int32 {
+	t.Helper()
+
+	rec := httptest.NewRecorder()
+	fx.handler.GetFavoriteImageIndices(rec, favoriteImagesRequest(t, http.MethodGet, "work1", "", uid))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp AudioImageFavoriteIndicesResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	return resp.Indices
+}
+
+func addFavoriteImage(t *testing.T, fx audioGalleryFixture, index, uid string) {
+	t.Helper()
+
+	rec := httptest.NewRecorder()
+	fx.handler.AddFavoriteImage(rec, favoriteImagesRequest(t, http.MethodPut, "work1", index, uid))
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("add status = %d, want 204: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func removeFavoriteImage(t *testing.T, fx audioGalleryFixture, index, uid string) {
+	t.Helper()
+
+	rec := httptest.NewRecorder()
+	fx.handler.RemoveFavoriteImage(rec, favoriteImagesRequest(t, http.MethodDelete, "work1", index, uid))
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("remove status = %d, want 204: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAudioFavoriteImages(t *testing.T) {
+	t.Parallel()
+
+	fx := newAudioGalleryHandler(t)
+	seedAudioImage(t, fx, "002.png", 1, 120, 80)
+
+	const (
+		user  = "user1"
+		other = "user2"
+	)
+
+	if got := favoriteImageIndices(t, fx, user); len(got) != 0 {
+		t.Fatalf("initial favorites = %v, want none", got)
+	}
+
+	// Idempotent add.
+	for range 2 {
+		addFavoriteImage(t, fx, "1", user)
+	}
+
+	if got := favoriteImageIndices(t, fx, user); len(got) != 1 || got[0] != 1 {
+		t.Errorf("favorites for the caller = %v, want [1]", got)
+	}
+
+	// Favorites are per-user.
+	if got := favoriteImageIndices(t, fx, other); len(got) != 0 {
+		t.Errorf("favorites for another user = %v, want none", got)
+	}
+
+	// Another user's favorite is invisible and cannot be cleared by the caller.
+	addFavoriteImage(t, fx, "0", other)
+
+	if got := favoriteImageIndices(t, fx, other); len(got) != 1 || got[0] != 0 {
+		t.Errorf("favorites for another user = %v, want [0]", got)
+	}
+
+	removeFavoriteImage(t, fx, "0", user)
+
+	if got := favoriteImageIndices(t, fx, other); len(got) != 1 || got[0] != 0 {
+		t.Errorf("another user's favorite was removed: %v, want [0]", got)
+	}
+
+	removeFavoriteImage(t, fx, "1", user)
+
+	if got := favoriteImageIndices(t, fx, user); len(got) != 0 {
+		t.Errorf("favorites after removal = %v, want none", got)
+	}
+
+	if got := favoriteImageIndices(t, fx, other); len(got) != 1 || got[0] != 0 {
+		t.Errorf("another user's favorite changed during removal: %v, want [0]", got)
+	}
+}
+
+func TestAudioFavoriteImageRejectsInvalidIndex(t *testing.T) {
+	t.Parallel()
+
+	fx := newAudioGalleryHandler(t)
+
+	tests := []struct {
+		name  string
+		index string
+		want  int
+	}{
+		{name: "negative", index: "-1", want: http.StatusBadRequest},
+		{name: "malformed", index: "nope", want: http.StatusBadRequest},
+		{name: "past the last image", index: "1", want: http.StatusNotFound},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			rec := httptest.NewRecorder()
+			fx.handler.AddFavoriteImage(rec,
+				favoriteImagesRequest(t, http.MethodPut, "work1", tt.index, "user1"))
+
+			if rec.Code != tt.want {
+				t.Errorf("status = %d, want %d: %s", rec.Code, tt.want, rec.Body.String())
+			}
+		})
+	}
+}
+
+func TestAudioRemoveFavoriteImageAllowsStaleIndex(t *testing.T) {
+	t.Parallel()
+
+	fx := newAudioGalleryHandler(t)
+
+	// Removing an index the work no longer has must stay possible so a stale
+	// favorite can be cleared.
+	rec := httptest.NewRecorder()
+	fx.handler.RemoveFavoriteImage(rec,
+		favoriteImagesRequest(t, http.MethodDelete, "work1", "99", "user1"))
+
+	if rec.Code != http.StatusNoContent {
+		t.Errorf("status = %d, want 204: %s", rec.Code, rec.Body.String())
 	}
 }

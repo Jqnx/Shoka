@@ -6,27 +6,9 @@ import (
 	"Shoka/internal/database/sqlc"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 )
-
-// FavoritePageItem is one favorited page in the cross-library feed.
-type FavoritePageItem struct {
-	ArchiveID   string `json:"archive_id"`
-	Title       string `json:"title"`
-	PageCount   int    `json:"page_count"`
-	PageIndex   int    `json:"page_index"`
-	FavoritedAt string `json:"favorited_at"`
-}
-
-// FavoritePageListResponse is the paginated favorite-pages feed.
-type FavoritePageListResponse struct {
-	Items []FavoritePageItem `json:"items"`
-	Total int64              `json:"total"`
-	Page  int                `json:"page"`
-	Limit int                `json:"limit"`
-}
 
 // FavoritePageIndicesResponse lists the current user's favorited page indices
 // for one archive, ascending.
@@ -121,7 +103,7 @@ func (h *ArchiveHandler) AddFavoritePage(w http.ResponseWriter, r *http.Request)
 //	@Failure		404	{object}	response.Error
 //	@Failure		500	{object}	response.Error
 //	@Router			/api/archives/{id}/pages/{index}/favorite [delete]
-func (h *ArchiveHandler) RemoveFavoritePage(w http.ResponseWriter, r *http.Request) {
+func (h *ArchiveHandler) RemoveFavoritePage(w http.ResponseWriter, r *http.Request) { //nolint:dupl // mirrors the audio image-favorite handler; the typed queries differ
 	archive, index, ok := h.favoritePageTarget(w, r)
 	if !ok {
 		return
@@ -176,64 +158,4 @@ func (h *ArchiveHandler) GetFavoritePageIndices(w http.ResponseWriter, r *http.R
 	}
 
 	response.JSON(w, http.StatusOK, FavoritePageIndicesResponse{Indices: indices})
-}
-
-// GetFavoritePages godoc
-//
-//	@Summary		List the current user's favorited pages across accessible archives
-//	@Description	Newest first. Pages an archive has since shrunk past are omitted.
-//	@Tags			archives
-//	@Produce		json
-//	@Param			page	query		int	false	"Page number (default 1)"
-//	@Param			limit	query		int	false	"Page size (default 24, max 100)"
-//	@Success		200		{object}	FavoritePageListResponse
-//	@Failure		500		{object}	response.Error
-//	@Router			/api/archives/favorites/pages [get]
-func (h *ArchiveHandler) GetFavoritePages(w http.ResponseWriter, r *http.Request) {
-	userID := auth.UserIDFromContext(r.Context())
-
-	page, limit := parsePagination(r, defaultArchiveLimit)
-	offset := int64((page - 1) * limit)
-
-	total, err := h.queries.CountUserFavoritePages(r.Context(), sqlc.CountUserFavoritePagesParams{
-		Uid:          userID,
-		AllLibraries: auth.LibraryScopeFromContext(r.Context()).Unrestricted(),
-	})
-	if err != nil {
-		h.logger.Error("count favorite pages failed", "error", err)
-		response.InternalError(w, "failed to count favorite pages")
-
-		return
-	}
-
-	rows, err := h.queries.GetUserFavoritePageList(r.Context(), sqlc.GetUserFavoritePageListParams{
-		Uid:          userID,
-		AllLibraries: auth.LibraryScopeFromContext(r.Context()).Unrestricted(),
-		Offset:       offset,
-		Limit:        int64(limit),
-	})
-	if err != nil {
-		h.logger.Error("get favorite pages failed", "error", err)
-		response.InternalError(w, "failed to get favorite pages")
-
-		return
-	}
-
-	items := make([]FavoritePageItem, 0, len(rows))
-	for _, row := range rows {
-		items = append(items, FavoritePageItem{
-			ArchiveID:   row.ArchiveID,
-			Title:       row.Title,
-			PageCount:   int(row.PageCount),
-			PageIndex:   int(row.PageIndex),
-			FavoritedAt: row.FavoritedAt.Format(time.RFC3339),
-		})
-	}
-
-	response.JSON(w, http.StatusOK, FavoritePageListResponse{
-		Items: items,
-		Total: total,
-		Page:  page,
-		Limit: limit,
-	})
 }

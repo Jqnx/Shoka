@@ -135,6 +135,13 @@ definitions:
           type: string
         type: array
     type: object
+  handlers.AudioImageFavoriteIndicesResponse:
+    properties:
+      indices:
+        items:
+          type: integer
+        type: array
+    type: object
   handlers.AudioImageResponse:
     properties:
       index:
@@ -480,18 +487,15 @@ definitions:
           $ref: '#/definitions/handlers.DuplicateArchive'
         type: array
     type: object
-  handlers.FavoritePageIndicesResponse:
-    properties:
-      indices:
-        items:
-          type: integer
-        type: array
-    type: object
-  handlers.FavoritePageItem:
+  handlers.FavoriteImageItem:
     properties:
       archive_id:
         type: string
+      audio_id:
+        type: string
       favorited_at:
+        type: string
+      kind:
         type: string
       page_count:
         type: integer
@@ -499,12 +503,17 @@ definitions:
         type: integer
       title:
         type: string
+      updated_at:
+        description: |-
+          UpdatedAt is the source work's timestamp; audio previews use it to bust
+          the browser cache when a rescan replaces the image at the same index.
+        type: string
     type: object
-  handlers.FavoritePageListResponse:
+  handlers.FavoriteImageListResponse:
     properties:
       items:
         items:
-          $ref: '#/definitions/handlers.FavoritePageItem'
+          $ref: '#/definitions/handlers.FavoriteImageItem'
         type: array
       limit:
         type: integer
@@ -512,6 +521,13 @@ definitions:
         type: integer
       total:
         type: integer
+    type: object
+  handlers.FavoritePageIndicesResponse:
+    properties:
+      indices:
+        items:
+          type: integer
+        type: array
     type: object
   handlers.JobSnapshot:
     properties:
@@ -2681,32 +2697,6 @@ paths:
       summary: List favorited archives across accessible libraries
       tags:
       - archives
-  /api/archives/favorites/pages:
-    get:
-      description: Newest first. Pages an archive has since shrunk past are omitted.
-      parameters:
-      - description: Page number (default 1)
-        in: query
-        name: page
-        type: integer
-      - description: Page size (default 24, max 100)
-        in: query
-        name: limit
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/handlers.FavoritePageListResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/response.Error'
-      summary: List the current user's favorited pages across accessible archives
-      tags:
-      - archives
   /api/archives/languages:
     get:
       description: Returns every distinct language code currently in use across the
@@ -3421,6 +3411,32 @@ paths:
       summary: Favorite an audio work
       tags:
       - audio
+  /api/audio/{id}/favorite-images:
+    get:
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.AudioImageFavoriteIndicesResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List the current user's favorited image indices for an audio work
+      tags:
+      - audio
   /api/audio/{id}/images/{index}:
     get:
       parameters:
@@ -3446,6 +3462,70 @@ paths:
           schema:
             $ref: '#/definitions/response.Error'
       summary: Get one image of an audio work
+      tags:
+      - audio
+  /api/audio/{id}/images/{index}/favorite:
+    delete:
+      description: Idempotent no-op if the image wasn't favorited. Works for an index
+        the work no longer has, so stale favorites can still be cleared.
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Image index (0-based)
+        in: path
+        name: index
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Unfavorite one gallery image of an audio work
+      tags:
+      - audio
+    put:
+      description: Idempotent. Adding the same image twice leaves one row.
+      parameters:
+      - description: Audio ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Image index (0-based)
+        in: path
+        name: index
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/response.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/response.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: Favorite one gallery image of an audio work
       tags:
       - audio
   /api/audio/{id}/images/{index}/preview:
@@ -4040,6 +4120,33 @@ paths:
       summary: List every circle
       tags:
       - circles
+  /api/favorites/pages:
+    get:
+      description: Newest first across both media. Items whose source has since shrunk
+        past the index are omitted.
+      parameters:
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Page size (default 24, max 100)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.FavoriteImageListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/response.Error'
+      summary: List the current user's favorited archive pages and audio images
+      tags:
+      - favorites
   /api/libraries:
     get:
       produces:

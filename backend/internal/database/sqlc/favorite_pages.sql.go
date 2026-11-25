@@ -27,26 +27,37 @@ func (q *Queries) AddFavoritePage(ctx context.Context, arg AddFavoritePageParams
 	return err
 }
 
-const countUserFavoritePages = `-- name: CountUserFavoritePages :one
+const countUserFavoriteImages = `-- name: CountUserFavoriteImages :one
 ;
 
 select count(*)
-from favorite_page as fp
-join archive as a on a.id = fp.archive_id
-where fp.user_id = ?1 and fp.page_index < a.page_count
-  and (?2 = 1
-       or a.library_id in (select library_id from library_access where user_id = ?1))
+from (
+    select 1
+    from favorite_page as fp
+    join archive as a on a.id = fp.archive_id
+    where fp.user_id = ?1 and fp.page_index < a.page_count
+      and (?2 = 1
+           or a.library_id in (select library_id from library_access where user_id = ?1))
+    union all
+    select 1
+    from audio_image_favorite as af
+    join audio as au on au.id = af.audio_id
+    where af.user_id = ?1
+      and af.image_index < (select count(*) from audio_image as ai where ai.audio_id = af.audio_id)
+      and (?2 = 1
+           or au.library_id in (select library_id from library_access where user_id = ?1))
+)
 `
 
-type CountUserFavoritePagesParams struct {
+type CountUserFavoriteImagesParams struct {
 	Uid          string      `json:"uid"`
 	AllLibraries interface{} `json:"all_libraries"`
 }
 
-// Same library scope as GetUserFavoritePageList: the total must describe the
-// same set the list pages through.
-func (q *Queries) CountUserFavoritePages(ctx context.Context, arg CountUserFavoritePagesParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countUserFavoritePages, arg.Uid, arg.AllLibraries)
+// Same library scope and stale-index filters as GetUserFavoriteImageList: the
+// total must describe the same set the list pages through.
+func (q *Queries) CountUserFavoriteImages(ctx context.Context, arg CountUserFavoriteImagesParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUserFavoriteImages, arg.Uid, arg.AllLibraries)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -89,45 +100,71 @@ func (q *Queries) GetFavoritePageIndices(ctx context.Context, arg GetFavoritePag
 	return items, nil
 }
 
-const getUserFavoritePageList = `-- name: GetUserFavoritePageList :many
+const getUserFavoriteImageList = `-- name: GetUserFavoriteImageList :many
 ;
 
-select fp.archive_id, fp.page_index, fp.favorited_at,
-       a.title, a.page_count
-from favorite_page as fp
-join archive as a on a.id = fp.archive_id
-where fp.user_id = ?1 and fp.page_index < a.page_count
-  and (?2 = 1
-       or a.library_id in (select library_id from library_access where user_id = ?1))
-order by fp.favorited_at desc, fp.rowid desc
+select kind, archive_id, audio_id, title, item_count, item_index, favorited_at, updated_at
+from (
+    select 'archive' as kind,
+           fp.archive_id as archive_id,
+           '' as audio_id,
+           a.title as title,
+           a.page_count as item_count,
+           fp.page_index as item_index,
+           fp.favorited_at as favorited_at,
+           a.updated_at as updated_at
+    from favorite_page as fp
+    join archive as a on a.id = fp.archive_id
+    where fp.user_id = ?1 and fp.page_index < a.page_count
+      and (?2 = 1
+           or a.library_id in (select library_id from library_access where user_id = ?1))
+    union all
+    select 'audio' as kind,
+           '' as archive_id,
+           af.audio_id as audio_id,
+           au.title as title,
+           (select count(*) from audio_image as ai where ai.audio_id = af.audio_id) as item_count,
+           af.image_index as item_index,
+           af.favorited_at as favorited_at,
+           au.updated_at as updated_at
+    from audio_image_favorite as af
+    join audio as au on au.id = af.audio_id
+    where af.user_id = ?1
+      and af.image_index < (select count(*) from audio_image as ai where ai.audio_id = af.audio_id)
+      and (?2 = 1
+           or au.library_id in (select library_id from library_access where user_id = ?1))
+)
+order by favorited_at desc, kind asc, archive_id desc, audio_id desc, item_index desc
 limit ?4
 offset ?3
 `
 
-type GetUserFavoritePageListParams struct {
+type GetUserFavoriteImageListParams struct {
 	Uid          string      `json:"uid"`
 	AllLibraries interface{} `json:"all_libraries"`
 	Offset       int64       `json:"offset"`
 	Limit        int64       `json:"limit"`
 }
 
-type GetUserFavoritePageListRow struct {
+type GetUserFavoriteImageListRow struct {
+	Kind        string    `json:"kind"`
 	ArchiveID   string    `json:"archive_id"`
-	PageIndex   int64     `json:"page_index"`
-	FavoritedAt time.Time `json:"favorited_at"`
+	AudioID     string    `json:"audio_id"`
 	Title       string    `json:"title"`
-	PageCount   int64     `json:"page_count"`
+	ItemCount   int64     `json:"item_count"`
+	ItemIndex   int64     `json:"item_index"`
+	FavoritedAt time.Time `json:"favorited_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// Favorite pages across every library the caller may access (all of them for
-// an admin), newest first. The page_index < page_count filter hides rows whose
-// archive has since shrunk past that index; the rows are kept so the user can
-// still unfavorite them.
-// fp.rowid is the tiebreaker: favorited_at only has second granularity, and
-// the gallery's global ordinal must line up across separately paginated
-// requests.
-func (q *Queries) GetUserFavoritePageList(ctx context.Context, arg GetUserFavoritePageListParams) ([]GetUserFavoritePageListRow, error) {
-	rows, err := q.db.QueryContext(ctx, getUserFavoritePageList,
+// Favorite archive pages and audio gallery images across every library the
+// caller may access (all of them for an admin), newest first. Each arm hides
+// rows whose source has since shrunk past the index; the rows are kept so the
+// user can still unfavorite them. favorited_at has second granularity, so the
+// id/index columns break ties and keep the viewer's global ordinal stable
+// across paginated requests.
+func (q *Queries) GetUserFavoriteImageList(ctx context.Context, arg GetUserFavoriteImageListParams) ([]GetUserFavoriteImageListRow, error) {
+	rows, err := q.db.QueryContext(ctx, getUserFavoriteImageList,
 		arg.Uid,
 		arg.AllLibraries,
 		arg.Offset,
@@ -137,15 +174,18 @@ func (q *Queries) GetUserFavoritePageList(ctx context.Context, arg GetUserFavori
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetUserFavoritePageListRow
+	var items []GetUserFavoriteImageListRow
 	for rows.Next() {
-		var i GetUserFavoritePageListRow
+		var i GetUserFavoriteImageListRow
 		if err := rows.Scan(
+			&i.Kind,
 			&i.ArchiveID,
-			&i.PageIndex,
-			&i.FavoritedAt,
+			&i.AudioID,
 			&i.Title,
-			&i.PageCount,
+			&i.ItemCount,
+			&i.ItemIndex,
+			&i.FavoritedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

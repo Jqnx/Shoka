@@ -1,5 +1,13 @@
 <script lang="ts">
-	import type { FitMode, FavoritePageItem, ReaderSettings } from '$lib/types';
+	import {
+		favoriteImageEndpoint,
+		favoriteImageLabel,
+		favoriteImageSrc,
+		favoriteImageWorkHref,
+		type FitMode,
+		type FavoriteImageItem,
+		type ReaderSettings
+	} from '$lib/types';
 	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import * as Popover from '$lib/components/ui/popover/index.js';
@@ -7,6 +15,7 @@
 	import { Slider } from '$lib/components/ui/slider/index.js';
 	import { Switch } from '$lib/components/ui/switch/index.js';
 	import {
+		AudioLines,
 		BookOpen,
 		ChevronLeft,
 		ChevronRight,
@@ -17,14 +26,14 @@
 		Shuffle,
 		Undo2
 	} from '@lucide/svelte';
-	import { backgroundClass, pageImageStyle, pageUrl } from '$lib/components/reader/reader-utils';
+	import { backgroundClass, pageImageStyle } from '$lib/components/reader/reader-utils';
 
 	let {
 		items: initialItems,
 		initialAt,
 		initialSettings
 	}: {
-		items: FavoritePageItem[];
+		items: FavoriteImageItem[];
 		initialAt: number;
 		initialSettings: ReaderSettings;
 	} = $props();
@@ -170,10 +179,7 @@
 		if (!item) return;
 
 		try {
-			const res = await fetch(
-				`/api/archives/${item.archive_id}/pages/${item.page_index}/favorite`,
-				{ method: 'DELETE' }
-			);
+			const res = await fetch(favoriteImageEndpoint(item), { method: 'DELETE' });
 			if (!res.ok) return;
 		} catch {
 			return;
@@ -251,7 +257,7 @@
 <svelte:window onkeydowncapture={handleKeydown} />
 
 <svelte:head>
-	<title>{current ? `${current.title} | Favorite Pages | Shoka` : 'Favorite Pages | Shoka'}</title>
+	<title>{current ? `${current.title} | Favorites | Shoka` : 'Favorites | Shoka'}</title>
 </svelte:head>
 
 <div
@@ -261,8 +267,8 @@
 	<div class="flex h-full min-w-full">
 		{#if current}
 			<img
-				src={pageUrl(current.archive_id, current.page_index)}
-				alt="{current.title} page {current.page_index + 1}"
+				src={favoriteImageSrc(current)}
+				alt="{current.title} {favoriteImageLabel(current)}"
 				style={pageImageStyle(settings.fit_mode)}
 				class="m-auto select-none"
 				draggable="false"
@@ -271,12 +277,7 @@
 	</div>
 
 	{#if nextItem}
-		<img
-			src={pageUrl(nextItem.archive_id, nextItem.page_index)}
-			alt=""
-			class="hidden"
-			aria-hidden="true"
-		/>
+		<img src={favoriteImageSrc(nextItem)} alt="" class="hidden" aria-hidden="true" />
 	{/if}
 
 	<div class="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-3">
@@ -285,7 +286,7 @@
 		>
 			<nav
 				class="flex h-12 max-w-full items-stretch overflow-hidden rounded-[inherit]"
-				aria-label="Favorite pages viewer"
+				aria-label="Favorites viewer"
 			>
 				<a
 					href={resolve('/favorites')}
@@ -300,8 +301,8 @@
 					type="button"
 					class={cell}
 					disabled={at === 0}
-					aria-label="Previous page"
-					title="Previous page"
+					aria-label="Previous item"
+					title="Previous item"
 					onclick={goToPrev}
 				>
 					<ChevronLeft class="size-4.5" />
@@ -317,8 +318,8 @@
 					type="button"
 					class={cell}
 					disabled={at >= items.length - 1}
-					aria-label="Next page"
-					title="Next page"
+					aria-label="Next item"
+					title="Next item"
 					onclick={goToNext}
 				>
 					<ChevronRight class="size-4.5" />
@@ -326,19 +327,23 @@
 
 				{#if current}
 					<a
-						href={resolve(`/a/${current.archive_id}`)}
-						class="flex h-full max-w-32 min-w-0 items-center gap-1.5 px-2 text-xs font-medium hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset sm:max-w-56"
+						href={resolve(favoriteImageWorkHref(current))}
+						class="flex h-full max-w-32 min-w-0 items-center gap-2 px-2 text-xs font-medium hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset sm:max-w-56"
 						title="Open {current.title} in the library"
 					>
-						<BookOpen class="size-4 shrink-0" />
+						{#if current.kind === 'audio'}
+							<AudioLines class="size-4 shrink-0" />
+						{:else}
+							<BookOpen class="size-4 shrink-0" />
+						{/if}
 						<span class="truncate">{current.title}</span>
-						<span class="shrink-0 text-muted-foreground">p. {current.page_index + 1}</span>
+						<span class="shrink-0 text-muted-foreground">{favoriteImageLabel(current)}</span>
 					</a>
 
 					<button
 						type="button"
 						class={cell}
-						aria-label="Remove this page from favorites"
+						aria-label="Remove this {current.kind === 'audio' ? 'image' : 'page'} from favorites"
 						title="Remove from favorites"
 						aria-pressed={favorited}
 						onclick={unfavoriteCurrent}

@@ -29,6 +29,25 @@ func (q *Queries) AddFavoriteAudio(ctx context.Context, arg AddFavoriteAudioPara
 	return err
 }
 
+const addFavoriteAudioImage = `-- name: AddFavoriteAudioImage :exec
+;
+
+insert into audio_image_favorite (audio_id, user_id, image_index, favorited_at)
+values (?1, ?2, ?3, datetime('now'))
+on conflict (audio_id, user_id, image_index) do nothing
+`
+
+type AddFavoriteAudioImageParams struct {
+	AudioID    string `json:"audio_id"`
+	Uid        string `json:"uid"`
+	ImageIndex int64  `json:"image_index"`
+}
+
+func (q *Queries) AddFavoriteAudioImage(ctx context.Context, arg AddFavoriteAudioImageParams) error {
+	_, err := q.db.ExecContext(ctx, addFavoriteAudioImage, arg.AudioID, arg.Uid, arg.ImageIndex)
+	return err
+}
+
 const audioIsFavorited = `-- name: AudioIsFavorited :one
 ;
 
@@ -1098,6 +1117,43 @@ func (q *Queries) GetAudiosByIDs(ctx context.Context, ids []string) ([]GetAudios
 	return items, nil
 }
 
+const getFavoriteAudioImageIndices = `-- name: GetFavoriteAudioImageIndices :many
+;
+
+select image_index
+from audio_image_favorite
+where audio_id = ?1 and user_id = ?2
+order by image_index asc
+`
+
+type GetFavoriteAudioImageIndicesParams struct {
+	AudioID string `json:"audio_id"`
+	Uid     string `json:"uid"`
+}
+
+func (q *Queries) GetFavoriteAudioImageIndices(ctx context.Context, arg GetFavoriteAudioImageIndicesParams) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getFavoriteAudioImageIndices, arg.AudioID, arg.Uid)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var image_index int64
+		if err := rows.Scan(&image_index); err != nil {
+			return nil, err
+		}
+		items = append(items, image_index)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getFavoritedAudioIDs = `-- name: GetFavoritedAudioIDs :many
 ;
 
@@ -1328,6 +1384,26 @@ type RemoveFavoriteAudioParams struct {
 
 func (q *Queries) RemoveFavoriteAudio(ctx context.Context, arg RemoveFavoriteAudioParams) error {
 	_, err := q.db.ExecContext(ctx, removeFavoriteAudio, arg.AudioID, arg.Uid)
+	return err
+}
+
+const removeFavoriteAudioImage = `-- name: RemoveFavoriteAudioImage :exec
+;
+
+delete from audio_image_favorite
+where audio_id = ?1
+  and user_id = ?2
+  and image_index = ?3
+`
+
+type RemoveFavoriteAudioImageParams struct {
+	AudioID    string `json:"audio_id"`
+	Uid        string `json:"uid"`
+	ImageIndex int64  `json:"image_index"`
+}
+
+func (q *Queries) RemoveFavoriteAudioImage(ctx context.Context, arg RemoveFavoriteAudioImageParams) error {
+	_, err := q.db.ExecContext(ctx, removeFavoriteAudioImage, arg.AudioID, arg.Uid, arg.ImageIndex)
 	return err
 }
 
