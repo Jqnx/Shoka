@@ -190,7 +190,7 @@
 										id="setup-library-path"
 										name="path"
 										bind:value={path}
-										placeholder="/data/library"
+										placeholder="/library"
 										required
 									/>
 									<InputGroup.Button

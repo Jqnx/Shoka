@@ -119,17 +119,22 @@ later are picked up by the watcher, and more libraries can be added at
 
 ## Configuration
 
-The container reads these environment variables. We recommend using a `.env` file to store them, or use docker secrets:
+`docker-compose.yml` reads these from your environment or a `.env` file. We
+recommend keeping them in `.env`, or using docker secrets:
 
 | Variable             | Default                 | Purpose                                                  |
 | -------------------- | ----------------------- | -------------------------------------------------------- |
 | `BETTER_AUTH_SECRET` | — (required)            | Session signing secret, 32+ characters.                  |
 | `ORIGIN`             | `http://localhost:3000` | Public URL, used for CSRF and cookies.                   |
 | `SHOKA_PORT`         | `3000`                  | Host port for the web UI.                                |
-| `SHOKA_LIBRARY`      | `./content`             | Host directory mounted at `/library`.                    |
 | `PUID` / `PGID`      | `1000`                  | UID/GID the container runs as and chowns the volumes to. |
 | `TZ`                 | `UTC`                   | Container timezone.                                      |
 | `LOG_LEVEL`          | `info`                  | `panic`/`fatal`/`error`/`warn`/`info`/`debug`/`trace`.   |
+
+The library path is not an environment variable: it is the `/library` bind
+mount in your Compose file. Point the volume's host side at your collection
+(the quick-start snippet uses `/path/to/library`), then enter the container
+path `/library` in the setup wizard.
 
 Settings not exposed as environment variables live in `config.yaml` inside the
 data volume. The keys it accepts are:
@@ -164,6 +169,15 @@ effect; after that, edits to the host file only need
 restart it after editing.
 
 ## Upgrading
+
+If you set `SHOKA_LIBRARY` in `.env`, earlier versions read the library's host
+path from it. That variable is gone and the repo's Compose file ignores it, so
+before pulling, replace the host side of the `/library` volume in
+`docker-compose.yml` (currently `./content`) with that path. Otherwise the
+recreated container mounts `./content`, the startup scan sees an empty library,
+and deletes its catalog entries — reading progress, favorites, and metadata
+included. Files on disk are not touched. A Compose file of your own that still
+interpolates `${SHOKA_LIBRARY}` keeps working as before.
 
 With Docker Compose:
 
