@@ -255,6 +255,8 @@ export type Audio = {
 	/** Rendered cover size, for reserving its space before it loads. */
 	cover_width: number;
 	cover_height: number;
+	/** 0-based gallery image the cover is rendered from; defaults to 0. */
+	cover_index: number;
 	is_favorited: boolean;
 	is_played: boolean;
 	is_completed: boolean;
@@ -263,7 +265,11 @@ export type Audio = {
 };
 
 // GET /api/audio list rows: the same scalars, without the per-work arrays.
-export type AudioListItem = Omit<Audio, 'artists' | 'tags' | 'voice_actors' | 'tracks' | 'images'>;
+// cover_index is detail-only (the list's cover URL is versioned by mtime).
+export type AudioListItem = Omit<
+	Audio,
+	'artists' | 'tags' | 'voice_actors' | 'tracks' | 'images' | 'cover_index'
+>;
 
 export type AudioListResponse = {
 	items: AudioListItem[];
@@ -286,9 +292,8 @@ export type VoiceActorListResponse = {
 };
 
 // Cover URL carries the cached render's mtime so the long-lived immutable
-// cache busts when the cover is re-rendered (quality change, new first image).
-// Falls back to updated_at until a cover exists. The backend always serves the
-// first image, so there is no index in the URL.
+// cache busts when the cover is re-rendered (quality change, different chosen
+// gallery image). Falls back to updated_at until a cover exists.
 export function audioCoverSrc(audio: {
 	id: string;
 	updated_at: string;

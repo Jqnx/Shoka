@@ -10,6 +10,7 @@
 	import AudioImageGallery from '$lib/components/AudioImageGallery.svelte';
 	import AudioWorkTracks from '$lib/components/AudioWorkTracks.svelte';
 	import EditAudioSheet from '$lib/components/EditAudioSheet.svelte';
+	import { player } from '$lib/player.svelte';
 	import { audioCoverSrc } from '$lib/types';
 	import { formatDuration } from '$lib/audio';
 	import { AudioLines, Check, ChevronLeft, Heart, Star } from '@lucide/svelte';
@@ -22,6 +23,14 @@
 		data.libraries.find((library) => library.id === a.library_id)?.default_audio_folder ?? ''
 	);
 	const canEdit = $derived(can(page.data.user, { audio: ['update'] }));
+	const canSetCover = $derived(can(page.data.user, { audio: ['cover'] }));
+
+	// The player keeps a source snapshot keyed by updated_at, which picking a
+	// cover deliberately does not touch. Push the new artwork so the mini bar,
+	// expanded view, and OS media metadata follow the page after a change.
+	$effect(() => {
+		player.refreshCover(a.id, a.cover_ready ? audioCoverSrc(a) : null);
+	});
 
 	let favoriting = $state(false);
 	let markingFinished = $state(false);
@@ -273,7 +282,13 @@
 			</Tabs.Content>
 
 			<Tabs.Content value="gallery">
-				<AudioImageGallery audioId={a.id} updatedAt={a.updated_at} images={a.images} />
+				<AudioImageGallery
+					audioId={a.id}
+					updatedAt={a.updated_at}
+					images={a.images}
+					coverIndex={a.cover_index}
+					{canSetCover}
+				/>
 			</Tabs.Content>
 		</Tabs.Root>
 	{:else}

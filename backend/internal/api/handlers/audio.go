@@ -17,6 +17,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -124,11 +125,14 @@ type AudioResponse struct {
 	CoverUpdatedAt  *time.Time           `json:"cover_updated_at"`
 	CoverWidth      int                  `json:"cover_width"`
 	CoverHeight     int                  `json:"cover_height"`
-	IsFavorited     bool                 `json:"is_favorited"`
-	IsPlayed        bool                 `json:"is_played"`
-	IsCompleted     bool                 `json:"is_completed"`
-	Rating          *int                 `json:"rating"`
-	UpdatedAt       time.Time            `json:"updated_at"`
+	// CoverIndex is the 0-based gallery image the cover is rendered from,
+	// clamped to the current image list (see image.AudioCoverIndex).
+	CoverIndex  int       `json:"cover_index"`
+	IsFavorited bool      `json:"is_favorited"`
+	IsPlayed    bool      `json:"is_played"`
+	IsCompleted bool      `json:"is_completed"`
+	Rating      *int      `json:"rating"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 // AudioListResponse is a single page of audio works plus the total count.
@@ -273,6 +277,7 @@ func (h *AudioHandler) audioResponseFor(ctx context.Context, audio sqlc.Audio, u
 		CoverUpdatedAt:  cover.ModTime,
 		CoverWidth:      cover.Width,
 		CoverHeight:     cover.Height,
+		CoverIndex:      image.AudioCoverIndex(audio.CoverIndex, len(images)),
 		IsFavorited:     isFavorited,
 		IsPlayed:        isPlayed,
 		IsCompleted:     isCompleted,
@@ -699,6 +704,146 @@ func (h *AudioHandler) GetCover(w http.ResponseWriter, r *http.Request) {
 
 	//nolint:gosec // G703: id is constrained to [A-Za-z0-9]+ by validAudioID
 	http.ServeFile(w, r, path)
+}
+
+// SetAudioCoverRequest selects which gallery image an audio work's cover is
+// rendered from.
+type SetAudioCoverRequest struct {
+	Index int `json:"index"`
+}
+
+// SetCover godoc
+//
+//	@Summary		Set which gallery image is used as an audio work's cover
+//	@Description	Renders the chosen image as the cover and stores it as audio.cover_index. The render is synchronous so the response already carries the new cover_updated_at. Deliberately a separate endpoint from PATCH /api/audio/{id} - cover choice is presentation state, not metadata, so a later metadata edit can never overwrite it.
+//	@Tags			audio
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path		string				true	"Audio ID"
+//	@Param			body	body		SetAudioCoverRequest	true	"0-based gallery image index to use as the cover"
+//	@Success		200	{object}	AudioResponse
+//	@Failure		400	{object}	response.Error
+//	@Failure		403	{object}	response.Error
+//	@Failure		404	{object}	response.Error
+//	@Failure		500	{object}	response.Error
+//	@Router			/api/audio/{id}/cover [put]
+func (h *AudioHandler) SetCover(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	audio, ok := h.loadScopedAudio(w, r, id)
+	if !ok {
+		return
+	}
+
+	var body SetAudioCoverRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	images, err := h.queries.GetAudioImages(r.Context(), audio.ID)
+	if err != nil {
+		h.logger.Error("get audio images failed", "id", id, "error", err)
+		response.InternalError(w, "failed to update cover")
+
+		return
+	}
+
+	if body.Index < 0 || body.Index >= len(images) {
+		response.BadRequest(w, "image out of range")
+		return
+	}
+
+	// Render before changing the selection: a failed render leaves both the
+	// old cover and the old index in place instead of pointing the row at an
+	// image that was never rendered.
+	if !h.renderAudioCoverImage(w, r, audio, images[body.Index]) {
+		return
+	}
+
+	if err := h.queries.UpdateAudioCoverIndex(r.Context(), sqlc.UpdateAudioCoverIndexParams{
+		ID:         audio.ID,
+		CoverIndex: int64(body.Index),
+	}); err != nil {
+		// The file now shows the new image while the row still names the old
+		// one. Evict so the next scan's stale-cover check rebuilds the row's
+		// choice instead of serving the mismatched render.
+		_ = h.processor.EvictAll(image.AudioCacheKey(audio.ID))
+
+		h.logger.Error("update audio cover index failed", "id", id, "error", err)
+		response.InternalError(w, "failed to update cover")
+
+		return
+	}
+
+	updated, err := h.queries.GetAudioByID(r.Context(), audio.ID)
+	if err != nil {
+		h.logger.Error("get updated audio failed", "id", id, "error", err)
+		response.InternalError(w, "failed to update cover")
+
+		return
+	}
+
+	// A concurrent SetCover can render this work's cover after ours, so the
+	// row matching body.Index does not prove the file does. Always rebuild
+	// from the row's current selection: the job re-reads both the index and
+	// the image list at run time. Enqueue rather than EnqueueOnce - a running
+	// cover job is treated as pending yet cannot have seen this write.
+	if err := h.queue.Enqueue(r.Context(), jobs.JobTypeAudioCover,
+		jobs.AudioCoverPayload{AudioID: audio.ID}); err != nil {
+		h.logger.Error("enqueue audio cover job failed", "id", id, "error", err)
+	}
+
+	resp, err := h.audioResponseFor(r.Context(), updated, auth.UserIDFromContext(r.Context()))
+	if err != nil {
+		h.logger.Error("build audio response failed", "id", id, "error", err)
+		response.InternalError(w, "failed to update cover")
+
+		return
+	}
+
+	response.JSON(w, http.StatusOK, resp)
+}
+
+// renderAudioCoverImage opens one of a work's images and renders it as the
+// work's cover, writing the failure response and returning false when it
+// cannot.
+func (h *AudioHandler) renderAudioCoverImage(
+	w http.ResponseWriter,
+	r *http.Request,
+	audio sqlc.Audio,
+	img sqlc.AudioImage,
+) bool {
+	path, ok := audioMediaPath(w, audio.FolderPath, img.RelativePath)
+	if !ok {
+		return false
+	}
+
+	//nolint:gosec // G304: audioMediaPath rejected anything that escapes the work folder
+	f, err := os.Open(path)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			response.NotFound(w, "image not found")
+			return false
+		}
+
+		h.logger.Error("open cover image failed", "id", audio.ID, "error", err)
+		response.InternalError(w, "failed to read image")
+
+		return false
+	}
+
+	renderErr := h.processor.GenerateAudioCover(r.Context(), audio.ID, f)
+	_ = f.Close()
+
+	if renderErr != nil {
+		h.logger.Error("generate audio cover failed", "id", audio.ID, "error", renderErr)
+		response.InternalError(w, "failed to generate cover")
+
+		return false
+	}
+
+	return true
 }
 
 // GetImage godoc

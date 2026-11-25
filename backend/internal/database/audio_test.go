@@ -38,6 +38,7 @@ CREATE TABLE audio (
     duration_seconds INTEGER NOT NULL DEFAULT 0,
     release_date DATETIME,
     language TEXT,
+    cover_index INTEGER NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL
 );
@@ -303,5 +304,44 @@ func assertPlayedAtBumped(t *testing.T, db *sql.DB, audioID string) {
 			"%s played state wrong (rows=%d, stale=%d, completed=%d)",
 			audioID, total, stale, completed,
 		)
+	}
+}
+
+// TestUpdateAudioCoverIndexKeepsMetadata locks the "presentation state, not
+// metadata" contract: picking a cover must not resurface the work in
+// "recently updated" or touch any metadata column.
+func TestUpdateAudioCoverIndexKeepsMetadata(t *testing.T) {
+	t.Parallel()
+
+	ctx := t.Context()
+	queries := sqlc.New(newAudioListDB(t))
+
+	before, err := queries.GetAudioByID(ctx, audioOne)
+	if err != nil {
+		t.Fatalf("get audio before: %v", err)
+	}
+
+	if err := queries.UpdateAudioCoverIndex(ctx, sqlc.UpdateAudioCoverIndexParams{
+		ID:         audioOne,
+		CoverIndex: 2,
+	}); err != nil {
+		t.Fatalf("update cover index: %v", err)
+	}
+
+	after, err := queries.GetAudioByID(ctx, audioOne)
+	if err != nil {
+		t.Fatalf("get audio after: %v", err)
+	}
+
+	if after.CoverIndex != 2 {
+		t.Errorf("cover_index = %d, want 2", after.CoverIndex)
+	}
+
+	if after.Title != before.Title {
+		t.Errorf("title changed from %q to %q", before.Title, after.Title)
+	}
+
+	if !after.UpdatedAt.Equal(before.UpdatedAt) {
+		t.Errorf("updated_at moved from %s to %s", before.UpdatedAt, after.UpdatedAt)
 	}
 }

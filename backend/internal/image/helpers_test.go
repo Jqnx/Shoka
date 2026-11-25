@@ -139,6 +139,35 @@ func TestAudioCoverStale(t *testing.T) {
 	}
 }
 
+func TestAudioCoverIndex(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		index      int64
+		imageCount int
+		want       int
+	}{
+		{name: "first image", index: 0, imageCount: 3, want: 0},
+		{name: "middle image", index: 1, imageCount: 3, want: 1},
+		{name: "last image", index: 2, imageCount: 3, want: 2},
+		{name: "past the end falls back to the first image", index: 3, imageCount: 3, want: 0},
+		{name: "negative falls back to the first image", index: -1, imageCount: 3, want: 0},
+		{name: "no images reports zero", index: 2, imageCount: 0, want: 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := AudioCoverIndex(tt.index, tt.imageCount); got != tt.want {
+				t.Errorf("AudioCoverIndex(%d, %d) = %d, want %d",
+					tt.index, tt.imageCount, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCachedAudioCover(t *testing.T) {
 	t.Parallel()
 

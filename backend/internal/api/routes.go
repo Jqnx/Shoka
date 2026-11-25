@@ -200,6 +200,7 @@ func mountAudioRoutes(r chi.Router, h apiHandlers) {
 		r.Get("/", h.audio.GetAudio)
 		r.With(requirePermission(auth.AudioUpdate)).Patch("/", h.audio.UpdateAudio)
 		r.Get("/cover", h.audio.GetCover)
+		r.With(requirePermission(auth.AudioCover)).Put("/cover", h.audio.SetCover)
 		r.Get("/images/{index}", h.audio.GetImage)
 		r.Get("/images/{index}/thumbnail", h.audio.GetImageThumbnail)
 		r.Get("/images/{index}/preview", h.audio.GetImagePreview)

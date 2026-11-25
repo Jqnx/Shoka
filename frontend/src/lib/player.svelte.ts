@@ -263,6 +263,19 @@ class PlayerStore {
 		return true;
 	}
 
+	// refreshCover updates the loaded work's artwork after its cover changed,
+	// without disturbing playback. The source snapshot is keyed by updated_at,
+	// which picking a cover deliberately does not touch.
+	refreshCover(audioId: string, coverUrl: string | null): void {
+		const source = this.source;
+		if (!source || source.audioId !== audioId || source.coverUrl === coverUrl) return;
+
+		this.source = { ...source, coverUrl };
+
+		const track = this.track;
+		if (track) this.#setMetadata(track, this.source);
+	}
+
 	destroy(): void {
 		this.#savePosition(true);
 

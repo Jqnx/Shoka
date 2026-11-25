@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	stdimage "image"
 	"image/color"
 	"image/png"
@@ -25,7 +26,8 @@ import (
 )
 
 // audioGallerySchema is the part of migrations 00017 and 00044 the gallery
-// handlers read and write.
+// handlers read and write: the work and image tables, the relation tables
+// SetCover's AudioResponse reads, and the job queue.
 const audioGallerySchema = `
 CREATE TABLE audio (
     id TEXT PRIMARY KEY NOT NULL,
@@ -36,6 +38,7 @@ CREATE TABLE audio (
     duration_seconds INTEGER NOT NULL DEFAULT 0,
     release_date DATETIME,
     language TEXT,
+    cover_index INTEGER NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT (datetime('now')),
     updated_at DATETIME NOT NULL DEFAULT (datetime('now'))
 );
@@ -47,6 +50,27 @@ CREATE TABLE audio_image (
     sort_order INTEGER NOT NULL,
     UNIQUE (audio_id, relative_path)
 );
+
+CREATE TABLE audio_file (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audio_id TEXT NOT NULL,
+    relative_path TEXT NOT NULL,
+    duration_seconds INTEGER NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL
+);
+
+CREATE TABLE artist (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
+CREATE TABLE tag (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
+CREATE TABLE circle (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
+CREATE TABLE voice_actor (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
+
+CREATE TABLE audio_artist (audio_id TEXT NOT NULL, artist_id INTEGER NOT NULL);
+CREATE TABLE audio_tag (audio_id TEXT NOT NULL, tag_id INTEGER NOT NULL);
+CREATE TABLE audio_circle (audio_id TEXT NOT NULL, circle_id INTEGER NOT NULL);
+CREATE TABLE audio_voice_actor (audio_id TEXT NOT NULL, voice_actor_id INTEGER NOT NULL);
+CREATE TABLE audio_favorite (audio_id TEXT NOT NULL, user_id TEXT NOT NULL, favorited_at DATETIME NOT NULL);
+CREATE TABLE audio_played (audio_id TEXT NOT NULL, user_id TEXT NOT NULL, played_at DATETIME NOT NULL, completed INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE audio_rating (audio_id TEXT NOT NULL, user_id TEXT NOT NULL, rating INTEGER NOT NULL, rated_at DATETIME NOT NULL);
 
 CREATE TABLE job (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -461,5 +485,185 @@ func TestAudioStreamImageThumbnailEventsForwardsTerminalEvent(t *testing.T) {
 			// reaching Subscribe.
 			fx.broadcaster.Publish(key, events.ThumbnailEvent{Done: true, Error: "boom"})
 		}
+	}
+}
+
+// seedAudioImage writes an extra PNG of the given size under the work and
+// appends its image row, in the scanner's sort order.
+func seedAudioImage(t *testing.T, fx audioGalleryFixture, name string, sortOrder, width, height int) {
+	t.Helper()
+
+	img := stdimage.NewRGBA(stdimage.Rect(0, 0, width, height))
+
+	for x := range width {
+		for y := range height {
+			img.Set(x, y, color.RGBA{R: uint8(x), G: uint8(y), B: 0x80, A: 0xff})
+		}
+	}
+
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatalf("encode image: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(fx.folder, name), buf.Bytes(), 0o600); err != nil {
+		t.Fatalf("write image: %v", err)
+	}
+
+	if _, err := fx.db.ExecContext(t.Context(),
+		`INSERT INTO audio_image (audio_id, relative_path, sort_order) VALUES (?, ?, ?)`,
+		"work1", name, sortOrder); err != nil {
+		t.Fatalf("seed image: %v", err)
+	}
+}
+
+// audioSetCoverRequest builds a PUT with the work id and a JSON body.
+func audioSetCoverRequest(t *testing.T, id, body string) *http.Request {
+	t.Helper()
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPut,
+		"/api/audio/"+id+"/cover", strings.NewReader(body))
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", id)
+
+	return req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+}
+
+func TestAudioSetCover(t *testing.T) {
+	t.Parallel()
+
+	fx := newAudioGalleryHandler(t)
+	// The second image is wider than the first, so the rendered cover's size
+	// proves the selected image was used rather than image 0.
+	seedAudioImage(t, fx, "002.png", 1, 120, 80)
+
+	rec := httptest.NewRecorder()
+	fx.handler.SetCover(rec, audioSetCoverRequest(t, "work1", `{"index":1}`))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp AudioResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+
+	if resp.CoverIndex != 1 {
+		t.Errorf("response cover_index = %d, want 1", resp.CoverIndex)
+	}
+
+	if !resp.CoverReady || resp.CoverWidth != 120 || resp.CoverHeight != 80 {
+		t.Errorf("response cover = ready:%t %dx%d, want ready 120x80",
+			resp.CoverReady, resp.CoverWidth, resp.CoverHeight)
+	}
+
+	var stored int64
+	if err := fx.db.QueryRowContext(t.Context(),
+		`SELECT cover_index FROM audio WHERE id = 'work1'`).Scan(&stored); err != nil {
+		t.Fatalf("read cover_index: %v", err)
+	}
+
+	if stored != 1 {
+		t.Errorf("stored cover_index = %d, want 1", stored)
+	}
+
+	if cover := fx.processor.CachedAudioCover("work1"); cover.Width != 120 || cover.Height != 80 {
+		t.Errorf("rendered cover = %dx%d, want 120x80", cover.Width, cover.Height)
+	}
+}
+
+func TestAudioSetCoverRejectsIndexOutOfRange(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		body string
+	}{
+		{name: "negative", body: `{"index":-1}`},
+		{name: "past last image", body: `{"index":1}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			fx := newAudioGalleryHandler(t)
+
+			rec := httptest.NewRecorder()
+			fx.handler.SetCover(rec, audioSetCoverRequest(t, "work1", tt.body))
+
+			if rec.Code != http.StatusBadRequest {
+				t.Errorf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+			}
+
+			var stored int64
+			if err := fx.db.QueryRowContext(t.Context(),
+				`SELECT cover_index FROM audio WHERE id = 'work1'`).Scan(&stored); err != nil {
+				t.Fatalf("read cover_index: %v", err)
+			}
+
+			if stored != 0 {
+				t.Errorf("stored cover_index = %d, want 0 after a rejected request", stored)
+			}
+
+			if cover := fx.processor.CachedAudioCover("work1"); cover.Path != "" {
+				t.Errorf("rejected request rendered a cover at %s", cover.Path)
+			}
+		})
+	}
+}
+
+func TestAudioSetCoverMissingImage(t *testing.T) {
+	t.Parallel()
+
+	fx := newAudioGalleryHandler(t)
+
+	// Start from a rendered cover so the test can prove a failed render leaves
+	// the existing one untouched instead of evicting it.
+	src, err := os.Open(filepath.Join(fx.folder, "001.png"))
+	if err != nil {
+		t.Fatalf("open source image: %v", err)
+	}
+
+	err = fx.processor.GenerateAudioCover(context.Background(), "work1", src)
+	_ = src.Close()
+
+	if err != nil {
+		t.Fatalf("generate cover: %v", err)
+	}
+
+	before := fx.processor.CachedAudioCover("work1")
+	if before.Path == "" || before.ModTime == nil {
+		t.Fatalf("cover was not rendered: %+v", before)
+	}
+
+	// A row whose file is gone (deleted on disk before the next scan).
+	if _, err := fx.db.ExecContext(t.Context(),
+		`INSERT INTO audio_image (audio_id, relative_path, sort_order) VALUES (?, ?, ?)`,
+		"work1", "missing.png", 1); err != nil {
+		t.Fatalf("seed image row: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	fx.handler.SetCover(rec, audioSetCoverRequest(t, "work1", `{"index":1}`))
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404: %s", rec.Code, rec.Body.String())
+	}
+
+	var stored int64
+	if err := fx.db.QueryRowContext(t.Context(),
+		`SELECT cover_index FROM audio WHERE id = 'work1'`).Scan(&stored); err != nil {
+		t.Fatalf("read cover_index: %v", err)
+	}
+
+	if stored != 0 {
+		t.Errorf("stored cover_index = %d, want 0 after a missing image", stored)
+	}
+
+	after := fx.processor.CachedAudioCover("work1")
+	if after.Path != before.Path || after.ModTime == nil || !after.ModTime.Equal(*before.ModTime) {
+		t.Errorf("existing cover changed after a failed request: before=%+v after=%+v", before, after)
 	}
 }

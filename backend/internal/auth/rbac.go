@@ -66,6 +66,7 @@ var (
 	ArchiveThumbnail = Permission{ResourceArchive, ActionThumbnail}
 
 	AudioUpdate = Permission{ResourceAudio, ActionUpdate}
+	AudioCover  = Permission{ResourceAudio, ActionCover}
 
 	MetadataFetch = Permission{ResourceMetadata, ActionFetch}
 	MetadataApply = Permission{ResourceMetadata, ActionApply}
@@ -113,6 +114,7 @@ var allPermissions = []Permission{
 	ArchiveCover,
 	ArchiveThumbnail,
 	AudioUpdate,
+	AudioCover,
 	MetadataFetch,
 	MetadataApply,
 	MetadataWrite,

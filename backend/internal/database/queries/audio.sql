@@ -39,6 +39,17 @@ set title = ?,
 where id = ?
 ;
 
+-- name: UpdateAudioCoverIndex :exec
+-- cover_index is presentation state, not metadata - deliberately its own
+-- query rather than folded into UpdateAudio, so a metadata edit can never
+-- clobber it. updated_at is left untouched on purpose: picking a cover is
+-- not a content change and must not resurface the work in "recently
+-- updated".
+update audio
+set cover_index = ?
+where id = ?
+;
+
 -- name: ListAudioIDsByLibrary :many
 select id
 from audio
