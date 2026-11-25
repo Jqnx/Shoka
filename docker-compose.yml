@@ -22,7 +22,9 @@ services:
       - shoka-cache:/cache
       # Shoka rewrites archives in place — it injects ComicInfo.xml and
       # converts 7z/rar to zip — so the library cannot be mounted read-only.
-      - ${SHOKA_LIBRARY:-./content}:/library
+      # Point this at your collection. Earlier versions set the host path with
+      # SHOKA_LIBRARY in .env; if you did, put that path here.
+      - ./content:/library
 
   # Not reachable from outside the compose network, and currently unused: the
   # backend defines metadata.flaresolverr.url but nothing reads it yet. Kept
