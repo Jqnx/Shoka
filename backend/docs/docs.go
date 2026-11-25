@@ -3344,6 +3344,69 @@ const docTemplate = `{
                         }
                     }
                 }
+            },
+            "put": {
+                "description": "Renders the chosen image as the cover and stores it as audio.cover_index. The render is synchronous so the response already carries the new cover_updated_at. Deliberately a separate endpoint from PATCH /api/audio/{id} - cover choice is presentation state, not metadata, so a later metadata edit can never overwrite it.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "audio"
+                ],
+                "summary": "Set which gallery image is used as an audio work's cover",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Audio ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "0-based gallery image index to use as the cover",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handlers.SetAudioCoverRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.AudioResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/response.Error"
+                        }
+                    }
+                }
             }
         },
         "/api/audio/{id}/favorite": {
@@ -5241,6 +5304,10 @@ const docTemplate = `{
                 "cover_height": {
                     "type": "integer"
                 },
+                "cover_index": {
+                    "description": "CoverIndex is the 0-based gallery image the cover is rendered from,\nclamped to the current image list (see image.AudioCoverIndex).",
+                    "type": "integer"
+                },
                 "cover_ready": {
                     "type": "boolean"
                 },
@@ -6049,6 +6116,14 @@ const docTemplate = `{
                 },
                 "tags": {
                     "$ref": "#/definitions/handlers.SearchEntityResponse"
+                }
+            }
+        },
+        "handlers.SetAudioCoverRequest": {
+            "type": "object",
+            "properties": {
+                "index": {
+                    "type": "integer"
                 }
             }
         },

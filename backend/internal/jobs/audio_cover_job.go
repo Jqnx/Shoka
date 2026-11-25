@@ -13,7 +13,7 @@ import (
 )
 
 // JobTypeAudioCover is the job type that regenerates an audio work's cover
-// thumbnail from its first image.
+// thumbnail from its chosen image.
 const JobTypeAudioCover = "audio_cover"
 
 // AudioCoverPayload selects the audio work whose cover should be generated.
@@ -21,10 +21,10 @@ type AudioCoverPayload struct {
 	AudioID string `json:"audio_id"`
 }
 
-// NewAudioCoverHandler returns a Handler that renders an audio work's first
-// image as its cover thumbnail. The image is read from the database at run
-// time, so a stale payload can never write a cover that no longer matches the
-// work's current images.
+// NewAudioCoverHandler returns a Handler that renders the work's chosen image
+// as its cover thumbnail. Both the image list and audio.cover_index are read
+// from the database at run time, so a stale payload can never write a cover
+// that no longer matches the work's current images or selection.
 func NewAudioCoverHandler(processor *image.Processor, queries *sqlc.Queries, log *slog.Logger) Handler {
 	log = log.With("component", "audio_cover_job")
 
@@ -43,72 +43,115 @@ func NewAudioCoverHandler(processor *image.Processor, queries *sqlc.Queries, log
 			}
 		}()
 
-		audio, err := queries.GetAudioByID(ctx, p.AudioID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return processor.EvictAll(image.AudioCacheKey(p.AudioID))
+		// A scan or SetCover can change the selection while an image decodes.
+		// One extra pass renders the latest choice in this invocation instead
+		// of leaving the cover absent until a queue retry (the first retry
+		// backs off 30s).
+		for range 2 {
+			changed, err := renderChosenAudioCover(ctx, processor, queries, log, p.AudioID)
+			if err != nil {
+				return err
 			}
 
-			return fmt.Errorf("get audio %s: %w", p.AudioID, err)
-		}
-
-		images, err := queries.GetAudioImages(ctx, p.AudioID)
-		if err != nil {
-			return fmt.Errorf("get audio images: %w", err)
-		}
-
-		if len(images) == 0 {
-			return processor.EvictAll(image.AudioCacheKey(p.AudioID))
-		}
-
-		f, err := os.Open(filepath.Join(audio.FolderPath, images[0].RelativePath))
-		if err != nil {
-			if os.IsNotExist(err) {
-				log.Warn("cover image missing, waiting for next scan",
-					"audio_id", p.AudioID, "path", images[0].RelativePath)
-
+			if !changed {
 				return nil
 			}
-
-			return fmt.Errorf("open cover image: %w", err)
 		}
-		defer func() { _ = f.Close() }()
 
-		if err := processor.GenerateAudioCover(ctx, p.AudioID, f); err != nil {
+		if err := processor.EvictAll(image.AudioCacheKey(p.AudioID)); err != nil {
 			return err
 		}
 
-		return ensureAudioCoverCurrent(ctx, processor, queries, p.AudioID, images[0].RelativePath)
+		return fmt.Errorf("audio %s cover selection changed during generation", p.AudioID)
 	}
 }
 
-// ensureAudioCoverCurrent discards a cover rendered from an image list that
-// changed while the job was decoding. GenerateAudioCover overwrites the file,
-// but it renders whatever images[0] named before this check ran, so a changed
-// first image would otherwise leave the wrong cover in place. Evicting and
-// returning an error makes the retry rebuild it from the new list.
-func ensureAudioCoverCurrent(
+// renderChosenAudioCover renders the work's currently-selected image. changed
+// reports that the selection or image list moved while the image was decoding,
+// so the caller should render again from the latest row. Missing images and
+// deleted works are a no-op: there is nothing this job can do until a scan.
+func renderChosenAudioCover(
 	ctx context.Context,
 	processor *image.Processor,
 	queries *sqlc.Queries,
+	log *slog.Logger,
+	audioID string,
+) (changed bool, err error) {
+	audio, err := queries.GetAudioByID(ctx, audioID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, processor.EvictAll(image.AudioCacheKey(audioID))
+		}
+
+		return false, fmt.Errorf("get audio %s: %w", audioID, err)
+	}
+
+	images, err := queries.GetAudioImages(ctx, audioID)
+	if err != nil {
+		return false, fmt.Errorf("get audio images: %w", err)
+	}
+
+	if len(images) == 0 {
+		return false, processor.EvictAll(image.AudioCacheKey(audioID))
+	}
+
+	index := image.AudioCoverIndex(audio.CoverIndex, len(images))
+	relativePath := images[index].RelativePath
+
+	//nolint:gosec // G304: relativePath comes from the scanner's audio_image rows, which are built under the work's folder
+	f, err := os.Open(filepath.Join(audio.FolderPath, relativePath))
+	if err != nil {
+		if os.IsNotExist(err) {
+			log.Warn("cover image missing, waiting for next scan",
+				"audio_id", audioID, "path", relativePath)
+
+			return false, nil
+		}
+
+		return false, fmt.Errorf("open cover image: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	if err := processor.GenerateAudioCover(ctx, audioID, f); err != nil {
+		return false, err
+	}
+
+	current, err := audioCoverCurrent(ctx, queries, audioID, relativePath)
+	if err != nil {
+		return false, err
+	}
+
+	return !current, nil
+}
+
+// audioCoverCurrent reports whether relativePath is still the image the row
+// selects. GenerateAudioCover writes atomically, but it renders whatever the
+// selection was before the check ran, so a changed selection or image list
+// would otherwise leave the wrong cover in place.
+func audioCoverCurrent(
+	ctx context.Context,
+	queries *sqlc.Queries,
 	audioID, relativePath string,
-) error {
+) (bool, error) {
 	latest, err := queries.GetAudioImages(ctx, audioID)
 	if err != nil {
-		return fmt.Errorf("recheck audio images: %w", err)
+		return false, fmt.Errorf("recheck audio images: %w", err)
 	}
 
 	if len(latest) == 0 {
-		return processor.EvictAll(image.AudioCacheKey(audioID))
+		return false, nil
 	}
 
-	if latest[0].RelativePath == relativePath {
-		return nil
+	audio, err := queries.GetAudioByID(ctx, audioID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+
+		return false, fmt.Errorf("recheck audio %s: %w", audioID, err)
 	}
 
-	if err := processor.EvictAll(image.AudioCacheKey(audioID)); err != nil {
-		return err
-	}
+	index := image.AudioCoverIndex(audio.CoverIndex, len(latest))
 
-	return fmt.Errorf("audio %s images changed during cover generation", audioID)
+	return latest[index].RelativePath == relativePath, nil
 }

@@ -30,6 +30,18 @@ func (p *Processor) AudioCoverPath(audioID string) string {
 	return p.ThumbPath(AudioCacheKey(audioID), 0)
 }
 
+// AudioCoverIndex clamps a stored audio.cover_index to a work's current image
+// list. A rescan can shrink the list out from under a previously-chosen index,
+// and a work with no images has no valid index, so both fall back to 0 - the
+// historical "first image" cover.
+func AudioCoverIndex(index int64, imageCount int) int {
+	if index < 0 || index >= int64(imageCount) {
+		return 0
+	}
+
+	return int(index)
+}
+
 // AudioCoverInfo is an audio work's cached cover. Path is empty when no cover
 // has been rendered; Width/Height are zero when the file cannot be decoded.
 type AudioCoverInfo struct {

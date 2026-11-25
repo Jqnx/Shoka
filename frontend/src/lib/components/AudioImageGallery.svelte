@@ -1,18 +1,82 @@
 <script lang="ts">
 	import { SvelteSet } from 'svelte/reactivity';
+	import { invalidateAll } from '$app/navigation';
 	import * as Dialog from '$lib/components/ui/dialog';
+	import { Button } from '$lib/components/ui/button';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { audioImagePreviewSrc, audioImageThumbSrc } from '$lib/audio';
 	import type { AudioImage } from '$lib/types';
 	import { cn } from '$lib/utils.js';
-	import { ImageOff, Loader2 } from '@lucide/svelte';
+	import { Check, ImageOff, ImagePlus, Loader2 } from '@lucide/svelte';
 
-	let { audioId, updatedAt, images }: { audioId: string; updatedAt: string; images: AudioImage[] } =
-		$props();
+	let {
+		audioId,
+		updatedAt,
+		images,
+		coverIndex: initialCoverIndex,
+		canSetCover = false
+	}: {
+		audioId: string;
+		updatedAt: string;
+		images: AudioImage[];
+		coverIndex: number;
+		canSetCover?: boolean;
+	} = $props();
 
 	const readyIndexes = new SvelteSet<number>();
 	let previewIndex = $state<number | null>(null);
 	let genError = $state<string | null>(null);
+
+	// The server prop is the source of truth, but a successful set-cover can
+	// override it locally until the invalidated load lands, which re-derives
+	// the value (and a navigation to another work starts from that work's).
+	let coverIndex = $derived(initialCoverIndex);
+	let coverError = $state<string | null>(null);
+	let settingCover = $state<number | null>(null);
+
+	async function setCover(index: number) {
+		if (!canSetCover || settingCover !== null || index === coverIndex) return;
+
+		// This component survives /audio/[id] navigations, so later writes
+		// must be tied to the work the request was made for.
+		const id = audioId;
+		coverError = null;
+		settingCover = index;
+
+		let ok = false;
+		try {
+			const res = await fetch(`/api/audio/${id}/cover`, {
+				method: 'PUT',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ index })
+			});
+			ok = res.ok;
+		} catch {
+			// Network failure leaves ok false.
+		}
+
+		// A response for the previous work must not mark this one's cover.
+		if (audioId !== id) return;
+
+		settingCover = null;
+
+		if (!ok) {
+			coverError = 'Failed to set cover.';
+			return;
+		}
+
+		coverIndex = index;
+
+		// The top-of-page cover URL carries cover_updated_at, so the new render
+		// only appears once the load is re-run. A rejected load is a page-load
+		// error, not a cover failure - the change itself already succeeded.
+		try {
+			await invalidateAll();
+		} catch {
+			// The local coverIndex still reflects the change; a later reload
+			// fetches the fresh cover_updated_at.
+		}
+	}
 
 	const previewImage = $derived(
 		previewIndex === null ? null : (images.find((image) => image.index === previewIndex) ?? null)
@@ -59,6 +123,7 @@
 	function openPreview(index: number) {
 		previewStatus = null;
 		previewIndex = index;
+		coverError = null;
 	}
 
 	// Triggers generation (idempotent - a no-op if already ready/running) and
@@ -74,6 +139,8 @@
 		previewIndex = null;
 		previewStatus = null;
 		prefetched.clear();
+		settingCover = null;
+		coverError = null;
 
 		function connect() {
 			if (cancelled) return;
@@ -147,14 +214,14 @@
 		{#each images as image (image.index)}
 			<button
 				type="button"
-				class="aspect-square overflow-hidden rounded-lg border border-border bg-muted"
+				class="relative aspect-square overflow-hidden rounded-lg border border-border bg-muted"
 				onclick={() => openPreview(image.index)}
 				onpointerdown={() => prefetchPreview(image.index)}
 				onmouseenter={() => schedulePrefetch(image.index)}
 				onmouseleave={cancelPrefetch}
 				onfocus={() => schedulePrefetch(image.index)}
 				onblur={cancelPrefetch}
-				aria-label="View {image.name}"
+				aria-label="View {image.name}{image.index === coverIndex ? ' (current cover)' : ''}"
 			>
 				{#if readyIndexes.has(image.index)}
 					<img
@@ -166,6 +233,13 @@
 					/>
 				{:else}
 					<Skeleton class="size-full" />
+				{/if}
+				{#if image.index === coverIndex}
+					<span
+						class="pointer-events-none absolute top-1.5 left-1.5 rounded-md bg-background/90 px-1.5 py-0.5 text-xs font-semibold text-foreground shadow-sm"
+					>
+						Cover
+					</span>
 				{/if}
 			</button>
 		{/each}
@@ -221,6 +295,30 @@
 					}}
 				/>
 			</div>
+			{#if canSetCover}
+				<div class="flex flex-wrap items-center justify-end gap-2">
+					{#if coverError}
+						<p class="mr-auto text-sm text-destructive" role="alert">{coverError}</p>
+					{/if}
+					<Button
+						size="sm"
+						variant={previewImage.index === coverIndex ? 'secondary' : 'default'}
+						disabled={previewImage.index === coverIndex || settingCover !== null}
+						onclick={() => setCover(previewImage.index)}
+					>
+						{#if settingCover === previewImage.index}
+							<Loader2 class="size-4 animate-spin" />
+							Setting cover…
+						{:else if previewImage.index === coverIndex}
+							<Check class="size-4" />
+							Current cover
+						{:else}
+							<ImagePlus class="size-4" />
+							Set as cover
+						{/if}
+					</Button>
+				</div>
+			{/if}
 		{/if}
 	</Dialog.Content>
 </Dialog.Root>

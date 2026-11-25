@@ -126,6 +126,7 @@ type Audio struct {
 	Language        *string    `json:"language"`
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
+	CoverIndex      int64      `json:"cover_index"`
 }
 
 type AudioArtist struct {

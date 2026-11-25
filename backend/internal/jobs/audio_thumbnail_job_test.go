@@ -25,8 +25,12 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// audioSchema mirrors migration 00044 for the two tables the audio thumbnail
-// job reads: GetAudioByID and GetAudioImages both select *, in table order.
+// audioTestWorkID is the work id the audio job fixtures seed.
+const audioTestWorkID = "work1"
+
+// audioSchema mirrors migrations 00044 + 00050 for the two tables the audio
+// jobs read. sqlc expands each `select *` into an explicit column list and
+// scans by name, so declared order only needs to cover every column.
 const audioSchema = `
 CREATE TABLE audio (
     id TEXT PRIMARY KEY NOT NULL,
@@ -38,7 +42,8 @@ CREATE TABLE audio (
     release_date DATETIME,
     language TEXT,
     created_at DATETIME NOT NULL DEFAULT (datetime('now')),
-    updated_at DATETIME NOT NULL DEFAULT (datetime('now'))
+    updated_at DATETIME NOT NULL DEFAULT (datetime('now')),
+    cover_index INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE audio_image (
@@ -60,7 +65,7 @@ func newAudioThumbFixture(t *testing.T) (*sqlc.Queries, *image.Processor, string
 
 	if _, err := db.ExecContext(t.Context(),
 		`INSERT INTO audio (id, library_id, title, folder_path, mod_time) VALUES (?, ?, ?, ?, ?)`,
-		"work1", "lib1", "work", folder, "2026-01-01 00:00:00"); err != nil {
+		audioTestWorkID, "lib1", "work", folder, "2026-01-01 00:00:00"); err != nil {
 		t.Fatalf("seed audio: %v", err)
 	}
 
@@ -84,7 +89,7 @@ func newAudioThumbFixture(t *testing.T) (*sqlc.Queries, *image.Processor, string
 
 		if _, err := db.ExecContext(t.Context(),
 			`INSERT INTO audio_image (audio_id, relative_path, sort_order) VALUES (?, ?, ?)`,
-			"work1", name, index); err != nil {
+			audioTestWorkID, name, index); err != nil {
 			t.Fatalf("seed image %d: %v", index, err)
 		}
 	}
@@ -99,12 +104,12 @@ func runAudioThumbJob(t *testing.T, queries *sqlc.Queries, processor *image.Proc
 
 	broadcaster := events.NewThumbnailBroadcaster()
 
-	ch, cancel := broadcaster.Subscribe(image.AudioCacheKey("work1"))
+	ch, cancel := broadcaster.Subscribe(image.AudioCacheKey(audioTestWorkID))
 
 	defer cancel()
 
 	handler := NewAudioThumbnailHandler(processor, broadcaster, queries, slog.New(slog.DiscardHandler))
-	if err := handler(t.Context(), newJob(t, JobTypeAudioThumbnail, AudioThumbnailPayload{AudioID: "work1"})); err != nil {
+	if err := handler(t.Context(), newJob(t, JobTypeAudioThumbnail, AudioThumbnailPayload{AudioID: audioTestWorkID})); err != nil {
 		t.Fatalf("run audio thumbnail job: %v", err)
 	}
 
@@ -139,12 +144,12 @@ func TestAudioThumbnailHandler(t *testing.T) {
 	}
 
 	for index := range 2 {
-		if path := processor.AudioThumbPath("work1", index); path == "" {
+		if path := processor.AudioThumbPath(audioTestWorkID, index); path == "" {
 			t.Fatalf("thumbnail %d missing after generation", index)
 		}
 	}
 
-	if !processor.AudioGalleryReady("work1", 2) {
+	if !processor.AudioGalleryReady(audioTestWorkID, 2) {
 		t.Error("gallery is not ready after a complete run")
 	}
 
@@ -174,7 +179,7 @@ func TestAudioThumbnailHandlerReportsFailedImage(t *testing.T) {
 		t.Fatalf("corrupt image: %v", err)
 	}
 
-	if err := os.Remove(filepath.Join(processor.AudioGalleryDir("work1"), "002.webp")); err != nil {
+	if err := os.Remove(filepath.Join(processor.AudioGalleryDir(audioTestWorkID), "002.webp")); err != nil {
 		t.Fatalf("remove thumbnail: %v", err)
 	}
 
@@ -187,7 +192,7 @@ func TestAudioThumbnailHandlerReportsFailedImage(t *testing.T) {
 		t.Errorf("ready indexes = %v, want [0]", indexes)
 	}
 
-	if path := processor.AudioThumbPath("work1", 0); path == "" {
+	if path := processor.AudioThumbPath(audioTestWorkID, 0); path == "" {
 		t.Error("one undecodable image removed the other work's thumbnail")
 	}
 }

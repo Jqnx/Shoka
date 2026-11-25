@@ -376,7 +376,7 @@ func (q *Queries) BulkRemoveAudioVoiceActors(ctx context.Context, arg BulkRemove
 const createAudio = `-- name: CreateAudio :one
 insert into audio (id, library_id, title, folder_path, mod_time, duration_seconds)
 values (?, ?, ?, ?, ?, ?)
-returning id, library_id, title, folder_path, mod_time, duration_seconds, release_date, language, created_at, updated_at
+returning id, library_id, title, folder_path, mod_time, duration_seconds, release_date, language, created_at, updated_at, cover_index
 `
 
 type CreateAudioParams struct {
@@ -409,6 +409,7 @@ func (q *Queries) CreateAudio(ctx context.Context, arg CreateAudioParams) (Audio
 		&i.Language,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CoverIndex,
 	)
 	return i, err
 }
@@ -561,7 +562,7 @@ func (q *Queries) GetAudioArtistNames(ctx context.Context, id string) ([]string,
 const getAudioByID = `-- name: GetAudioByID :one
 ;
 
-select id, library_id, title, folder_path, mod_time, duration_seconds, release_date, language, created_at, updated_at
+select id, library_id, title, folder_path, mod_time, duration_seconds, release_date, language, created_at, updated_at, cover_index
 from audio
 where id = ?
 `
@@ -580,6 +581,7 @@ func (q *Queries) GetAudioByID(ctx context.Context, id string) (Audio, error) {
 		&i.Language,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CoverIndex,
 	)
 	return i, err
 }
@@ -1386,6 +1388,29 @@ func (q *Queries) UpdateAudio(ctx context.Context, arg UpdateAudioParams) error 
 		arg.Language,
 		arg.ID,
 	)
+	return err
+}
+
+const updateAudioCoverIndex = `-- name: UpdateAudioCoverIndex :exec
+;
+
+update audio
+set cover_index = ?
+where id = ?
+`
+
+type UpdateAudioCoverIndexParams struct {
+	CoverIndex int64  `json:"cover_index"`
+	ID         string `json:"id"`
+}
+
+// cover_index is presentation state, not metadata - deliberately its own
+// query rather than folded into UpdateAudio, so a metadata edit can never
+// clobber it. updated_at is left untouched on purpose: picking a cover is
+// not a content change and must not resurface the work in "recently
+// updated".
+func (q *Queries) UpdateAudioCoverIndex(ctx context.Context, arg UpdateAudioCoverIndexParams) error {
+	_, err := q.db.ExecContext(ctx, updateAudioCoverIndex, arg.CoverIndex, arg.ID)
 	return err
 }
 
